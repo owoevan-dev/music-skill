@@ -1962,6 +1962,8 @@ def checks(work,config=None):
         if dangling:
             rejects(lambda:fs.fresh(d/'dangling'))
             assert fs.occupied(d/'dangling') and not (d/'missing_target').exists()
+            assert [x.name for x in fs.foreign(d)]==['dangling']  # a link is something a write could leave through
+            os.unlink(d/'dangling')
         outside=d/'outside.json';outside.write_text('{"keep": 1}',encoding='utf-8');os.link(outside,d/'linked.json')
         assert {x.name for x in fs.foreign(d)}=={'outside.json','linked.json'}
         fs.write_json(d/'linked.json',{'new':2})

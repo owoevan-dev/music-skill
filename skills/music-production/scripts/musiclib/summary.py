@@ -34,8 +34,17 @@ def _signed(x, digits=1):
     return 'n/a' if x is None else f'{x:+.{digits}f}'
 
 
-def _more(items, shown=EXAMPLES):
-    return f'; and {len(items) - shown} more' if len(items) > shown else ''
+def _g(x):
+    """A figure as written, or n/a where it was not measured (a render stopped before report.json has no master figures)."""
+    return 'n/a' if x is None else f'{x:g}'
+
+
+def _more(items, shown=EXAMPLES, count=None):
+    """'; and N more' after the first `shown` of `items`; `count` is how many there are in all where the list keeps only
+    the first of them (review keeps 40 examples of a finding)."""
+    listed = min(shown, len(items))
+    total = max(len(items), count or 0)
+    return f'; and {total - listed} more' if total > listed else ''
 
 
 def review(r, folder):
@@ -54,27 +63,27 @@ def review(r, folder):
         ex = v['examples']
         where.append(f'vertical_minor_seconds_ninths ({v["count"]}, {v["foreground_count"]} touching the foreground): ' + '; '.join(
             f'{x["at"]} {"+".join(x["parts"])} {notes(x)}{" (foreground)" if x.get("involves_foreground") else ""}'
-            for x in ex[:EXAMPLES]) + _more(ex))
+            for x in ex[:EXAMPLES]) + _more(ex, count=v['count']))
     oc = r.get('outside_chord') or {}
     if oc.get('count'):
         ex = oc['examples']
         where.append(f'outside_chord ({oc["count"]}): ' + '; '.join(
-            f'{x["at"]} {x["track"]} {x["note"]} on {x["chord"]} ({x.get("approach")}, {x.get("departure")})' for x in ex[:EXAMPLES]) + _more(ex))
+            f'{x["at"]} {x["track"]} {x["note"]} on {x["chord"]} ({x.get("approach")}, {x.get("departure")})' for x in ex[:EXAMPLES]) + _more(ex, count=oc['count']))
     par = r.get('parallel_fifths_octaves') or {}
     if par.get('count'):
         ex = par['examples']
         where.append(f'parallel_fifths_octaves ({par["count"]}): ' + '; '.join(
-            f'{x["at"]} {"+".join(x["parts"])} {x["interval"]}' for x in ex[:EXAMPLES]) + _more(ex))
+            f'{x["at"]} {"+".join(x["parts"])} {x["interval"]}' for x in ex[:EXAMPLES]) + _more(ex, count=par['count']))
     low = r.get('low_intervals') or {}
     if low.get('count'):
         ex = low['examples']
         where.append(f'low_intervals ({low["count"]}): ' + '; '.join(
-            f'{x["at"]} {"+".join(x["parts"])} {x["interval"]} {notes(x)} (limit {x["limit"]})' for x in ex[:EXAMPLES]) + _more(ex))
+            f'{x["at"]} {"+".join(x["parts"])} {x["interval"]} {notes(x)} (limit {x["limit"]})' for x in ex[:EXAMPLES]) + _more(ex, count=low['count']))
     st = r.get('transposed_samples') or {}
     if st.get('count'):
         ex = st['examples']
         where.append(f'transposed_samples ({st["count"]}): ' + '; '.join(
-            f'{x["at"]} {x["track"]} {note_name(x["pitch"])} {x["semitones"]:+d} semitones' for x in ex[:EXAMPLES]) + _more(ex))
+            f'{x["at"]} {x["track"]} {note_name(x["pitch"])} {x["semitones"]:+d} semitones' for x in ex[:EXAMPLES]) + _more(ex, count=st['count']))
     if where:
         lines += ['Where (first examples):'] + [f'- {w}' for w in where]
     lines.append(f'Full figures: {_rel(Path(folder) / "score_review.json")}: examples under the keys above, and '
@@ -117,9 +126,9 @@ def render(report, folder):
 def analysis(r, path, render=None):
     """Per section: level, stereo and mono fold, the lead against the rest, the melody group; the tonal balance against
     published measurements and a reference; the balance suggestions and warnings."""
-    m = r['master']
-    lines = [f'Analysis of {_label(render) if render else r["render"]}: master {m["integrated_lufs"]:g} LUFS, true peak {m["true_peak_dbtp"]:g} dBTP, '
-             f'loudness range {m["lra_lu"]:g} LU, peak to loudness {m["plr_db"]:g} dB.']
+    m = r.get('master') or {}
+    lines = [f'Analysis of {_label(render) if render else r["render"]}: master {_g(m.get("integrated_lufs"))} LUFS, true peak '
+             f'{_g(m.get("true_peak_dbtp"))} dBTP, loudness range {_g(m.get("lra_lu"))} LU, peak to loudness {_g(m.get("plr_db"))} dB.']
     lead = {x['section']: x for x in r.get('lead_presence') or []}
     group = {x['region']: x for x in r.get('melody_groups') or []}
     lines.append('Per section: level LUFS (ungated) | L/R correlation | mono fold dB | lead minus accompaniment dB: level, '
@@ -129,7 +138,7 @@ def analysis(r, path, render=None):
     rows = {s['section']: s for s in r['sections']}
     for k in regions:
         s, x, g = rows.get(k, {}), lead.get(k), group.get(k, {})
-        own = (f'{s["level_lufs_ungated"]:g} | {s["lr_correlation"]:g} | {_signed(s.get("mono_sum_change_db"))}' if s else 'n/a | n/a | n/a')
+        own = (f'{_g(s.get("level_lufs_ungated"))} | {_g(s.get("lr_correlation"))} | {_signed(s.get("mono_sum_change_db"))}' if s else 'n/a | n/a | n/a')
         ld = (f'{_signed(x.get("lead_minus_accompaniment_level_db"))}, {_signed(x.get("lead_minus_accompaniment_db_median"))}, '
               f'{_signed(x.get("lead_minus_accompaniment_db_p10"))}, {x.get("masked_share_pct", "n/a")}%' if x else 'no lead')
         lines.append(f'  {k}: {own} | {ld} | {_signed(g.get("melody_group_minus_rest_db"))}')
@@ -138,7 +147,7 @@ def analysis(r, path, render=None):
         lines.append(f'Power by band % ({" / ".join(names)} Hz): ' + '; '.join(
             f'{s["section"]} ' + '/'.join(f'{s["band_share_pct"][n]:g}' for n in names) for s in r['sections']))
     t = r['tonal_balance']
-    lines.append(f'Tonal balance: {t["slope_db_per_octave_100hz_4khz"]:g} dB per octave over 100 Hz-4 kHz; {t.get("reference", "")}; '
+    lines.append(f'Tonal balance: {_g(t.get("slope_db_per_octave_100hz_4khz"))} dB per octave over 100 Hz-4 kHz; {t.get("reference", "")}; '
                  f'low end {_signed(t["low_end_vs_line_db"])} dB and top end {_signed(t["top_end_vs_line_db"])} dB off that line.')
     c = r.get('reference_comparison')
     if c:

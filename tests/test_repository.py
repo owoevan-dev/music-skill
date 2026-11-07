@@ -109,9 +109,12 @@ def test_markdown_links_resolve():
 
 
 def heading_anchor(heading):
-    """GitHub's anchor for a heading: lower case, inline code and link markup dropped, punctuation other than hyphens
-    and underscores removed, spaces to hyphens."""
-    text = re.sub(r'`([^`]*)`', r'\1', heading.strip())
+    """GitHub's anchor for a heading, from its text as rendered: inline code kept as its text, raw HTML tags outside
+    it dropped (GFM renders `<name>` written bare as a tag, so a heading's text loses it), link markup dropped, then
+    lower case, punctuation other than hyphens and underscores removed, spaces to hyphens."""
+    parts = re.split(r'(`[^`]+`)', heading.strip())
+    text = ''.join(part[1:-1] if part.startswith('`') else re.sub(r'</?[A-Za-z][A-Za-z0-9-]*(\s[^<>]*)?/?>', '', part)
+                   for part in parts)
     text = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text).lower()
     return re.sub(r'[^\w\- ]', '', text).replace(' ', '-')
 
@@ -269,4 +272,4 @@ def test_selfcheck(tmp_path):
     assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-3000:]
     report = load(work / 'selfcheck_report.json')
     assert report['status'] == 'PASS' and all(c['passed'] for c in report['checks'])
-    assert len(report['checks']) == (98 if CONFIG else 78), [c['name'] for c in report['checks']]
+    assert len(report['checks']) == (103 if CONFIG else 81), [c['name'] for c in report['checks']]

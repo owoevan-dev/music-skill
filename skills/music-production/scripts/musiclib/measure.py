@@ -18,14 +18,21 @@ RLB = ([1, -2, 1], [1, -1.99004745483398, 0.99007225036621])
 
 @functools.lru_cache(maxsize=2)
 def k_response(n):
-    """Complex K-weighting response at the rfft bins of an n-sample signal, read-only.  Kept for the last two lengths:
-    a render measures every bus and its stems at one length, and computing the response took as long as the FFT."""
+    """Complex K-weighting response at the rfft bins of an n-sample signal, read-only.  Kept for the last two lengths
+    while a stage measures (a render measures every bus and its stems at one length, and computing the response took
+    as long as the FFT); release() lets them go when the stage is done: n/2 + 1 complex values are about 115 MB for a
+    five-minute song."""
     z = np.exp(-2j * np.pi * np.fft.rfftfreq(n))
     h = np.ones(len(z), dtype=complex)
     for b, a in (SHELF, RLB):
         h *= (b[0] + b[1] * z + b[2] * z * z) / (a[0] + a[1] * z + a[2] * z * z)
     h.setflags(write=False)
     return h
+
+
+def release():
+    """Drop the kept K-weighting responses: called when a render or an analysis has done its measuring."""
+    k_response.cache_clear()
 
 
 def fast_length(n):

@@ -3,7 +3,24 @@ import argparse
 import copy
 from pathlib import Path
 import sys
-from musiclib.model import Clock,curve_at,load_project,save_json,validate
+from musiclib.model import TPQ,Clock,curve_at,load_project,performed,save_json,validate
+
+REATTACK_GAP_S=.1  # the most a note's own timing may move it (validate: timing_ms within ±100)
+
+def collides(track,first,clock,struck,gap=0.0):
+    """Whether the note `first`, struck before the cut in the piece and so at the excerpt's start, meets a later strike
+    of its key (later in the piece as played, `struck`): on its tick or one tick off, as played or as written, which the
+    render's own rule (performed()) stops on, or within `gap` seconds as played.  As played counts the notes' timing,
+    the part's offset and swing."""
+    h=next(n for n in track['notes'] if n['id']==first)
+    for n in track['notes']:
+        if n is h or n['pitch']!=h['pitch'] or struck[n['id']]<=struck[h['id']]:continue
+        pair={**track,'notes':[h,n],'performance':{**track['performance'],'notes':{k:track['performance']['notes'][k] for k in (h['id'],n['id'])}}}
+        try:
+            played={x['id']:x['start_seconds'] for x in performed(pair,clock,True)};performed(pair,clock,False)
+        except ValueError:return True
+        if abs(played[n['id']]-played[h['id']])<gap:return True
+    return False
 
 def crop(points,start,end,bend=False):
     """A [beat, value] curve (linear between points, two points on one beat a jump) from `start` to `end`, moved to start
@@ -27,22 +44,20 @@ def extract(p,first_bar,bars):
     for sec in p['sections']:
         a=max(first_bar-1,sec['start_bar']);b=min(first_bar-1+bars,sec['start_bar']+sec['bars'])
         if a<b:q['sections'].append({**sec,'start_bar':a-first_bar+1,'bars':b-a})
-    for t in q['tracks']:
-        notes=[];held={}
+    held={};struck={};cut=round(start*TPQ)
+    for t,source in zip(q['tracks'],p['tracks']):
+        # A note struck before the cut sounds there only while it lasts as written: a later attack of its key ends it
+        # (performed() trims a retrigger), so a long note struck again before the cut has stopped.  The notes still
+        # sounding at the cut are re-attacked there.
+        ends={n['id']:n['end_tick'] for n in performed(source,clock,False)}
+        struck[t['id']]={n['id']:n['tick'] for n in performed(source,clock,True)}
+        notes=[];again=set()
         for n in t['notes']:
             a=max(start,n['on']);b=min(end,n['on']+n['duration'])
-            if a<b:
-                if n['on']<start:held.setdefault(n['pitch'],[]).append((n['on'],n['id']))
+            if a<b and (n['on']>=start or ends[n['id']]>cut):
+                if n['on']<start:again.add(n['id'])
                 n['on']=a-start;n['duration']=b-a;notes.append(n)
-        # A key held at the cut is re-attacked there, as its last attack before the cut only (an earlier one of the same
-        # key ended at that attack: performed() trims a retrigger), and not at all when the key is struck again within
-        # the 100 ms a note's timing may move it, or the part's earlier offset: that re-attack would double the strike.
-        window=(.1+max(0,-t['performance'].get('offset_ms',0)/1000))*bpm/60
-        drop=set()
-        for pitch,starts in held.items():
-            starts.sort();drop|={i for _,i in starts[:-1]}
-            if any(n['pitch']==pitch and n['id'] not in {i for _,i in starts} and n['on']<=window for n in notes):drop.add(starts[-1][1])
-        notes=[n for n in notes if n['id'] not in drop]
+        held[t['id']]=again
         t['notes']=notes;ids={n['id'] for n in notes}
         t['performance']['notes']={k:v for k,v in t['performance']['notes'].items() if k in ids}
         cc=t['performance'].get('cc',[]);initial={}
@@ -72,6 +87,19 @@ def extract(p,first_bar,bars):
         q.pop('loop')
         q.setdefault('decisions',[]).append('The excerpt plays as a passage, not a loop; the source keeps its loop.')
     if 'harmony' in q:q['harmony']=[{**h,'bar':h['bar']-first_bar+1} for h in q['harmony'] if first_bar<=h['bar']<first_bar+bars]
+    # What the piece struck before the cut starts the excerpt: the re-attacks, and the passage's own notes that their
+    # timing or the part's earlier offset plays before the cut (the excerpt cannot start before its first beat, so they
+    # all sound at its start).  Of these, a note is left out where it would meet a later strike of its key: on one tick,
+    # which the render stops on (the piece's later strike had stopped it there), and for a re-attack also within 100 ms
+    # as played, where it would only double the strike that follows.  A note written in the passage stays otherwise.
+    excerpt_clock=Clock(q)
+    for t in q['tracks']:
+        order=struck[t['id']];early={n['id'] for n in t['notes'] if n['id'] not in held[t['id']] and order[n['id']]<cut}
+        drop=({h for h in held[t['id']] if collides(t,h,excerpt_clock,order,REATTACK_GAP_S)}
+              |{e for e in early if collides(t,e,excerpt_clock,order)})
+        if drop:
+            t['notes']=[n for n in t['notes'] if n['id'] not in drop]
+            t['performance']['notes']={k:v for k,v in t['performance']['notes'].items() if k not in drop}
     q.setdefault('decisions',[]).append(f'Excerpt from source bars {first_bar}–{first_bar+bars-1}; notes already held at the cut are re-attacked for independent rendering.')
     validate(q);return q
 

@@ -295,10 +295,20 @@ def compare_audio(before, after, clock, mix=False):
     if abs(level) < .005:
         gain, level = 1.0, 0.0
     r = b - gain * a
-    pr, louder = _power(r * r), np.maximum(gain * gain * pa, pb)
+    pr = _power(r * r)
+    # One gain describes the file only where matching by it leaves at most half the file's power.  Where more of the
+    # file changed than moved in level (a part rewritten, a return of rewritten parts) the windows' gains scatter and
+    # their median means nothing (it gave a rewritten harp -332 dB): no level is reported, and the change is the plain
+    # difference.
+    either = active | (pb > max(pa.max(), pb.max()) * 1e-6)
+    if either.any() and pr[either].sum() > .5 * pb[either].sum():
+        gain, level = 1.0, None
+        r = b - a
+        pr = _power(r * r)
+    louder = np.maximum(gain * gain * pa, pb)
     level_ref = _near_max(louder) if mix else louder
     counted = (_db(pr) > FLOOR_DB) & (_db(pr) > _db(level_ref) - UNDER_SIGNAL_DB)
-    out['level_db'] = round(level, 2)
+    out['level_db'] = None if level is None else round(level, 2)
     out['passages'] = _passages(clock, counted)
     if counted.any():
         _difference(out, pr, louder, counted)
@@ -451,7 +461,9 @@ def describe(entry):
     real = [p for p in passages if not p.get('follows_part_levels')]
     follow = [p for p in passages if p.get('follows_part_levels')]
     level = entry.get('level_db')
-    if level and passages:
+    if level is None and 'level_db' in entry:
+        parts.append('no overall level (more of it changed than one gain matches)')
+    elif level and passages:
         parts.append(f'overall level {level:+.2f} dB')
     if real:
         d = entry['difference_db']

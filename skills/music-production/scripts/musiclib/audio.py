@@ -24,7 +24,16 @@ def absolute_paths(config, base):
                 entry[key] = str((Path(base) / entry[key]).resolve())
     return config
 
-VERIFIED=set()  # (path, sha256) of the named banks this process has hashed
+VERIFIED={}  # path -> (sha256, size, modification time) of each named bank this process has hashed
+
+def _stamp(p):
+    """A file's size and modification time: both change when the file is rewritten, so a bank hashed once is hashed
+    again once either has changed."""
+    s=os.stat(p);return (s.st_size,s.st_mtime_ns)
+
+def _verified(path,sha):
+    try:return VERIFIED.get(str(path))==(sha,_stamp(path))
+    except OSError:return False
 
 def _verify(key,entry,p):
     # A system package update replaces the executable: the configuration then names a file that is gone or changed.
@@ -50,7 +59,7 @@ def load_config(path,all_banks=False):
             if not p.is_file():_verify(key,entry,p)
         else:
             _verify(key,entry,p)
-            if key.startswith('soundfonts.'):VERIFIED.add((str(p),entry['sha256']))
+            if key.startswith('soundfonts.'):VERIFIED[str(p)]=(entry['sha256'],_stamp(p))
         entry['path']=str(p)
     return data
 
@@ -64,8 +73,8 @@ def soundfont_for(config,track):
               if name in known else ' Configure it with studio.py add-soundfont, or choose a configured bank (studio.py doctor lists them).')
         raise ValueError(f'{track["id"]}: SoundFont "{name}" is not configured.'+hint)
     entry=config['soundfonts'][name]
-    if (entry['path'],entry.get('sha256')) not in VERIFIED:
-        _verify('soundfonts.'+name,entry,Path(entry['path']));VERIFIED.add((entry['path'],entry['sha256']))
+    if not _verified(entry['path'],entry.get('sha256')):
+        p=Path(entry['path']);_verify('soundfonts.'+name,entry,p);VERIFIED[str(p)]=(entry['sha256'],_stamp(p))
     return name,entry
 
 def run(argv,folder,label,timeout=600):

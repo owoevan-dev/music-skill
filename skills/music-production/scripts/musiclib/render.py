@@ -1,17 +1,21 @@
 """Deterministic per-track synthesis/cache, processed stems, FX returns and master.
 
 The parts are synthesized and processed in parallel (`jobs` threads; the heavy work runs in FluidSynth and FFmpeg
-processes and in NumPy, which release the interpreter). Every part writes only its own files, and a lock per cache key
-keeps two identical parts from writing one cache entry, so the stems and the master are the same for any `jobs`.
+processes and in NumPy, which release the interpreter). Every part writes only its own files, so the stems and the
+master are the same for any `jobs`.  The renders of a piece share its cache, so a part holds its cache entry while it
+is synthesized, processed and kept (entry_lock): a render that needs the same entry at the same time waits, then
+finds the part in the cache, and no render reads a file another is replacing.
 
 A part's cache entry also keeps its last processed stem.  When nothing the processing reads has changed, the render
 copies that stem instead of processing the part again, as a frozen track in a DAW plays its rendered file instead of
-computing its devices again (Ableton Live Reference Manual, Computer Audio Resources and Strategies).  Every render
-still mixes and masters all the parts.
+computing its devices again (Ableton Live Reference Manual, Computer Audio Resources and Strategies).  The copy is
+what is checked against the receipt.  Every render still mixes and masters all the parts.
 
 A draft (`draft=True`) is the same audio, stems, buses and returns as a full render, for revising: it leaves out what
 only delivery needs, master.flac, the MP3's decoded-loudness check and a game loop's Ogg copies and layers, as REAPER's
 dry-run render processes everything but writes no output files (REAPER 6.30)."""
+import contextlib
+import errno
 import json
 import math
 import os
@@ -69,15 +73,75 @@ def process_seconds(logs):
         kinds[kind]=kinds.get(kind,0)+json.loads(f.read_text(encoding='utf-8')).get('seconds',0)
     return {k:round(v,3) for k,v in sorted(kinds.items(),key=lambda kv:-kv[1])}
 
+# Float64 stereo copies of the song the mix's checks and the master hold at their peaks together (9.5 and 5.0, measured
+# with tracemalloc on two bus-chain songs, research/implementation-0.4.0.md).
+BOTH_AT_ONCE=15
+
+# The mix fields only the mixer reads (the sends, the delay's time, the bus and the reverb space); the processing of a
+# stem (process_stem, stage, production) never reads them, so editing one keeps the part's stem.
+MIXER_ONLY=('reverb_db','delay_db','delay_quarters','bus','space')
+
 def stem_identity(p,t,key,raw_sha256,frames,code_hash,cfg):
     """What a part's processed stem depends on, hashed into the key of the stem its cache entry keeps: its raw
-    synthesis (whose key holds the clock and the tempo as played), its mix, the song's length, the part a duck follows
-    (its notes as played), the renderer's code, FFmpeg and NumPy."""
+    synthesis (whose key holds the clock and the tempo as played), its mix but the fields only the mixer reads, the
+    song's length, the part a duck follows (its notes as played), the renderer's code, FFmpeg and NumPy."""
     by=(t['mix'].get('duck') or {}).get('by')
     source=next((x for x in p['tracks'] if x['id']==by),None) if by else None
-    return {'stem':1,'synthesis':key,'raw_sha256':raw_sha256,'mix':t['mix'],'frames':frames,
-            'ducked_by':{k:v for k,v in source.items() if k!='mix'} if source else None,
+    return {'stem':2,'synthesis':key,'raw_sha256':raw_sha256,'mix':{k:v for k,v in t['mix'].items() if k not in MIXER_ONLY},
+            'frames':frames,'ducked_by':{k:v for k,v in source.items() if k!='mix'} if source else None,
             'renderer':code_hash,'ffmpeg':cfg['ffmpeg']['sha256'],'numpy':np.__version__}
+
+def read_json(path):
+    """A receipt's JSON object, or {} where there is none or it cannot be read."""
+    try:value=json.loads(Path(path).read_text(encoding='utf-8'))
+    except (OSError,ValueError):return {}
+    return value if isinstance(value,dict) else {}
+
+@contextlib.contextmanager
+def entry_lock(folder,wait=True):
+    """Hold one cache entry against other renders: an exclusive lock on its file `entry.lock` (fcntl.flock on POSIX,
+    msvcrt.locking on Windows), which the system releases when the process ends.  Yields whether it is held; without
+    `wait`, False at once when another render holds it.  Where the drive cannot lock, yields False and the render goes
+    on: the stem it copies is still checked against its receipt."""
+    try:fd=os.open(Path(folder)/'entry.lock',os.O_RDWR|os.O_CREAT,0o644)
+    except OSError:
+        yield False;return
+    held=False
+    try:
+        if os.name=='nt':
+            import msvcrt
+            while True:
+                try:
+                    os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_LOCK if wait else msvcrt.LK_NBLCK,1);held=True;break
+                except OSError as e:
+                    # LK_LOCK gives up after ten tries a second apart while another render holds the entry: wait on.
+                    if not wait or e.errno not in (errno.EDEADLK,errno.EACCES):break
+        else:
+            import fcntl
+            try:fcntl.flock(fd,fcntl.LOCK_EX|(0 if wait else fcntl.LOCK_NB));held=True
+            except OSError:pass
+        yield held
+    finally:
+        if held:
+            with contextlib.suppress(OSError):
+                if os.name=='nt':os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_UNLCK,1)
+                else:fcntl.flock(fd,fcntl.LOCK_UN)
+        os.close(fd)
+
+def keep_stem(folder,stem,receipt):
+    """Keep a processed stem in its cache entry for the next render: copied under a name of this process and thread,
+    swapped in whole, then its receipt likewise.  Keeping is only a saving: where it fails (Windows refuses to replace a
+    file another program holds open) the render goes on, and the next one processes the part again."""
+    tag=f'{os.getpid()}.{threading.get_ident()}'
+    spare,note=Path(folder)/f'stem.{tag}.wav',Path(folder)/f'stem.{tag}.json'
+    try:
+        shutil.copyfile(stem,spare);os.replace(spare,Path(folder)/'stem.wav')
+        note.write_text(json.dumps(receipt,ensure_ascii=False,allow_nan=False),encoding='utf-8');os.replace(note,Path(folder)/'stem.json')
+        return True
+    except OSError:
+        for f in (spare,note):
+            with contextlib.suppress(OSError):f.unlink()
+        return False
 
 def render(project_file,output,config_file,cache=None,resume=False,jobs=None,draft=False):
     started=time.monotonic();p=load_project(project_file);clock=Clock(p);cfg=audio.load_config(config_file)
@@ -125,11 +189,12 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
         track_midi=output/'midi'/(t['id']+'.mid')
         midi.write(p,track_midi,[t],single_stem=True)
         with guard:lock=locks.setdefault(key,threading.Lock())
-        with lock:
-            cached=False;raw_sha=None
-            if raw.is_file() and receipt.is_file():
-                old=json.loads(receipt.read_text(encoding='utf-8'));raw_sha=audio.audio_hash(raw)
-                cached=old['key']==key and raw_sha==old['sha256']
+        # The entry is held from the cache lookup to the kept stem: a render of the piece running at the same time waits
+        # here for this part, then finds it in the cache.
+        with lock,entry_lock(folder):
+            cached=False;raw_sha=None;old=read_json(receipt) if raw.is_file() else {}
+            if old:
+                raw_sha=audio.audio_hash(raw);cached=old.get('key')==key and raw_sha==old.get('sha256')
             if not cached:
                 if not t['notes']:audio.write_wav(raw,np.zeros((frames,2),dtype=np.float32))
                 elif t['engine']=='soundfont' and layered.wanted(t):layered.render(p,t,clock,cfg,font,folder,raw)
@@ -155,23 +220,25 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
                 else:audio.noise_fx(p,t,raw)
                 raw_sha=audio.audio_hash(raw)
                 save_json(receipt,{'key':key,'sha256':raw_sha,'track':t['id']})
-        synthesized=time.monotonic()
-        stem=output/'stems'/(t['id']+'.wav')
-        # The processed stem the cache entry keeps, used when nothing it depends on has changed (checked by its hash).
-        frozen,frozen_receipt=folder/'stem.wav',folder/'stem.json'
-        stem_key=digest(stem_identity(p,t,key,raw_sha,frames,code_hash,cfg))
-        kept=json.loads(frozen_receipt.read_text(encoding='utf-8')) if frozen.is_file() and frozen_receipt.is_file() else {}
-        reused=kept.get('key')==stem_key and file_hash(frozen)==kept.get('sha256')
-        if reused:
-            shutil.copyfile(frozen,stem);done,stem_sha=kept['processing'],kept['sha256']
-        else:
-            done=process_stem(p,t,clock,cfg,output,raw,stem,frames);stem_sha=file_hash(stem)
-            # Kept for the next render: copied beside the old one and swapped in whole, then described.
-            spare=folder/'stem.new.wav';shutil.copyfile(stem,spare);os.replace(spare,frozen)
-            save_json(frozen_receipt,{'key':stem_key,'sha256':stem_sha,'track':t['id'],'processing':done})
+            synthesized=time.monotonic()
+            stem=output/'stems'/(t['id']+'.wav')
+            # The processed stem the cache entry keeps, used when nothing it depends on has changed: the copy this
+            # render mixes is what is checked against the receipt read before it.
+            frozen,frozen_receipt=folder/'stem.wav',folder/'stem.json'
+            stem_key=digest(stem_identity(p,t,key,raw_sha,frames,code_hash,cfg))
+            kept=read_json(frozen_receipt);reused=False
+            if kept.get('key')==stem_key and isinstance(kept.get('processing'),dict) and {'reference_level_dbfs','gain_db','filter_chain'}<=set(kept['processing']) and frozen.is_file():
+                try:shutil.copyfile(frozen,stem);reused=file_hash(stem)==kept.get('sha256')
+                except OSError:reused=False
+            if reused:done,stem_sha=kept['processing'],kept['sha256']
+            else:
+                done=process_stem(p,t,clock,cfg,output,raw,stem,frames);stem_sha=file_hash(stem)
+                keep_stem(folder,stem,{'key':stem_key,'sha256':stem_sha,'track':t['id'],'processing':done})
+            expressive=read_json(folder/'layered.json') if (folder/'layered.json').is_file() else None
+            heard=read_json(folder/'surge.json') if t['engine']=='surge' and (folder/'surge.json').is_file() else None
         receipt_data={'track':t['id'],'soundfont':font_name,'cache_key':key,'cache_hit':cached,'stem_reused':reused,'raw_sha256':raw_sha,'stem_sha256':stem_sha,'reference_level_dbfs':done['reference_level_dbfs'],'gain_db':done['gain_db'],'processed_stem':str(stem.relative_to(output)),'filter_chain':done['filter_chain'],'same_pitch_retrigger_trims':sum(n.get('retrigger_trimmed',False) for n in performed(t,clock))}
-        if (folder/'layered.json').is_file():receipt_data['expressive']=json.loads((folder/'layered.json').read_text(encoding='utf-8'))
-        if t['engine']=='surge' and (folder/'surge.json').is_file():receipt_data['surge']=json.loads((folder/'surge.json').read_text(encoding='utf-8'))
+        if expressive:receipt_data['expressive']=expressive
+        if heard:receipt_data['surge']=heard
         if done.get('stage'):receipt_data['stage']=done['stage']
         if done.get('production'):receipt_data['production']=done['production']
         # Each part's own seconds (they overlap: parts run `jobs` at a time); synthesis includes the cache lookup.
@@ -187,12 +254,18 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
         buses=mixbus.mix(p,clock,cfg,output,frames)
         lap('mix')
         # The mix's checks read only what it wrote, so they run while the master is made (its loudness passes wait on
-        # FFmpeg). The last delivery pass measured master.wav as it is kept: that measurement is the master's.
-        with ThreadPoolExecutor(max_workers=1) as side:
-            verified=side.submit(mixbus.verify,p,output,buses)
+        # FFmpeg) where the memory holds both (BOTH_AT_ONCE); with less free, or where the free memory cannot be read,
+        # after it.  The last delivery pass measured master.wav as it is kept: that measurement is the master's.
+        if (free_memory() or 0)>=BOTH_AT_ONCE*frames*16:
+            with ThreadPoolExecutor(max_workers=1) as side:
+                verified=side.submit(mixbus.verify,p,output,buses)
+                before,mastering,after=mixbus.master(p,cfg,output)
+                lap('master')
+                buses.update(verified.result())
+        else:
             before,mastering,after=mixbus.master(p,cfg,output)
             lap('master')
-            buses.update(verified.result())
+            buses.update(mixbus.verify(p,output,buses))
         lap('mix_checks')
     else:
         before,mastering=room_mix(p,clock,cfg,output,frames,duration)
@@ -217,6 +290,8 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
         made=[pool.submit(preview)]+([] if draft else [pool.submit(lossless)])+([pool.submit(looping)] if 'loop' in p else [])
         results=[f.result() for f in made]
     mp3,looped=results[0],(results[-1] if 'loop' in p else None)
+    from .measure import release
+    release()  # the measuring is done: the K-weighting responses kept for it are let go
     lap('outputs')
     data,_=audio.read_wav(master);sections=[]
     for s in p['sections']:

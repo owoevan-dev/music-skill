@@ -1,20 +1,24 @@
 # What the commands write
 
 Read this when a command's summary points to a figure you need in full. Every command prints a short summary that
-ends with the file and the keys below; `--json` prints the whole file instead. Levels are dB, loudness LUFS (ITU-R
-BS.1770), true peak dBTP, positions bar:beat counted from 1 unless a key says seconds or samples.
+ends with the file and the keys below; `--json` prints the whole file instead (`round` prints its round.json, `clean`
+its report). Levels are dB, loudness LUFS (ITU-R BS.1770), true peak dBTP, positions bar:beat counted from 1 unless a
+key says seconds or samples.
 
 Contents: [round.json](#roundjson) · [report.json](#reportjson-render) · [stem_receipts.json](#stem_receiptsjson-render) ·
 [score_review.json](#score_reviewjson-review) · [analysis.json](#analysisjson-analyze) · [compare](#compare_namejson-compare) ·
-[audition.json](#auditionjson-audition)
+[audition.json](#auditionjson-audition) · [clean](#clean-its-report)
 
 ## round.json
 
 `studio.py round` writes `review/` and `render/` (a draft, with `analysis.json` and `compare_<previous>.json`) and
-`round.json`: `status` (the render's; `FAIL` if it did not finish), `questions` (how many review questions),
-`previous`, the relative paths `review`, `render`, `analysis`, `compare`, `seconds` per step and `runtime_seconds`.
-With `--clip`, the comparison's `clip` names the old-then-new MP3 (or why it was not made). A round's folder can stand
-for its render wherever a command takes a render folder; `compare` of two rounds names its report after the first.
+`round.json`, from the moment the round's folder is made: `kind` and `title` (what made the folder and of which piece),
+`status` (the render's; `FAIL` if it did not finish), `failed` (null, or the `step` that stopped the round and its
+`error`), `questions` (how many review questions), `previous`, the relative paths `review`, `render`, `analysis`,
+`compare`, `seconds` per step and `runtime_seconds`. With `--clip`, the comparison's `clip` names the old-then-new MP3
+(or why it was not made). A round's folder can stand for its render wherever a command takes a render folder;
+`compare` of two rounds names its report after the first, and `analyze` of a round needs `--output` (the round wrote
+its `analysis.json`).
 
 ## report.json (render)
 
@@ -75,11 +79,12 @@ the sections, the authored decisions and the questions as a page.
 
 How to read these is in [measuring.md](measuring.md).
 
-## compare_<name>.json (compare)
+## `compare_<name>.json` (compare)
 
 `summary` holds what the printed summary shows: `project` (the edits), `synthesized_again`, `same_inputs_new_take`
 (Surge XT parts with unchanged inputs, a new take), `changed` (one line per changed file) and `identical` (counts).
-`files.<stems|buses|returns|premix|master>.<name>` holds per file `identical`, or `level_db`, `passages` (each
+`files.<stems|buses|returns|premix|master>.<name>` holds per file `identical`, or `level_db` (the one gain that
+matches the two files; null where matching by it leaves more than half the file's power, as in a part rewritten), `passages` (each
 `start_s`, `end_s`, `from`, `to` and `follows_part_levels`), `difference_db` and `difference_peak_dbfs`;
 `project_changes` the edits field by field, `synthesis` per part, `master_lufs` both masters' loudness, and `clip`
 the A/B clip.
@@ -88,5 +93,12 @@ the A/B clip.
 
 `versions` in playing order: `sound`, `engine`, `master_lufs`, `part_rms_dbfs`, `part_brightness` (`centroid_hz`,
 `above_2k_pct`, `above_5k_pct`), and where they apply `surge_character`, `surge_controls` (what the mod wheel and
-macros move), `rendered_with`, `fallback` and `reason`, `performance_left_out`. Also `bars`, `each_seconds`,
-`gap_seconds`, `loudness_lufs` and `fallbacks`. Each version's render is in its numbered folder.
+macros move), `rendered_with`, `fallback` and `reason`, `performance_left_out`. Also `kind`, `title`, `project`, `bars`,
+`each_seconds`, `gap_seconds`, `loudness_lufs` and `fallbacks`. Each version's render is in its numbered folder.
+
+## clean (its report)
+
+`studio.py clean` writes nothing of its own; `--json` prints its report: `dry_run` (true unless `--remove` was given),
+`listed` (each folder it removes, or would: `kind` render, round, audition cache or cache entry, `path`, `bytes`),
+`bytes`, `kept` and `cache_entries_kept`, `left_alone` (folders a tool made for another piece, or whose piece cannot be
+read: `kind`, `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the `error`).

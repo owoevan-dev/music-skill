@@ -64,10 +64,12 @@ def main():
     rnd.add_argument('--span',action='append',default=[],metavar='NAME:FIRST-LAST',help='also analyze bars FIRST to LAST (1-based) under NAME; repeatable')
     rnd.add_argument('--reference',help='analyze against a reference: a name in references/tonal-references.json, a render or round folder, or a WAV file')
     rnd.add_argument('--clip',type=Path,metavar='MP3',help='with --previous: an old-then-new MP3 of 8 seconds around the first change in the master, both at the same loudness')
-    cln=sub.add_parser('clean',help='Remove render and round folders other than those kept, and the cache entries the kept renders do not use')
-    cln.add_argument('folder',type=Path,help="the project's folder")
+    rnd.add_argument('--json',action='store_true',help="print round.json instead of the steps' summaries")
+    cln=sub.add_parser('clean',help="List, or with --remove remove, the piece's render and round folders other than those kept, its auditions' renders and caches, and the cache entries the kept renders do not use")
+    cln.add_argument('folder',type=Path,help="the piece's folder")
     cln.add_argument('--keep',type=Path,action='append',required=True,help='a render or round folder that stays (repeatable): the final render and the previous round')
-    cln.add_argument('--dry-run',action='store_true',help='list what would be removed and remove nothing')
+    cln.add_argument('--remove',action='store_true',help='remove what the list names (without it, nothing is removed)')
+    cln.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
     configure=sub.add_parser('configure')
     for arg in ('fluidsynth','ffmpeg','soundfont','output'):configure.add_argument('--'+arg,type=Path,required=True)
     args=parser.parse_args()
@@ -104,7 +106,8 @@ def main():
         print('PASS: paths and pinned checksums verified; no malware scan implied');return
     if args.command=='clean':
         from musiclib.clean import clean,describe
-        print(describe(clean(args.folder,args.keep,args.dry_run)));return
+        r=clean(args.folder,args.keep,remove=args.remove)
+        print(json.dumps(r,ensure_ascii=False) if args.json else describe(r));return
     if args.command=='inspect-midi':
         if args.output:fresh(args.output,args.file)
         m=midi.read(args.file);result={'division':m['division'],'tracks':len(m['tracks']),'notes':sum(len(t['notes']) for t in m['tracks']),'unclosed':sum(t['unclosed'] for t in m['tracks']),'stray_offs':sum(t['stray_offs'] for t in m['tracks']),'sha256':file_hash(args.file)}
@@ -125,11 +128,17 @@ def main():
     if args.command=='round':
         from musiclib.revision import revision_round
         if args.jobs is not None and args.jobs<1:raise ValueError('--jobs is 1 or more')
-        revision_round(args.project,args.output,args.config,args.previous,args.cache,parse_spans(args.span),reference_of(args.reference),args.jobs,lambda text:print(text,end='\n\n',flush=True),args.clip);return
+        show=(lambda text:None) if args.json else (lambda text:print(text,end='\n\n',flush=True))
+        r=revision_round(args.project,args.output,args.config,args.previous,args.cache,parse_spans(args.span),reference_of(args.reference),args.jobs,show,args.clip)
+        if args.json:print(json.dumps(r,ensure_ascii=False))
+        return
     if args.command=='analyze':
         from musiclib.analysis import analyze,load_reference
         from musiclib.audio import load_config
-        args.render=render_folder(args.render);spans=parse_spans(args.span);out=args.output or args.render/'analysis.json';fresh(out)
+        given=args.render;args.render=render_folder(args.render);spans=parse_spans(args.span);out=args.output or args.render/'analysis.json'
+        if out.exists() and not args.output:
+            raise ValueError(f'{out} exists'+(' (the round measured its render already)' if args.render!=given else '')+'; outputs never overwrite, so to measure again (other --span or --reference) choose a path with --output')
+        fresh(out)
         reference=load_reference(reference_of(args.reference),load_config(args.config) if args.config else None) if args.reference else None
         r=analyze(args.render,spans,reference);save_json(out,r)
         print(json.dumps(r,ensure_ascii=False) if args.json else summary.analysis(r,out,args.render));return

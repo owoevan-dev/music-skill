@@ -202,7 +202,8 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
     audio.write_wav(output / 'audition.wav', both.astype(np.float32))
     audio.ffmpeg(cfg, ['-i', output / 'audition.wav', '-c:a', 'libmp3lame', '-b:a', '256k', output / 'audition.mp3'], output,
                  'audition_mp3')
-    report = {'project': str(project_file), 'track': track_id, 'bars': [first_bar, last_bar], 'solo': solo,
+    report = {'kind': 'music-production audition', 'title': p['title'], 'project': str(Path(project_file).resolve()),
+              'track': track_id, 'bars': [first_bar, last_bar], 'solo': solo,
               'each_seconds': round(n / audio.RATE, 2), 'gap_seconds': GAP_S, 'loudness_lufs': round(target, 2),
               'versions': rows,
               'note': 'Played in this order at one loudness. The figures describe the part\'s sound (its stem, before its '

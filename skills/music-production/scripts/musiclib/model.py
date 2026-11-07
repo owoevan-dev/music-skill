@@ -4,8 +4,10 @@ import difflib
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
+import threading
 
 TPQ = 960
 # The bus mix (mix.chain "bus", musiclib.mixbus): buses a track can join and spaces its reverb send can feed.
@@ -13,11 +15,20 @@ BUSES = ('drums', 'bass', 'rhythm', 'ensemble', 'lead', 'fx')
 SPACES = ('room', 'plate', 'hall', 'church')
 
 def save_json(path, value):
+    """Write JSON whole: to a file named for this process and thread beside it, then swapped in, so a reader never
+    sees half a file and two writers (renders sharing a cache) never write one temporary file."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + '.tmp')
-    temp.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
-    temp.replace(path)
+    temp = path.with_name(f'{path.name}.{os.getpid()}.{threading.get_ident()}.tmp')
+    try:
+        temp.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
+        temp.replace(path)
+    except BaseException:
+        try:
+            temp.unlink()
+        except OSError:
+            pass
+        raise
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
@@ -389,7 +400,9 @@ def _track(p,t,c,total,clock,warnings):
     from . import production;production.validate(p,t)
     for e in mix.get('effects',[]):
         if not isinstance(e,dict) or e.get('type') not in ('chorus','phaser','bitcrush'):raise ValueError(f'{t["id"]}: effects are chorus, phaser or bitcrush')
-        number(e.get('depth',.5),0,1,'effect depth');number(e.get('rate_hz',.5),.05,5,'phaser rate')
+        # The phaser is FFmpeg's aphaser, whose speed runs from 0.1 to 2 Hz (ffmpeg -h filter=aphaser): a rate outside
+        # it passed here and stopped the render.
+        number(e.get('depth',.5),0,1,'effect depth');number(e.get('rate_hz',.5),.1,2,'phaser rate_hz (FFmpeg aphaser: 0.1 to 2 Hz)')
         number(e.get('bits',8),2,16,'bitcrush bits',True);number(e.get('downsample',4),1,32,'bitcrush downsample',True);number(e.get('mix',1),0,1,'bitcrush mix')
     if mix.get('facing','front') not in ('front','back'):raise ValueError(f'{t["id"]}: mix.facing must be "front" or "back"')
     if mix.get('facing','front')=='back' and mix.get('depth_m') is None:raise ValueError(f'{t["id"]}: mix.facing needs mix.depth_m')

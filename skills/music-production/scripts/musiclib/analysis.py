@@ -36,7 +36,7 @@ import tempfile
 import numpy as np
 
 from . import audio
-from .measure import k_filter, level
+from .measure import k_filter, level, release
 from .model import Clock
 
 RATE = audio.RATE
@@ -369,10 +369,12 @@ def analyze(render_dir, bar_spans=(), reference=None):
         if share is not None and share > 2:
             warnings.append(f'{r["track"]}: for {share:g}% of its playing the dynamics sat between two recorded takes that '
                             'disagree in phase (the correction ran past 1.25 or under 0.8); play it in dynamics_mode "take" (the default), or keep a solo near one recorded dynamic.')
-    return {'render': render_dir.name, 'sections': rows, 'tonal_balance': here['tonal_balance'],
-            'side_minus_mid_db': here['side_minus_mid_db'], 'reference_comparison': comparison, 'stem_levels_lufs_ungated': stems,
-            'lead_tracks': lead_tracks, 'lead_source': 'buses' if buses is not None else 'stems',
-            'lead_presence': lead_presence(lead, accompaniment, regions) if lead is not None and accompaniment is not None else [],
-            'melody_groups': melody, 'warnings': warnings,
-            'master': here['loudness'],
-            'note': 'Measurements only; they do not establish how the music sounds.'}
+    measured = {'render': render_dir.name, 'sections': rows, 'tonal_balance': here['tonal_balance'],
+                'side_minus_mid_db': here['side_minus_mid_db'], 'reference_comparison': comparison, 'stem_levels_lufs_ungated': stems,
+                'lead_tracks': lead_tracks, 'lead_source': 'buses' if buses is not None else 'stems',
+                'lead_presence': lead_presence(lead, accompaniment, regions) if lead is not None and accompaniment is not None else [],
+                'melody_groups': melody, 'warnings': warnings,
+                'master': here['loudness'],
+                'note': 'Measurements only; they do not establish how the music sounds.'}
+    release()
+    return measured

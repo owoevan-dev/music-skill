@@ -19,6 +19,7 @@ has at the part's tempo (part_tempo): Surge stores both as log2 of seconds or of
 log2(120/bpm) and a rate by log2(bpm/120).  A tempo change inside the part does not move them."""
 import json
 import math
+import os
 import re
 import struct
 import subprocess
@@ -246,23 +247,73 @@ def at_tempo(fxp, bpm):
     return fxp[:56] + struct.pack('>I', len(chunk)) + chunk + fxp[60 + size:], changed
 
 
+VERIFIED_BOARD = {}  # pedalboard folder -> (size, mtime) of its RECORD when its files last matched it in this process
+
+
+def board_intact(pylib, record_sha256=None):
+    """Whether the installed pedalboard is the files pip installed: every file its RECORD lists has the SHA-256 and
+    size given there (PEP 376 and the wheel format: RECORD is the installer's list of the files it wrote, with their
+    hashes), and no code file is in the package that RECORD does not list.  With `record_sha256` (bootstrap writes it),
+    RECORD itself must be the one installed.  Checked once per process while RECORD is unchanged."""
+    import base64
+    import csv
+    import hashlib
+    pylib = Path(pylib)
+    records = sorted(pylib.glob('pedalboard-*.dist-info/RECORD'))
+    if len(records) != 1:
+        return False
+    record = records[0]
+    stamp = (record.stat().st_size, record.stat().st_mtime_ns)
+    if VERIFIED_BOARD.get(str(pylib)) == stamp:
+        return True
+    data = record.read_bytes()
+    if record_sha256 and hashlib.sha256(data).hexdigest() != record_sha256:
+        return False
+    listed = set()
+    for row in csv.reader(data.decode('utf-8').splitlines()):
+        if len(row) < 3 or not row[1]:
+            continue  # RECORD lists itself (and .pyc files) without a hash
+        name, (algo, _, digest) = row[0], row[1].partition('=')
+        f = (pylib / name).resolve()
+        if pylib.resolve() not in f.parents or algo != 'sha256' or not f.is_file() or str(f.stat().st_size) != row[2]:
+            return False
+        h = hashlib.sha256(f.read_bytes()).digest()
+        if base64.urlsafe_b64encode(h).rstrip(b'=').decode() != digest:
+            return False
+        listed.add(f)
+    code = ('.py', '.pyd', '.so', '.dll', '.dylib')
+    if any(f.suffix in code and f.resolve() not in listed for f in (pylib / 'pedalboard').rglob('*')):
+        return False
+    VERIFIED_BOARD[str(pylib)] = stamp
+    return True
+
+
 def locate(cfg, track):
-    """The plugin, pedalboard and patch file for a part, checked by hash; Unavailable with the reason otherwise."""
+    """The plugin, pedalboard and patch file for a part, checked by hash; Unavailable with the reason otherwise.  The
+    hashed binary must be the plugin that loads (the file itself, or inside its bundle), and pedalboard the files pip
+    installed.  Reasons name files, not their full paths, as they go into receipts a user may share."""
     from .model import file_hash
     found = entry(track['surge']['preset'])
     surge, board = cfg.get('surge'), cfg.get('pedalboard')
     if not surge or not board:
         raise Unavailable('Surge XT is not installed (bootstrap.py installs it unless --no-surge)')
     plugin, binary, pylib = Path(surge['path']), Path(surge.get('binary', surge['path'])), Path(board['path'])
+    same = lambda a, b: os.path.normcase(os.path.realpath(a)) == os.path.normcase(os.path.realpath(b))
+    if not (same(binary, plugin) or any(same(plugin, up) for up in binary.parents)):
+        raise Unavailable(f'the Surge XT binary checked ({binary.name}) is not the plugin that would load ({plugin.name}); '
+                          'run bootstrap.py again')
     if not binary.is_file() or file_hash(binary) != surge['sha256']:
-        raise Unavailable(f'Surge XT plugin missing or changed: {binary}')
+        raise Unavailable(f'Surge XT plugin missing or changed: {binary.name}')
     if not (pylib / 'pedalboard').is_dir():
-        raise Unavailable(f'pedalboard missing: {pylib}')
+        raise Unavailable('pedalboard missing from the runtime folder (bootstrap.py installs it)')
+    if not board_intact(pylib, board.get('record_sha256')):
+        raise Unavailable('pedalboard is not the package bootstrap.py installed (a file is changed, added or missing); '
+                          'run bootstrap.py again')
     if found['folder'] == 'catalog' and not surge.get('catalog'):
         raise Unavailable('the full Surge XT patch set is not installed (bootstrap.py installs it unless --no-surge-catalog)')
     patch = Path(surge['catalog'] if found['folder'] == 'catalog' else surge['patches']) / found['patch']
     if not patch.is_file() or file_hash(patch) != found['sha256']:
-        raise Unavailable(f'Surge patch missing or changed: {patch}')
+        raise Unavailable(f'Surge patch missing or changed: {found["patch"]}')
     return plugin, pylib, patch
 
 
@@ -305,8 +356,8 @@ def render(project, track, raw, folder, cfg):
     done = subprocess.run([sys.executable, str(SCRIPTS / 'surge_host.py'), str(job)], cwd=SCRIPTS, capture_output=True, text=True,
                           timeout=1800, stdin=subprocess.DEVNULL, creationflags=flags)
     (Path(folder) / 'surge.log').write_text(done.stdout + done.stderr, encoding='utf-8')
-    if done.returncode or not Path(raw).is_file():
-        raise Unavailable(f'Surge XT failed to render (exit {done.returncode}; see {Path(folder) / "surge.log"})')
+    if done.returncode or not Path(raw).is_file() or Path(raw).stat().st_size <= 44:
+        raise Unavailable(f'Surge XT failed to render (exit {done.returncode}; see surge.log in the cache entry {Path(folder).name[:12]})')
     return {'tempo_synced': {'bpm': round(bpm, 3), 'parameters': synced}} if synced else {}
 
 

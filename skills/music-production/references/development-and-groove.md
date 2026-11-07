@@ -76,8 +76,11 @@ question is whether anything else moves.
   to that beat (Tan, Lustig and Temperley 2019). Such a note is the next chord's tone heard early, over the old chord
   (Open Music Theory, Embellishing Tones: the anticipation). The accompaniment can stay on the beat, or push with the
   melody where the arrangement wants a joint push or the early note rubs against the old chord (`review` lists minor
-  seconds and ninths; [arrangement.md](arrangement.md)). `review` asks when no melody or accompaniment attack
-  pushes a downbeat or half-bar at all; in a chorale or a baroque piece that is right.
+  seconds and ninths; [arrangement.md](arrangement.md)). `review` counts as a push an attack at most an eighth
+  before a downbeat or half-bar that its part holds over or rests through, with no attack of its own on that beat: the
+  syncopation Longuet-Higgins and Lee (1984) define, a note from a weaker position sounding over the stronger one
+  after it; a new note on the downbeat makes the earlier one a pickup instead. It asks when no melody or accompaniment
+  attack pushes a downbeat or half-bar at all; in a chorale or a baroque piece that is right.
 - **Accompaniment that moves.** Give each support part a job and a rhythm of its own. Owsinski's rhythm element plays
   against the foundation to add motion. Israels has the comping piano play commentary on the melody rather than its
   rhythms, with chords in answer to the bass's rhythm or ahead of it. Common figures:
@@ -161,6 +164,8 @@ chords as root-position blocks.
   Perception* 19(1), 1-64. https://doi.org/10.1525/mp.2001.19.1.1
 - Israels, C. [The Piano and the Art of Jazz Accompaniment](https://chuckisraelsjazz.com/blogs/news/the-piano-and-the-art-of-jazz-accompaniment).
   Chuck Israels Jazz Orchestra. The comping register; commentary on the melody, chords placed against the bass.
+- Longuet-Higgins, H. C. and Lee, C. S. (1984). The rhythmic interpretation of monophonic music. *Music Perception*
+  1(4), 424-441. https://doi.org/10.2307/40285271
 - Matthews, T. E., Witek, M. A. G., Heggli, O. A., Penhune, V. B. and Vuust, P. (2019). [The sensation of groove is
   affected by the interaction of rhythmic and harmonic complexity](https://doi.org/10.1371/journal.pone.0204539).
   *PLoS ONE* 14(1), e0204539.

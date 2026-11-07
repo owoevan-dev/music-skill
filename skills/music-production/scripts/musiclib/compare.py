@@ -26,6 +26,7 @@ length of the space or delay after it.
 """
 import json
 import math
+import os
 import shutil
 from pathlib import Path
 
@@ -33,7 +34,7 @@ import numpy as np
 
 from . import audio
 from .measure import fast_length
-from .model import Clock
+from .model import Clock, load_project
 
 RATE = audio.RATE
 HOP = 480               # 10 ms windows
@@ -47,13 +48,34 @@ GROUPS = ('stems', 'buses', 'returns', 'premix', 'master')
 
 
 def load(folder):
+    """A finished render's records.  Its project is read as any project is (model.load_project: its size bounded, then
+    validated), so a render folder from elsewhere cannot name stems outside it or ask for an unbounded length."""
     folder = Path(folder)
     for name in ('report.json', 'project.json', 'stem_receipts.json'):
         if not (folder / name).is_file():
             raise ValueError(f'{folder} is not a finished render ({name} is missing)')
-    read = lambda name: json.loads((folder / name).read_text(encoding='utf-8'))
-    return {'folder': folder, 'report': read('report.json'), 'project': read('project.json'),
+
+    def read(name):
+        if (folder / name).stat().st_size > 64_000_000:
+            raise ValueError(f'{folder / name} is too large for a render\'s record')
+        return json.loads((folder / name).read_text(encoding='utf-8'))
+    return {'folder': folder, 'report': read('report.json'), 'project': load_project(folder / 'project.json'),
             'receipts': {r['track']: r for r in read('stem_receipts.json')}}
+
+
+def portable(result, folder):
+    """The comparison as it is saved: the renders and the clip named relative to the folder that holds the report, so
+    a file that may be shared does not carry the local folders and the user name (across two Windows drives no relative
+    path exists, and the full one is kept)."""
+    def rel(path):
+        try:
+            return os.path.relpath(Path(path).resolve(), Path(folder).resolve()).replace(os.sep, '/')
+        except ValueError:
+            return str(path)
+    out = {**result, 'before': rel(result['before']), 'after': rel(result['after'])}
+    if isinstance(result.get('clip'), dict) and result['clip'].get('file'):
+        out['clip'] = {**result['clip'], 'file': rel(result['clip']['file'])}
+    return out
 
 
 def bar_beat(clock, beats, step=.01):

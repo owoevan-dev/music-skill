@@ -101,6 +101,10 @@ def fluidsynth(config,font_path,midi_path,wav_path,folder,label='fluidsynth'):
     return log
 
 def ffmpeg(config,args,folder,label):
+    """Run FFmpeg on the skill's own WAVs.  Every option the scripts pass takes one value, so any other argument is an
+    output file; each output gets no metadata or chapters from its inputs (-map_metadata -1, -map_chapters -1), only
+    the tags a script sets itself: FFmpeg copies an input's global metadata by default (FFmpeg documentation,
+    -map_metadata), and a tag written into a cached WAV would otherwise reach every master, MP3 and FLAC made from it."""
     guarded=[];i=0
     while i<len(args):
         if args[i]=='-i':
@@ -109,8 +113,26 @@ def ffmpeg(config,args,folder,label):
             with p.open('rb') as f:header=f.read(12)
             if header[:4]!=b'RIFF' or header[8:12]!=b'WAVE':raise ValueError('Not RIFF/WAVE')
             guarded.extend(['-protocol_whitelist','file,pipe','-f','wav','-i',p]);i+=2
-        else:guarded.append(args[i]);i+=1
+        elif str(args[i]).startswith('-'):
+            if i+1>=len(args):raise ValueError(f'FFmpeg option {args[i]} has no value')
+            guarded.extend(args[i:i+2]);i+=2
+        else:guarded.extend(['-map_metadata','-1','-map_chapters','-1',args[i]]);i+=1
     return run([config['ffmpeg']['path'],'-hide_banner','-nostdin','-y','-threads','1','-filter_threads','1','-filter_complex_threads','1',*guarded],folder,label)
+
+_GRAPH={}
+def graph_file(config,path,text):
+    """Write the filtergraph `text` to `path` and return the FFmpeg options that read it from there: a mix's graph
+    grows with its parts, and on the command line it would take the 32,767 characters a Windows command line holds.
+    FFmpeg 7 and newer read an option's value from a file as -/filter_complex; FFmpeg 6 has only -filter_complex_script,
+    which FFmpeg 9.0.2 no longer accepts (we tried).  The version is asked once per executable."""
+    exe=config['ffmpeg']['path']
+    if exe not in _GRAPH:
+        flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
+        out=subprocess.run([exe,'-hide_banner','-version'],capture_output=True,text=True,errors='replace',stdin=subprocess.DEVNULL,creationflags=flags,timeout=30)
+        m=re.search(r'version\s+n?(\d+)\.',out.stdout)
+        _GRAPH[exe]='-filter_complex_script' if m and int(m.group(1))<7 else '-/filter_complex'
+    Path(path).write_bytes(text.encode('utf-8'))
+    return [_GRAPH[exe],str(Path(path).resolve())]
 
 _AFIR={}
 def afir_options(config):
@@ -212,13 +234,22 @@ def measure(config,path,logs,label):
     if not all(math.isfinite(info[x]) for x in ('integrated_lufs','true_peak_dbtp','lra_lu')):raise ValueError('Silent/invalid loudness input')
     return info
 
-def automation(points,clock):
-    if not points:return 'anull'
-    pairs=[(clock.seconds(b),v) for b,v in points]
-    expr=str(pairs[-1][1])
-    for (a,x),(b,y) in reversed(list(zip(pairs,pairs[1:]))):
-        expr=f'if(lt(t,{b:.8f}),{x}+({y-x})*(t-{a:.8f})/{b-a:.8f},{expr})'
-    return f"volume='pow(10,({expr})/20)':eval=frame"
+AUTOMATION_BLOCK=1<<16  # samples whose gain is computed at once: the song's whole gain curve is never held in memory
+
+def automated(x,points,clock):
+    """The stem `x` (frames × channels) under its part's `automation`, as a new array, or None where the automation
+    leaves it as it is (no points, or 0 dB at every point).  The level runs linearly in dB and in time from point to
+    point; before the first point it is the first point's, after the last the last one's (as excerpt.py reads it).
+    Sample by sample in NumPy: an FFmpeg expression nests one condition per point, which fails past about 96 points
+    and puts every point on the command line."""
+    db=np.array([v for _,v in points],dtype=np.float64)
+    if not db.any():return None
+    at=np.array([clock.seconds(b)*RATE for b,_ in points],dtype=np.float64)
+    out=np.empty(x.shape,dtype=np.float32)
+    for i in range(0,len(x),AUTOMATION_BLOCK):
+        n=np.arange(i,min(i+AUTOMATION_BLOCK,len(x)),dtype=np.float64)
+        out[i:i+len(n)]=x[i:i+len(n)]*np.power(10.0,np.interp(n,at,db)/20).astype(np.float32)[:,None]
+    return out
 
 def control(track,cc,times,clock,default):
     points=sorted((clock.seconds(b),v) for b,c,v in track['performance'].get('cc',[]) if c==cc)

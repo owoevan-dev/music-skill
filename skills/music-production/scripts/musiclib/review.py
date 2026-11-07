@@ -2,6 +2,7 @@
 import bisect
 from collections import Counter, defaultdict
 import csv
+import heapq
 import json
 import math
 from pathlib import Path
@@ -45,27 +46,37 @@ def unpitched(t):
 def vertical(p,clock,limit=40):
     """Minor seconds/ninths between a sustained note (>=0.75 beat) and any note of another pitched
     part (or inside one part's chord) overlapping >=0.5 beat.  Major sevenths are not flagged.  Unpitched parts
-    (unpitched()) are left out."""
-    notes=[];by_bar=defaultdict(list)
+    (unpitched()) are left out.  The notes are indexed by pitch and onset, so only notes 1, 13, 25... semitones away
+    that overlap in time are looked at: the work follows the collisions there are, not the square of the notes, and the
+    first `limit` examples by beat are kept while the rest are counted."""
+    items=[]
     for t in p['tracks']:
         if unpitched(t):continue
-        for n in t['notes']:
-            item=(n['on'],n['on']+n['duration'],n['pitch'],t['id'],t.get('role') in FOREGROUND)
-            notes.append(item)
-            for b in range(int(n['on']//clock.beats_per_bar),int((item[1]-1e-9)//clock.beats_per_bar)+1):by_bar[b].append(item)
-    seen=set();found=[]
-    for a in notes:
+        for n in t['notes']:items.append((n['on'],n['on']+n['duration'],n['pitch'],t['id'],t.get('role') in FOREGROUND))
+    by_pitch=defaultdict(list)
+    for it in items:by_pitch[it[2]].append(it)
+    starts,longest={},{}
+    for q,lst in by_pitch.items():
+        lst.sort();starts[q]=[x[0] for x in lst];longest[q]=max(x[1]-x[0] for x in lst)
+    count=fg=seq=0;pairs=Counter();kept=[]
+    for a in items:
         if a[1]-a[0]<.75:continue
-        for b in sorted({x for bar in range(int(a[0]//clock.beats_per_bar),int((a[1]-1e-9)//clock.beats_per_bar)+1) for x in by_bar[bar]}):
-            if b is a or abs(a[2]-b[2])%12!=1:continue
-            ov=min(a[1],b[1])-max(a[0],b[0])
-            key=tuple(sorted([a,b]))
-            if ov<.5 or key in seen:continue
-            seen.add(key)
-            found.append({'at':where(clock,max(a[0],b[0])),'beat':round(max(a[0],b[0]),4),'parts':sorted({a[3],b[3]}),'pitches':sorted([a[2],b[2]]),'overlap_beats':round(ov,3),'involves_foreground':a[4] or b[4],'same_part':a[3]==b[3]})
-    found.sort(key=lambda x:x['beat'])
-    pairs=Counter(' / '.join(x['parts']) for x in found)
-    return {'count':len(found),'foreground_count':sum(x['involves_foreground'] for x in found),'by_parts':dict(pairs.most_common()),'examples':found[:limit]}
+        for q in [a[2]+d*s for d in range(1,128,12) for s in (1,-1)]:
+            lst=by_pitch.get(q)
+            if not lst:continue
+            # Notes of that pitch starting before a ends and late enough to still sound when it starts.
+            for b in lst[bisect.bisect_left(starts[q],a[0]-longest[q]):bisect.bisect_left(starts[q],a[1])]:
+                ov=min(a[1],b[1])-max(a[0],b[0])
+                # A pair of two sustained notes is found from both; it counts once, from the earlier one.
+                if ov<.5 or (b[1]-b[0]>=.75 and b<a):continue
+                count+=1;fg+=a[4] or b[4];pairs[' / '.join(sorted({a[3],b[3]}))]+=1;seq+=1
+                beat=max(a[0],b[0])
+                heapq.heappush(kept,(-beat,-seq,(a,b,ov)))
+                if len(kept)>limit:heapq.heappop(kept)
+    found=[]
+    for beat,_,(a,b,ov) in sorted(kept,key=lambda k:(-k[0],-k[1])):
+        found.append({'at':where(clock,-beat),'beat':round(-beat,4),'parts':sorted({a[3],b[3]}),'pitches':sorted([a[2],b[2]]),'overlap_beats':round(ov,3),'involves_foreground':a[4] or b[4],'same_part':a[3]==b[3]})
+    return {'count':count,'foreground_count':fg,'by_parts':dict(pairs.most_common()),'examples':found}
 
 def note_name(pitch):
     return f'{NAMES[pitch%12]}{pitch//12-1}'
@@ -552,12 +563,17 @@ def review(p,out,config=None):
         if moves:summary['prompts'].append('Loop seam: parts '+'; '.join(moves)+'. Confirm the change of instruments at the loop point is meant.')
     save_json(out/'score_review.json',summary)
     if csv_rows:
+        # A text cell a spreadsheet would read as a formula (one starting with =, +, -, @, a tab or a carriage return)
+        # gets a leading apostrophe, as OWASP's CSV injection guidance advises: a project's names stay text.
+        safe=lambda v:"'"+v if isinstance(v,str) and v[:1] in ('=','+','-','@','\t','\r') else v
         with (out/'notes.csv').open('w',encoding='utf-8',newline='') as f:
-            w=csv.DictWriter(f,fieldnames=csv_rows[0].keys());w.writeheader();w.writerows(csv_rows)
+            w=csv.DictWriter(f,fieldnames=csv_rows[0].keys());w.writeheader();w.writerows({k:safe(v) for k,v in r.items()} for r in csv_rows)
     lines=[f'# {p["title"]}', '',p.get('brief',''),'', '| Section | Bars (1-based) | Time | Function |','|---|---:|---:|---|']
     for s in summary['sections']:
         lines.append(f'| {s["id"]} | {s["start_bar"]+1}–{s["start_bar"]+s["bars"]} | {s["start_seconds"]:.1f}–{s["end_seconds"]:.1f}s | {s.get("intent","")} |')
     lines+=['','## Authored musical decisions','']+[f'- {x}' for x in p.get('decisions',[])]+['','## Review questions','']+['- '+x for x in summary['prompts']]
     lines+=['','Metrics do not establish whether a piece sounds good. Key gaps exclude pedal/release tails. Different durations and more tracks are not quality scores.']
     (out/'arrangement.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    from . import files
+    files.register(out,[out/n for n in ('score_review.json','notes.csv','arrangement.md') if (out/n).is_file()])
     return summary

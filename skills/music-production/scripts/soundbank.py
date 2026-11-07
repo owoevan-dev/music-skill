@@ -30,7 +30,7 @@ import subprocess
 import tempfile
 from pathlib import Path, PurePosixPath
 import numpy as np
-from musiclib import sf2, wavfile
+from musiclib import files, sf2, wavfile
 from musiclib.model import file_hash, save_json
 
 PCS = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
@@ -601,11 +601,17 @@ def read_audio(path, ffmpeg=None):
         return wavfile.read(path)
     if not ffmpeg:
         raise ValueError(f'{path.name}: FLAC sources need --ffmpeg')
+    # A FLAC stream starts with the marker "fLaC" (RFC 9639); FFmpeg is held to its FLAC demuxer and to local files, so a file
+    # named .flac that is a playlist or another container cannot make it read anything else.
+    with open(path, 'rb') as f:
+        if f.read(4) != b'fLaC':
+            raise ValueError(f'{path.name}: not a FLAC file (no fLaC signature)')
     fd, tmp = tempfile.mkstemp(suffix='.wav')
     os.close(fd)
     try:
-        subprocess.run([str(ffmpeg), '-hide_banner', '-nostdin', '-v', 'error', '-y', '-i', str(path), '-c:a', 'pcm_f32le', tmp],
-                       check=True, stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        subprocess.run([str(ffmpeg), '-hide_banner', '-nostdin', '-v', 'error', '-y', '-protocol_whitelist', 'file',
+                        '-f', 'flac', '-i', str(path), '-c:a', 'pcm_f32le', tmp],
+                       check=True, stdin=subprocess.DEVNULL, timeout=600, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         return wavfile.read(tmp)
     finally:
         os.unlink(tmp)
@@ -1490,26 +1496,27 @@ def main():
     sp.add_argument('--output', type=Path, required=True)
     args = ap.parse_args()
     if args.command == 'inspect':
+        # An output never replaces anything, the bank it reads least of all (musiclib.files.fresh).
+        if args.output:
+            files.fresh(args.output)
         result = inspect(args.bank)
         if args.output:
             save_json(args.output, result)
         print(json.dumps(result['presets'], ensure_ascii=False, indent=1))
         return
     if args.command == 'cut':
-        if args.output.exists():
-            raise ValueError('Choose a new output folder')
+        files.fresh(args.output, 'choose a new output folder')
         manifest = json.loads(args.manifest.read_text(encoding='utf-8'))
         print(cut_sources(manifest, args.root, args.output), 'notes cut and verified')
         save_manifest(args.output / 'split.json', manifest)
         return
     if args.command == 'split':
-        if args.output.exists():
-            raise ValueError('Choose a new output folder')
+        files.fresh(args.output, 'choose a new output folder')
         manifest = split_sources(json.loads(args.spec.read_text(encoding='utf-8'))['split'], args.root, args.output)
         save_manifest(args.output / 'split.json', manifest)
         print(json.dumps(manifest['groups'], ensure_ascii=False, indent=1))
         return
-    if args.output.exists() or args.receipt.exists():
+    if files.occupied(args.output) or files.occupied(args.receipt):
         raise ValueError('Choose new output and receipt paths')
     receipt = build(json.loads(args.spec.read_text(encoding='utf-8')), args.root, args.output, args.ffmpeg)
     save_json(args.receipt, receipt)

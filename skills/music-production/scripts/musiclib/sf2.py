@@ -73,6 +73,34 @@ def _chunks(f, start, end):
         yield cid, pos + 8, size
         pos += 8 + size + (size & 1)
 
+MAX_ZONES = 262_144  # preset and instrument zones together; the largest bank the skill installs has 9,400 (our count)
+
+def structure(tables):
+    """Refuse a bank whose tables do not hold together, as the SoundFont 2.04 specification (7.2-7.3, 7.6-7.7) and
+    FluidSynth's loader do: the bag indices of the preset and instrument headers, and the generator and modulator
+    indices of the bags, never decrease; each header table's terminal record names the bag table's terminal record;
+    and each bag table's terminal record names the generator or modulator table's terminal record, or the end of a
+    table that has none (FluidSynth accepts a missing terminal generator or modulator).  "Structurally defective ...
+    rejected at load time" is the specification's word for any other bank.  With the indices in order, every zone and
+    generator is read once, so the zones built stay in proportion to the file (non-monotonic indices repeat a range
+    of zones as often as a header names it)."""
+    for head, index, bag, gen, mod, what in ((b'phdr', 3, b'pbag', b'pgen', b'pmod', 'preset'),
+                                             (b'inst', 1, b'ibag', b'igen', b'imod', 'instrument')):
+        heads, bags = [h[index] for h in tables[head]], tables[bag]
+        if not heads or not bags or not tables[b'shdr']:
+            raise ValueError(f'SoundFont {what} tables without their terminal records: a structurally defective bank')
+        if any(a > b for a, b in zip(heads, heads[1:])) or heads[-1] != len(bags) - 1:
+            raise ValueError(f'SoundFont {what} header indices are not monotonic or do not end at the bag table\'s end: '
+                             'a structurally defective bank')
+        for k, table in ((0, gen), (1, mod)):
+            xs = [b[k] for b in bags]
+            if any(a > b for a, b in zip(xs, xs[1:])) or xs[-1] not in (len(tables[table]) - 1, len(tables[table])):
+                raise ValueError(f'SoundFont {what} bag indices are not monotonic or do not end at the '
+                                 f'{"generator" if k == 0 else "modulator"} table\'s end: a structurally defective bank')
+    zones = len(tables[b'pbag']) + len(tables[b'ibag']) - 2
+    if zones > MAX_ZONES:
+        raise ValueError(f'SoundFont with {zones} zones: more than the {MAX_ZONES} this reader takes')
+
 def read(path):
     path = Path(path)
     total = path.stat().st_size
@@ -103,6 +131,7 @@ def read(path):
     missing = [k for k in PDTA if k not in tables]
     if missing or b'smpl' not in sdta:
         raise ValueError(f'Incomplete SoundFont tables: {missing}')
+    structure(tables)
 
     def zones(headers, bag, gen, mod, terminal):
         out = []
@@ -124,6 +153,13 @@ def read(path):
     instruments = [{'name': _name(h[0]), 'zones': z} for h, z in zip(tables[b'inst'][:-1], iz)]
     samples = [{'name': _name(s[0]), 'start': s[1], 'end': s[2], 'loop': (s[3], s[4]), 'rate': s[5], 'root': s[6],
                 'correction': s[7], 'link': s[8], 'type': s[9]} for s in tables[b'shdr'][:-1]]
+    # A zone names an instrument or a sample by its index: one past the table is a defective bank, refused like the
+    # others above rather than failing later wherever the zone is read.
+    for what, owners, count in (('preset', presets, len(instruments)), ('instrument', instruments, len(samples))):
+        for owner in owners:
+            if any(z['target'] is not None and z['target'] >= count for z in owner['zones']):
+                raise ValueError(f'{what} {owner["name"]!r} names an {"instrument" if what == "preset" else "sample"} '
+                                 'the bank does not have: a structurally defective SoundFont')
     return {'path': str(path), 'info': info, 'presets': presets, 'instruments': instruments, 'samples': samples,
             'smpl': sdta[b'smpl'], 'sm24': sdta.get(b'sm24')}
 

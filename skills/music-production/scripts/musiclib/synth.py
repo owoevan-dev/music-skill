@@ -219,7 +219,9 @@ def adsr(n, off, env, rate):
     t = np.arange(n) / rate
     held = np.where(t < a, t / a, s + (1 - s) * np.exp(-(t - a) / (d / 3)))
     at_off = float(held[min(off, n - 1)]) if off < n else float(held[-1])
-    rel = at_off * np.exp(-(t - off / rate) / (r / 5))
+    # The release from the key's release on; before it the held envelope is used, so its decay is not computed there
+    # (where it would overflow on a long note).
+    rel = at_off * np.exp(-np.maximum(t - off / rate, 0.0) / (r / 5))
     return np.where(np.arange(n) < off, held, rel)
 
 
@@ -269,36 +271,59 @@ def linear_recursion(A, z, block=64):
     return out.reshape(-1, 2)[:n]
 
 
-def all_pole(v, a1, a2):
-    """y[n] = v[n] - a1[n] y[n-1] - a2[n] y[n-2], coefficients per sample."""
-    n = len(v)
-    A = np.empty((n, 2, 2))
+ALL_POLE_CHUNK = 1 << 16  # samples whose recursion is solved at once (its matrices take 100 bytes a sample)
+
+
+def _all_pole(v, a1, a2, state):
+    """One chunk of all_pole from the state [y[-1], y[-2]] the chunk before ended in (folded into the first input,
+    s[0] = A[0] s[-1] + z[0]); returns the chunk's output and the state it ends in."""
+    A = np.empty((len(v), 2, 2))
     A[:, 0, 0], A[:, 0, 1], A[:, 1, 0], A[:, 1, 1] = -a1, -a2, 1.0, 0.0
-    z = np.zeros((n, 2))
+    z = np.zeros((len(v), 2))
     z[:, 0] = v
-    return linear_recursion(A, z)[:, 0]
+    z[0] += A[0] @ state
+    s = linear_recursion(A, z)
+    return s[:, 0], s[-1]
+
+
+def all_pole(v, a1, a2):
+    """y[n] = v[n] - a1[n] y[n-1] - a2[n] y[n-2], coefficients per sample.  Solved a chunk at a time, each from the
+    state the one before ended in, so a note held for minutes does not build its whole recursion at once."""
+    n = len(v)
+    y, state = np.empty(n), np.zeros(2)
+    for i in range(0, n, ALL_POLE_CHUNK):
+        j = min(n, i + ALL_POLE_CHUNK)
+        y[i:j], state = _all_pole(v[i:j], a1[i:j], a2[i:j], state)
+    return y
 
 
 def biquad(x, kind, cutoff, q, rate):
-    """RBJ low-, high- or band-pass with a cutoff (Hz, one per sample) and Q (at least 0.55), in direct form I."""
-    w0 = 2 * np.pi * np.clip(cutoff, 15.0, .45 * rate) / rate
-    q = np.maximum(q, .55)
-    cw, alpha = np.cos(w0), np.sin(w0) / (2 * q)
-    a0 = 1 + alpha
-    a1, a2 = -2 * cw / a0, (1 - alpha) / a0
-    if kind == 'lowpass':
-        b0 = (1 - cw) / 2 / a0
-        b1, b2 = 2 * b0, b0
-    elif kind == 'highpass':
-        b0 = (1 + cw) / 2 / a0
-        b1, b2 = -2 * b0, b0
-    else:
-        b0, b1, b2 = alpha / a0, 0.0 * alpha, -alpha / a0
+    """RBJ low-, high- or band-pass with a cutoff (Hz, one per sample) and Q (at least 0.55), in direct form I: a chunk
+    at a time, its coefficients with it, the inputs and the recursion carrying on from the chunk before."""
     x = np.asarray(x, dtype=np.float64)
-    x1 = np.concatenate([[0.0], x[:-1]])
-    x2 = np.concatenate([[0.0, 0.0], x[:-2]])
-    a1, a2 = np.broadcast_to(a1, x.shape), np.broadcast_to(a2, x.shape)
-    return all_pole(b0 * x + b1 * x1 + b2 * x2, a1, a2)
+    n = len(x)
+    cutoff = np.broadcast_to(np.asarray(cutoff, dtype=np.float64), (n,))
+    q = np.broadcast_to(np.asarray(q, dtype=np.float64), (n,))
+    y, state = np.empty(n), np.zeros(2)
+    for i in range(0, n, ALL_POLE_CHUNK):
+        j = min(n, i + ALL_POLE_CHUNK)
+        w0 = 2 * np.pi * np.clip(cutoff[i:j], 15.0, .45 * rate) / rate
+        qs = np.maximum(q[i:j], .55)
+        cw, alpha = np.cos(w0), np.sin(w0) / (2 * qs)
+        a0 = 1 + alpha
+        a1, a2 = -2 * cw / a0, (1 - alpha) / a0
+        if kind == 'lowpass':
+            b0 = (1 - cw) / 2 / a0
+            b1, b2 = 2 * b0, b0
+        elif kind == 'highpass':
+            b0 = (1 + cw) / 2 / a0
+            b1, b2 = -2 * b0, b0
+        else:
+            b0, b1, b2 = alpha / a0, 0.0 * alpha, -alpha / a0
+        head = x[max(0, i - 2):i]
+        ext = np.concatenate([np.zeros(2 - len(head)), head, x[i:j]])
+        y[i:j], state = _all_pole(b0 * ext[2:] + b1 * ext[1:-1] + b2 * ext[:-2], a1, a2, state)
+    return y
 
 
 def resample_down(x, factor):

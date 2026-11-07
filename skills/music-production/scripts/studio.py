@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sys
 from musiclib.model import load_project, validate, save_json, file_hash
-from musiclib import midi,summary
+from musiclib import files,midi,summary
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -74,15 +74,16 @@ def main():
     for arg in ('fluidsynth','ffmpeg','soundfont','output'):configure.add_argument('--'+arg,type=Path,required=True)
     args=parser.parse_args()
     def fresh(path,source=None):
-        if path.exists():raise ValueError(f'{path} exists; outputs never overwrite, so choose a new path')
+        # Taken in any form, a dangling link included (Path.exists follows links): outputs never overwrite.
+        files.fresh(path)
         if source is not None and path.resolve()==Path(source).resolve():raise ValueError('The output would replace its own input')
     if args.command=='configure':
-        if args.output.exists():raise ValueError('Choose a new configuration path')
+        if files.occupied(args.output):raise ValueError('Choose a new configuration path')
         cfg={key:{'path':str(getattr(args,key).resolve()),'sha256':file_hash(getattr(args,key)),'license':'User-supplied; retain upstream notices','source':'User-configured local file; hash is integrity, not provenance or antivirus certification'} for key in ('fluidsynth','ffmpeg','soundfont')}
         save_json(args.output,cfg);print('Saved configuration; inspect source/license before redistribution');return
     if args.command=='add-soundfont':
         import re
-        if args.output.exists():raise ValueError('Choose a new configuration path')
+        if files.occupied(args.output):raise ValueError('Choose a new configuration path')
         if args.name=='default' or not re.fullmatch(r'[a-z][a-z0-9_]{0,47}',args.name):raise ValueError('Name must be lower-case letters/digits/underscores and not "default"')
         from musiclib.audio import absolute_paths
         base=absolute_paths(json.loads(args.config.read_text(encoding='utf-8')),args.config.resolve().parent);fonts=base.setdefault('soundfonts',{})
@@ -93,12 +94,14 @@ def main():
         save_json(args.output,base);print('Saved',args.output,'with',len(bank['presets']),'presets in',args.name);return
     if args.command=='doctor':
         from musiclib.audio import load_config,run
-        import numpy
-        c=load_config(args.config,all_banks=True);logs=args.config.parent/'doctor-logs'
+        import numpy,tempfile
+        c=load_config(args.config,all_banks=True)
         print('Python',sys.version.split()[0],'NumPy',numpy.__version__)
-        for key in ('fluidsynth','ffmpeg'):
-            output=run([c[key]['path'],'--version' if key=='fluidsynth' else '-version'],logs,key,30)
-            print(output.splitlines()[0])
+        # The version checks log into a temporary folder of their own: doctor writes nothing beside the configuration.
+        with tempfile.TemporaryDirectory(prefix='doctor-') as logs:
+            for key in ('fluidsynth','ffmpeg'):
+                output=run([c[key]['path'],'--version' if key=='fluidsynth' else '-version'],logs,key,30)
+                print(output.splitlines()[0])
         from musiclib.loop import has_vorbis
         print('Ogg Vorbis for game loops:','yes' if has_vorbis(c) else 'no, this FFmpeg has no libvorbis encoder (references/setup.md)')
         for name,entry in [('default',c['soundfont'])]+sorted(c.get('soundfonts',{}).items()):
@@ -136,11 +139,12 @@ def main():
         from musiclib.analysis import analyze,load_reference
         from musiclib.audio import load_config
         given=args.render;args.render=render_folder(args.render);spans=parse_spans(args.span);out=args.output or args.render/'analysis.json'
-        if out.exists() and not args.output:
+        if files.occupied(out) and not args.output:
             raise ValueError(f'{out} exists'+(' (the round measured its render already)' if args.render!=given else '')+'; outputs never overwrite, so to measure again (other --span or --reference) choose a path with --output')
         fresh(out)
         reference=load_reference(reference_of(args.reference),load_config(args.config) if args.config else None) if args.reference else None
         r=analyze(args.render,spans,reference);save_json(out,r)
+        files.register_output(out)  # inside a render or round folder, it goes with that folder in clean
         print(json.dumps(r,ensure_ascii=False) if args.json else summary.analysis(r,out,args.render));return
     if args.command=='compare':
         from musiclib.compare import compare,clip
@@ -151,15 +155,22 @@ def main():
         named=args.before.resolve().name if (args.before/'round.json').is_file() else None
         args.before,args.after=render_folder(args.before),render_folder(args.after)
         out=args.output or args.after/f'compare_{named or args.before.resolve().name}.json'
-        if out.exists() and not args.output:raise ValueError(f'{out} exists (a round compares with its previous round); choose a path with --output')
+        if files.occupied(out) and not args.output:raise ValueError(f'{out} exists (a round compares with its previous round); choose a path with --output')
         fresh(out)
         if args.clip:fresh(args.clip)
+        if args.differences:fresh(args.differences)
         r=compare(args.before,args.after,args.differences)
         if args.clip:
             # The clip is optional: if it cannot be made, the report still is, and says why.
             try:r['clip']=clip(load_config(args.config),r,args.clip)
             except (ValueError,OSError,RuntimeError) as e:r['clip']={'error':str(e)}
-        save_json(out,r)
+        from musiclib.compare import portable
+        save_json(out,portable(r,out.parent))
+        # Written inside a render or round folder, each goes with that folder in clean.
+        for written in [out]+([Path(r['clip']['file'])] if isinstance(r.get('clip'),dict) and r['clip'].get('file') else []):
+            files.register_output(written)
+        if args.differences:
+            for f in files.tree(args.differences):files.register_output(f)
         print(json.dumps(r,ensure_ascii=False) if args.json else summary.compare(r,out));return
     if args.command=='sounds':
         from musiclib.sounds import describe,search
@@ -179,7 +190,7 @@ def main():
         fresh(args.output);r=review(p,args.output,load_config(args.config) if args.config else None)
         print(json.dumps(r,ensure_ascii=False) if args.json else summary.review(r,args.output));return
     if args.command=='export-midi':
-        if args.output.exists():raise ValueError('Output already exists')
+        if files.occupied(args.output):raise ValueError('Output already exists')
         args.output.parent.mkdir(parents=True,exist_ok=True);midi.write(p,args.output);print(str(args.output));return
     if args.command=='audition':
         from musiclib.audition import audition,parse_sound
@@ -193,7 +204,7 @@ def main():
         r=render(args.project,args.output,args.config,args.cache,args.resume,args.jobs,args.draft)
         print(json.dumps(r,ensure_ascii=False) if args.json else summary.render(r,args.output));return
     if args.command=='revise':
-        if args.output.exists() or args.output.resolve()==args.project.resolve():raise ValueError('Revision must use a fresh output path')
+        if files.occupied(args.output) or args.output.resolve()==args.project.resolve():raise ValueError('Revision must use a fresh output path')
         if args.pitch is None and args.velocity is None and args.duration is None:raise ValueError('Specify a change')
         revised=copy.deepcopy(p);t=next((t for t in revised['tracks'] if t['id']==args.track),None)
         if t is None:raise ValueError(f'No track {args.track!r}; the tracks are '+', '.join(x['id'] for x in revised['tracks']))

@@ -7,15 +7,16 @@ key says seconds or samples.
 
 Contents: [round.json](#roundjson) · [report.json](#reportjson-render) · [stem_receipts.json](#stem_receiptsjson-render) ·
 [score_review.json](#score_reviewjson-review) · [analysis.json](#analysisjson-analyze) · [compare](#compare_namejson-compare) ·
-[audition.json](#auditionjson-audition) · [clean](#clean-its-report)
+[audition.json](#auditionjson-audition) · [clean](#clean-its-report) · [files.json](#filesjson-every-folder) ·
+[what stays local](#what-stays-local)
 
 ## round.json
 
 `studio.py round` writes `review/` and `render/` (a draft, with `analysis.json` and `compare_<previous>.json`) and
 `round.json`, from the moment the round's folder is made: `kind` and `title` (what made the folder and of which piece),
 `status` (the render's; `FAIL` if it did not finish), `failed` (null, or the `step` that stopped the round and its
-`error`), `questions` (how many review questions), `previous`, the relative paths `review`, `render`, `analysis`,
-`compare`, `seconds` per step and `runtime_seconds`. With `--clip`, the comparison's `clip` names the old-then-new MP3
+`error`), `questions` (how many review questions), `project` and `previous` (relative to the round's folder), the
+relative paths `review`, `render`, `analysis`, `compare`, `seconds` per step and `runtime_seconds`. With `--clip`, the comparison's `clip` names the old-then-new MP3
 (or why it was not made). A round's folder can stand for its render wherever a command takes a render folder;
 `compare` of two rounds names its report after the first, and `analyze` of a round needs `--output` (the round wrote
 its `analysis.json`).
@@ -40,10 +41,12 @@ its `analysis.json`).
 ## stem_receipts.json (render)
 
 One entry per part: `track`, `cache_key` (its cache entry), `cache_hit` (raw synthesis from the cache), `stem_reused`
-(processed stem from the cache), `gain_db` and `reference_level_dbfs` (the gain that set its level), `filter_chain`,
-`raw_sha256`, `stem_sha256`, `same_pitch_retrigger_trims`, and where they apply `soundfont`, `expressive` (crossfaded
-dynamics), `surge` (`rendered_with`, the fallback and why), `stage` (depth and early reflections), `production`
-(what each production tool did) and `seconds` (synthesis and processing).
+(processed stem from the cache), `gain_db` and `reference_level_dbfs` (the gain that set its level), `filter_chain`
+(the FFmpeg processing), `raw_sha256`, `stem_sha256`, `same_pitch_retrigger_trims`, and where they apply `soundfont`,
+`expressive` (crossfaded dynamics), `surge` (`rendered_with`, the fallback and why), `automation_points` (the
+automation, applied after the chain), `nearly_silent` (an audition's context part kept at its own level), `stage`
+(depth and early reflections), `production` (what each production tool did) and `seconds`: `waiting` (for another
+render's hold on the same cache entry, or for memory while other parts held it), `synthesis` and `processing`.
 
 ## score_review.json (review)
 
@@ -77,7 +80,8 @@ the sections, the authored decisions and the questions as a page.
 | `reference_comparison` | with `--reference`: the slope, low and top end, each octave, width, loudness, peak to loudness and loudness range minus the reference's |
 | `master`, `side_minus_mid_db`, `warnings` | `integrated_lufs`, `true_peak_dbtp`, `lra_lu`, `plr_db`; width per band; what the analysis flags |
 
-How to read these is in [measuring.md](measuring.md).
+How to read these is in [measuring.md](measuring.md). At its peak `analyze` holds about ten float64 copies of the
+song (9.7 measured on songs of one to four minutes with 14 parts): about 0.46 GB a minute of music.
 
 ## `compare_<name>.json` (compare)
 
@@ -87,18 +91,39 @@ How to read these is in [measuring.md](measuring.md).
 matches the two files; null where matching by it leaves more than half the file's power, as in a part rewritten), `passages` (each
 `start_s`, `end_s`, `from`, `to` and `follows_part_levels`), `difference_db` and `difference_peak_dbfs`;
 `project_changes` the edits field by field, `synthesis` per part, `master_lufs` both masters' loudness, and `clip`
-the A/B clip.
+the A/B clip. `before`, `after` and the clip's `file` are relative to the report's folder.
 
 ## audition.json (audition)
 
 `versions` in playing order: `sound`, `engine`, `master_lufs`, `part_rms_dbfs`, `part_brightness` (`centroid_hz`,
 `above_2k_pct`, `above_5k_pct`), and where they apply `surge_character`, `surge_controls` (what the mod wheel and
-macros move), `rendered_with`, `fallback` and `reason`, `performance_left_out`. Also `kind`, `title`, `project`, `bars`,
-`each_seconds`, `gap_seconds`, `loudness_lufs` and `fallbacks`. Each version's render is in its numbered folder.
+macros move), `rendered_with`, `fallback` and `reason`, `performance_left_out` (what the sound cannot take, and with
+`--solo` a duck on a part left out). Also `kind`, `title`, `project` (relative to the audition's folder), `track`,
+`bars`, `solo`, `status` (`RUNNING` from the start, then `PASS`, or `FAIL` with `failed`: the `version` that stopped it
+and its `error`), `each_seconds`, `gap_seconds`, `loudness_lufs` and `fallbacks`. Each version's render is in its
+numbered folder.
 
 ## clean (its report)
 
 `studio.py clean` writes nothing of its own; `--json` prints its report: `dry_run` (true unless `--remove` was given),
-`listed` (each folder it removes, or would: `kind` render, round, audition cache or cache entry, `path`, `bytes`),
-`bytes`, `kept` and `cache_entries_kept`, `left_alone` (folders a tool made for another piece, or whose piece cannot be
-read: `kind`, `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the `error`).
+`listed` (each folder it takes files from, or would: `kind` render, round, audition or cache entry, `path`, `bytes`,
+`whole` whether the folder goes, and `kept_inside`, what stays in it: files no tool recorded, or changed since),
+`bytes`, `kept` and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
+files.json (made before 0.4.0), or cache entries holding files renders do not write: `kind`, `path`, `title`, `why`)
+and `not_removed` (what was held open or in use by a render, with the `error`).
+
+## files.json (every folder)
+
+Every folder a command writes holds `files.json`: `kind` (`music-production files`) and `files`, each file the tools
+wrote there by its path relative to the folder, with its size and modification time. `clean` removes a file only
+while that record lists it unchanged, as Ninja's clean tool removes only the outputs its build log names (Ninja
+manual); a file put in such a folder, or changed since, stays. Installed banks and tools keep one in the runtime
+folder: an installer replaces only what it recorded there and sets anything else aside as `<name>.replaced-<time>`.
+
+## What stays local
+
+The records meant to be shared name files relative to their folders: round.json, the comparisons, audition.json and
+the receipts. The logs (`logs/`, and each process's `*.process.json` with its command line) and the configuration
+hold the full local paths, which can include your user name: share a render folder without them. Delivered audio
+carries no tags from the files it was made from (every FFmpeg output is written with `-map_metadata -1`), only
+FFmpeg's encoder tag and, in a loop's OGG, its `LOOPSTART` and `LOOPLENGTH`.

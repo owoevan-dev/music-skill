@@ -26,5 +26,6 @@ def example():
 
 if __name__=='__main__':
     a=argparse.ArgumentParser();a.add_argument('--output',type=Path,required=True);args=a.parse_args()
-    if args.output.exists():raise ValueError('Output exists')
+    from musiclib import files
+    files.fresh(args.output)
     save_json(args.output,example());print(args.output)

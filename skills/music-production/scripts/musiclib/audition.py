@@ -12,15 +12,17 @@ Each version is a passage project (excerpt.extract: held notes re-attack at the 
 the other parts are synthesized once.  The part's stem (before its bus and the shared reverbs) is measured for level,
 spectral centroid and the share of its power above 2 kHz and 5 kHz; the masters are measured by FFmpeg and brought to
 the quietest one's integrated loudness for the MP3.  The figures describe the sounds; they do not rank them."""
+import contextlib
 import copy
 import json
 import math
+import os
 import shutil
 from pathlib import Path
 
 import numpy as np
 
-from . import audio, surge, synth
+from . import audio, files, surge, synth
 from .model import Clock, load_project, save_json, validate
 
 MAX_BARS = 16
@@ -101,10 +103,12 @@ def brightness(x, rate):
 
 
 def audition(project_file, track_id, sounds, first_bar, last_bar, output, config_file, cache=None, solo=False):
+    """Render each version and play them in turn (the module notes).  Every version and the banks it plays are checked
+    before any is rendered; the audition's record, audition.json, is written from the start and says which version
+    stopped it, and the files it wrote are recorded for clean (musiclib.files)."""
     from excerpt import extract  # the scripts folder, as studio.py runs it
     output = Path(output)
-    if output.exists():
-        raise ValueError(f'{output} exists; outputs never overwrite, so choose a new path')
+    files.fresh(output)
     if not 1 <= first_bar <= last_bar or last_bar - first_bar + 1 > MAX_BARS:
         raise ValueError(f'--bars is FIRST-LAST, 1-based, at most {MAX_BARS} bars')
     p = load_project(project_file)
@@ -121,8 +125,8 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
     cfg = audio.load_config(config_file)
     cache = Path(cache) if cache else output / 'cache'
     controls = json.loads(CONTROLS_FILE.read_text(encoding='utf-8'))['presets'] if CONTROLS_FILE.is_file() else {}
-    output.mkdir(parents=True)
     rows, cuts = [], []
+    from . import layered
     from .render import render  # imported here: render pulls in every engine
     versions = []
     for i, sound in enumerate([None] + list(sounds)):
@@ -131,87 +135,115 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
             q['tracks'] = [t for t in q['tracks'] if t['id'] == track_id]
         part = next(t for t in q['tracks'] if t['id'] == track_id)
         left_out = with_sound(part, sound) if sound is not None else []
+        if solo and part['mix'].get('duck'):
+            # A duck follows another part, which a solo audition leaves out: the part plays without it, and says so.
+            part['mix'].pop('duck')
+            left_out.append('duck')
         q['clock']['tail_seconds'] = max(q['clock'].get('tail_seconds', 0), 2)
         try:
-            validate(q)  # every version is checked before any is rendered
+            validate(q)  # every version is checked before any is rendered, and every bank it plays
+            for t in q['tracks']:
+                if t['engine'] == 'soundfont':
+                    problem = layered.unsupported(t, audio.soundfont_for(cfg, t)[1]['path'])
+                    if problem:
+                        raise ValueError(problem)
         except ValueError as e:
             raise ValueError(f'{label(sound)}: {e}') from e
         versions.append((i, sound, q, part, left_out))
-    for i, sound, q, part, left_out in versions:
-        folder = output / f'{i:02d}_{label(sound)}'
-        folder.mkdir()
-        # A patch with its own long reverb or delay may still ring when the project's tail ends, which fails the
-        # render's quiet-tail check; an audition only plays the passage and a short ring-out, so it renders again
-        # with a longer tail.
-        for tail in (q['clock']['tail_seconds'], 10, 30):
-            q['clock']['tail_seconds'] = tail
-            validate(q)
-            save_json(folder / 'song.json', q)
-            try:
-                # A draft: the audition plays the master and measures the stem, which a full render would only add to.
-                render(folder / 'song.json', folder / 'render', config_file, cache, draft=True)
-                break
-            except ValueError:
-                report = folder / 'render' / 'report.json'
-                checks = json.loads(report.read_text(encoding='utf-8')).get('checks', {}) if report.is_file() else {}
-                if tail == 30 or [k for k, ok in checks.items() if not ok] != ['tail_quiet']:
-                    raise
-                shutil.rmtree(folder / 'render')
-        stem, rate = audio.read_wav(folder / 'render' / 'stems' / f'{track_id}.wav')[0], audio.RATE
-        master = audio.read_wav(folder / 'render' / 'master.wav')[0]
-        lufs = audio.measure(cfg, folder / 'render' / 'master.wav', folder, 'measure')['integrated_lufs']
-        played = sound or (('surge', part['surge']['preset']) if part['engine'] == 'surge' else None)
-        receipts = json.loads((folder / 'render' / 'stem_receipts.json').read_text(encoding='utf-8'))
-        heard = next((r.get('surge') for r in receipts if r.get('track') == track_id), None) or {}
-        row = {'order': i + 1, 'sound': label(sound), 'engine': part['engine'], 'master_lufs': round(lufs, 2),
-               'part_rms_dbfs': round(20 * math.log10(max(1e-12, audio.rms(stem))), 1),
-               'part_brightness': brightness(stem, rate)}
-        if left_out:
-            row['performance_left_out'] = left_out
-        if heard:
-            # What actually played: a Surge part falls back to a built-in preset where Surge or its patch is missing.
-            row['rendered_with'] = heard.get('rendered_with')
-            if heard.get('rendered_with') != 'Surge XT':
-                row['fallback'], row['reason'] = heard.get('fallback'), heard.get('reason')
-                played = None
-        if played and played[0] == 'surge':
-            found = controls.get(played[1]) or surge.catalog().get(played[1])
-            if found:
-                row['surge_controls'] = {k: found[k] for k in ('wheel', 'macros') if k in found}
-            described = surge.presets()['presets'].get(played[1]) or surge.catalog().get(played[1]) or {}
-            if described.get('character'):
-                row['surge_character'] = described['character']
-        rows.append(row)
-        cuts.append((master, lufs))
-    # The passage's length as played, plus a short ring-out; the quietest version's loudness for all.
-    clock = Clock(passage)
-    n = int((clock.end + TAIL_S) * audio.RATE)
-    target = min(l for _, l in cuts)
-    pieces = []
-    fade = int(.03 * audio.RATE)
-    for master, lufs in cuts:
-        cut = np.zeros((n, master.shape[1]))
-        part = np.asarray(master[:n], dtype=np.float64)
-        cut[:len(part)] = part
-        cut[n - fade:] *= np.linspace(1, 0, fade)[:, None]
-        pieces += [cut * 10 ** ((target - lufs) / 20), np.zeros((int(GAP_S * audio.RATE), cut.shape[1]))]
-    both = np.concatenate(pieces[:-1])
-    peak = float(np.max(np.abs(both)))
-    if peak > .89:
-        both *= .89 / peak
-    audio.write_wav(output / 'audition.wav', both.astype(np.float32))
-    audio.ffmpeg(cfg, ['-i', output / 'audition.wav', '-c:a', 'libmp3lame', '-b:a', '256k', output / 'audition.mp3'], output,
-                 'audition_mp3')
-    report = {'kind': 'music-production audition', 'title': p['title'], 'project': str(Path(project_file).resolve()),
-              'track': track_id, 'bars': [first_bar, last_bar], 'solo': solo,
-              'each_seconds': round(n / audio.RATE, 2), 'gap_seconds': GAP_S, 'loudness_lufs': round(target, 2),
-              'versions': rows,
-              'note': 'Played in this order at one loudness. The figures describe the part\'s sound (its stem, before its '
-                      'bus and the shared reverbs); they do not rank the sounds: listen.'}
-    fell = [r['sound'] for r in rows if r.get('fallback')]
-    if fell:
-        report['fallbacks'] = fell
-        report['note'] += (' ' + ', '.join(fell) + ' played the fallback preset named in each row, not the Surge patch '
-                           'asked for, so they are not an A/B of those patches.')
-    save_json(output / 'audition.json', report)
-    return report
+    output.mkdir(parents=True)
+    try:
+        project = os.path.relpath(Path(project_file).resolve(), output.resolve()).replace(os.sep, '/')
+    except ValueError:  # another Windows drive: no relative path
+        project = str(Path(project_file).resolve())
+    record = {'kind': 'music-production audition', 'title': p['title'], 'project': project, 'track': track_id,
+              'bars': [first_bar, last_bar], 'solo': solo, 'status': 'RUNNING', 'failed': None, 'versions': rows}
+    save_json(output / 'audition.json', record)
+    folders, current = [], None
+    try:
+        for i, sound, q, part, left_out in versions:
+            current = label(sound)
+            folder = output / f'{i:02d}_{label(sound)}'
+            folder.mkdir()
+            folders.append(folder)
+            # A patch with its own long reverb or delay may still ring when the project's tail ends, which fails the
+            # render's quiet-tail check; an audition only plays the passage and a short ring-out, so it renders again
+            # with a longer tail, up to the 15 s validate allows.  The last try's render stays, with its report.
+            tails = [q['clock']['tail_seconds']] + [x for x in (10, 15) if x > q['clock']['tail_seconds']]
+            # The other parts may barely sound in the passage (a held note's last moment): they play at their own level.
+            quiet = {t['id'] for t in q['tracks'] if t['id'] != track_id}
+            for k, tail in enumerate(tails):
+                q['clock']['tail_seconds'] = tail
+                validate(q)
+                save_json(folder / 'song.json', q)
+                try:
+                    # A draft: the audition plays the master and measures the stem, which a full render would only add to.
+                    render(folder / 'song.json', folder / 'render', config_file, cache, draft=True, quiet=quiet)
+                    break
+                except ValueError:
+                    report = folder / 'render' / 'report.json'
+                    checks = json.loads(report.read_text(encoding='utf-8')).get('checks', {}) if report.is_file() else {}
+                    if k == len(tails) - 1 or [c for c, ok in checks.items() if not ok] != ['tail_quiet']:
+                        raise
+                    shutil.rmtree(folder / 'render')  # this run's own render, made again with a longer tail
+            stem, rate = audio.read_wav(folder / 'render' / 'stems' / f'{track_id}.wav')[0], audio.RATE
+            master = audio.read_wav(folder / 'render' / 'master.wav')[0]
+            lufs = audio.measure(cfg, folder / 'render' / 'master.wav', folder, 'measure')['integrated_lufs']
+            played = sound or (('surge', part['surge']['preset']) if part['engine'] == 'surge' else None)
+            receipts = json.loads((folder / 'render' / 'stem_receipts.json').read_text(encoding='utf-8'))
+            heard = next((r.get('surge') for r in receipts if r.get('track') == track_id), None) or {}
+            row = {'order': i + 1, 'sound': label(sound), 'engine': part['engine'], 'master_lufs': round(lufs, 2),
+                   'part_rms_dbfs': round(20 * math.log10(max(1e-12, audio.rms(stem))), 1),
+                   'part_brightness': brightness(stem, rate)}
+            if left_out:
+                row['performance_left_out'] = left_out
+            if heard:
+                # What actually played: a Surge part falls back to a built-in preset where Surge or its patch is missing.
+                row['rendered_with'] = heard.get('rendered_with')
+                if heard.get('rendered_with') != 'Surge XT':
+                    row['fallback'], row['reason'] = heard.get('fallback'), heard.get('reason')
+                    played = None
+            if played and played[0] == 'surge':
+                found = controls.get(played[1]) or surge.catalog().get(played[1])
+                if found:
+                    row['surge_controls'] = {k: found[k] for k in ('wheel', 'macros') if k in found}
+                described = surge.presets()['presets'].get(played[1]) or surge.catalog().get(played[1]) or {}
+                if described.get('character'):
+                    row['surge_character'] = described['character']
+            rows.append(row)
+            cuts.append((master, lufs))
+        current = 'the A/B'
+        # The passage's length as played, plus a short ring-out; the quietest version's loudness for all.
+        clock = Clock(passage)
+        n = int((clock.end + TAIL_S) * audio.RATE)
+        target = min(l for _, l in cuts)
+        pieces = []
+        fade = int(.03 * audio.RATE)
+        for master, lufs in cuts:
+            cut = np.zeros((n, master.shape[1]))
+            part = np.asarray(master[:n], dtype=np.float64)
+            cut[:len(part)] = part
+            cut[n - fade:] *= np.linspace(1, 0, fade)[:, None]
+            pieces += [cut * 10 ** ((target - lufs) / 20), np.zeros((int(GAP_S * audio.RATE), cut.shape[1]))]
+        both = np.concatenate(pieces[:-1])
+        peak = float(np.max(np.abs(both)))
+        if peak > .89:
+            both *= .89 / peak
+        audio.write_wav(output / 'audition.wav', both.astype(np.float32))
+        audio.ffmpeg(cfg, ['-i', output / 'audition.wav', '-c:a', 'libmp3lame', '-b:a', '256k', output / 'audition.mp3'], output,
+                     'audition_mp3')
+        record.update(status='PASS', each_seconds=round(n / audio.RATE, 2), gap_seconds=GAP_S, loudness_lufs=round(target, 2),
+                      note='Played in this order at one loudness. The figures describe the part\'s sound (its stem, before '
+                           'its bus and the shared reverbs); they do not rank the sounds: listen.')
+        fell = [r['sound'] for r in rows if r.get('fallback')]
+        if fell:
+            record['fallbacks'] = fell
+            record['note'] += (' ' + ', '.join(fell) + ' played the fallback preset named in each row, not the Surge patch '
+                               'asked for, so they are not an A/B of those patches.')
+        return record
+    except BaseException as e:
+        record.update(status='FAIL', failed={'version': current, 'error': str(e) or type(e).__name__})
+        raise
+    finally:
+        save_json(output / 'audition.json', record)
+        with contextlib.suppress(OSError):  # what the audition wrote, for clean; each render and the cache keep their own
+            files.register_tree(output, skip={f / 'render' for f in folders} | {output / 'cache'})

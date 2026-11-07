@@ -37,7 +37,7 @@ import numpy as np
 
 from . import audio
 from .measure import k_filter, level, release
-from .model import Clock
+from .model import Clock, load_project
 
 RATE = audio.RATE
 BANDS = [(20, 60), (60, 250), (250, 800), (800, 2500), (2500, 6000), (6000, 16000)]
@@ -287,7 +287,9 @@ def analyze(render_dir, bar_spans=(), reference=None):
     """`bar_spans`: (name, first bar, last bar), 1-based and inclusive, measured like the sections.  `reference`:
     (name, measures) from load_reference."""
     render_dir = Path(render_dir)
-    p = json.loads((render_dir / 'project.json').read_text(encoding='utf-8'))
+    # The project as the render wrote it, read as any project is (size bounded, validated): a render folder from
+    # elsewhere cannot name stems outside it or ask for an unbounded length.
+    p = load_project(render_dir / 'project.json')
     clock = Clock(p)
     spans = section_spans(p, clock)
     bpb = clock.beats_per_bar

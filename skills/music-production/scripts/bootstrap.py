@@ -22,6 +22,7 @@ them, Surge parts play their fallback presets on the built-in synth.
 External files keep their own licences.
 """
 import argparse
+import hashlib
 import http.client
 import json
 import os
@@ -38,49 +39,64 @@ import sys
 import urllib.parse
 import urllib.request
 import zipfile
+from musiclib import files
 from musiclib.model import file_hash,save_json
 
 HOSTS=('github.com','raw.githubusercontent.com','release-assets.githubusercontent.com','objects.githubusercontent.com')
 MIN_FFMPEG=6
 
 def safe_extract(path,target,only=None):
-    """Extract a zip after checking every member; with `only`, just the members under that prefix."""
-    target=Path(target).resolve();target.mkdir(parents=True,exist_ok=True)
-    with zipfile.ZipFile(path) as z:
-        infos=z.infolist()
-        if len(infos)>10000 or sum(i.file_size for i in infos)>800_000_000:raise ValueError('Archive exceeds limits')
-        for i in infos:
-            p=PurePosixPath(i.filename)
-            if p.is_absolute() or '..' in p.parts or ':' in i.filename or '\\' in i.filename or ((i.external_attr>>16)&0o170000)==0o120000:
-                raise ValueError('Unsafe archive member')
-            if only and not i.filename.startswith(only):continue
-            out=(target/Path(*p.parts)).resolve();out.relative_to(target)
-            if i.is_dir():out.mkdir(parents=True,exist_ok=True);continue
-            if i.file_size>350_000_000:raise ValueError('Archive member too large')
-            out.parent.mkdir(parents=True,exist_ok=True)
-            with z.open(i) as src,out.open('wb') as dst:shutil.copyfileobj(src,dst,1024*1024)
-            mode=(i.external_attr>>16)&0o777  # Unix permission bits, kept so an extracted plugin stays loadable
-            if os.name!='nt' and mode:os.chmod(out,mode)
+    """Extract a zip after checking every member; with `only`, just the members under that prefix.  The members are
+    written into a new private folder, then put in `target` (musiclib.files.install_tree): a file the installer did not
+    put there is set aside, never written through or lost.  Returns the files set aside."""
+    target=Path(target).resolve();staging=files.staging_folder(target)
+    try:
+        with zipfile.ZipFile(path) as z:
+            infos=z.infolist()
+            if len(infos)>10000 or sum(i.file_size for i in infos)>800_000_000:raise ValueError('Archive exceeds limits')
+            for i in infos:
+                p=PurePosixPath(i.filename)
+                if p.is_absolute() or '..' in p.parts or ':' in i.filename or '\\' in i.filename or ((i.external_attr>>16)&0o170000)==0o120000:
+                    raise ValueError('Unsafe archive member')
+                if only and not i.filename.startswith(only):continue
+                out=(staging/Path(*p.parts)).resolve();out.relative_to(staging)
+                if i.is_dir():out.mkdir(parents=True,exist_ok=True);continue
+                if i.file_size>350_000_000:raise ValueError('Archive member too large')
+                out.parent.mkdir(parents=True,exist_ok=True)
+                with z.open(i) as src,out.open('xb') as dst:shutil.copyfileobj(src,dst,1024*1024)
+                mode=(i.external_attr>>16)&0o777  # Unix permission bits, kept so an extracted plugin stays loadable
+                if os.name!='nt' and mode:os.chmod(out,mode)
+    except BaseException:
+        shutil.rmtree(staging,ignore_errors=True);raise
+    return files.install_tree(staging,target)
 
 def safe_extract_tar(path,target,only=None):
     """Extract a .tar.gz after checking every member: regular files and folders only (no link), no absolute path and
     none outside the target.  A leading "./" is dropped from the names, `only` keeps the members under that prefix, and
-    the permission bits are kept."""
-    target=Path(target).resolve();target.mkdir(parents=True,exist_ok=True)
-    with tarfile.open(path,'r:gz') as t:
-        members=t.getmembers()
-        if len(members)>10000 or sum(m.size for m in members)>800_000_000:raise ValueError('Archive exceeds limits')
-        for m in members:
-            name=m.name[2:] if m.name.startswith('./') else m.name;p=PurePosixPath(name)
-            if not (m.isfile() or m.isdir()) or p.is_absolute() or '..' in p.parts or ':' in name or '\\' in name:
-                raise ValueError('Unsafe archive member')
-            if only and not name.startswith(only):continue
-            out=(target/Path(*p.parts)).resolve();out.relative_to(target)
-            if m.isdir():out.mkdir(parents=True,exist_ok=True);continue
-            if m.size>350_000_000:raise ValueError('Archive member too large')
-            out.parent.mkdir(parents=True,exist_ok=True)
-            with t.extractfile(m) as src,out.open('wb') as dst:shutil.copyfileobj(src,dst,1024*1024)
-            if os.name!='nt':os.chmod(out,m.mode&0o777)
+    the permission bits are kept.  Put in `target` as safe_extract does.  Returns the files set aside."""
+    target=Path(target).resolve();staging=files.staging_folder(target)
+    try:
+        with tarfile.open(path,'r:gz') as t:
+            members=t.getmembers()
+            if len(members)>10000 or sum(m.size for m in members)>800_000_000:raise ValueError('Archive exceeds limits')
+            for m in members:
+                name=m.name[2:] if m.name.startswith('./') else m.name;p=PurePosixPath(name)
+                if not (m.isfile() or m.isdir()) or p.is_absolute() or '..' in p.parts or ':' in name or '\\' in name:
+                    raise ValueError('Unsafe archive member')
+                if only and not name.startswith(only):continue
+                out=(staging/Path(*p.parts)).resolve();out.relative_to(staging)
+                if m.isdir():out.mkdir(parents=True,exist_ok=True);continue
+                if m.size>350_000_000:raise ValueError('Archive member too large')
+                out.parent.mkdir(parents=True,exist_ok=True)
+                with t.extractfile(m) as src,out.open('xb') as dst:shutil.copyfileobj(src,dst,1024*1024)
+                if os.name!='nt':os.chmod(out,m.mode&0o777)
+    except BaseException:
+        shutil.rmtree(staging,ignore_errors=True);raise
+    return files.install_tree(staging,target)
+
+def note_aside(moved):
+    """Name the files an install set aside (musiclib.files.place): they were not put there by bootstrap."""
+    for m in moved or []:print('SET ASIDE',m,'| bootstrap did not install it there; it is kept under this name',flush=True)
 
 class Allowed(urllib.request.HTTPRedirectHandler):
     """Follows a redirect only to an allowed host over HTTPS, checked before the request is made."""
@@ -92,23 +108,25 @@ class Allowed(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req,fp,code,msg,headers,newurl)
 
 def download(item,archive,offline):
-    if archive.exists():return
+    """Download to `archive` through a new file of its own (musiclib.files.staged), hashed as it arrives: it takes the
+    archive's place only with the locked size and SHA-256, and is removed otherwise.  Two runs never share it.  An
+    archive already there is left for the caller, which checks it."""
+    if files.occupied(archive):return
     if offline:raise ValueError('Offline cache missing '+str(archive))
     parts=urllib.parse.urlsplit(item['url'])
     if parts.scheme!='https' or parts.hostname not in HOSTS:raise ValueError('Host not allowed: '+item['url'])
     request=urllib.request.Request(item['url'],headers={'User-Agent':'MusicProductionSkill/1.0'})
     with urllib.request.build_opener(Allowed).open(request,timeout=60) as r:
         if urllib.parse.urlsplit(r.url).hostname not in HOSTS:raise ValueError('Unexpected download redirect')
-        temp=archive.with_name(archive.name+'.partial');count=0
-        with temp.open('wb') as out:
+        count=0;digest=hashlib.sha256()
+        with files.staged(archive) as out:
             while True:
                 data=r.read(1024*1024)
                 if not data:break
                 count+=len(data)
                 if count>item['bytes']:raise ValueError('Download exceeds locked size')
-                out.write(data)
-        if count!=item['bytes'] or file_hash(temp)!=item['sha256']:raise ValueError('Download integrity failed')
-        temp.replace(archive)
+                digest.update(data);out.write(data)
+            if count!=item['bytes'] or digest.hexdigest()!=item['sha256']:raise ValueError('Download integrity failed')
 
 def system_tool(name,given):
     """A fluidsynth/ffmpeg executable from the system: its path, hash and the first line of its version output."""
@@ -147,7 +165,7 @@ def surge_plugin(lock,runtime,cache,args,system):
     if key in s:
         item=s[key];archive=cache/item['filename'];download(item,archive,args.offline)
         if archive.stat().st_size!=item['bytes'] or file_hash(archive)!=item['sha256']:raise ValueError('Archive integrity failed: surge_xt')
-        target=runtime/'surge_xt';(safe_extract_tar if item['filename'].endswith('.tar.gz') else safe_extract)(archive,target,item['extract'])
+        target=runtime/'surge_xt';note_aside((safe_extract_tar if item['filename'].endswith('.tar.gz') else safe_extract)(archive,target,item['extract']))
         binary=target/item['executable']
         if file_hash(binary)!=item['executable_sha256']:raise ValueError('Executable integrity failed: surge_xt')
         return (binary if key=='windows-x86_64' else target/item['extract'].rstrip('/')),binary,item['url']
@@ -172,8 +190,11 @@ def pedalboard_wheel(lock,cache,offline):
             for f in chosen.glob('*.whl'):
                 w=wheels.get(f.name)
                 if w and f.stat().st_size==w['bytes'] and file_hash(f)==w['sha256']:
-                    # The verified bytes take the cached name, over a damaged copy if one is there.
-                    temp=cache/(f.name+'.partial');shutil.copyfile(f,temp);os.replace(temp,cache/f.name)
+                    # The verified bytes take the cached name (through a file of their own), over a damaged copy.
+                    temp=files.stage_name(cache/f.name,'.whl')
+                    try:shutil.copyfile(f,temp);os.replace(temp,cache/f.name)
+                    except BaseException:
+                        temp.unlink(missing_ok=True);raise
                     return cache/f.name,w
             return None,None
         finally:shutil.rmtree(chosen,ignore_errors=True)
@@ -200,24 +221,33 @@ def _install_surge(lock,runtime,cache,args,system,config):
     done=subprocess.run([sys.executable,'-m','pip','install','--no-deps','--no-index','--no-cache-dir','--target',str(pylib),str(wheel),'-q'],
                         capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL,creationflags=flags)
     if done.returncode or not (pylib/'pedalboard').is_dir():raise ValueError('pedalboard install failed: '+(done.stderr or '').strip()[-300:])
+    # pip's RECORD lists every file it installed with its hash (PEP 376, the wheel format); its own hash goes in the
+    # configuration, and a render checks the installed files against it (musiclib.surge.board_intact).
+    records=sorted(pylib.glob('pedalboard-*.dist-info/RECORD'))
+    from musiclib.surge import board_intact
+    if len(records)!=1 or not board_intact(pylib):raise ValueError('pedalboard installed without a RECORD that matches its files')
     presets=json.loads((Path(__file__).resolve().parents[1]/'references'/'surge-presets.json').read_text(encoding='utf-8'))
-    src=presets['source'];patches=runtime/'surge_patches'
-    for name,p in presets['presets'].items():
-        local=cache/'surge_patches'/p['patch'];local.parent.mkdir(parents=True,exist_ok=True)
-        url=f'https://raw.githubusercontent.com/surge-synthesizer/surge/{src["commit"]}/{src["path"]}/'+urllib.parse.quote(p['patch'])
-        download({'url':url,'bytes':p['bytes'],'sha256':p['sha256']},local,args.offline)
-        if local.stat().st_size!=p['bytes'] or file_hash(local)!=p['sha256']:raise ValueError('Patch integrity failed: '+name)
-        out=patches/p['patch'];out.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(local,out)
+    src=presets['source'];patches=runtime/'surge_patches';staging=files.staging_folder(patches)
+    try:
+        for name,p in presets['presets'].items():
+            local=cache/'surge_patches'/p['patch'];local.parent.mkdir(parents=True,exist_ok=True)
+            url=f'https://raw.githubusercontent.com/surge-synthesizer/surge/{src["commit"]}/{src["path"]}/'+urllib.parse.quote(p['patch'])
+            download({'url':url,'bytes':p['bytes'],'sha256':p['sha256']},local,args.offline)
+            if local.stat().st_size!=p['bytes'] or file_hash(local)!=p['sha256']:raise ValueError('Patch integrity failed: '+name)
+            out=staging/p['patch'];out.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(local,out)
+    except BaseException:
+        shutil.rmtree(staging,ignore_errors=True);raise
+    note_aside(files.install_tree(staging,patches))
     s=lock['optional']['surge_xt'];board=lock['optional']['pedalboard']
     config['surge']={'path':str(plugin),'binary':str(binary),'sha256':file_hash(binary),'version':s['version'] if source.startswith('https://') else 'system install (version not checked)','license':s['license'],'source':source,'patches':str(patches)}
-    config['pedalboard']={'path':str(pylib),'sha256':meta['sha256'],'version':board['version'],'license':board['license'],'source':meta['url']}
+    config['pedalboard']={'path':str(pylib),'sha256':meta['sha256'],'record_sha256':file_hash(records[0]),'version':board['version'],'license':board['license'],'source':meta['url']}
     print('VERIFIED surge_xt |',len(presets['presets']),'curated patches',flush=True)
 
 def install_catalog(runtime,cache,args,config):
     """Every patch of the Surge catalog, each checked by size and hash, into the runtime folder; a failure is reported and
     leaves parts that name a catalog patch on their fallback presets, while the curated patches keep working."""
     doc=json.loads((Path(__file__).resolve().parents[1]/'references'/'surge-catalog.json').read_text(encoding='utf-8'))
-    origin=doc['origin'];target=runtime/'surge_patches_all'
+    origin=doc['origin'];target=runtime/'surge_patches_all';staging=files.staging_folder(target)
     def one(e):
         local=cache/'surge_patches_all'/e['path'];local.parent.mkdir(parents=True,exist_ok=True)
         url=f'https://raw.githubusercontent.com/surge-synthesizer/surge/{origin["commit"]}/{origin["path"]}/'+urllib.parse.quote(e['path'])
@@ -227,10 +257,12 @@ def install_catalog(runtime,cache,args,config):
                 if attempt==3 or args.offline:raise
                 time.sleep(2**attempt)
         if local.stat().st_size!=e['bytes'] or file_hash(local)!=e['sha256']:raise ValueError('Patch integrity failed: '+e['path'])
-        out=target/e['path'];out.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(local,out)
+        out=staging/e['path'];out.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(local,out)
     try:
         with ThreadPoolExecutor(8) as pool:list(pool.map(one,doc['presets'].values()))
+        note_aside(files.install_tree(staging,target))
     except (ValueError,OSError,http.client.HTTPException) as err:
+        shutil.rmtree(staging,ignore_errors=True)
         print(f'SKIPPED surge_catalog | {err}; parts that name a catalog patch use their fallback presets',flush=True);return
     config['surge']['catalog']=str(target)
     print('VERIFIED surge_catalog |',len(doc['presets']),'patches',flush=True)
@@ -245,7 +277,7 @@ def main():
     ap.add_argument('--no-surge-catalog',action='store_true',help='skip the full Surge patch set (about 217 MB): only the curated patches; parts that name a catalog patch play their fallback presets')
     args=ap.parse_args()
     system=args.system or os.name!='nt'
-    if args.config.exists():raise ValueError('Configuration exists; choose a new path')
+    if files.occupied(args.config):raise ValueError('Configuration exists; choose a new path')
     runtime=args.runtime.resolve();runtime.mkdir(parents=True,exist_ok=True)
     lock=json.loads((Path(__file__).resolve().parents[1]/'references'/'runtime-lock.json').read_text(encoding='utf-8'))
     cache=args.archive_cache.resolve() if args.archive_cache else runtime/'downloads';cache.mkdir(parents=True,exist_ok=True)
@@ -259,12 +291,20 @@ def main():
         archive=cache/item['filename'];download(item,archive,args.offline)
         if archive.stat().st_size!=item['bytes'] or file_hash(archive)!=item['sha256']:raise ValueError('Archive integrity failed: '+item['id'])
         if executable:
-            target=runtime/item['id'];safe_extract(archive,target);exe=target/item['executable']
+            target=runtime/item['id'];note_aside(safe_extract(archive,target));exe=target/item['executable']
             if file_hash(exe)!=item['executable_sha256']:raise ValueError('Executable integrity failed')
             config[item['id']]={'path':str(exe),'sha256':item['executable_sha256'],'version':item['version'],'license':item['license'],'source':item['url']}
         else:
             target=runtime/item['filename']
-            if target.resolve()!=archive.resolve():shutil.copy2(archive,target)
+            if target.resolve()!=archive.resolve():
+                # A copy of its own first, then put in place (musiclib.files.place): nothing at the name is written through.
+                temp=files.stage_name(target,'.copy')
+                try:
+                    shutil.copy2(archive,temp);moved=files.place(temp,target,runtime)
+                except BaseException:
+                    temp.unlink(missing_ok=True);raise
+                note_aside([moved] if moved else [])
+                files.register(runtime,[target])
             if item['id']=='soundfont':config['soundfont']={'path':str(target),'sha256':item['sha256'],'version':item['version'],'license':item['license'],'source':item['url']}
         receipts.append({**item,'local_archive':str(archive)})
         print('VERIFIED',item['id'],flush=True)

@@ -4,10 +4,8 @@ import difflib
 import hashlib
 import json
 import math
-import os
 from pathlib import Path
 import re
-import threading
 
 TPQ = 960
 # The bus mix (mix.chain "bus", musiclib.mixbus): buses a track can join and spaces its reverb send can feed.
@@ -15,20 +13,12 @@ BUSES = ('drums', 'bass', 'rhythm', 'ensemble', 'lead', 'fx')
 SPACES = ('room', 'plate', 'hall', 'church')
 
 def save_json(path, value):
-    """Write JSON whole: to a file named for this process and thread beside it, then swapped in, so a reader never
-    sees half a file and two writers (renders sharing a cache) never write one temporary file."""
+    """Write JSON whole (musiclib.files.staged): a reader never sees half a file, two writers never share a temporary
+    file, and nothing already at a temporary name is written through."""
+    from .files import write_json
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(f'{path.name}.{os.getpid()}.{threading.get_ident()}.tmp')
-    try:
-        temp.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
-        temp.replace(path)
-    except BaseException:
-        try:
-            temp.unlink()
-        except OSError:
-            pass
-        raise
+    write_json(path, value)
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
@@ -96,6 +86,25 @@ def unknown_note_fields(notes, kind, where, warnings):
     for key, count in sorted(seen.items()):
         unknown_fields({key: None}, kind, where, warnings, count)
 
+def rubato_spans(project):
+    """The ritardandi `clock.rubato` lays over the written tempo, as (from_beat, to_beat, ratio): the last
+    `phrase_beats` before each section boundary, the last `final_beats` of the piece, and any written `spans` (an
+    excerpt's: the piece's ritardandi that reach into the passage, which may begin before its first beat or end after
+    its last)."""
+    c = project['clock']
+    r = c.get('rubato') or {}
+    bpb = c['meter'][0] * 4 / c['meter'][1]
+    total = bpb * c['bars']
+    spans = []
+    if r.get('phrase_beats', 0) > 0:
+        for sec in project.get('sections', [])[1:]:
+            end = sec['start_bar'] * bpb
+            if 0 < end < total:
+                spans.append((max(0.0, end - r['phrase_beats']), end, r.get('phrase_ratio', 0.94)))
+    if r.get('final_beats', 0) > 0:
+        spans.append((max(0.0, total - r['final_beats']), total, r.get('final_ratio', 0.6)))
+    return spans + [(float(a), float(b), w) for a, b, w in r.get('spans', [])]
+
 def effective_tempo(project):
     """The tempo map as played: the authored one, with `clock.rubato` applied.  Friberg and Sundberg (1999) model a
     final ritardando on runners stopping: tempo v(x) = (1 + (w^q - 1) x)^(1/q) over the last `final_beats`, x running
@@ -111,22 +120,16 @@ def effective_tempo(project):
     total = c['meter'][0] * 4 / c['meter'][1] * c['bars']
     base = lambda b: next(v for beat, v in reversed(tempo) if beat <= b + 1e-9)
     q = r.get('q', 2.0)
-    spans = []
-    bpb = c['meter'][0] * 4 / c['meter'][1]
-    if r.get('phrase_beats', 0) > 0:
-        for sec in project.get('sections', [])[1:]:
-            end = sec['start_bar'] * bpb
-            if 0 < end < total:
-                spans.append((max(0.0, end - r['phrase_beats']), end, r.get('phrase_ratio', 0.94)))
-    if r.get('final_beats', 0) > 0:
-        spans.append((max(0.0, total - r['final_beats']), total, r.get('final_ratio', 0.6)))
     steps = {}
-    for a, b, w in spans:
+    for a, b, w in rubato_spans(project):
         k = 0
         while a + k / 8 < b - 1e-9:
             beat = a + k / 8
-            x = (beat + 1 / 16 - a) / (b - a)
-            steps[round(beat, 6)] = (w, x)
+            # A span may begin before beat 0 or end after the last beat (an excerpt's, cut from a piece): the step
+            # sounding at beat 0 starts there, and steps after the end are not played.
+            if beat + 1 / 8 > 1e-9 and beat < total - 1e-9:
+                x = (beat + 1 / 16 - a) / (b - a)
+                steps[round(max(beat, 0.0), 6)] = (w, x)
             k += 1
         steps.setdefault(round(b, 6), None)  # back to the written tempo at the boundary
     out = {round(b, 6): v for b, v in tempo}
@@ -187,10 +190,16 @@ def _validate(p):
     number(c.get('tail_seconds',5),1,15,'tail')
     r=c.get('rubato')
     if r is not None:
-        if not isinstance(r,dict) or set(r)-{'final_ratio','final_beats','phrase_ratio','phrase_beats','q'}:raise ValueError('clock.rubato takes final_ratio, final_beats, phrase_ratio, phrase_beats and q')
+        if not isinstance(r,dict) or set(r)-{'final_ratio','final_beats','phrase_ratio','phrase_beats','q','spans'}:raise ValueError('clock.rubato takes final_ratio, final_beats, phrase_ratio, phrase_beats, q and spans')
         number(r.get('final_ratio',.6),.3,1,'rubato final ratio');number(r.get('final_beats',0),0,32,'rubato final beats')
         number(r.get('phrase_ratio',.94),.7,1,'rubato phrase ratio');number(r.get('phrase_beats',0),0,8,'rubato phrase beats')
         number(r.get('q',2),1,4,'rubato q')
+        spans=r.get('spans',[]);length=c['bars']*c['meter'][0]*4/c['meter'][1]
+        if not isinstance(spans,list) or len(spans)>512:raise ValueError('rubato spans: a list of at most 512 [from_beat, to_beat, ratio]')
+        for s in spans:
+            if not isinstance(s,list) or len(s)!=3:raise ValueError('rubato spans: each is [from_beat, to_beat, ratio]')
+            number(s[0],-32,length,'rubato span from beat');number(s[1],0,length+32,'rubato span to beat');number(s[2],.3,1,'rubato span ratio')
+            if not 0<s[1]-s[0]<=32:raise ValueError(f'rubato span {s}: it runs forward, over at most 32 beats')
     if not 1<=len(c['tempo'])<=2048 or c['tempo'][0][0]!=0:
         raise ValueError('Tempo map must start at zero')
     total=c['bars']*c['meter'][0]*4/c['meter'][1]
@@ -426,24 +435,41 @@ def _track(p,t,c,total,clock,warnings):
     for expressive in (True,False):performed(t,clock,expressive)
     return events
 
+def tick_of(beat):
+    """The tick a position in beats plays on: the nearest, a half tick to the even one (Python's round()).  A position
+    within float error of a tick or a half tick is taken as exactly there first, so one position computed along two
+    paths, a piece and its excerpt, lands on one tick: an excerpt starts on a bar line, a whole and even number of
+    ticks into the piece (bars are multiples of 120 ticks), and rounding a half to even does not change under such a
+    shift."""
+    v=beat*TPQ;h=round(v*2)
+    if abs(v*2-h)<2e-6:v=h/2
+    return round(v)
+
 def performed(track,clock,expressive=True):
     """Return actual MIDI-grid onset/release. Trim only overlapping same-key retriggers.
     `performance.offset_ms` shifts a whole part (e.g. sounding earlier to offset slow sample attacks)."""
     notes=[];offset=track['performance'].get('offset_ms',0)/1000 if expressive else 0
     sw=track['performance'].get('swing') if expressive else None
+    bar=clock.beats_per_bar
     def swung(b):
         # Swing warps time inside each pair of `unit` notes (0.5 beat swings eighths, 0.25 sixteenths): the first of
         # the pair stretches to `ratio` of it, so the off-beat lands late and anything between moves in proportion.
+        # The pairs are counted from each bar line, as a drum machine delays the even-numbered steps of the beat (Linn
+        # 2013), so every bar swings alike; a bar with an odd number of units (eighths in 5/8, quarters in 3/4) plays
+        # its last one straight.
         if not sw:return b
-        u,r=2*sw.get('unit',.5),sw['ratio'];k=math.floor(b/u+1e-9);x=b/u-k
-        return u*(k+(x*2*r if x<=.5 else r+(x-.5)*2*(1-r)))
+        u,r=2*sw.get('unit',.5),sw['ratio']
+        start=math.floor(b/bar+1e-9)*bar;k=math.floor((b-start)/u+1e-9)
+        if (k+1)*u>bar+1e-9:return b
+        x=(b-start)/u-k
+        return start+u*(k+(x*2*r if x<=.5 else r+(x-.5)*2*(1-r)))
     for n in track['notes']:
         e=track['performance']['notes'][n['id']]
         on,off=swung(n['on']),swung(n['on']+n['duration'])
         start=clock.seconds(on) + (e.get('timing_ms',0)/1000 if expressive else 0)+offset
         duration=(clock.seconds(off)-clock.seconds(on))*(e.get('gate',1) if expressive else 1)
-        tick=max(0,round(clock.beat(start)*TPQ))
-        stop=max(tick+1,min(round(clock.total_beats*TPQ),round(clock.beat(start+duration)*TPQ)))
+        tick=max(0,tick_of(clock.beat(start)))
+        stop=max(tick+1,min(round(clock.total_beats*TPQ),tick_of(clock.beat(start+duration))))
         notes.append({'id':n['id'],'pitch':n['pitch'],'tick':tick,'end_tick':stop,'velocity':e['velocity'] if expressive else 80})
     def clash(a,b,what,fix):
         beat=b['tick']/TPQ;bar=int(beat//clock.beats_per_bar)+1

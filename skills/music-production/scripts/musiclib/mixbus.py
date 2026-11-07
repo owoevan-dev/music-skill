@@ -202,14 +202,14 @@ def mix(p, clock, cfg, output, frames, tracks=None, premix=None):
     graph.append(''.join(sums) + f'amix=inputs={len(sums)}:normalize=0:duration=longest,'
                  f'atrim=end_sample={frames}{fade}[mix]')
     text = ';\n'.join(graph)
-    (output / 'mix.filtergraph.txt' if full else premix.with_suffix('.filtergraph.txt')).write_text(text, encoding='utf-8')
+    graph_options = audio.graph_file(cfg, output / 'mix.filtergraph.txt' if full else premix.with_suffix('.filtergraph.txt'), text)
     exports = []
     for b in BUSES:
         if dry[b] and full:
             exports += ['-map', f'[busexp_{b}]', '-ar', str(RATE), '-c:a', 'pcm_f32le', returns / f'bus_{b}.wav']
     for label, path in returned if full else ():
         exports += ['-map', f'[{label}]', '-ar', str(RATE), '-c:a', 'pcm_f32le', path]
-    audio.ffmpeg(cfg, [*args, '-filter_complex', text, '-map', '[mix]', '-ar', str(RATE), '-c:a', 'pcm_f32le',
+    audio.ffmpeg(cfg, [*args, *graph_options, '-map', '[mix]', '-ar', str(RATE), '-c:a', 'pcm_f32le',
                        premix, *exports], output / 'logs', 'mix' if full else 'mix_' + premix.stem)
     if not full:
         return None

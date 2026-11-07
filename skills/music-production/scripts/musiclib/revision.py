@@ -11,10 +11,11 @@ writes, in the round's folder:
 
 The draft is the same audio as a full render; deliver a full render (studio.py render).  The cache is shared with the
 other rounds and renders of the project: by default the folder `cache` next to the round."""
+import os
 import time
 from pathlib import Path
 
-from . import summary
+from . import files, summary
 from .model import load_project, save_json, validate
 
 KIND = 'music-production round'  # in round.json: what made the folder (clean removes only what the tools made)
@@ -37,12 +38,11 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
     from .render import render
     from .review import review
     output = Path(output)
-    if output.exists():
-        raise ValueError(f'{output} exists; outputs never overwrite, so choose a new folder')
+    files.fresh(output, 'outputs never overwrite, so choose a new folder')
     before = render_folder(previous) if previous else None
     if before is not None and not (before / 'report.json').is_file():
         raise ValueError(f'--previous {previous}: no render there (a round folder or a render folder)')
-    if clip is not None and (before is None or Path(clip).exists()):
+    if clip is not None and (before is None or files.occupied(clip)):
         raise ValueError('--clip needs --previous: the clip plays the previous round, then this one' if before is None
                          else f'{clip} exists; outputs never overwrite, so choose a new path')
     started, seconds = time.monotonic(), {}
@@ -62,12 +62,20 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
     ref = load_reference(reference, cfg) if reference else None  # a bad reference fails before the render
     lap('validate')
     output.mkdir(parents=True)
-    record = {'kind': KIND, 'title': p['title'], 'project': str(Path(project_file).resolve()), 'validation': validation,
-              'status': 'FAIL', 'failed': None, 'previous': str(before.resolve()) if before is not None else None,
+    # Paths relative to the round's folder: the record can be shared without the local folders and user name in them
+    # (across two Windows drives no relative path exists, and the full one is kept).
+    def here(path):
+        try:
+            return os.path.relpath(Path(path).resolve(), output.resolve()).replace(os.sep, '/')
+        except ValueError:
+            return str(Path(path).resolve())
+    record = {'kind': KIND, 'title': p['title'], 'project': here(project_file), 'validation': validation,
+              'status': 'FAIL', 'failed': None, 'previous': here(before) if before is not None else None,
               'review': 'review/score_review.json', 'render': 'render/report.json', 'analysis': None, 'compare': None,
               'seconds': seconds}
     # The round's folder holds its record from the start, and whatever step stops the round, the record says which.
     save_json(output / 'round.json', record)
+    files.register(output, [output / 'round.json'])
     step = 'review'
     try:
         reviewed = review(p, output / 'review', cfg)
@@ -83,6 +91,7 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
         step = 'analyze'
         measured = analyze(output / 'render', spans, ref)
         save_json(output / 'render' / 'analysis.json', measured)
+        files.register(output / 'render', [output / 'render' / 'analysis.json'])
         record['analysis'] = 'render/analysis.json'
         lap('analyze')
         show(summary.analysis(measured, output / 'render' / 'analysis.json', output / 'render'))
@@ -97,7 +106,11 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
                     compared['clip'] = make_clip(cfg, compared, clip)
                 except (ValueError, OSError, RuntimeError) as e:
                     compared['clip'] = {'error': str(e)}
-            save_json(compare_file, compared)
+            from .compare import portable
+            save_json(compare_file, portable(compared, compare_file.parent))
+            files.register(output / 'render', [compare_file])
+            if isinstance(compared.get('clip'), dict) and compared['clip'].get('file'):
+                files.register_output(compared['clip']['file'])
             record['compare'] = f'render/{compare_file.name}'
             lap('compare')
             show(summary.compare(compared, compare_file))
@@ -111,6 +124,7 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
     finally:
         record['runtime_seconds'] = round(time.monotonic() - started, 2)
         save_json(output / 'round.json', record)
+        files.register(output, [output / 'round.json'])
     show(f'Round {output.name}: {record["status"]} in {record["runtime_seconds"]:.1f} s ('
          + ', '.join(f'{k} {v:.1f}' for k, v in seconds.items()) + f'). Next round: --previous {output}')
     return record

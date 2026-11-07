@@ -14,18 +14,20 @@ what is checked against the receipt.  Every render still mixes and masters all t
 A draft (`draft=True`) is the same audio, stems, buses and returns as a full render, for revising: it leaves out what
 only delivery needs, master.flac, the MP3's decoded-loudness check and a game loop's Ogg copies and layers, as REAPER's
 dry-run render processes everything but writes no output files (REAPER 6.30)."""
+import ast
 import contextlib
 import errno
 import json
 import math
 import os
+import stat
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import shutil
 import threading
 import time
 import numpy as np
-from . import audio, drums, layered, midi, production, stage, surge, synth, variation
+from . import audio, drums, files, layered, midi, production, stage, surge, synth, variation
 from .model import Clock, load_project, validate, performed, save_json, digest, file_hash, TPQ
 
 def engine_hash():
@@ -51,10 +53,59 @@ def free_memory():
         return None
 
 def default_jobs():
-    """Parallel parts: one per processor, at most 8, and one per 2 GB of free memory (a long part with a mono synth line
-    or effects can hold that much while it works)."""
-    jobs=max(1,min(8,os.cpu_count() or 1));free=free_memory()
-    return max(1,min(jobs,int(free//2e9))) if free else jobs
+    """Parallel parts: one per processor, at most 8; the memory they need is held by MemoryBudget."""
+    return max(1,min(8,os.cpu_count() or 1))
+
+# What a part holds at its peak, measured on two-minute parts (research/implementation-0.4.0.md): Python's with
+# tracemalloc, in float64 stereo copies of the song (frames x 16 bytes) where it grows with the song, and FluidSynth's
+# peak working set, which is its bank's size and some 50 MB (an SF3 bank's compressed samples decoded, about ten times).
+TOOL_COPIES={'wow_flutter':1.5,'filter_sweep':17.5,'saturate':9.0,'gate':4.5,'delay':10.6,'duck':2.5}
+STAGE_COPIES,CHORUS_COPIES,AUTOMATION_COPIES,WRITE_COPIES=6.0,4.8,0.5,1.0
+ENGINE_COPIES={'drum_synth':3.5,'noise':4.9,'layered':5.2}  # layered: two layers and five alike
+ADDITIVE_COPIES,ADDITIVE_HELD_COPIES=1.5,5.1  # eighths; a note held through the whole song adds the second
+SYNTH_COPIES,SYNTH_PER_HELD_SECOND=2.5,3.0e7  # eighths; each second of its longest voice adds 30 MB (trance_pad)
+PART_OVERHEAD=2.5e8  # our allowance for the rest: the interpreter's own work, the MIDI, an FFmpeg pass
+
+def part_memory(t,clock,frames,font):
+    """Bytes a part is expected to hold at its peak, its synthesis or its processing, whichever is more."""
+    copy=frames*16;song=max(1e-9,frames/audio.RATE)
+    held=max((clock.seconds(n['on']+n['duration'])-clock.seconds(n['on']) for n in t['notes']),default=0.0)
+    engine=t['engine']
+    if engine=='soundfont':
+        bank=Path(font['path']).stat().st_size*(10 if Path(font['path']).suffix.lower()=='.sf3' else 1)+5e7
+        made=max(bank,ENGINE_COPIES['layered']*copy if layered.wanted(t) else 0)
+    elif engine=='additive':made=(ADDITIVE_COPIES+ADDITIVE_HELD_COPIES*min(1.0,held/song))*copy
+    elif engine in ('synth','surge'):
+        # A mono patch's legato line is one voice for up to MONO_LINE_S; a Surge part may fall back to the built-in
+        # synth, and Surge itself plays in a process of its own (our allowance of 500 MB).
+        line=synth.MONO_LINE_S if engine=='synth' and synth.patch_of(t).get('mono') else 0
+        made=SYNTH_COPIES*copy+SYNTH_PER_HELD_SECOND*min(song,held+line)+(5e8 if engine=='surge' else 0)
+    else:made=ENGINE_COPIES.get(engine,ENGINE_COPIES['noise'])*copy
+    mix=t['mix']
+    tools=[TOOL_COPIES[k] for k in TOOL_COPIES if mix.get(k)]+[STAGE_COPIES]*(mix.get('depth_m') is not None)
+    tools+=[CHORUS_COPIES]*any(e.get('type')=='chorus' for e in mix.get('effects',[]))
+    tools+=[AUTOMATION_COPIES]*any(v for _,v in mix.get('automation',[]))
+    return PART_OVERHEAD+max(made,(WRITE_COPIES+max(tools,default=0))*copy)
+
+class MemoryBudget:
+    """The memory free when the parts start, shared among those made at once: each holds its estimate (part_memory)
+    from before its synthesis to its processed stem, a part waits while the others hold too much of it, and one that
+    needs it all runs alone.  Where the free memory cannot be read, parts run `jobs` at a time as before."""
+    def __init__(self,free):
+        # A fifth of it is kept back for everything else (our choice: the system, the other programs, estimates' error).
+        self.total=None if free is None else free*.8;self.used=0;self.ready=threading.Condition()
+    @contextlib.contextmanager
+    def hold(self,amount):
+        if self.total is None:
+            yield;return
+        amount=min(amount,self.total)
+        with self.ready:
+            self.ready.wait_for(lambda:self.used+amount<=self.total)
+            self.used+=amount
+        try:yield
+        finally:
+            with self.ready:
+                self.used-=amount;self.ready.notify_all()
 
 def synthesis_identity(p,clock,t,deps,renderer):
     """What a part's raw synthesis depends on, hashed into its cache key: the clock and the tempo as played (phrase
@@ -97,53 +148,109 @@ def read_json(path):
     except (OSError,ValueError):return {}
     return value if isinstance(value,dict) else {}
 
-@contextlib.contextmanager
-def entry_lock(folder,wait=True):
-    """Hold one cache entry against other renders: an exclusive lock on its file `entry.lock` (fcntl.flock on POSIX,
-    msvcrt.locking on Windows), which the system releases when the process ends.  Yields whether it is held; without
-    `wait`, False at once when another render holds it.  Where the drive cannot lock, yields False and the render goes
-    on: the stem it copies is still checked against its receipt."""
-    try:fd=os.open(Path(folder)/'entry.lock',os.O_RDWR|os.O_CREAT,0o644)
-    except OSError:
-        yield False;return
-    held=False
-    try:
+def _lock(fd,wait):
+    """Take the lock on an open file: True when held."""
+    if os.name=='nt':
+        import msvcrt
+        while True:
+            try:os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_LOCK if wait else msvcrt.LK_NBLCK,1);return True
+            except OSError as e:
+                # LK_LOCK gives up after ten tries a second apart while another render holds the entry: wait on.
+                if not wait or e.errno not in (errno.EDEADLK,errno.EACCES):return False
+    import fcntl
+    try:fcntl.flock(fd,fcntl.LOCK_EX|(0 if wait else fcntl.LOCK_NB));return True
+    except OSError:return False
+
+def _unlock(fd):
+    with contextlib.suppress(OSError):
         if os.name=='nt':
-            import msvcrt
-            while True:
-                try:
-                    os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_LOCK if wait else msvcrt.LK_NBLCK,1);held=True;break
-                except OSError as e:
-                    # LK_LOCK gives up after ten tries a second apart while another render holds the entry: wait on.
-                    if not wait or e.errno not in (errno.EDEADLK,errno.EACCES):break
+            import msvcrt;os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_UNLCK,1)
         else:
-            import fcntl
-            try:fcntl.flock(fd,fcntl.LOCK_EX|(0 if wait else fcntl.LOCK_NB));held=True
-            except OSError:pass
-        yield held
-    finally:
-        if held:
-            with contextlib.suppress(OSError):
-                if os.name=='nt':os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_UNLCK,1)
-                else:fcntl.flock(fd,fcntl.LOCK_UN)
-        os.close(fd)
+            import fcntl;fcntl.flock(fd,fcntl.LOCK_UN)
+
+def _same_file(fd,path):
+    """Whether `path` is still the file open as `fd` (clean may remove an entry while a render waits for it)."""
+    try:a,b=os.fstat(fd),os.stat(path)
+    except OSError:return False
+    return (a.st_dev,a.st_ino)==(b.st_dev,b.st_ino)
+
+@contextlib.contextmanager
+def entry_lock(folder,wait=True,create=True):
+    """Hold one cache entry against other renders and against clean: an exclusive lock on its file `entry.lock`
+    (fcntl.flock on POSIX, msvcrt.locking on Windows), which the system releases when the process ends.  Yields whether
+    it is held; without `wait`, False at once when another holds it.  With `create` the entry's folder is made where it
+    is missing, and a lock taken on a file that clean removed meanwhile is let go and taken afresh.  Where the drive
+    cannot lock, yields False and the render goes on: the stem it copies is still checked against its receipt."""
+    folder=Path(folder);lock=folder/'entry.lock'
+    for _ in range(10):
+        if create:folder.mkdir(parents=True,exist_ok=True)
+        try:fd=os.open(lock,os.O_RDWR|os.O_CREAT,0o644)
+        except FileNotFoundError:
+            if create:continue  # clean removed the folder between the two calls: make it again
+            yield False;return
+        except OSError:
+            yield False;return
+        held=_lock(fd,wait)
+        if held and not _same_file(fd,lock):
+            _unlock(fd);os.close(fd);continue
+        try:yield held
+        finally:
+            if held:_unlock(fd)
+            os.close(fd)
+        return
+    yield False
 
 def keep_stem(folder,stem,receipt):
-    """Keep a processed stem in its cache entry for the next render: copied under a name of this process and thread,
-    swapped in whole, then its receipt likewise.  Keeping is only a saving: where it fails (Windows refuses to replace a
-    file another program holds open) the render goes on, and the next one processes the part again."""
-    tag=f'{os.getpid()}.{threading.get_ident()}'
-    spare,note=Path(folder)/f'stem.{tag}.wav',Path(folder)/f'stem.{tag}.json'
+    """Keep a processed stem in its cache entry for the next render: copied to a new file of its own (musiclib.files)
+    and swapped in whole, then its receipt likewise.  Keeping is only a saving: where it fails (Windows refuses to
+    replace a file another program holds open) the render goes on, and the next one processes the part again."""
+    spare=None
     try:
-        shutil.copyfile(stem,spare);os.replace(spare,Path(folder)/'stem.wav')
-        note.write_text(json.dumps(receipt,ensure_ascii=False,allow_nan=False),encoding='utf-8');os.replace(note,Path(folder)/'stem.json')
+        spare=files.stage_name(Path(folder)/'stem.wav','.wav');shutil.copyfile(stem,spare);os.replace(spare,Path(folder)/'stem.wav')
+        files.write_json(Path(folder)/'stem.json',receipt)
         return True
     except OSError:
-        for f in (spare,note):
-            with contextlib.suppress(OSError):f.unlink()
+        if spare is not None:
+            with contextlib.suppress(OSError):spare.unlink()
         return False
 
-def render(project_file,output,config_file,cache=None,resume=False,jobs=None,draft=False):
+def check_entry(folder):
+    """A cache entry holds only files of its own: a link, or a file with another name (a hard link), would carry a
+    write out of it, so such an entry is refused rather than written through."""
+    odd=files.foreign(folder)
+    if odd:
+        raise ValueError(f'Cache entry {folder} holds {odd[0].name}, a link or a file with another name; remove the entry '
+                         'and render again')
+
+SYNTHESIS=('model.py','midi.py','audio.py','layered.py','sf2.py','synth.py','drums.py','variation.py','surge.py','wavfile.py')
+
+def module_closure(names):
+    """The musiclib modules `names` import, directly or through one another, with themselves: the code a cached
+    synthesis depends on (a noise part's vinyl reaches production.py and measure.py this way)."""
+    here=Path(__file__).parent;seen=set();todo=list(names)
+    while todo:
+        name=todo.pop()
+        if name in seen or not (here/name).is_file():continue
+        seen.add(name)
+        for node in ast.walk(ast.parse((here/name).read_text(encoding='utf-8'))):
+            if isinstance(node,ast.ImportFrom) and node.level==1:
+                todo+=[node.module.split('.')[0]+'.py'] if node.module else [a.name+'.py' for a in node.names]
+    return sorted(seen)
+
+def render(project_file,output,config_file,cache=None,resume=False,jobs=None,draft=False,quiet=()):
+    """Render a project into the new folder `output` (or take up an unfinished render of the same project there with
+    `resume`).  Whatever happens, what it wrote is recorded in the folder's files.json (musiclib.files), which is all
+    clean ever removes of it.  `quiet`: parts that may barely sound (the other parts of an audition's passage, where
+    a held note's last moment is all a part plays): they keep their own level instead of stopping the render."""
+    output=Path(output).resolve();claim={};since=time.time_ns()
+    try:
+        return _render(project_file,output,config_file,cache,resume,jobs,draft,claim,set(quiet))
+    finally:
+        if claim.get('folder'):
+            with contextlib.suppress(OSError):
+                files.register_tree(output,since_ns=since if claim.get('resumed') else None,keep=claim.get('kept'))
+
+def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet):
     started=time.monotonic();p=load_project(project_file);clock=Clock(p);cfg=audio.load_config(config_file)
     # Seconds per stage, each from the end of the one before, so they add up to the runtime (profiling the stages
     # before any is optimized: what a change saves shows here).
@@ -157,14 +264,24 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
     if problems:raise ValueError('Parts the banks cannot play as written (review --config lists them too):\n'+'\n'.join(problems))
     project_key=digest(p);marker=output/'render_input.json'
     code_hash=engine_hash()
-    # A cached part depends on this code and on the preset files the built-in synth and Surge parts read.
-    synthesis_hash=digest({**{n:file_hash(Path(__file__).with_name(n)) for n in ('model.py','midi.py','audio.py','layered.py','sf2.py','synth.py','drums.py','variation.py','surge.py','wavfile.py')},
+    # A cached part depends on the code its synthesis runs and on the preset files the built-in synth and Surge parts read.
+    synthesis_hash=digest({**{n:file_hash(Path(__file__).with_name(n)) for n in module_closure(SYNTHESIS)},
                            'synth-presets':file_hash(synth.PRESETS_FILE),'surge-presets':file_hash(surge.PRESETS_FILE)})
-    if output.exists():
-        if not resume or not marker.is_file() or json.loads(marker.read_text(encoding='utf-8'))['project_sha256']!=project_key:
+    resumed=files.occupied(output)
+    if resumed:
+        if not resume or not files.regular_file(marker) or read_json(marker).get('project_sha256')!=project_key:
             raise ValueError('Output exists; choose a fresh directory or resume the same project')
+        # A folder a render takes up again holds only what renders write: a link or a hard link in it would carry a
+        # write out of the folder, so it is refused rather than written through.
+        files.no_links(output)
+        odd=files.foreign(output)
+        if odd:raise ValueError(f'{output} holds links or files with other names ({", ".join(str(x.relative_to(output)) for x in odd[:5])}); '
+                                'render into a new folder')
+    if files.linked(cache):raise ValueError(f'The cache {cache} is a link; give the folder itself')
+    claim['kept']=files.recorded(output) if resumed else {}
     for d in (output,cache,output/'logs',output/'stems',output/'midi',output/'returns'):d.mkdir(parents=True,exist_ok=True)
     save_json(marker,{'project_sha256':project_key,'renderer_sha256':code_hash})
+    claim.update(folder=True,resumed=resumed)
     save_json(output/'project.json',p)
     lap('prepare')
     route=midi.write(p,output/'composition.mid')
@@ -177,47 +294,59 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
     if note_count!=expected:raise ValueError('MIDI note count mismatch')
     lap('midi')
     duration=clock.end+clock.tail;frames=round(duration*audio.RATE)
-    jobs=max(1,min(jobs or default_jobs(),len(p['tracks'])));locks={};guard=threading.Lock()
+    jobs=max(1,min(jobs or default_jobs(),len(p['tracks'])));locks={};guard=threading.Lock();budget=MemoryBudget(free_memory())
     def make_stem(t):
         began=time.monotonic()
         font_name,font=audio.soundfont_for(cfg,t) if t['engine']=='soundfont' else (None,None)
         deps={'fluidsynth':cfg['fluidsynth']['sha256'],'soundfont':font['sha256'] if font else None}
         if t['engine']=='surge':deps['surge']=surge.dependencies(cfg,t)
         identity=synthesis_identity(p,clock,t,deps,synthesis_hash)
-        key=digest(identity);folder=cache/key;folder.mkdir(exist_ok=True)
+        key=digest(identity);folder=cache/key
+        if files.linked(folder):raise ValueError(f'Cache entry {folder} is a link; remove it and render again')
         raw=folder/'raw.wav';receipt=folder/'receipt.json'
         track_midi=output/'midi'/(t['id']+'.mid')
         midi.write(p,track_midi,[t],single_stem=True)
         with guard:lock=locks.setdefault(key,threading.Lock())
         # The entry is held from the cache lookup to the kept stem: a render of the piece running at the same time waits
-        # here for this part, then finds it in the cache.
-        with lock,entry_lock(folder):
-            cached=False;raw_sha=None;old=read_json(receipt) if raw.is_file() else {}
+        # here for this part, then finds it in the cache.  The part's memory is taken first, before any lock, so a part
+        # never waits for memory while it holds an entry another part waits on.
+        asked=time.monotonic()
+        with budget.hold(part_memory(t,clock,frames,font)),lock,entry_lock(folder):
+            waited=time.monotonic()-asked
+            check_entry(folder)
+            cached=False;raw_sha=None;old=read_json(receipt) if files.regular_file(raw) else {}
             if old:
                 raw_sha=audio.audio_hash(raw);cached=old.get('key')==key and raw_sha==old.get('sha256')
             if not cached:
-                if not t['notes']:audio.write_wav(raw,np.zeros((frames,2),dtype=np.float32))
-                elif t['engine']=='soundfont' and layered.wanted(t):layered.render(p,t,clock,cfg,font,folder,raw)
-                elif t['engine']=='soundfont':
-                    # The synthesis MIDI applies the track's render patch/key map; the exported part MIDI does not.
-                    patch=t.get('patch') or {'bank':t.get('bank',0),'program':t.get('program',0)}
-                    keys=variation.key_samples(font['path'],patch.get('bank',0),patch.get('program',0)) if t['performance'].get('round_robin') else None
-                    # A drum part steps through the bank's recorded round robins unless round_robin is set false.
-                    cycles=variation.velocity_cycles(font['path'],patch.get('bank',0),patch.get('program',0)) if t.get('drums') and t['performance'].get('round_robin',True) is not False else None
-                    synth_midi=folder/'synth.mid';midi.write(p,synth_midi,[t],single_stem=True,render=True,keys=keys,cycles=cycles)
-                    audio.fluidsynth(cfg,font['path'],synth_midi,raw,folder)
-                elif t['engine']=='additive':audio.synthesize(p,t,raw)
-                elif t['engine']=='synth':synth.render(p,t,raw,clock)
-                elif t['engine']=='surge':
-                    # Surge XT when it is installed; otherwise the part's fallback preset on the built-in synth.
-                    played={'preset':t['surge']['preset']}
-                    try:played.update(surge.render(p,t,raw,folder,cfg) or {});played['rendered_with']='Surge XT'
-                    except surge.Unavailable as e:
-                        fallback=surge.fallback_track(t);synth.render(p,fallback,raw,clock)
-                        played.update(rendered_with='built-in synth',fallback=fallback['synth']['preset'],reason=str(e))
-                    save_json(folder/'surge.json',played)
-                elif t['engine']=='drum_synth':drums.render(p,t,raw,clock)
-                else:audio.noise_fx(p,t,raw)
+                # Synthesized into a new file of its own (musiclib.files), which then takes raw.wav's place whole.
+                fresh=files.stage_name(raw,'.wav')
+                try:
+                    if not t['notes']:audio.write_wav(fresh,np.zeros((frames,2),dtype=np.float32))
+                    elif t['engine']=='soundfont' and layered.wanted(t):layered.render(p,t,clock,cfg,font,folder,fresh)
+                    elif t['engine']=='soundfont':
+                        # The synthesis MIDI applies the track's render patch/key map; the exported part MIDI does not.
+                        patch=t.get('patch') or {'bank':t.get('bank',0),'program':t.get('program',0)}
+                        keys=variation.key_samples(font['path'],patch.get('bank',0),patch.get('program',0)) if t['performance'].get('round_robin') else None
+                        # A drum part steps through the bank's recorded round robins unless round_robin is set false.
+                        cycles=variation.velocity_cycles(font['path'],patch.get('bank',0),patch.get('program',0)) if t.get('drums') and t['performance'].get('round_robin',True) is not False else None
+                        synth_midi=folder/'synth.mid';midi.write(p,synth_midi,[t],single_stem=True,render=True,keys=keys,cycles=cycles)
+                        audio.fluidsynth(cfg,font['path'],synth_midi,fresh,folder)
+                    elif t['engine']=='additive':audio.synthesize(p,t,fresh)
+                    elif t['engine']=='synth':synth.render(p,t,fresh,clock)
+                    elif t['engine']=='surge':
+                        # Surge XT when it is installed; otherwise the part's fallback preset on the built-in synth.
+                        played={'preset':t['surge']['preset']}
+                        try:played.update(surge.render(p,t,fresh,folder,cfg) or {});played['rendered_with']='Surge XT'
+                        except surge.Unavailable as e:
+                            fallback=surge.fallback_track(t);synth.render(p,fallback,fresh,clock)
+                            played.update(rendered_with='built-in synth',fallback=fallback['synth']['preset'],reason=str(e))
+                        save_json(folder/'surge.json',played)
+                    elif t['engine']=='drum_synth':drums.render(p,t,fresh,clock)
+                    else:audio.noise_fx(p,t,fresh)
+                    os.replace(fresh,raw)
+                except BaseException:
+                    with contextlib.suppress(OSError):fresh.unlink()
+                    raise
                 raw_sha=audio.audio_hash(raw)
                 save_json(receipt,{'key':key,'sha256':raw_sha,'track':t['id']})
             synthesized=time.monotonic()
@@ -225,24 +354,26 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
             # The processed stem the cache entry keeps, used when nothing it depends on has changed: the copy this
             # render mixes is what is checked against the receipt read before it.
             frozen,frozen_receipt=folder/'stem.wav',folder/'stem.json'
-            stem_key=digest(stem_identity(p,t,key,raw_sha,frames,code_hash,cfg))
+            stem_key=digest({**stem_identity(p,t,key,raw_sha,frames,code_hash,cfg),'quiet':t['id'] in quiet})
             kept=read_json(frozen_receipt);reused=False
             if kept.get('key')==stem_key and isinstance(kept.get('processing'),dict) and {'reference_level_dbfs','gain_db','filter_chain'}<=set(kept['processing']) and frozen.is_file():
                 try:shutil.copyfile(frozen,stem);reused=file_hash(stem)==kept.get('sha256')
                 except OSError:reused=False
             if reused:done,stem_sha=kept['processing'],kept['sha256']
             else:
-                done=process_stem(p,t,clock,cfg,output,raw,stem,frames);stem_sha=file_hash(stem)
+                done=process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=t['id'] in quiet);stem_sha=file_hash(stem)
                 keep_stem(folder,stem,{'key':stem_key,'sha256':stem_sha,'track':t['id'],'processing':done})
             expressive=read_json(folder/'layered.json') if (folder/'layered.json').is_file() else None
             heard=read_json(folder/'surge.json') if t['engine']=='surge' and (folder/'surge.json').is_file() else None
         receipt_data={'track':t['id'],'soundfont':font_name,'cache_key':key,'cache_hit':cached,'stem_reused':reused,'raw_sha256':raw_sha,'stem_sha256':stem_sha,'reference_level_dbfs':done['reference_level_dbfs'],'gain_db':done['gain_db'],'processed_stem':str(stem.relative_to(output)),'filter_chain':done['filter_chain'],'same_pitch_retrigger_trims':sum(n.get('retrigger_trimmed',False) for n in performed(t,clock))}
         if expressive:receipt_data['expressive']=expressive
         if heard:receipt_data['surge']=heard
+        if done.get('nearly_silent'):receipt_data['nearly_silent']=True
+        if done.get('automation_points'):receipt_data['automation_points']=done['automation_points']
         if done.get('stage'):receipt_data['stage']=done['stage']
         if done.get('production'):receipt_data['production']=done['production']
         # Each part's own seconds (they overlap: parts run `jobs` at a time); synthesis includes the cache lookup.
-        receipt_data['seconds']={'synthesis':round(synthesized-began,3),'processing':round(time.monotonic()-synthesized,3)}
+        receipt_data['seconds']={'waiting':round(waited,3),'synthesis':round(synthesized-began-waited,3),'processing':round(time.monotonic()-synthesized,3)}
         return receipt_data,font_name,font
     with ThreadPoolExecutor(max_workers=jobs) as pool:results=list(pool.map(make_stem,p['tracks']))
     receipts=[r for r,_,_ in results];used_fonts={name:font for _,name,font in results if font}
@@ -318,12 +449,22 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
         raise ValueError('Delivery checks failed ('+', '.join(failed)+'); '+''.join(advice[k]+'; ' for k in failed if k in advice)+f'see {output/"report.json"}')
     return report
 
-def process_stem(p,t,clock,cfg,output,raw,stem,frames):
+def process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=False):
     """The part's raw synthesis to its processed stem: the gain to its level, filters, EQ, effects, compressor, width,
-    pan or stage position and automation, then the production tools.  Returns what the receipt records of it."""
+    pan or stage position and automation, then the production tools.  Returns what the receipt records of it.  With
+    `quiet`, a part that barely sounds keeps its own level rather than stopping the render."""
     ref=audio.reference_level(raw,t['mix'].get('level_mode','active_rms')) if t['notes'] else 0
     gain=t['mix']['level_dbfs']-ref if t['notes'] else 0
-    if not -60<=gain<=45:raise ValueError(f'Unexpected instrument gain: {t["id"]}: {gain}')
+    nearly_silent=False
+    if not -60<=gain<=45:
+        if quiet and gain>45:
+            gain,nearly_silent=0.0,True
+        elif gain>45:
+            raise ValueError(f'{t["id"]}: its synthesis is nearly silent ({ref:.1f} dBFS; reaching its level_dbfs would take '
+                             f'{gain:+.1f} dB): check its bank and patch, and notes too short or soft for the sample to sound')
+        else:
+            raise ValueError(f'{t["id"]}: its synthesis is {ref:.1f} dBFS, {-gain:.1f} dB over its level_dbfs: check its bank, '
+                             'patch and velocities')
     fx=t['mix'];co=fx.get('compressor')
     filters=[f'apad,atrim=end_sample={frames}',f'volume={gain:.9f}dB',f'highpass=f={fx.get("highpass",30)}',f'lowpass=f={fx.get("lowpass",18000)}']
     filters += [f'equalizer=f={f}:t=q:w=1:g={g}' for f,g in fx.get('eq',[])]
@@ -342,7 +483,7 @@ def process_stem(p,t,clock,cfg,output,raw,stem,frames):
         filters.append(f'pan=stereo|c0={a:.9f}*c0+{b:.9f}*c1|c1={b:.9f}*c0+{a:.9f}*c1')
     depth=fx.get('depth_m')
     # A part placed on the stage gets its pan with its early reflections (musiclib/stage.py), after the chain.
-    filters.extend(([] if depth is not None else [f'pan=stereo|c0={math.sqrt(1-pan):.9f}*c0|c1={math.sqrt(1+pan):.9f}*c1'])+[audio.automation(fx.get('automation',[]),clock)])
+    if depth is None:filters.append(f'pan=stereo|c0={math.sqrt(1-pan):.9f}*c0|c1={math.sqrt(1+pan):.9f}*c1')
     filters.append(f'apad,atrim=end_sample={frames}')  # a chorus or phaser delays the signal and would lengthen the stem
     # One FFmpeg pass, or, around each chorus, a pass up to it, the chorus in NumPy on that file, and on. A later
     # pass's log takes ".pass{k}": a part id cannot hold a dot, so the label never names another part's log.
@@ -357,13 +498,22 @@ def process_stem(p,t,clock,cfg,output,raw,stem,frames):
         if f is None:break
         x,_=audio.read_wav(src);x,_=production.chorus(x,f[1]);audio.write_wav(src,x)
     done={'reference_level_dbfs':ref,'gain_db':gain,'filter_chain':','.join(f if isinstance(f,str) else f'chorus(depth={f[1]}, production.chorus)' for f in filters)}
-    if depth is not None:
-        x,_=audio.read_wav(stem);x,placed=stage.place(x,pan,depth,fx.get('facing','front'));audio.write_wav(stem,x)
-        if placed:done['stage']={'depth_m':depth,'facing':fx.get('facing','front'),**placed}
-    if production.wanted(t):
-        # Sweeps, saturation, gates, tempo-synced delays and ducking (musiclib/production.py), on the placed stem.
-        x,_=audio.read_wav(stem);x,produced=production.process(x,p,t,clock);audio.write_wav(stem,x)
-        if produced:done['production']=produced
+    if nearly_silent:done['nearly_silent']=True
+    points=fx.get('automation',[])
+    ride=any(v for _,v in points)
+    if ride or depth is not None or production.wanted(t):
+        # In NumPy on the stem read once: the automation (where the FFmpeg chain had it, after the pan), the stage
+        # position, then the sweeps, saturation, gates, tempo-synced delays and ducking (musiclib/production.py).
+        x,_=audio.read_wav(stem)
+        if ride:
+            x=audio.automated(x,points,clock);done['automation_points']=len(points)
+        if depth is not None:
+            x,placed=stage.place(x,pan,depth,fx.get('facing','front'))
+            if placed:done['stage']={'depth_m':depth,'facing':fx.get('facing','front'),**placed}
+        if production.wanted(t):
+            x,produced=production.process(x,p,t,clock)
+            if produced:done['production']=produced
+        audio.write_wav(stem,x)
     return done
 
 def room_mix(p,clock,cfg,output,frames,duration):
@@ -392,11 +542,11 @@ def room_mix(p,clock,cfg,output,frames,duration):
     from .loop import starts_at_zero
     fade='' if starts_at_zero(p) else ',afade=t=in:st=0:d=0.005'
     graph.append(''.join(buses)+f'amix=inputs={len(buses)}:normalize=0:duration=longest,atrim=end_sample={frames}{fade},afade=t=out:st={duration-1.7:.8f}:d=1.7[mix]')
-    graph_text=';\n'.join(graph);(output/'mix.filtergraph.txt').write_text(graph_text,encoding='utf-8')
+    graph_options=audio.graph_file(cfg,output/'mix.filtergraph.txt',';\n'.join(graph))
     premaster=output/'premaster.wav'
     outs=['-map','[mix]','-ar',str(audio.RATE),'-c:a','pcm_f32le',premaster]
     for label,name in exports:outs+=['-map',f'[{label}]','-ar',str(audio.RATE),'-c:a','pcm_f32le',output/'returns'/name]
-    audio.ffmpeg(cfg,[*args,'-filter_complex',graph_text,*outs],output/'logs','mix')
+    audio.ffmpeg(cfg,[*args,*graph_options,*outs],output/'logs','mix')
     before=audio.measure(cfg,premaster,output/'logs','measure_premaster')
     ceiling=p['mix'].get('peak_ceiling_db',-1.6);allowance=p['mix'].get('max_limit_db',1.5)
     gain=min(p['mix'].get('target_lufs',-16)-before['integrated_lufs'],ceiling-before['true_peak_dbtp']+allowance)

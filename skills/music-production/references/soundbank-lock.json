@@ -1,6 +1,6 @@
 {
   "reviewed_on": "2026-11-02",
-  "note": "Optional recordings for presentable renders, all CC0 except the University of Iowa recordings, which their publisher makes free for any use without restrictions. Archives are fetched only from the listed official hosts and must match size and SHA-256; only the listed members are extracted. Builds fetch sample files one by one from a pinned commit, check each against its git blob hash and must reproduce the output hash. Hashes are integrity checks, not antivirus results. The Iowa builds fetch each recording from the University of Iowa site, check its size and SHA-256 recorded at retrieval, cut every note where the notes manifest records it, check each note's hash and must reproduce the output hash.",
+  "note": "Optional recordings for presentable renders, all CC0 except the University of Iowa recordings, which their publisher makes free for any use without restrictions. Archives are fetched only from the listed official hosts and must match size and SHA-256; only the listed members are extracted. Builds fetch sample files one by one from a pinned commit, check each against its git blob hash and must reproduce the output hash; the files a build takes are pinned too (samples_sha256: each path with its blob hash and size), so a source listing that names other files, or other paths, is refused before anything is fetched, and each file is fetched up to its locked size. Hashes are integrity checks, not antivirus results. The Iowa builds fetch each recording from the University of Iowa site, check its size and SHA-256 recorded at retrieval, cut every note where the notes manifest records it, check each note's hash and must reproduce the output hash.",
   "archives": [
     {
       "name": "fsbs_dist1",
@@ -123,6 +123,9 @@
         "Strings/Solo Violin/spic/",
         "Brass/Trumpet/susvib/"
       ],
+      "samples": 1111,
+      "samples_bytes": 945013722,
+      "samples_sha256": "229822e5e6fc7539bf3bc2c0644582fd22872d3273cb0b53253fb31600545594",
       "output_sha256": "7655c55d631a587c6086ca75508bca2b50ccd54534c6745347fe04218643c290",
       "license": "CC0-1.0 source samples: VSCO 2 Community Edition by Versilian Studios; built by music-production soundbank.py",
       "version": "build b5"
@@ -152,6 +155,9 @@
         "Idiophones/Struck Idiophones/Sleigh Bells/",
         "Idiophones/Struck Idiophones/Mark Trees/Legacy/"
       ],
+      "samples": 628,
+      "samples_bytes": 1289433743,
+      "samples_sha256": "fbbe70412e923dd187b7e92ed32b216f32efe98ab2b85b6ac8829c3fe9de8c6b",
       "output_sha256": "44b7dd081f4f895f9c23b24a90ea67af729bc20881f151a2778b1149287719a4",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios; built by music-production soundbank.py",
       "version": "build b4"
@@ -204,6 +210,9 @@
         "Samples/tom_22/center/cl/",
         "Samples/tom_22/center/oh/"
       ],
+      "samples": 1061,
+      "samples_bytes": 182264351,
+      "samples_sha256": "1c6493c9f6824ad0a9bf353f3c348716efeb748180a672a0b1ab22b1c4192d9b",
       "output_sha256": "e362ab09bdf5be216e07d196c936b10049170594250690c9f5a7df5b1f5f2183",
       "license": "CC0-1.0 source samples: Big Rusty Drums by Karoryfer Samples; built by music-production soundbank.py",
       "version": "build b1"
@@ -219,6 +228,9 @@
         "Samples/darkblack/ghost/",
         "Samples/darkblack/stac/"
       ],
+      "samples": 1177,
+      "samples_bytes": 546877751,
+      "samples_sha256": "31998cc3f21ce0a309db68f8e83eb63a63e61ca7a9f7b04df1feb765851d4e7e",
       "output_sha256": "b01cf1f928e000168d49fbda507692e5431057b5c35450fe8e20e39cae62eb63",
       "license": "CC0-1.0 source samples: Black And Blue Basses by Karoryfer Samples; built by music-production soundbank.py",
       "version": "build b1"
@@ -237,6 +249,9 @@
         "UC-Sus/B/",
         "UC-Sus/C/"
       ],
+      "samples": 622,
+      "samples_bytes": 182979043,
+      "samples_sha256": "36585aafe9e4cd0fae109744ce08313fcc327e3e6d82da4ab2d07c5180dade17",
       "output_sha256": "3eb6a641872d7e75f98794744c577b37d034a65d6ab5074d89ba506643cb808b",
       "license": "CC0-1.0 source samples: Osiris Piano by Karoryfer Samples; built by music-production soundbank.py",
       "version": "build b3"
@@ -253,6 +268,9 @@
         "Samples/staccato/",
         "Samples/pizzcato/"
       ],
+      "samples": 460,
+      "samples_bytes": 131505531,
+      "samples_sha256": "ce83cedd47c35ec42ce12dbf4f9d8f4574edbd62c233a5040f6a762e03b83fe1",
       "output_sha256": "45dea8e79128b0a7670d34254edff690053814124f15d49a9211c8fcb26f5664",
       "license": "CC0-1.0 source samples: Karoryfer x bigcat cello by Karoryfer Lecolds and bigcat instruments; built by music-production soundbank.py",
       "version": "build b2"
@@ -270,6 +288,9 @@
         "Aerophones/Edge-blown Aerophones/Pipe Organ/Quiet/",
         "Aerophones/Edge-blown Aerophones/Pipe Organ/Loud Pedal/"
       ],
+      "samples": 56,
+      "samples_bytes": 115239691,
+      "samples_sha256": "0504bef45e8665523199e9c010c6d40e3402d7ad2a9e1f8c8ab8ff8279a549ea",
       "output_sha256": "9e2a05a49ab8031ce05ae4ebc91ef13e0db8ec32eb926f1015c384136b904dd4",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios, pipe organ sampled by Simon Dalzell (Ivy Audio); built by music-production soundbank.py",
       "version": "build b2"
@@ -296,6 +317,9 @@
         "Woodwinds/Piccolo/Sus/",
         "Woodwinds/Piccolo/Stac/"
       ],
+      "samples": 571,
+      "samples_bytes": 469151020,
+      "samples_sha256": "e6fe1db74579108fa8fcbe1d63f72288a91440c831bd751bd4e7282f13cae76c",
       "output_sha256": "224cec66d13e1ac72f3613cf9a837871a0666ce718e9995c0ef37d69b903c528",
       "license": "CC0-1.0 source samples: VSCO 2 Community Edition by Versilian Studios (the library also asks that the samples are not sold as such and encourages credit and a link to its homepage); built by music-production soundbank.py",
       "version": "build b2"
@@ -319,6 +343,9 @@
         "Strings/Cello Section/pizzT/",
         "Strings/Cello Section/trem/"
       ],
+      "samples": 431,
+      "samples_bytes": 428640208,
+      "samples_sha256": "2e3ee9ecb34ac8ee05e92181b2b991cc9988bc5777aa98cf75c91ef6e846f876",
       "output_sha256": "9a00b0926820f32de068daf20720898731c53739c6667cf799f660e96271ff70",
       "license": "CC0-1.0 source samples: VSCO 2 Community Edition by Versilian Studios (the library also asks that the samples are not sold as such and encourages credit and a link to its homepage); built by music-production soundbank.py",
       "version": "build b1"
@@ -3534,6 +3561,9 @@
         "Woodwinds/Flute/susvib/",
         "Woodwinds/Oboe/Vib/"
       ],
+      "samples": 369,
+      "samples_bytes": 479346789,
+      "samples_sha256": "3dabc70c1cae94cbf343b55c50a6e0fe0d95def88582b683021ec89260653614",
       "output_sha256": "6e49973421231132638b4c2e059470ad728a6c2e57ee88dea606ab629c4aa111",
       "license": "CC0-1.0 source samples: VSCO 2 Community Edition by Versilian Studios (the library also asks that the samples are not sold as such and encourages credit and a link to its homepage); built by music-production soundbank.py",
       "version": "build b3"
@@ -3557,6 +3587,9 @@
         "Electrophones/TX81Z/FM Piano/",
         "Electrophones/TX81Z/Piano 1/"
       ],
+      "samples": 609,
+      "samples_bytes": 1411598570,
+      "samples_sha256": "77517fc7bee2d91afb92cfe264ef9048d67d6da1862dd7471b677344fe5b7cde",
       "output_sha256": "bb69f1a6edac9e597038da8e3e7da7ee486ee3c194ba027c8b406edf57b91b80",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios; built by music-production soundbank.py",
       "version": "build b2"
@@ -3598,6 +3631,9 @@
         "Aerophones/Reed Aerophones/Tenor Saxophone/Staccato/",
         "Aerophones/Reed Aerophones/Tenor Saxophone/Vibrato/"
       ],
+      "samples": 454,
+      "samples_bytes": 562709667,
+      "samples_sha256": "c69268e6c1d2f393b16d48aedf62b771eb7f66950971a2053b2a62da36470be4",
       "output_sha256": "f88a7137b11baa0903f380e9d84526f9881be761ea8470ef418019ceff8d5d00",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios; built by music-production soundbank.py",
       "version": "build b2"
@@ -3772,6 +3808,9 @@
         "Membranophones/Struck Membranophones/Frame Drum/HDrumS_Hit_v3_rr1_Sum.wav",
         "Membranophones/Struck Membranophones/Frame Drum/HDrumS_Hit_v3_rr2_Sum.wav"
       ],
+      "samples": 507,
+      "samples_bytes": 477020002,
+      "samples_sha256": "b4df1630a8ab719f0f15b2b420177223c55f7a3726ec50400d9888ecffe45b84",
       "output_sha256": "7ae994b9da32c50c3c333de2bbd892287fdffcd9390eeb714ee44ae9d7d07c6f",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios; built by music-production soundbank.py",
       "version": "build b1"
@@ -3789,6 +3828,9 @@
         "Samples/mute/",
         "Samples/ghost/"
       ],
+      "samples": 591,
+      "samples_bytes": 392281340,
+      "samples_sha256": "2e3b532633cf88205980fd8146e90e0d732a1eebb11040b6bd99a67e13f230b6",
       "output_sha256": "aea1bc3414dd5bc8ddc6b2e0ab13e1dbf2760fa54e1d931291ef855f26368d55",
       "license": "CC0-1.0 source samples (sfzinstruments/karoryfer.sneakybass); built by music-production soundbank.py",
       "version": "build b1"
@@ -3804,6 +3846,9 @@
         "Samples/acoustic/*_vl?_rr?_1.wav",
         "Samples/electric/*_vl?_rr?_2.wav"
       ],
+      "samples": 546,
+      "samples_bytes": 445560565,
+      "samples_sha256": "d9bcc4d453250825fae49b96d6f546872e4a877524c8e975d52fd926c7e0d246",
       "output_sha256": "8d3da400f3d716970528dbb47a97661c778db11a5b300131bf70880067bade4b",
       "license": "CC0-1.0 source samples (sfzinstruments/karoryfer.shinyguitar); built by music-production soundbank.py",
       "version": "build b1"
@@ -3820,6 +3865,9 @@
         "Samples/st/",
         "Samples/stac/"
       ],
+      "samples": 172,
+      "samples_bytes": 92752669,
+      "samples_sha256": "4c8ff9d2a1d88ab5849a19d50463b059bfe57db894ae96013c17d5e4d98a662a",
       "output_sha256": "8540a5e39c61053a207a3ff213dc72bbdc44e1f4066101c15c82dc10bdf82fd5",
       "license": "CC0-1.0 source samples (sfzinstruments/aliexpress-erhu); built by music-production soundbank.py",
       "version": "build b1"
@@ -3838,6 +3886,9 @@
         "flac/SteelDrum_06[0-9]_*_4*",
         "flac/SteelDrum_07[01]_*_4*"
       ],
+      "samples": 370,
+      "samples_bytes": 38473800,
+      "samples_sha256": "afddcf4e0c49f76ff7cca63dd1d31b76372bd072ea4a1a5cab5d11a856935395",
       "output_sha256": "113f2b98470317dd7491c83900244bbfa2521d87d352e359dfd1af3e0d3edc5a",
       "license": "Unlicense (public-domain dedication) source samples (sfzinstruments/jlearman.SteelDrum); built by music-production soundbank.py",
       "version": "build b1"
@@ -3853,6 +3904,9 @@
         "Samples/*_s_vl?_rr?_*.wav",
         "Samples/*_ss_vl?_rr?_*.wav"
       ],
+      "samples": 1298,
+      "samples_bytes": 97429974,
+      "samples_sha256": "a3972ef62cda5b5e65e3c6548dfc76172bacb099fdfd84c63f10c7bc596fa40b",
       "output_sha256": "5a5771d7ef28a5cb95dd4a4793fec47d2dbd4a839bf5f0165c97181e89117682",
       "license": "CC0-1.0 source samples (sfzinstruments/karoryfer.war-tuba); built by music-production soundbank.py",
       "version": "build b2"
@@ -3868,6 +3922,9 @@
         "Samples/*_looped_[pf].wav",
         "Samples/*_vl?_rr?.wav"
       ],
+      "samples": 514,
+      "samples_bytes": 87775702,
+      "samples_sha256": "7b9cdb055d840382e93828e1027cd9dfd90084cf40ea3c26acedf075e4259cff",
       "output_sha256": "9d0e92016c5b2ec5af5754c985962599796a7c0b997a0bb408cbc2485d89f367",
       "license": "CC0-1.0 source samples (sfzinstruments/karoryfer.bear-sax); built by music-production soundbank.py",
       "version": "build b1"
@@ -3882,6 +3939,9 @@
         "readme.txt",
         "Samples/vowel_sustain/a/"
       ],
+      "samples": 25,
+      "samples_bytes": 38029030,
+      "samples_sha256": "e34ea54915a00cf36ddfbb1920ea0b5ad9f35afaaf3cfed7b9b8d30a19a7d1ca",
       "output_sha256": "cc2d7025119cccf5524ab3e8b48b4018b9e45c044fe95f0015d7ee2c223b2b5d",
       "license": "CC0-1.0 source samples (sfzinstruments/legato_vocal_tutorial); built by music-production soundbank.py",
       "version": "build b1"

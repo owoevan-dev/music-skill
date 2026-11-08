@@ -32,7 +32,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import audio
+from . import audio, files
 from .measure import fast_length
 from .model import Clock, load_project
 
@@ -54,6 +54,10 @@ def load(folder):
     for name in ('report.json', 'project.json', 'stem_receipts.json'):
         if not (folder / name).is_file():
             raise ValueError(f'{folder} is not a finished render ({name} is missing)')
+    odd = files.links_in(folder)
+    if odd:
+        raise ValueError(f'{folder} holds links ({", ".join(str(p.relative_to(folder)) for p in odd[:5])}); a render '
+                         'folder holds its own files only, so compare reads none through a link')
 
     def read(name):
         if (folder / name).stat().st_size > 64_000_000:

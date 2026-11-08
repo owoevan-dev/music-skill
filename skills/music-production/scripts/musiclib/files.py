@@ -153,6 +153,17 @@ def register(folder, paths):
     write_json(folder / RECORD, {'kind': KIND, 'files': listed})
 
 
+def links_in(folder):
+    """The links under `folder` (symbolic links, junctions), found without following any.  A command that reads a
+    folder someone else may have made refuses one holding links: a stem that is a link would be read, and compared, from
+    wherever it points."""
+    found = []
+    for base, dirs, names in os.walk(folder, followlinks=False):
+        found += [Path(base) / n for n in dirs + names if linked(Path(base) / n)]
+        dirs[:] = [d for d in dirs if real_folder(Path(base) / d)]
+    return found
+
+
 def foreign(folder):
     """What under `folder` a write could leave it through, found without following anything: links, and files that
     have another name too (hard links)."""

@@ -12,6 +12,8 @@ import numpy as np
 from .model import Clock, performed, save_json, file_hash
 
 RATE=48000
+# The longest WAV read: a project's 30 minutes (validate) and its tail of up to 15 s, with room to spare.
+MAX_WAV_SECONDS=1860
 
 def absolute_paths(config, base):
     """The configuration with every relative path made absolute against `base` (the folder of the file it was read
@@ -178,6 +180,10 @@ def read_wav(path):
         tag=struct.unpack_from('<H',fmt,24)[0]
     if channels not in (1,2) or rate!=RATE or payload[1]%align:raise ValueError('Unsupported WAV dimensions')
     offset,size=payload
+    if size//align>MAX_WAV_SECONDS*RATE:
+        # Nothing the tools write is longer than a render, so a longer file (a reference, a render folder from
+        # elsewhere) is refused before it is read: analysis and comparison hold several float64 copies of what they read.
+        raise ValueError(f'{path.name}: {size//align/RATE/60:.1f} minutes, longer than a render can be ({MAX_WAV_SECONDS//60} minutes)')
     if tag==3 and bits==32:
         data=np.memmap(path,dtype='<f4',mode='r',offset=offset,shape=(size//4//channels,channels))
     elif tag==1 and bits==24:

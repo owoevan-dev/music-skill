@@ -232,6 +232,22 @@ def test_recordings_are_release_assets():
     assert not [p for p in repository_files() if p.is_file() and p.suffix.lower() in ('.mp3', '.wav', '.flac', '.ogg')]
 
 
+def test_requirements_pin_numpy_by_hash():
+    """requirements.txt names NumPy with the SHA-256 of every file PyPI publishes for the pinned version (pip's
+    hash-checking mode), one pinned version per Python range and nothing else, so pip installs NumPy only as published."""
+    lines = [l.strip() for l in (SKILL / 'requirements.txt').read_text(encoding='utf-8').splitlines() if l.strip() and not l.lstrip().startswith('#')]
+    entries, current = [], []
+    for line in lines:
+        current.append(line.rstrip('\\').strip())
+        if not line.endswith('\\'):
+            entries.append(' '.join(current))
+            current = []
+    assert not current and len(entries) == 2, entries
+    for entry in entries:
+        assert re.match(r'numpy==\d+\.\d+\.\d+; python_version [<>]=? "3\.\d+" ', entry), entry[:80]
+        assert len(re.findall(r'--hash=sha256:[0-9a-f]{64}', entry)) >= 20, entry[:80]
+
+
 def test_files_fit_the_plugin_directory():
     """The repository root is the plugin folder the Claude plugin directory checks: every file under 5 MiB, and nothing
     binary but images (its pre-submission checklist)."""
@@ -272,4 +288,4 @@ def test_selfcheck(tmp_path):
     assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-3000:]
     report = load(work / 'selfcheck_report.json')
     assert report['status'] == 'PASS' and all(c['passed'] for c in report['checks'])
-    assert len(report['checks']) == (118 if CONFIG else 94), [c['name'] for c in report['checks']]
+    assert len(report['checks']) == (123 if CONFIG else 98), [c['name'] for c in report['checks']]

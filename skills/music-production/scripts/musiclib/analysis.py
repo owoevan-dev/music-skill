@@ -35,7 +35,7 @@ import tempfile
 
 import numpy as np
 
-from . import audio
+from . import audio, files
 from .measure import k_filter, level, release
 from .model import Clock, load_project
 
@@ -146,6 +146,14 @@ def long_term(master, meter):
     return {'tonal_balance': tonal_balance(master), 'side_minus_mid_db': stereo_width(master), 'loudness': loud}
 
 
+def no_links_in(folder):
+    """Refuse a render folder holding links: it holds its own files only, so nothing is read through a link."""
+    odd = files.links_in(folder)
+    if odd:
+        raise ValueError(f'{folder} holds links ({", ".join(str(Path(p).relative_to(folder)) for p in odd[:5])}); a render '
+                         'folder holds its own files only, so analyze reads none through a link')
+
+
 def load_reference(spec, config=None):
     """(name, long_term measures) of a reference: a name in tonal-references.json, a render folder (its master.wav
     and report.json), or a WAV file, which FFmpeg converts to 48 kHz and meters in a temporary folder (needs a
@@ -155,6 +163,7 @@ def load_reference(spec, config=None):
         return spec, table[spec]
     path = Path(spec)
     if path.is_dir():
+        no_links_in(path)
         master, _ = audio.read_wav(path / 'master.wav')
         report = json.loads((path / 'report.json').read_text(encoding='utf-8'))
         return f'{path.resolve().parent.name}/{path.name}', long_term(master, report.get('master', {}))
@@ -165,7 +174,10 @@ def load_reference(spec, config=None):
             raise ValueError('--reference with a WAV file needs --config: FFmpeg converts and meters it')
         with tempfile.TemporaryDirectory() as tmp:
             wav = Path(tmp) / 'reference.wav'
-            audio.ffmpeg(config, ['-i', str(path), '-ac', '2', '-ar', str(RATE), '-c:a', 'pcm_f32le', str(wav)], tmp, 'reference')
+            # At most a second past the longest WAV read (audio.MAX_WAV_SECONDS), so a longer reference is refused
+            # when it is read rather than converted whole first.
+            audio.ffmpeg(config, ['-i', str(path), '-t', str(audio.MAX_WAV_SECONDS + 1), '-ac', '2', '-ar', str(RATE), '-c:a',
+                                  'pcm_f32le', str(wav)], tmp, 'reference')
             meter = audio.measure(config, wav, tmp, 'reference_loudness')
             master, _ = audio.read_wav(wav)
             measures = long_term(np.array(master), meter)
@@ -288,7 +300,8 @@ def analyze(render_dir, bar_spans=(), reference=None):
     (name, measures) from load_reference."""
     render_dir = Path(render_dir)
     # The project as the render wrote it, read as any project is (size bounded, validated): a render folder from
-    # elsewhere cannot name stems outside it or ask for an unbounded length.
+    # elsewhere cannot name stems outside it or ask for an unbounded length, nor reach one through a link.
+    no_links_in(render_dir)
     p = load_project(render_dir / 'project.json')
     clock = Clock(p)
     spans = section_spans(p, clock)

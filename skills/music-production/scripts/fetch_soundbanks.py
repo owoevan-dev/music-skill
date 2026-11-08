@@ -122,7 +122,27 @@ def sha256_is(expected):
 
 def safe_member(name):
     p = PurePosixPath(name)
-    return not (p.is_absolute() or '..' in p.parts or ':' in name or '\\' in name)
+    return not (p.is_absolute() or '..' in p.parts or ':' in name or '\\' in name or '\0' in name)
+
+def sample_digest(entries):
+    """The SHA-256 the lock pins a source build's samples by: each file's path, git blob hash and size, one a line,
+    sorted (`samples_sha256`)."""
+    return hashlib.sha256(''.join(f'{p}\t{s}\t{n}\n' for p, s, n in sorted(entries)).encode('utf-8')).hexdigest()
+
+def pinned_samples(item, tree):
+    """The samples a build takes from its source listing, [(path, blob hash, size)], only when they are exactly the
+    files the lock pins: the listing comes from the host, and a path in it decides where a download is written, so a
+    listing that names other files, other paths (a folder's name followed by `..`), other hashes or sizes is refused
+    before anything is fetched."""
+    if not isinstance(tree.get('tree'), list) or tree.get('truncated'):
+        raise ValueError(f'{item["name"]}: the source listing is incomplete')
+    entries = [(e['path'], e.get('sha'), e.get('size')) for e in tree['tree']
+               if isinstance(e, dict) and e.get('type') == 'blob' and isinstance(e.get('path'), str) and locked(e['path'], item['paths'])]
+    if len(entries) != item['samples'] or sample_digest(entries) != item['samples_sha256']:
+        raise ValueError(f'{item["name"]}: the source listing does not name the samples the lock pins; nothing was fetched')
+    if not all(safe_member(p) for p, _, _ in entries):
+        raise ValueError(f'{item["name"]}: the source listing names a path outside its folder')
+    return entries
 
 def archive_tool():
     """A reader for the .7z banks (LZMA-compressed): a libarchive tar built with liblzma (Windows 11's own tar.exe,
@@ -319,17 +339,18 @@ def install_build(item, runtime, source, offline, ffmpeg=None):
     tree = json.loads(tree_file.read_text(encoding='utf-8'))
     if tree.get('sha') != commit and not tree.get('url', '').endswith(commit):
         raise ValueError('Tree listing does not belong to the pinned commit')
-    blobs = {e['path']: e['sha'] for e in tree['tree'] if e['type'] == 'blob'}
-    wanted = [p for p in blobs if locked(p, item['paths'])]
+    wanted = pinned_samples(item, tree)
     root = runtime / 'sources' / f'{repo.split("/")[1]}-{commit[:12]}'
-    for path in wanted:
-        dest = root / path
-        matches = lambda f, sha=blobs[path]: sha in git_blob_sha1s(f)
+    root.mkdir(parents=True, exist_ok=True)
+    for path, sha, size in wanted:
+        dest = inside(root, path)
+        matches = lambda f, sha=sha: sha in git_blob_sha1s(f)
         local = Path(source) / path if source else None
         if not files.occupied(dest) and local and local.is_file():
             dest.parent.mkdir(parents=True, exist_ok=True)
             os.replace(files.stage_copy(local, dest), dest)
-        cached(f'https://raw.githubusercontent.com/{repo}/{commit}/{urllib.parse.quote(path)}', dest, offline, check=matches, max_bytes=200_000_000)
+        # At most the locked size: a download is the blob as stored.
+        cached(f'https://raw.githubusercontent.com/{repo}/{commit}/{urllib.parse.quote(path)}', dest, offline, check=matches, max_bytes=size)
     output = runtime / 'build' / f'{item["name"]}-{item["version"].split()[-1]}.sf2'
     build_bank(item, json.loads((SKILL / 'references' / item['spec']).read_text(encoding='utf-8')), root, output, ffmpeg)
     return {'path': str(output), 'sha256': item['output_sha256'], 'license': item['license'],
@@ -495,10 +516,13 @@ def source_files(lock, only, runtime, cache):
                 tree = json.loads(listing.read_text(encoding='utf-8')) if files.regular_file(listing) else {}
             except ValueError:
                 tree = {}
-            blobs = {e['path']: e['sha'] for e in tree.get('tree', []) if e.get('type') == 'blob'} if (
-                tree.get('sha') == commit or tree.get('url', '').endswith(commit)) else {}
+            # Only a listing that names exactly the pinned samples says which files are the installer's.
+            try:
+                pinned = pinned_samples(item, tree) if tree.get('sha') == commit or tree.get('url', '').endswith(commit) else []
+            except (ValueError, KeyError, TypeError):
+                pinned = []
             folders.append((sources / f'{repo.split("/")[1]}-{commit[:12]}',
-                            {p: (lambda f, s=s: s in git_blob_sha1s(f)) for p, s in blobs.items() if locked(p, item['paths'])}))
+                            {p: (lambda f, s=s: s in git_blob_sha1s(f)) for p, s, _ in pinned}))
     return archives, folders
 
 

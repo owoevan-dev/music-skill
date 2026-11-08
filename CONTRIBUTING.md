@@ -28,7 +28,8 @@ Pull requests from outside the project are closed for now. If you have a fix, de
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate        # Windows: py -m venv .venv, then .venv\Scripts\activate
-python -m pip install -r skills/music-production/requirements.txt pyyaml pytest
+python -m pip install -r skills/music-production/requirements.txt
+python -m pip install pyyaml pytest
 python -m pytest -q tests
 ```
 

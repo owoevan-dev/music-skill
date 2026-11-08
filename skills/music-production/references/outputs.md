@@ -81,7 +81,9 @@ the sections, the authored decisions and the questions as a page.
 | `master`, `side_minus_mid_db`, `warnings` | `integrated_lufs`, `true_peak_dbtp`, `lra_lu`, `plr_db`; width per band; what the analysis flags |
 
 How to read these is in [measuring.md](measuring.md). At its peak `analyze` holds about ten float64 copies of the
-song (9.7 measured on songs of one to four minutes with 14 parts): about 0.46 GB a minute of music.
+song (9.7 measured on songs of one to four minutes with 14 parts): about 0.46 GB a minute of music. `analyze` and
+`compare` read a render folder's own files only and refuse one holding links; no WAV longer than 31 minutes, the
+longest a render can be, is read, a reference included.
 
 ## `compare_<name>.json` (compare)
 

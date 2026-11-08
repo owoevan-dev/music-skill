@@ -92,6 +92,7 @@ def _zones_for(notes, keys):
     return out
 
 AUDIO = ('.wav', '.flac', '.aif', '.aiff')
+MAX_SOURCE_SECONDS = 600  # the longest FLAC recording decoded; the sources the builds pin are 11 MB at most, a minute or two
 
 def audio_files(folder):
     return [f for f in sorted(Path(folder).iterdir()) if f.is_file() and f.suffix.lower() in AUDIO]
@@ -609,10 +610,15 @@ def read_audio(path, ffmpeg=None):
     fd, tmp = tempfile.mkstemp(suffix='.wav')
     os.close(fd)
     try:
+        # Decoded to at most a second past MAX_SOURCE_SECONDS, so the temporary WAV stays bounded whatever the file
+        # claims; a longer recording is refused rather than cut.
         subprocess.run([str(ffmpeg), '-hide_banner', '-nostdin', '-v', 'error', '-y', '-protocol_whitelist', 'file',
-                        '-f', 'flac', '-i', str(path), '-c:a', 'pcm_f32le', tmp],
+                        '-f', 'flac', '-i', str(path), '-t', str(MAX_SOURCE_SECONDS + 1), '-c:a', 'pcm_f32le', tmp],
                        check=True, stdin=subprocess.DEVNULL, timeout=600, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-        return wavfile.read(tmp)
+        x, info = wavfile.read(tmp)
+        if len(x) > MAX_SOURCE_SECONDS * info['rate']:
+            raise ValueError(f'{path.name}: longer than {MAX_SOURCE_SECONDS // 60} minutes, more than a sample recording; cut it first')
+        return x, info
     finally:
         os.unlink(tmp)
 

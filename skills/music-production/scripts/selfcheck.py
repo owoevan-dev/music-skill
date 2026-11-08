@@ -1680,21 +1680,21 @@ def checks(work,config=None):
         finally:
             fs.HOSTS=hosts;server.shutdown()
             import importlib;importlib.reload(fs)
-        # A damaged cached wheel is replaced by the one just verified, and that is the file handed back.
-        import bootstrap,hashlib,subprocess as sp
-        good=b'pedalboard wheel';name='pedalboard-0.9.26-cp313-cp313-win_amd64.whl';wc=work/'wheel_cache';wc.mkdir(exist_ok=True)
+        # A damaged cached wheel is set aside and the wheel fetched again from its locked address (bootstrap.download,
+        # stood in for here), and that is the file handed back.
+        import bootstrap,hashlib
+        good=b'pedalboard wheel';name=f'pedalboard-0.9.26-{bootstrap.wheel_tags()[0]}.whl';wc=work/'wheel_cache';wc.mkdir(exist_ok=True)
         (wc/name).write_bytes(b'damaged')
-        lock={'optional':{'pedalboard':{'version':'0.9.26','wheels':{name:{'bytes':len(good),'sha256':hashlib.sha256(good).hexdigest()}}}}}
-        real=bootstrap.subprocess.run
-        def fake(argv,**k):
-            target=Path(argv[argv.index('-d')+1])
-            (target/name).write_bytes((wc/name).read_bytes() if '--no-index' in argv else good)
-            return sp.CompletedProcess(argv,0,b'',b'')
+        lock={'optional':{'pedalboard':{'version':'0.9.26','wheels':{name:{'url':'https://files.pythonhosted.org/x/'+name,'bytes':len(good),'sha256':hashlib.sha256(good).hexdigest()}}}}}
+        real=bootstrap.download
+        def fake(item,dest,offline):
+            assert item['url'].endswith(name) and not offline
+            dest.write_bytes(good)
         try:
-            bootstrap.subprocess.run=fake
+            bootstrap.download=fake
             path,meta=bootstrap.pedalboard_wheel(lock,wc,False)
-        finally:bootstrap.subprocess.run=real
-        assert path==wc/name and path.read_bytes()==good and file_hash(path)==meta['sha256']
+        finally:bootstrap.download=real
+        assert path==wc/name and path.read_bytes()==good and file_hash(path)==meta['sha256'] and len(list(wc.glob(name+'.replaced-*')))==1
         return {'short_read':'tried again, never cached','damaged_cache':'downloaded again','damaged_wheel':'replaced'}
     check('a_short_or_damaged_download_is_never_kept',short_downloads)
     def compare_unit():
@@ -1987,10 +1987,12 @@ def checks(work,config=None):
         commit='c'*40;folder=sources/f'samples-{commit[:12]}';(folder/'wav').mkdir(parents=True)
         (folder/'wav'/'a.wav').write_bytes(b'note a');(folder/'wav'/'mine.wav').write_bytes(b'user')
         blob=lambda b:hashlib.sha1(b'blob %d\0'%len(b)+b).hexdigest()
-        save_json(sources/f'someone_samples_{commit}_tree.json',{'sha':commit,'tree':[{'path':'wav/a.wav','type':'blob','sha':blob(b'note a')},{'path':'wav/mine.wav','type':'blob','sha':blob(b'theirs')}]})
+        listed=[('wav/a.wav',blob(b'note a'),6),('wav/mine.wav',blob(b'theirs'),6)]
+        save_json(sources/f'someone_samples_{commit}_tree.json',{'sha':commit,'tree':[{'path':q,'type':'blob','sha':h,'size':n} for q,h,n in listed]})
         lock={'archives':[{'name':'good','url':'https://example.org/good.zip','sha256':hashlib.sha256(b'archive').hexdigest(),'bytes':7},
                           {'name':'bad','url':'https://example.org/bad.zip','sha256':hashlib.sha256(b'original').hexdigest(),'bytes':8}],
-              'builds':[{'name':'samples','kind':'git','repository':'someone/samples','commit':commit,'paths':['wav/']}]}
+              'builds':[{'name':'samples','kind':'git','repository':'someone/samples','commit':commit,'paths':['wav/'],
+                         'samples':2,'samples_sha256':fb.sample_digest(listed)}]}
         said=io.StringIO()
         with contextlib.redirect_stdout(said):fb.delete_sources(lock,None,rt,cache)
         assert not good.exists() and bad.is_file() and not (folder/'wav'/'a.wav').exists() and (folder/'wav'/'mine.wav').is_file(),said.getvalue()
@@ -2164,6 +2166,83 @@ def checks(work,config=None):
         assert r.returncode==2 and 'not empty' in r.stderr and (busy/'roundtrip.mid').read_bytes()==b'mine',(r.returncode,r.stderr)
         return {'refused':True}
     check('selfcheck_work_must_be_new_or_empty',selfcheck_work_must_be_new_or_empty)
+    def source_listing_must_name_the_pinned_samples():
+        # A source build takes from its listing only the samples the lock pins (each path with its blob hash and size):
+        # a listing that adds a path running out of the sample folder, or changes a size, is refused before anything is
+        # fetched, and the files are fetched no larger than their pinned size.
+        import fetch_soundbanks as fb
+        listing={'sha':'c'*40,'tree':[{'path':'wav/a.wav','type':'blob','sha':'1'*40,'size':10},{'path':'wav/b.wav','type':'blob','sha':'2'*40,'size':20},
+                                     {'path':'docs/readme.txt','type':'blob','sha':'3'*40,'size':5}]}
+        item={'name':'demo','paths':['wav/'],'samples':2,'samples_sha256':fb.sample_digest([('wav/a.wav','1'*40,10),('wav/b.wav','2'*40,20)])}
+        assert fb.pinned_samples(item,listing)==[('wav/a.wav','1'*40,10),('wav/b.wav','2'*40,20)]
+        out=copy.deepcopy(listing);out['tree'].append({'path':'wav/../../../scripts/soundbank.py','type':'blob','sha':'4'*40,'size':9})
+        grown=copy.deepcopy(listing);grown['tree'][0]['size']=10**9
+        cut=copy.deepcopy(listing);cut['truncated']=True
+        for bad in (out,grown,cut):rejects(lambda bad=bad:fb.pinned_samples(item,bad))
+        assert not fb.safe_member('wav/../x') and not fb.safe_member('C:/x.sf2') and not fb.safe_member('wav/a\0.wav') and fb.safe_member('wav/a b.wav')
+        lock=json.loads((Path(__file__).resolve().parents[1]/'references'/'soundbank-lock.json').read_text(encoding='utf-8'))
+        assert all(len(b.get('samples_sha256',''))==64 and b['samples']>0 for b in lock['builds'] if b.get('kind')!='split')
+        return {'refused':3}
+    check('source_listing_must_name_the_pinned_samples',source_listing_must_name_the_pinned_samples)
+    def pedalboard_wheel_fetched_by_its_lock():
+        # The wheel is the lock's best one for this Python by pip's own tag ranking, taken from the cache while its
+        # bytes match the lock, else fetched from its locked address (bootstrap.download: at most its locked size,
+        # hashed as it arrives); offline with nothing cached there is none, and a damaged copy is set aside.
+        import contextlib,hashlib,io
+        import bootstrap
+        tags=bootstrap.wheel_tags();assert tags,'pip ranks no wheel tags here'
+        name=f'pedalboard-0.0.0-{tags[0]}.whl';data=b'not a real wheel'
+        lock={'optional':{'pedalboard':{'version':'0.0.0','wheels':{name:{'url':'https://files.pythonhosted.org/x/'+name,'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data)},
+                                                                     'pedalboard-0.0.0-cp27-cp27m-win32.whl':{'url':'https://files.pythonhosted.org/x/old.whl','sha256':'0'*64,'bytes':1}}}}}
+        cache=work/'wheel_cache_lock';cache.mkdir()
+        assert bootstrap.pedalboard_wheel(lock,cache,offline=True)==(None,None)
+        (cache/name).write_bytes(data);found,w=bootstrap.pedalboard_wheel(lock,cache,offline=True)
+        assert found==cache/name and w['bytes']==len(data)
+        (cache/name).write_bytes(b'damaged');said=io.StringIO()
+        with contextlib.redirect_stdout(said):assert bootstrap.pedalboard_wheel(lock,cache,offline=True)==(None,None)
+        assert 'set aside' in said.getvalue() and len(list(cache.glob(name+'.replaced-*')))==1
+        return {'tag':tags[0]}
+    check('pedalboard_wheel_fetched_by_its_lock',pedalboard_wheel_fetched_by_its_lock)
+    def render_folders_are_read_without_links():
+        # analyze and compare read a render folder's own files only: one holding a link (here its stems folder, a
+        # junction on Windows) is refused before any audio is read; and no WAV longer than a render is read at all.
+        import subprocess
+        from musiclib.compare import load
+        from musiclib.analysis import analyze
+        r=work/'linked_render';(r/'stems').mkdir(parents=True);outside=work/'outside_stems';outside.mkdir()
+        save_json(r/'project.json',example());save_json(r/'report.json',{});save_json(r/'stem_receipts.json',[])
+        load(r)  # a folder of its own files is read
+        shutil.rmtree(r/'stems')
+        made=subprocess.run(['cmd','/c','mklink','/J',str(r/'stems'),str(outside)],capture_output=True).returncode==0 if os.name=='nt' else (os.symlink(outside,r/'stems',target_is_directory=True) or True)
+        assert made
+        for read in (lambda:load(r),lambda:analyze(r)):
+            try:read();raise AssertionError('a render folder holding a link was read')
+            except ValueError as e:assert 'links' in str(e),e
+        long=work/'long.wav';audio.write_wav(long,np.zeros((3*audio.RATE,2),dtype=np.float32));limit=audio.MAX_WAV_SECONDS
+        try:
+            audio.MAX_WAV_SECONDS=2;rejects(lambda:audio.read_wav(long))
+        finally:audio.MAX_WAV_SECONDS=limit
+        audio.read_wav(long)
+        return {'refused':2}
+    check('render_folders_are_read_without_links',render_folders_are_read_without_links)
+    def a_part_larger_than_the_machine_is_refused():
+        # A part that would need more memory at once than the machine has (render.part_memory) is refused before
+        # anything is synthesized, and the error says why: a synth pad note held through a long song is the usual cause.
+        from musiclib.render import too_large
+        p=example();p['clock']={'bars':400,'meter':[4,4],'tempo':[[0,100]],'tail_seconds':2};p['sections']=[{'id':'a','start_bar':0,'bars':400}]
+        p.pop('harmony',None);t=copy.deepcopy(p['tracks'][2]);t.update(id='pad',engine='synth',synth={'preset':'trance_pad'})
+        t['notes']=[{'id':'held','on':0,'duration':1600,'pitch':57}];t['performance']={'notes':{'held':{'velocity':70}}};p['tracks']=[t];validate(p)
+        c=Clock(p);frames=round((c.end+c.tail)*audio.RATE)
+        try:too_large(p,c,frames,{},8e9);raise AssertionError('a 16-minute synth note passed on an 8 GB machine')
+        except ValueError as e:assert 'split the note' in str(e) and 'pad' in str(e),e
+        too_large(p,c,frames,{},None);too_large(p,c,frames,{},1e12)
+        # A Surge part plays in Surge's own process where Surge XT is there; only its fallback on the built-in synth
+        # makes the note whole.
+        s=copy.deepcopy(t);s.update(engine='surge',surge={'preset':'juno_60_strings'});s.pop('synth',None);q=copy.deepcopy(p);q['tracks']=[s]
+        too_large(q,c,frames,{},8e9,{'pad':{'plays':'Surge XT'}})
+        rejects(lambda:too_large(q,c,frames,{},8e9,{'pad':{'plays':'fallback: Surge XT is not installed'}}))
+        return {'refused_on_8_gb':True}
+    check('a_part_larger_than_the_machine_is_refused',a_part_larger_than_the_machine_is_refused)
     if config:
         from musiclib.render import render
         p=example();save_json(work/'example.json',p);cache=work/'cache'
@@ -2737,6 +2816,21 @@ def checks(work,config=None):
                 raw=(work/name).read_bytes();assert b'tagged-artist-7151' not in raw and b'tagged-comment-2938' not in raw,name
             return {'outputs':3}
         check('outputs_carry_no_input_metadata',outputs_carry_no_input_metadata)
+        def flac_sources_decode_within_a_limit():
+            # A FLAC source is decoded to at most a second past soundbank.MAX_SOURCE_SECONDS and refused when longer,
+            # so the temporary WAV stays bounded whatever the file holds (here with the limit set to 2 s).
+            import soundbank
+            cfg=audio.load_config(config);wav=work/'three_seconds.wav';audio.write_wav(wav,np.zeros((3*audio.RATE,2),dtype=np.float32))
+            audio.ffmpeg(cfg,['-i',wav,'-c:a','flac',work/'three_seconds.flac'],work/'logs_flac','to_flac')
+            x,_=soundbank.read_audio(work/'three_seconds.flac',cfg['ffmpeg']['path']);assert len(x)==3*audio.RATE,len(x)
+            limit=soundbank.MAX_SOURCE_SECONDS
+            try:
+                soundbank.MAX_SOURCE_SECONDS=2
+                try:soundbank.read_audio(work/'three_seconds.flac',cfg['ffmpeg']['path']);raise AssertionError('a FLAC over the limit was read')
+                except ValueError as e:assert 'cut it first' in str(e),e
+            finally:soundbank.MAX_SOURCE_SECONDS=limit
+            return {'limit_s':limit}
+        check('flac_sources_decode_within_a_limit',flac_sources_decode_within_a_limit)
         def long_automation_renders():
             # A part ridden by 200 automation points renders (FFmpeg's expression failed past 95), and its stem follows them.
             q=copy.deepcopy(p);q['clock']={'bars':4,'meter':[4,4],'tempo':[[0,120]],'tail_seconds':1}

@@ -31,7 +31,6 @@ import platform
 import re
 import shutil
 import tarfile
-import tempfile
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -42,7 +41,8 @@ import zipfile
 from musiclib import files
 from musiclib.model import file_hash,save_json
 
-HOSTS=('github.com','raw.githubusercontent.com','release-assets.githubusercontent.com','objects.githubusercontent.com')
+HOSTS=('github.com','raw.githubusercontent.com','release-assets.githubusercontent.com','objects.githubusercontent.com',
+       'files.pythonhosted.org')  # the last for the pedalboard wheel the lock pins
 MIN_FFMPEG=6
 
 def safe_extract(path,target,only=None):
@@ -175,32 +175,34 @@ def surge_plugin(lock,runtime,cache,args,system):
             if (Path(bundle)/inner).is_file():return Path(bundle).resolve(),(Path(bundle)/inner).resolve(),'User system installation; hash is integrity, not provenance'
     return None,None,None
 
+def wheel_tags():
+    """The wheel tags this Python installs, best first, as pip ranks them when it picks a wheel (pip's own copy of the
+    packaging library); none where pip cannot be imported, as then it could not install the wheel either."""
+    try:
+        from pip._vendor.packaging.tags import sys_tags
+    except ImportError:
+        return []
+    return [str(t) for t in sys_tags()]
+
 def pedalboard_wheel(lock,cache,offline):
-    """The pinned pedalboard wheel for this Python and platform, picked by pip (from the cache first, so a cache shared
-    by several Pythons or machines gives each its own wheel) and checked against PyPI's hashes."""
+    """The pinned pedalboard wheel for this Python and platform: of the wheels the lock lists, the one whose tags pip
+    ranks first here, from the cache while its bytes match the lock (a cache shared by several Pythons or machines
+    holds each one's wheel), else downloaded from its locked URL, no larger than its locked size and hashed as it
+    arrives (download).  `pip download` would have fetched whatever the index served before anything could check it."""
     board=lock['optional']['pedalboard'];wheels=board['wheels']
-    flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
-    def pick(online):
-        chosen=Path(tempfile.mkdtemp(prefix='wheel-',dir=cache))
-        try:
-            source=['--no-index','--find-links',str(cache)] if not online else []
-            subprocess.run([sys.executable,'-m','pip','download',f'pedalboard=={board["version"]}','--no-deps','--only-binary=:all:',
-                            '--no-cache-dir',*source,'-d',str(chosen),'-q'],check=False,capture_output=True,timeout=600,
-                           stdin=subprocess.DEVNULL,creationflags=flags)
-            for f in chosen.glob('*.whl'):
-                w=wheels.get(f.name)
-                if w and f.stat().st_size==w['bytes'] and file_hash(f)==w['sha256']:
-                    # The verified bytes take the cached name (through a file of their own), over a damaged copy.
-                    temp=files.stage_name(cache/f.name,'.whl')
-                    try:shutil.copyfile(f,temp);os.replace(temp,cache/f.name)
-                    except BaseException:
-                        temp.unlink(missing_ok=True);raise
-                    return cache/f.name,w
-            return None,None
-        finally:shutil.rmtree(chosen,ignore_errors=True)
-    found=pick(False)
-    if found[0] or offline:return found
-    return pick(True)
+    rank={t:i for i,t in enumerate(wheel_tags())}
+    def best(name):
+        py,abi,plat=name[:-len('.whl')].split('-')[-3:]
+        return min((rank[t] for t in (f'{a}-{b}-{c}' for a in py.split('.') for b in abi.split('.') for c in plat.split('.')) if t in rank),default=None)
+    fitting=sorted((r,n) for n in wheels for r in [best(n)] if r is not None)
+    if not fitting:return None,None
+    name=fitting[0][1];w=wheels[name];dest=cache/name
+    if files.occupied(dest) and not (files.regular_file(dest) and dest.stat().st_size==w['bytes'] and file_hash(dest)==w['sha256']):
+        print(f'{name}: the cached copy does not match the lock; set aside as {files.aside(dest).name}',flush=True)
+    if not files.occupied(dest):
+        if offline:return None,None
+        download(w,dest,offline)
+    return dest,w
 
 def install_surge(lock,runtime,cache,args,system,config):
     """Surge XT, pedalboard and the curated patches; a missing piece is reported and leaves Surge parts on fallbacks."""

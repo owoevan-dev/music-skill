@@ -35,22 +35,45 @@ def engine_hash():
     host=Path(__file__).resolve().parents[1]/'surge_host.py'
     return digest({**{p.name:file_hash(p) for p in Path(__file__).parent.glob('*.py')},'surge_host.py':file_hash(host)})
 
-def free_memory():
-    """Bytes of memory free for new work, or None where it cannot be read (macOS gives half its installed memory)."""
+def _memory(free):
+    """Bytes of memory free for new work (`free`), or installed; None where it cannot be read (macOS: half its installed
+    memory counts as free)."""
     try:
         if os.name=='nt':
             import ctypes
             class Status(ctypes.Structure):
                 _fields_=[('length',ctypes.c_ulong),('load',ctypes.c_ulong)]+[(k,ctypes.c_ulonglong) for k in ('total','avail','page_total','page_avail','virtual_total','virtual_avail','extended')]
             s=Status();s.length=ctypes.sizeof(Status)
-            return s.avail if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(s)) else None
+            return (s.avail if free else s.total) if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(s)) else None
         if os.path.exists('/proc/meminfo'):
             with open('/proc/meminfo',encoding='ascii') as f:
                 for line in f:
-                    if line.startswith('MemAvailable:'):return int(line.split()[1])*1024
-        return os.sysconf('SC_PHYS_PAGES')*os.sysconf('SC_PAGE_SIZE')//2
+                    if line.startswith('MemAvailable:' if free else 'MemTotal:'):return int(line.split()[1])*1024
+        return os.sysconf('SC_PHYS_PAGES')*os.sysconf('SC_PAGE_SIZE')//(2 if free else 1)
     except (OSError,ValueError,AttributeError):
         return None
+
+def free_memory():
+    return _memory(True)
+
+def total_memory():
+    return _memory(False)
+
+def too_large(p,clock,frames,fonts,machine,surge_deps=None):
+    """Refuse, before anything is synthesized, a part that would need more memory at once than the machine has
+    (part_memory): run, it would only swap or be stopped.  The built-in synth makes each note whole, about 30 MB a
+    second of the note, so a note held for minutes is the usual cause."""
+    if not machine:return
+    for t in p['tracks']:
+        need=part_memory(t,clock,frames,fonts.get(t['id']),(surge_deps or {}).get(t['id'],{}).get('plays')=='Surge XT')
+        if need<=machine:continue
+        why=''
+        if t['engine'] in ('synth','surge','additive'):
+            held=max((clock.seconds(n['on']+n['duration'])-clock.seconds(n['on']) for n in t['notes']),default=0)
+            why=(f'; its longest note lasts {held:.0f} s, and the {"additive" if t["engine"]=="additive" else "built-in"} synth '
+                 'makes a note whole: split the note, or play the part on a SoundFont or Surge XT sound')
+        raise ValueError(f'{t["id"]}: making this part takes about {need/1e9:.1f} GB at once, more than this machine has '
+                         f'({machine/1e9:.1f} GB){why}')
 
 def default_jobs():
     """Parallel parts: one per processor, at most 8; the memory they need is held by MemoryBudget."""
@@ -66,8 +89,10 @@ ADDITIVE_COPIES,ADDITIVE_HELD_COPIES=1.5,5.1  # eighths; a note held through the
 SYNTH_COPIES,SYNTH_PER_HELD_SECOND=2.5,3.0e7  # eighths; each second of its longest voice adds 30 MB (trance_pad)
 PART_OVERHEAD=2.5e8  # our allowance for the rest: the interpreter's own work, the MIDI, an FFmpeg pass
 
-def part_memory(t,clock,frames,font):
-    """Bytes a part is expected to hold at its peak, its synthesis or its processing, whichever is more."""
+def part_memory(t,clock,frames,font,surge_plays=False):
+    """Bytes a part is expected to hold at its peak, its synthesis or its processing, whichever is more.  A Surge part
+    (`surge_plays`: Surge XT is there to play it) renders in a process of its own; otherwise its fallback on the
+    built-in synth is counted."""
     copy=frames*16;song=max(1e-9,frames/audio.RATE)
     held=max((clock.seconds(n['on']+n['duration'])-clock.seconds(n['on']) for n in t['notes']),default=0.0)
     engine=t['engine']
@@ -75,11 +100,13 @@ def part_memory(t,clock,frames,font):
         bank=Path(font['path']).stat().st_size*(10 if Path(font['path']).suffix.lower()=='.sf3' else 1)+5e7
         made=max(bank,ENGINE_COPIES['layered']*copy if layered.wanted(t) else 0)
     elif engine=='additive':made=(ADDITIVE_COPIES+ADDITIVE_HELD_COPIES*min(1.0,held/song))*copy
+    elif engine=='surge' and surge_plays:
+        made=5e8+copy  # our allowance: the plugin's process, and the part it hands back as float32 stereo
     elif engine in ('synth','surge'):
-        # A mono patch's legato line is one voice for up to MONO_LINE_S; a Surge part may fall back to the built-in
-        # synth, and Surge itself plays in a process of its own (our allowance of 500 MB).
+        # A mono patch's legato line is one voice for up to MONO_LINE_S; a Surge part with no Surge here plays its
+        # fallback on the built-in synth.
         line=synth.MONO_LINE_S if engine=='synth' and synth.patch_of(t).get('mono') else 0
-        made=SYNTH_COPIES*copy+SYNTH_PER_HELD_SECOND*min(song,held+line)+(5e8 if engine=='surge' else 0)
+        made=SYNTH_COPIES*copy+SYNTH_PER_HELD_SECOND*min(song,held+line)
     else:made=ENGINE_COPIES.get(engine,ENGINE_COPIES['noise'])*copy
     mix=t['mix']
     tools=[TOOL_COPIES[k] for k in TOOL_COPIES if mix.get(k)]+[STAGE_COPIES]*(mix.get('depth_m') is not None)
@@ -262,6 +289,10 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
     fonts={t['id']:audio.soundfont_for(cfg,t)[1] for t in p['tracks'] if t['engine']=='soundfont'}
     problems=[m for t in p['tracks'] if t['id'] in fonts for m in [layered.unsupported(t,fonts[t['id']]['path'])] if m]
     if problems:raise ValueError('Parts the banks cannot play as written (review --config lists them too):\n'+'\n'.join(problems))
+    # And no part needs more memory at once than the machine has.  (Whether Surge XT plays each Surge part is read
+    # once here, and is part of that part's cache key.)
+    surge_deps={t['id']:surge.dependencies(cfg,t) for t in p['tracks'] if t['engine']=='surge'}
+    too_large(p,clock,round((clock.end+clock.tail)*audio.RATE),fonts,total_memory(),surge_deps)
     project_key=digest(p);marker=output/'render_input.json'
     code_hash=engine_hash()
     # A cached part depends on the code its synthesis runs and on the preset files the built-in synth and Surge parts read.
@@ -299,7 +330,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         began=time.monotonic()
         font_name,font=audio.soundfont_for(cfg,t) if t['engine']=='soundfont' else (None,None)
         deps={'fluidsynth':cfg['fluidsynth']['sha256'],'soundfont':font['sha256'] if font else None}
-        if t['engine']=='surge':deps['surge']=surge.dependencies(cfg,t)
+        if t['engine']=='surge':deps['surge']=surge_deps[t['id']]
         identity=synthesis_identity(p,clock,t,deps,synthesis_hash)
         key=digest(identity);folder=cache/key
         if files.linked(folder):raise ValueError(f'Cache entry {folder} is a link; remove it and render again')
@@ -311,7 +342,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         # here for this part, then finds it in the cache.  The part's memory is taken first, before any lock, so a part
         # never waits for memory while it holds an entry another part waits on.
         asked=time.monotonic()
-        with budget.hold(part_memory(t,clock,frames,font)),lock,entry_lock(folder):
+        with budget.hold(part_memory(t,clock,frames,font,deps.get('surge',{}).get('plays')=='Surge XT')),lock,entry_lock(folder):
             waited=time.monotonic()-asked
             check_entry(folder)
             cached=False;raw_sha=None;old=read_json(receipt) if files.regular_file(raw) else {}

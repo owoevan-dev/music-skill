@@ -240,27 +240,35 @@ def low_intervals(p,clock,limit=40):
     lower note lies under that interval's low interval limit, where voicings turn muddy (Hoffmann's chart,
     voicing.LOW_INTERVAL_LIMITS); one finding per interval sounding at a moment, whichever parts play it.  The fourth
     or fifth of a power chord (a part's root and fifth, with octaves) is left out, also where another part doubles
-    it: rock and metal voice it low (rock-and-metal.md)."""
+    it: rock and metal voice it low (rock-and-metal.md).  As in vertical(), the notes are indexed by pitch and onset: only
+    the pitches an interval puts above a note low enough for its limit, and only their notes overlapping it, are looked
+    at, not every note of the bars it spans."""
     from .voicing import LOW_INTERVAL_LIMITS
-    bpb=clock.beats_per_bar;by_bar=defaultdict(list);notes=[];top=max(LOW_INTERVAL_LIMITS.values())
+    notes=[];top=max(LOW_INTERVAL_LIMITS.values())
     for t in p['tracks']:
         if unpitched(t):continue
         pcs=defaultdict(set)
         for n in t['notes']:pcs[round(n['on'],4)].add(n['pitch']%12)
         for n in t['notes']:
-            c=frozenset(pcs[round(n['on'],4)]);item=(n['on'],n['on']+n['duration'],n['pitch'],t['id'],c if len(c)==2 and max(c)-min(c) in (5,7) else None)
-            notes.append(item)
-            for b in range(int(n['on']//bpb),int((item[1]-1e-9)//bpb)+1):by_bar[b].append(item)
+            c=frozenset(pcs[round(n['on'],4)])
+            notes.append((n['on'],n['on']+n['duration'],n['pitch'],t['id'],c if len(c)==2 and max(c)-min(c) in (5,7) else None))
+    by_pitch=defaultdict(list)
+    for it in notes:by_pitch[it[2]].append(it)
+    starts,longest={},{}
+    for q,lst in by_pitch.items():
+        lst.sort();starts[q]=[x[0] for x in lst];longest[q]=max(x[1]-x[0] for x in lst)
     found={}
     for a in notes:
         if a[2]>=top:continue
-        for b in {x for bar in range(int(a[0]//bpb),int((a[1]-1e-9)//bpb)+1) for x in by_bar[bar]}:
-            d=b[2]-a[2]
-            if d<=0 or a[2]>=LOW_INTERVAL_LIMITS.get(d,0) or min(a[1],b[1])-max(a[0],b[0])<.5-1e-9:continue
-            if d in (5,7) and any(x[4] and {a[2]%12,b[2]%12}<=x[4] for x in (a,b)):continue
-            at=round(max(a[0],b[0]),4)
-            f=found.setdefault((at,a[2],b[2]),{'parts':set(),'at':where(clock,at),'beat':at,'interval':INTERVAL_NAMES[d],'notes':[note_name(a[2]),note_name(b[2])],'limit':note_name(LOW_INTERVAL_LIMITS[d]),'below_limit':LOW_INTERVAL_LIMITS[d]-a[2]})
-            f['parts']|={a[3],b[3]}
+        for d,low in LOW_INTERVAL_LIMITS.items():
+            q=a[2]+d
+            if a[2]>=low or q not in by_pitch:continue
+            for b in by_pitch[q][bisect.bisect_left(starts[q],a[0]-longest[q]):bisect.bisect_left(starts[q],a[1])]:
+                if min(a[1],b[1])-max(a[0],b[0])<.5-1e-9:continue
+                if d in (5,7) and any(x[4] and {a[2]%12,b[2]%12}<=x[4] for x in (a,b)):continue
+                at=round(max(a[0],b[0]),4)
+                f=found.setdefault((at,a[2],b[2]),{'parts':set(),'at':where(clock,at),'beat':at,'interval':INTERVAL_NAMES[d],'notes':[note_name(a[2]),note_name(b[2])],'limit':note_name(LOW_INTERVAL_LIMITS[d]),'below_limit':LOW_INTERVAL_LIMITS[d]-a[2]})
+                f['parts']|={a[3],b[3]}
     found=[{**f,'parts':sorted(f['parts'])} for _,f in sorted(found.items())]
     worst=max(found,key=lambda x:(x['below_limit'],-x['beat']),default=None)
     return {'count':len(found),'by_parts':dict(Counter(' / '.join(x['parts']) for x in found).most_common()),'furthest_below':worst,'examples':found[:limit]}

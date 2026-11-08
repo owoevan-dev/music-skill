@@ -175,13 +175,22 @@ def plan(track, clock):
             slur = [n]
         prev = n
     # Each crossfade also ends before the next note on the outgoing note's render: the slur alternates between two
-    # renders, so after a long note a fast one would otherwise enter while that render is still fading out.
+    # renders, so after a long note a fast one would otherwise enter while that render is still fading out.  Each
+    # render's notes by start, found by bisection (the starts no longer move here), so a line of any length is planned
+    # in N log N.
+    starts = {}
+    for x in sorted(notes, key=lambda x: x['start_seconds']):
+        starts.setdefault(x['parity'], ([], []))
+        starts[x['parity']][0].append(x['start_seconds'])
+        starts[x['parity']][1].append(x)
     for i, b in enumerate(notes):
         a = notes[i - 1] if i and b['fade_in'] else None
         if a is None or a['fade_out'] != b['fade_in']:
             continue
         start, length = b['fade_in']
-        c = min((x for x in notes if x['parity'] == a['parity'] and x['start_seconds'] > start), key=lambda x: x['start_seconds'], default=None)
+        times, order = starts.get(a['parity'], ([], []))
+        k = bisect.bisect_right(times, start)
+        c = order[k] if k < len(order) else None
         if c is not None and c['start_seconds'] < start + length:
             length = .8 * (c['start_seconds'] - start)
             a['fade_out'] = b['fade_in'] = (start, length)
@@ -190,12 +199,14 @@ def plan(track, clock):
         n['tick'] = max(0, round(clock.beat(n['start_seconds']) * TPQ))
         n['end_tick'] = max(n['tick'] + 1, min(round(clock.total_beats * TPQ), round(clock.beat(n['end_seconds']) * TPQ)))
     # A fast slur can bring two notes of one render onto one key: the earlier ends just before the later.
-    for parity in (0, 1):
-        for pitch in {n['pitch'] for n in notes if n['parity'] == parity}:
-            same = sorted((n for n in notes if n['parity'] == parity and n['pitch'] == pitch), key=lambda n: n['tick'])
-            for a, b in zip(same, same[1:]):
-                if a['end_tick'] >= b['tick']:
-                    a['end_tick'] = max(a['tick'] + 1, b['tick'] - 1)
+    keys = {}
+    for n in notes:
+        keys.setdefault((n['parity'], n['pitch']), []).append(n)
+    for same in keys.values():
+        same.sort(key=lambda n: n['tick'])
+        for a, b in zip(same, same[1:]):
+            if a['end_tick'] >= b['tick']:
+                a['end_tick'] = max(a['tick'] + 1, b['tick'] - 1)
     return notes
 
 

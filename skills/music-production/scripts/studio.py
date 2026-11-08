@@ -79,6 +79,8 @@ def main():
         if source is not None and path.resolve()==Path(source).resolve():raise ValueError('The output would replace its own input')
     if args.command=='configure':
         if files.occupied(args.output):raise ValueError('Choose a new configuration path')
+        from musiclib import sf2
+        sf2.read(args.soundfont)  # as add-soundfont: a bank whose tables do not hold together is refused before it is configured
         cfg={key:{'path':str(getattr(args,key).resolve()),'sha256':file_hash(getattr(args,key)),'license':'User-supplied; retain upstream notices','source':'User-configured local file; hash is integrity, not provenance or antivirus certification'} for key in ('fluidsynth','ffmpeg','soundfont')}
         save_json(args.output,cfg);print('Saved configuration; inspect source/license before redistribution');return
     if args.command=='add-soundfont':
@@ -165,13 +167,15 @@ def main():
             try:r['clip']=clip(load_config(args.config),r,args.clip)
             except (ValueError,OSError,RuntimeError) as e:r['clip']={'error':str(e)}
         from musiclib.compare import portable
-        save_json(out,portable(r,out.parent))
+        # The report as saved, its folders relative to it, is also what --json prints: shared or redirected, it carries
+        # no local folders either.
+        shared=portable(r,out.parent);save_json(out,shared)
         # Written inside a render or round folder, each goes with that folder in clean.
         for written in [out]+([Path(r['clip']['file'])] if isinstance(r.get('clip'),dict) and r['clip'].get('file') else []):
             files.register_output(written)
         if args.differences:
             for f in files.tree(args.differences):files.register_output(f)
-        print(json.dumps(r,ensure_ascii=False) if args.json else summary.compare(r,out));return
+        print(json.dumps(shared,ensure_ascii=False) if args.json else summary.compare(r,out));return
     if args.command=='sounds':
         from musiclib.sounds import describe,search
         print(json.dumps(describe(args.id) if args.id else search(args.role,[w for w in args.character.split(',') if w.strip()],args.name,args.source,args.limit,args.all),ensure_ascii=False,indent=1));return

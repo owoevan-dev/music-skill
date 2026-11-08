@@ -71,6 +71,13 @@ def validate(track):
                 number(o[key], lo, hi, f'synth oscillator {key}', key in ('voices', 'steps'))
         if 'steps' in o and o.get('wave') != 'triangle' or 'clock' in o and o.get('wave') != 'noise':
             raise ValueError(f'{track["id"]}: "steps" is for a triangle, "clock" for noise')
+        # The objects inside an oscillator are checked as the patch's own are: a pulse's `pwm` is an LFO on its width
+        # (its depth at most .45, past which the width, held to .05-.95, only clips), an FM oscillator's `index_env`
+        # an envelope.
+        if 'pwm' in o:
+            check_lfo(track, o['pwm'], 'pwm', {'depth': (0, .45)})
+        if 'index_env' in o:
+            check_envelope(track, o['index_env'], 'index_env')
     f = patch.get('filter')
     if f:
         if f.get('type', 'lowpass') not in ('lowpass', 'highpass', 'bandpass') or f.get('slope', 12) not in (12, 24):
@@ -78,20 +85,10 @@ def validate(track):
         for key, lo, hi in (('cutoff_hz', 20, 20000), ('resonance', 0, 1), ('env_amount', -8, 8), ('key_track', -1, 2), ('velocity', -4, 4)):
             number(f.get(key, 0 if key != 'cutoff_hz' else 2000), lo, hi, f'synth filter {key}')
     for name in ('amp', 'filter_env'):
-        env = patch.get(name) or {}
-        for key in ('attack', 'decay', 'release'):
-            number(env.get(key, .01), 0, 30, f'synth {name} {key}')
-        number(env.get('sustain', .5), 0, 1, f'synth {name} sustain')
+        check_envelope(track, patch.get(name) or {}, name, closed=False)
     l = patch.get('lfo')
     if l:
-        if l.get('shape', 'sine') not in ('sine', 'triangle', 'square', 'saw'):
-            raise ValueError(f'{track["id"]}: lfo shape sine/triangle/square/saw')
-        if 'rate_beats' in l:
-            number(l['rate_beats'], .0625, 32, 'synth lfo rate beats')
-        else:
-            number(l.get('rate_hz', 5), .01, 30, 'synth lfo rate hz')
-        for key, lo, hi in (('to_pitch_cents', 0, 200), ('to_cutoff_octaves', 0, 6), ('to_amp', 0, 1), ('delay', 0, 10), ('fade', 0, 10)):
-            number(l.get(key, 0), lo, hi, f'synth lfo {key}')
+        check_lfo(track, l, 'lfo', {'to_pitch_cents': (0, 200), 'to_cutoff_octaves': (0, 6), 'to_amp': (0, 1)}, closed=False)
     arp = patch.get('arpeggio')
     if arp:
         if not isinstance(arp, dict) or set(arp) - {'rate_hz', 'rate_beats', 'order'} or arp.get('order', 'up') not in ('up', 'down', 'updown'):
@@ -109,6 +106,42 @@ def validate(track):
     number(patch.get('drive', 0), 0, 1, 'synth drive')
     number(patch.get('velocity_curve', 1.5), .5, 3, 'synth velocity curve')
     number(patch.get('gain_db', 0), -24, 12, 'synth gain dB')
+
+
+LFO_SHAPES = ('sine', 'triangle', 'square', 'saw')  # what lfo() draws
+
+
+def check_lfo(track, spec, name, extra, closed=True):
+    """An LFO object (the patch's `lfo`, a pulse's `pwm`): a shape lfo() draws, a rate in Hz or beats, a delay and fade
+    in seconds and `extra` fields within their bounds.  `closed`: no other fields (a misspelt one would be ignored)."""
+    from .model import number
+    if not isinstance(spec, dict):
+        raise ValueError(f'{track["id"]}: synth {name} must be an object')
+    known = {'shape', 'rate_hz', 'rate_beats', 'phase', 'delay', 'fade', *extra}
+    if closed and set(spec) - known:
+        raise ValueError(f'{track["id"]}: synth {name} takes ' + ', '.join(sorted(known)) + f'; not {", ".join(sorted(set(spec) - known))}')
+    if spec.get('shape', 'sine') not in LFO_SHAPES:
+        raise ValueError(f'{track["id"]}: synth {name} shape ' + '/'.join(LFO_SHAPES))
+    if 'rate_beats' in spec:
+        number(spec['rate_beats'], .0625, 32, f'synth {name} rate beats')
+    else:
+        number(spec.get('rate_hz', 5), .01, 30, f'synth {name} rate hz')
+    for key, (lo, hi) in {'phase': (0, 1), 'delay': (0, 10), 'fade': (0, 10), **extra}.items():
+        number(spec.get(key, lo), lo, hi, f'synth {name} {key}')
+
+
+def check_envelope(track, env, name, closed=True):
+    """An envelope object (`amp`, `filter_env`, an FM oscillator's `index_env`): attack, decay and release 0-30 s,
+    sustain 0-1.  `closed`: no other fields."""
+    from .model import number
+    if not isinstance(env, dict):
+        raise ValueError(f'{track["id"]}: synth {name} must be an object')
+    if closed and set(env) - {'attack', 'decay', 'sustain', 'release'}:
+        raise ValueError(f'{track["id"]}: synth {name} takes attack, decay, sustain and release; not '
+                         + ', '.join(sorted(set(env) - {'attack', 'decay', 'sustain', 'release'})))
+    for key in ('attack', 'decay', 'release'):
+        number(env.get(key, .01), 0, 30, f'synth {name} {key}')
+    number(env.get('sustain', .5), 0, 1, f'synth {name} sustain')
 
 
 def presets():

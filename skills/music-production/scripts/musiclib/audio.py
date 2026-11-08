@@ -1,4 +1,5 @@
 """Local headless processes, narrow WAV I/O, instruments and audio measurements."""
+import contextlib
 import hashlib
 import json
 import math
@@ -9,7 +10,9 @@ import struct
 import subprocess
 import time
 import numpy as np
+from . import files
 from .model import Clock, performed, save_json, file_hash
+from .model import bend_curve as wheel_curve
 
 RATE=48000
 # The longest WAV read: a project's 30 minutes (validate) and its tail of up to 15 s, with room to spare.
@@ -94,9 +97,25 @@ def run(argv,folder,label,timeout=600):
     if code:raise RuntimeError(f'{label} failed ({code}): {content[-3000:]}')
     return content
 
+def written_whole(run_it,outputs):
+    """Run `run_it(names)` with each output file of `outputs` given as a new file of its own beside it, with the same
+    extension (a program picks the format from it); each takes its output's place only when the run succeeds, and all
+    are removed when it fails, so a stopped or failed program never leaves half a file under the output's name.  A
+    null sink (os.devnull, -) is passed through."""
+    named=[o if str(o) in (os.devnull,'-') else files.stage_name(o,Path(o).suffix) for o in outputs]
+    try:
+        result=run_it(named)
+        for o,n in zip(outputs,named):
+            if n is not o:os.replace(n,o)
+        return result
+    finally:
+        for o,n in zip(outputs,named):
+            if n is not o:
+                with contextlib.suppress(OSError):os.unlink(n)
+
 def fluidsynth(config,font_path,midi_path,wav_path,folder,label='fluidsynth'):
     """Render a MIDI file on one SoundFont: dry (no chorus or reverb), 48 kHz float, sample-accurate timing."""
-    log=run([config['fluidsynth']['path'],'-n','-i','-C','0','-R','0','-g','.55','-r',str(RATE),'-T','wav','-O','float','-o','synth.cpu-cores=1','-o','synth.polyphony=256','-o','synth.midi-bank-select=mma','-o','player.timing-source=sample','-F',wav_path,font_path,midi_path],folder,label)
+    log=written_whole(lambda names:run([config['fluidsynth']['path'],'-n','-i','-C','0','-R','0','-g','.55','-r',str(RATE),'-T','wav','-O','float','-o','synth.cpu-cores=1','-o','synth.polyphony=256','-o','synth.midi-bank-select=mma','-o','player.timing-source=sample','-F',names[0],font_path,midi_path],folder,label),[wav_path])
     # Only FluidSynth's own messages ("fluidsynth: error: ...", a preset "not found"), not paths it echoes.
     problems=[line for line in log.splitlines() if line.lower().startswith('fluidsynth:') and any(w in line.lower() for w in ('error','panic','failed','not found'))]
     if problems:raise ValueError('Instrument rendering diagnostic: '+'\n'.join(problems)[-2000:])
@@ -106,8 +125,9 @@ def ffmpeg(config,args,folder,label):
     """Run FFmpeg on the skill's own WAVs.  Every option the scripts pass takes one value, so any other argument is an
     output file; each output gets no metadata or chapters from its inputs (-map_metadata -1, -map_chapters -1), only
     the tags a script sets itself: FFmpeg copies an input's global metadata by default (FFmpeg documentation,
-    -map_metadata), and a tag written into a cached WAV would otherwise reach every master, MP3 and FLAC made from it."""
-    guarded=[];i=0
+    -map_metadata), and a tag written into a cached WAV would otherwise reach every master, MP3 and FLAC made from it.
+    Each output is written whole (written_whole)."""
+    guarded=[];i=0;outputs=[];slots=[]
     while i<len(args):
         if args[i]=='-i':
             p=Path(args[i+1]).resolve()
@@ -118,8 +138,13 @@ def ffmpeg(config,args,folder,label):
         elif str(args[i]).startswith('-'):
             if i+1>=len(args):raise ValueError(f'FFmpeg option {args[i]} has no value')
             guarded.extend(args[i:i+2]);i+=2
-        else:guarded.extend(['-map_metadata','-1','-map_chapters','-1',args[i]]);i+=1
-    return run([config['ffmpeg']['path'],'-hide_banner','-nostdin','-y','-threads','1','-filter_threads','1','-filter_complex_threads','1',*guarded],folder,label)
+        else:
+            guarded.extend(['-map_metadata','-1','-map_chapters','-1',args[i]]);slots.append(len(guarded)-1);outputs.append(args[i]);i+=1
+    def run_it(names):
+        argv=list(guarded)
+        for slot,name in zip(slots,names):argv[slot]=name
+        return run([config['ffmpeg']['path'],'-hide_banner','-nostdin','-y','-threads','1','-filter_threads','1','-filter_complex_threads','1',*argv],folder,label)
+    return written_whole(run_it,outputs)
 
 _GRAPH={}
 def graph_file(config,path,text):
@@ -257,20 +282,30 @@ def automated(x,points,clock):
         out[i:i+len(n)]=x[i:i+len(n)]*np.power(10.0,np.interp(n,at,db)/20).astype(np.float32)[:,None]
     return out
 
+def beats_at(clock,times):
+    """clock.beat for an array of seconds: the position in beats each time falls on."""
+    ts=np.asarray(clock.times);i=np.clip(np.searchsorted(ts,times,side='right')-1,0,None)
+    return np.asarray(clock.beats)[i]+(np.asarray(times,dtype=np.float64)-ts[i])/np.asarray(clock.spb)[i]
+
 def control(track,cc,times,clock,default):
-    points=sorted((clock.seconds(b),v) for b,c,v in track['performance'].get('cc',[]) if c==cc)
+    """A controller's value at `times` (seconds) as the exported MIDI plays the part's [beat, controller, value] points
+    (model.cc_events): linear in beats from point to point, or held in step mode; `default` before the first point.
+    In beats, not seconds, so a ramp under a tempo change reaches the value the MIDI file gives that beat."""
+    points=sorted((b,v) for b,c,v in track['performance'].get('cc',[]) if c==cc)
     if not points:return np.full(len(times),default,dtype=np.float32)
-    xs=np.array([x[0] for x in points]);ys=np.array([x[1] for x in points],dtype=np.float64)
+    xs=np.array([x[0] for x in points],dtype=np.float64);ys=np.array([x[1] for x in points],dtype=np.float64);beats=beats_at(clock,times)
     if track['performance'].get('cc_mode','linear')=='step':
-        idx=np.searchsorted(xs,times,side='right')-1
+        idx=np.searchsorted(xs,beats,side='right')-1
         return np.where(idx>=0,ys[np.clip(idx,0,None)],default)
-    return np.interp(times,xs,ys,left=default)
+    return np.interp(beats,xs,ys,left=default)
 
 def bend_curve(track,times,clock):
-    """Pitch bend in semitones at `times` (seconds), linear between the part's bend points; zero without any."""
-    pts=track['performance'].get('bend',[])
+    """Pitch bend in semitones at `times` (seconds), as the exported MIDI plays the part's [beat, semitones] points
+    (model.bend_curve, curve_at): zero until the first point, which it may jump to, then linear in beats between
+    points; zero without any."""
+    pts=wheel_curve(track['performance'].get('bend',[]))
     if not pts:return np.zeros(len(times))
-    return np.interp(times,[clock.seconds(b) for b,_ in pts],[v for _,v in pts])
+    return np.interp(beats_at(clock,times),[b for b,_ in pts],[v for _,v in pts])
 
 def synthesize(project,track,path):
     clock=Clock(project);frames=round((clock.end+clock.tail)*RATE)

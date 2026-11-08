@@ -21,6 +21,7 @@ cut:     the notes of a split manifest cut again from the same sources and check
 Sample data is never executed.  The output inherits the sample set's license.
 """
 import argparse
+import contextlib
 import hashlib
 import json
 import math
@@ -438,25 +439,44 @@ def save_manifest(path, manifest):
 def cut_sources(manifest, src_root, out_root):
     """Cut the notes a `split` manifest records (source, sample span, fade) from the same source files, each checked
     against its recorded SHA-256: an installer reproduces the intake's notes exactly without re-running the note finder,
-    whose floating-point decisions could differ by a frame on another platform."""
+    whose floating-point decisions could differ by a frame on another platform.  Each note is written under a name of
+    its own and takes its file's name only once it is checked; if any note fails, the notes this run cut are removed
+    again (they are its own: every one was a new file), so no note that does not match, nor half a set, is left."""
     src_root, out_root = Path(src_root), Path(out_root)
     by_source, targets = {}, {}
     for n in manifest['notes']:
         contained(src_root, n['source'], 'source')
         path = targets[n['file']] = contained(out_root, n['file'], 'note file')
-        if path.exists():
+        if files.occupied(path):
             raise ValueError(f'{n["file"]} exists; cut writes into a new folder')
         by_source.setdefault(n['source'], []).append(n)
     if len(targets) != len(manifest['notes']):
         raise ValueError('Two notes of the manifest write one file')
-    for source, notes in by_source.items():
-        x, info = read_audio(src_root / source)
-        x = np.asarray(x, dtype=np.float32)
-        for n in notes:
-            path = targets[n['file']]
-            path.parent.mkdir(parents=True, exist_ok=True)
-            if _cut_note(x, n['start'], n['end'], n['fade'], info['rate'], path) != n['sha256']:
-                raise ValueError(f'{n["file"]}: the cut does not reproduce the recorded note')
+    made = []
+    try:
+        for source, notes in by_source.items():
+            x, info = read_audio(src_root / source)
+            x = np.asarray(x, dtype=np.float32)
+            for n in notes:
+                path = targets[n['file']]
+                path.parent.mkdir(parents=True, exist_ok=True)
+                temp = files.stage_name(path, '.wav')
+                try:
+                    if _cut_note(x, n['start'], n['end'], n['fade'], info['rate'], temp) != n['sha256']:
+                        raise ValueError(f'{n["file"]}: the cut does not reproduce the recorded note (is {source} the '
+                                         'recording the manifest was made from?); no note was kept')
+                    files.fresh(path, 'cut writes into a new folder')
+                    os.replace(temp, path)
+                    made.append(path)
+                finally:
+                    with contextlib.suppress(OSError):
+                        os.unlink(temp)
+    except BaseException:
+        for path in made:
+            with contextlib.suppress(OSError):
+                os.unlink(path)
+        files.prune(out_root)
+        raise
     return len(manifest['notes'])
 
 def highpass(x, rate, hz, order=6):
@@ -1149,17 +1169,23 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
             if rows and sum(len(r) for r in rows) >= 20:
                 noise[dyn] = np.concatenate(rows).mean(axis=0)
     for e in entries:
-        key = (str(e['file']) if not mics and not looped and not dn and dc is None and not hpf else
-               json.dumps([[str(f) for f in e['files']], mics, layer.get('onset_db'), layer.get('max_seconds'), layer.get('ring_db'), looped,
-                           layer.get('loop_repair'), dn] + ([layer['loop'], layer.get('loop_window')] if layer.get('loop') == 'found' else [])
-                          + ([dc] if dc is not None else []) + ([hpf, e['named']] if hpf else [])))
+        # A take is loaded once per build and shared by the layers that use it alike: its key holds everything that
+        # changes what is kept of it (the files and microphones, the onset threshold, the ring and length cut, the
+        # level statistic, the loop, the noise profile it is cleaned with, the declick and the high-pass, and the named
+        # note where the high-pass or the loop's pitch follows it), so a layer that trims or measures it otherwise
+        # loads its own.
+        rel = e['file'].relative_to(root).as_posix()
+        cleaned_with = (per_take[rel] if dn and rel in per_take else
+                        hashlib.sha256(np.ascontiguousarray(noise[e['dyn']]).tobytes()).hexdigest() if dn and e['dyn'] in noise else None)
+        key = json.dumps([[str(f) for f in e['files']], mics, layer.get('onset_db'), layer.get('max_seconds'), layer.get('ring_db'),
+                          layer.get('level'), layer.get('loop'), layer.get('loop_window'), layer.get('loop_repair'), dn, cleaned_with, dc, hpf,
+                          e['named'] if looped or hpf else None])
         if key not in loaded:
             x, info = mic_mix(e['files'], mics, ffmpeg) if mics else read_audio(e['file'], ffmpeg)
             if hpf:
                 f0 = 440.0 * 2 ** ((e['named'] - 69) / 12)
                 x = highpass(x, info['rate'], min(hpf.get('max_hz', 120.0), hpf.get('ratio', 0.73) * f0))
             noise_db = noise_from = None
-            rel = e['file'].relative_to(root).as_posix()
             keep = (partial_bins(e['measured'], dn['keep_partials_below'], info['rate'])
                     if dn and dn.get('keep_partials_below') and e['measured'] is not None else None)
             if dn and rel in per_take:
@@ -1524,10 +1550,17 @@ def main():
         return
     if files.occupied(args.output) or files.occupied(args.receipt):
         raise ValueError('Choose new output and receipt paths')
+    if os.path.normcase(os.path.abspath(args.output)) == os.path.normcase(os.path.abspath(args.receipt)):
+        raise ValueError('--output and --receipt name one file: the receipt would replace the bank; give each its own')
     receipt = build(json.loads(args.spec.read_text(encoding='utf-8')), args.root, args.output, args.ffmpeg)
     save_json(args.receipt, receipt)
     print(json.dumps(receipt['output'], ensure_ascii=False, indent=1))
 
 if __name__ == '__main__':
+    import sys
     files.escape_unprintable()
-    main()
+    try:
+        main()
+    except (ValueError, OSError) as e:
+        print('ERROR:', e, file=sys.stderr)
+        sys.exit(2)

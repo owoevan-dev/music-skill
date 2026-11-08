@@ -3,7 +3,7 @@ import argparse
 import copy
 from pathlib import Path
 import sys
-from musiclib.model import TPQ,Clock,curve_at,load_project,performed,rubato_spans,save_json,tick_of,validate
+from musiclib.model import TPQ,Clock,curve_at,load_project,performed,rubato_spans,save_json,swung,tick_of,validate
 
 REATTACK_GAP_S=.1  # the most a note's own timing may move it (validate: timing_ms within ±100)
 
@@ -19,7 +19,7 @@ def collides(track,first,clock,struck,gap=0.0):
         try:
             played={x['id']:x['start_seconds'] for x in performed(pair,clock,True)};performed(pair,clock,False)
         except ValueError:return True
-        if abs(played[n['id']]-played[h['id']])<gap:return True
+        if abs(played[n['id']]-played[h['id']])<=gap+1e-9:return True
     return False
 
 def crop(points,start,end,bend=False):
@@ -34,12 +34,12 @@ def crop(points,start,end,bend=False):
     head=[] if bend and start<first else [[0,curve_at(points,start)]]
     return head+[[b-start,v] for b,v in points if start<b<end]+[[end-start,left(end)]]
 
-def crop_cc(track,start,end,clock):
+def crop_cc(track,start,end):
     """A part's [beat, controller, value] points from `start` to `end`, moved to start at 0: each controller's value at
     the start, its points between and, where it ramps on past the end, its value at the end.  In linear mode
-    (cc_events) a continuous controller ramps from point to point, in beats in the MIDI and in seconds in the additive
-    synth (audio.control), so a cut inside a ramp takes the ramp's value there; in step mode, and for the switch
-    controllers 64-69, a controller holds its last point's value."""
+    (cc_events) a continuous controller ramps from point to point in beats, in the MIDI and in the additive synth alike
+    (audio.control), so a cut inside a ramp takes the ramp's value there; in step mode, and for the switch controllers
+    64-69, a controller holds its last point's value."""
     perf=track['performance']
     linear=perf.get('cc_mode','linear' if track['engine']=='additive' else 'step')=='linear'
     by={}
@@ -53,9 +53,7 @@ def crop_cc(track,start,end,clock):
             (x0,v0)=before[-1]
             if not ramps or later is None:return v0
             (x1,v1)=later
-            if track['engine']=='additive':share=(clock.seconds(b)-clock.seconds(x0))/(clock.seconds(x1)-clock.seconds(x0))
-            else:share=(b-x0)/(x1-x0)
-            return int(round(v0+(v1-v0)*share))
+            return int(round(v0+(v1-v0)*(b-x0)/(x1-x0)))
         if at(start) is not None:out.append([0,control,at(start)])
         out+=[[beat-start,control,value] for beat,value in points if start<beat<=end]
         if ramps and at(end) is not None and not any(beat==end for beat,_ in points) and any(beat>end for beat,_ in points):
@@ -72,32 +70,62 @@ def extract(p,first_bar,bars):
     for sec in p['sections']:
         a=max(first_bar-1,sec['start_bar']);b=min(first_bar-1+bars,sec['start_bar']+sec['bars'])
         if a<b:q['sections'].append({**sec,'start_bar':a-first_bar+1,'bars':b-a})
+    rubato=q['clock'].pop('rubato',None)
+    if rubato:
+        # The piece's ritardandi that reach into the passage, as spans in its beats, so it keeps the piece's tempo as
+        # played: one into a section boundary at or after its end, one begun before its first bar, the close where
+        # the passage reaches it.  Its own sections would put a boundary at neither edge.
+        spans=[[round(a-start,6),round(b-start,6),w] for a,b,w in rubato_spans(p) if a<end and b>start]
+        if spans:q['clock']['rubato']={'spans':spans,**({'q':rubato['q']} if 'q' in rubato else {})}
+    excerpt_clock=Clock(q)
     held={};struck={};cut=round(start*TPQ);stop=round(end*TPQ)
     for t,source in zip(q['tracks'],p['tracks']):
-        # Which notes are in the passage is decided on the tick grid the piece plays them on (performed()): a note
-        # whose onset rounds onto the passage's last tick, or a held note with less than a tick left, is not in it.
-        # A note struck before the cut sounds there only while it lasts, as written (a later attack of its key ends
-        # it: performed() trims a retrigger) and as played (a short gate, early timing or the part's offset can stop
-        # it before the cut).  The notes still sounding at the cut are re-attacked there.  A note keeps its own
-        # position, moved by whole bars, so it plays where it played in the piece; only one that would fall a float
-        # hair outside the passage's bounds takes its tick instead.
+        # A note is in the passage while the piece plays it there, on the tick grid it plays on (performed(): its
+        # timing, gate, swing, the part's offset, a later attack of its key ending it): one whose onset rounds onto
+        # the passage's last tick, or with less than a tick left at the cut, is not.  One inside the passage as written
+        # and as played keeps its own position, moved by whole bars, so it plays where it played in the piece; only one
+        # that would fall a float hair outside the passage's bounds takes its tick instead.  One the piece plays across
+        # a cut plays the part of it the passage holds: from the cut (a note struck before it, still sounding, is
+        # re-attacked there) or from where it starts as played, to where it ends as played or to the end of the
+        # passage.  Its written onset and length stay inside the passage, and its timing and gate are worked out
+        # (within their bounds) so the excerpt plays it on those ticks.
         written={n['id']:n for n in performed(source,clock,False)};played={n['id']:n for n in performed(source,clock,True)}
         struck[t['id']]={k:n['tick'] for k,n in played.items()}
-        notes=[];again=set();length=end-start
+        notes=[];again=set();length=end-start;perf=t['performance']
+        sw=perf.get('swing');offset=perf.get('offset_ms',0)/1000;bar=excerpt_clock.beats_per_bar
+        at=lambda b:excerpt_clock.seconds(swung(b,sw,bar))  # where the excerpt plays a written position, before timing
         for n in t['notes']:
-            on=written[n['id']]['tick'];off=max(on+1,tick_of(clock.beat(clock.seconds(n['on']+n['duration']))))
-            if min(stop,off)-max(cut,on)<1:continue
-            if on<cut:
-                if written[n['id']]['end_tick']<=cut or played[n['id']]['end_tick']<=cut:continue
-                again.add(n['id'])
-            a=0.0 if on<cut else max(0.0,n['on']-start);d=min(length,n['on']+n['duration']-start)-a
-            if not (a<=length-1/TPQ and 1/TPQ<=d and a+d<=length+1e-9):
-                a=(max(cut,on)-cut)/TPQ;d=(min(stop,off)-max(cut,on))/TPQ
-            n['on']=a;n['duration']=d;notes.append(n)
+            a0,a1=played[n['id']]['tick'],played[n['id']]['end_tick']
+            if min(stop,a1)-max(cut,a0)<1:continue
+            if start<=n['on'] and n['on']+n['duration']<=end and cut<=a0 and a1<=stop:
+                on=written[n['id']]['tick'];off=max(on+1,tick_of(clock.beat(clock.seconds(n['on']+n['duration']))))
+                a=n['on']-start;d=n['duration']
+                if not (a<=length-1/TPQ and 1/TPQ<=d and a+d<=length+1e-9):
+                    a=(max(cut,on)-cut)/TPQ;d=(min(stop,off)-max(cut,on))/TPQ
+                n['on']=a;n['duration']=d;notes.append(n);continue
+            if n['on']<start and a0<cut:again.add(n['id'])
+            x0,x1=max(a0,cut)-cut,min(a1,stop)-cut
+            s0,s1=excerpt_clock.seconds(x0/TPQ),excerpt_clock.seconds(x1/TPQ)
+            on=min(max(0.0,n['on']-start),length-1/TPQ);d=min(length,n['on']+n['duration']-start)-on
+            if d<1/TPQ:d=min(length-on,(x1-x0)/TPQ)  # written to end before the cut: a legato overlap that sounds past it
+            timing=min(.1,max(-.1,s0-at(on)-offset))  # validate: timing_ms within ±100
+            begin=at(on)+timing+offset  # before the tick rounding: a start before the excerpt's plays at its start
+            if s1-begin<excerpt_clock.seconds(1/TPQ):continue  # a part offset no timing can undo leaves no tick of it
+            gate=(s1-begin)/(at(on+d)-at(on))
+            if not .05<=gate<=1.6:
+                # The written length that plays as long at the nearest gate validate allows (bisection: the length a
+                # written span plays is monotonic in it, swing and tempo changes included).
+                want=(s1-begin)/min(1.6,max(.05,gate));lo,hi=1/TPQ,length-on
+                for _ in range(60):
+                    mid=(lo+hi)/2
+                    if at(on+mid)-at(on)<want:lo=mid
+                    else:hi=mid
+                d=hi;gate=min(1.6,max(.05,(s1-begin)/(at(on+d)-at(on))))
+            n['on']=on;n['duration']=d;perf['notes'][n['id']].update(timing_ms=timing*1000,gate=gate);notes.append(n)
         held[t['id']]=again
         t['notes']=notes;ids={n['id'] for n in notes}
         t['performance']['notes']={k:v for k,v in t['performance']['notes'].items() if k in ids}
-        t['performance']['cc']=crop_cc(source,start,end,clock)
+        t['performance']['cc']=crop_cc(source,start,end)
         points=t['mix'].get('automation',[])
         def value_at(beat):
             if beat<=points[0][0]:return points[0][1]
@@ -111,13 +139,6 @@ def extract(p,first_bar,bars):
             perf['bend']=crop(perf['bend'],start,end,bend=True)
             if not perf['bend']:perf.pop('bend')
         if t['mix'].get('filter_sweep'):t['mix']['filter_sweep']['points']=crop(t['mix']['filter_sweep']['points'],start,end)
-    rubato=q['clock'].pop('rubato',None)
-    if rubato:
-        # The piece's ritardandi that reach into the passage, as spans in its beats, so it keeps the piece's tempo as
-        # played: one into a section boundary at or after its end, one begun before its first bar, the close where
-        # the passage reaches it.  Its own sections would put a boundary at neither edge.
-        spans=[[round(a-start,6),round(b-start,6),w] for a,b,w in rubato_spans(p) if a<end and b>start]
-        if spans:q['clock']['rubato']={'spans':spans,**({'q':rubato['q']} if 'q' in rubato else {})}
     if 'loop' in q:
         q.pop('loop')
         q.setdefault('decisions',[]).append('The excerpt plays as a passage, not a loop; the source keeps its loop.')
@@ -127,7 +148,6 @@ def extract(p,first_bar,bars):
     # all sound at its start).  Of these, a note is left out where it would meet a later strike of its key: on one tick,
     # which the render stops on (the piece's later strike had stopped it there), and for a re-attack also within 100 ms
     # as played, where it would only double the strike that follows.  A note written in the passage stays otherwise.
-    excerpt_clock=Clock(q)
     for t in q['tracks']:
         order=struck[t['id']];early={n['id'] for n in t['notes'] if n['id'] not in held[t['id']] and order[n['id']]<cut}
         drop=({h for h in held[t['id']] if collides(t,h,excerpt_clock,order,REATTACK_GAP_S)}

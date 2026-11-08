@@ -26,6 +26,7 @@ its `analysis.json`).
 | Key | What it holds |
 |---|---|
 | `status` | `TECHNICAL_PASS_AUDITION_PENDING` (a full render), `DRAFT_PASS` (a draft: deliver a full render), `FAIL` |
+| `failed` | only in a render that stopped before its report: `after_stage` (the last stage it finished, as in `stage_seconds`), `part` (the first part that stopped, or null) and `error`; such a report holds `status`, `title`, `draft`, `stage_seconds` and `runtime_seconds` besides. `--previous`, `compare` and `analyze --reference` refuse it |
 | `draft`, `left_out` | whether it is a draft, and what a draft leaves out (master.flac, the MP3 check, a loop's Ogg copies and layers) |
 | `checks` | every delivery check, true or false: finite audio, no clipping, the true-peak ceiling, the exact length, 48 kHz 24-bit stereo, a quiet tail, the MIDI note count, the MP3's loudness, the buses and returns adding up to the premix, the loop's points and cues |
 | `master`, `premaster` | the delivered master and the mix before mastering: `integrated_lufs`, `true_peak_dbtp`, `lra_lu` (loudness range, EBU Tech 3342), `sample_peak_dbfs`, `clipped_samples`, `frames`, `seconds`, `sha256` |

@@ -445,27 +445,28 @@ def tick_of(beat):
     if abs(v*2-h)<2e-6:v=h/2
     return round(v)
 
+def swung(b,sw,bar):
+    """Where a part's `swing` ({"ratio", "unit"}) plays the written position `b` (beats; `bar` beats to a bar).  Swing
+    warps time inside each pair of `unit` notes (0.5 beat swings eighths, 0.25 sixteenths): the first of the pair
+    stretches to `ratio` of it, so the off-beat lands late and anything between moves in proportion.  The pairs are
+    counted from each bar line, as a drum machine delays the even-numbered steps of the beat (Linn 2013), so every bar
+    swings alike; a bar with an odd number of units (eighths in 5/8, quarters in 3/4) plays its last one straight."""
+    if not sw:return b
+    u,r=2*sw.get('unit',.5),sw['ratio']
+    start=math.floor(b/bar+1e-9)*bar;k=math.floor((b-start)/u+1e-9)
+    if (k+1)*u>bar+1e-9:return b
+    x=(b-start)/u-k
+    return start+u*(k+(x*2*r if x<=.5 else r+(x-.5)*2*(1-r)))
+
 def performed(track,clock,expressive=True):
     """Return actual MIDI-grid onset/release. Trim only overlapping same-key retriggers.
     `performance.offset_ms` shifts a whole part (e.g. sounding earlier to offset slow sample attacks)."""
     notes=[];offset=track['performance'].get('offset_ms',0)/1000 if expressive else 0
     sw=track['performance'].get('swing') if expressive else None
     bar=clock.beats_per_bar
-    def swung(b):
-        # Swing warps time inside each pair of `unit` notes (0.5 beat swings eighths, 0.25 sixteenths): the first of
-        # the pair stretches to `ratio` of it, so the off-beat lands late and anything between moves in proportion.
-        # The pairs are counted from each bar line, as a drum machine delays the even-numbered steps of the beat (Linn
-        # 2013), so every bar swings alike; a bar with an odd number of units (eighths in 5/8, quarters in 3/4) plays
-        # its last one straight.
-        if not sw:return b
-        u,r=2*sw.get('unit',.5),sw['ratio']
-        start=math.floor(b/bar+1e-9)*bar;k=math.floor((b-start)/u+1e-9)
-        if (k+1)*u>bar+1e-9:return b
-        x=(b-start)/u-k
-        return start+u*(k+(x*2*r if x<=.5 else r+(x-.5)*2*(1-r)))
     for n in track['notes']:
         e=track['performance']['notes'][n['id']]
-        on,off=swung(n['on']),swung(n['on']+n['duration'])
+        on,off=swung(n['on'],sw,bar),swung(n['on']+n['duration'],sw,bar)
         start=clock.seconds(on) + (e.get('timing_ms',0)/1000 if expressive else 0)+offset
         duration=(clock.seconds(off)-clock.seconds(on))*(e.get('gate',1) if expressive else 1)
         tick=max(0,tick_of(clock.beat(start)))

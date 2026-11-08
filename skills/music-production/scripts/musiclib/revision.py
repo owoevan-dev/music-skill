@@ -35,13 +35,15 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
     from .analysis import analyze, load_reference
     from .audio import load_config
     from .compare import clip as make_clip, compare
-    from .render import render
+    from .render import render, stopped
     from .review import review
     output = Path(output)
     files.fresh(output, 'outputs never overwrite, so choose a new folder')
     before = render_folder(previous) if previous else None
     if before is not None and not (before / 'report.json').is_file():
         raise ValueError(f'--previous {previous}: no render there (a round folder or a render folder)')
+    if before is not None and stopped(before):
+        raise ValueError(f'--previous {previous}: that render stopped before it finished ({stopped(before)}); name one that finished')
     if clip is not None and (before is None or files.occupied(clip)):
         raise ValueError('--clip needs --previous: the clip plays the previous round, then this one' if before is None
                          else f'{clip} exists; outputs never overwrite, so choose a new path')

@@ -165,16 +165,19 @@ def _plan(folder, kind, record, inner):
     finished = kind == 'audition' and record.get('status', 'PASS') != 'FAIL' and _file(folder / 'audition.mp3')
     skip = set(inner) | ({folder / 'cache'} if kind == 'audition' else set())
     records = {folder: files.recorded(folder)}
-    take, stay, size, holders = [], [], 0, []
+    take, stay, size, holders, last = [], [], 0, [], []
     for p in files.tree(folder, skip):
         # The records go last, when nothing else stays: the tools' files.json, and at the top what names the folder's
-        # tool and piece as its record lists it.  A file is no record by its name: a file of the user's so named stays.
+        # tool and piece as its record lists it, unchanged.  A file is no record by its name: a file of the user's so
+        # named, or one changed since, stays.
         if files.is_record(p):
             if p.parent != folder:
                 holders.append(p.parent)  # a sub-folder's own record (a round's review/): it goes once nothing else is there
+            last.append(p)
             continue
         own = records[folder].get(p.name) if p.parent == folder and p.name in TOP_RECORDS else None
         if own is not None and files.unchanged(p, own):
+            last.append(p)
             continue
         if finished and p.parent == folder and p.name in AUDITION_KEEPS:
             stay.append(p)
@@ -193,7 +196,7 @@ def _plan(folder, kind, record, inner):
             size += files.lstat(p).st_size
         else:
             stay.append(p)
-    return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner, 'holders': holders}
+    return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner, 'holders': holders, 'last': last}
 
 
 def _empty_folders(folder, skip, holders=()):
@@ -210,8 +213,12 @@ def _empty_folders(folder, skip, holders=()):
 
 
 def _remove_entry(entry, report, rel):
-    """A cache entry, under its lock: its files but the lock, then (the lock released) the lock file and the folder.  A
-    render waiting for the lock finds the entry gone and takes it afresh (render.entry_lock)."""
+    """A cache entry, under its lock: its files but the lock, then the lock file and the folder.  A render waiting for
+    the lock finds the entry gone and takes it afresh (render.entry_lock).  The lock file is removed only where no
+    render can hold another by that name: on POSIX by its holder, under the lock (an open file can be unlinked, and a
+    render that then opens the name makes a new file, its own lock); on Windows, which cannot remove a file a process
+    holds open, once it is released, so a render that has opened it since keeps it.  Removing the name on POSIX after
+    the release could take away a new lock a render had just made there."""
     from .render import entry_lock
     with entry_lock(entry, wait=False, create=False) as free:
         if not free:
@@ -221,9 +228,10 @@ def _remove_entry(entry, report, rel):
             if p.name != 'entry.lock':
                 p.unlink()
         if os.name != 'nt':
-            (entry / 'entry.lock').unlink()  # an open file can be unlinked on POSIX; a waiting render then starts afresh
-    with suppress(OSError):
-        (entry / 'entry.lock').unlink()
+            (entry / 'entry.lock').unlink()
+    if os.name == 'nt':
+        with suppress(OSError):
+            (entry / 'entry.lock').unlink()
     with suppress(OSError):
         entry.rmdir()  # stays if a render has started on it meanwhile
     return True
@@ -312,8 +320,11 @@ def clean(folder, keep, remove=False):
                 _empty_folders(f, skip, plan['holders'])
                 goes_whole = whole(f) and not files.occupied(f / 'cache') if plan['kind'] == 'audition' else whole(f)
                 if goes_whole:
-                    for p in files.tree(f, skip):
-                        p.unlink()  # what is left is the records: every other file went above
+                    # The records the plan named, and nothing found anew: a file that appeared since keeps the folder,
+                    # which is then named as not removed.
+                    for p in plan['last']:
+                        if files.regular_file(p):
+                            p.unlink()
                     _empty_folders(f, set())
                     f.rmdir()
             except OSError as e:

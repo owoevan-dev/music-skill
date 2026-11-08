@@ -344,7 +344,7 @@ def render(project, track, raw, folder, cfg):
     played = {**track, 'notes': [{**n, 'pitch': max(0, min(127, n['pitch'] + shift))} for n in track['notes']]} if shift else track
     midi.write(project, part_midi, [played], single_stem=True, render=True)
     # Notes, pitch bend, mod wheel and sustain go to the plugin, timed in seconds; the bend range goes as a setting.
-    song = midi.read(part_midi)
+    song = midi.read_own(part_midi)
     events = [[bytes([s, *a]).hex(), _seconds(tick, song['tempos'], song['division']) + LEAD_S]
               for t in song['tracks'] for tick, s, *a in t['events']
               if (s >> 4) in (8, 9, 14) or ((s >> 4) == 11 and a[0] in (1, 64))]

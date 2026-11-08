@@ -24,6 +24,7 @@ every requested bank is verified, what was downloaded to make them (archives, pr
 and cut notes) is deleted; the banks stay, but installing one again downloads it again.
 """
 import argparse
+import contextlib
 import fnmatch
 import hashlib
 import http.client
@@ -296,7 +297,8 @@ def install_prebuilt(item, asset, runtime, cache, release, offline, local=None):
         raise ValueError('Prebuilt asset does not match the lock: ' + asset['file'])
     target.parent.mkdir(parents=True, exist_ok=True)
     digest, count = hashlib.sha256(), 0
-    with files.staged_path(target, '.sf2') as partial:
+    partial = files.stage_name(target, '.sf2')
+    try:
         with lzma.open(packed, 'rb') as src, partial.open('wb') as out:
             while chunk := src.read(1 << 22):
                 count += len(chunk)
@@ -306,7 +308,19 @@ def install_prebuilt(item, asset, runtime, cache, release, offline, local=None):
                 out.write(chunk)
         if count != asset['sf2_bytes'] or digest.hexdigest() != item['output_sha256']:
             raise ValueError('Prebuilt bank does not have the locked hash: ' + item['name'])
+        publish(partial, target)
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(partial)  # gone once published; left only by a failure
     return target
+
+def publish(new, target):
+    """A checked new file takes `target`'s place in the build folder, recorded there as the installer's
+    (musiclib.files.place): what is at `target` and is not the installer's own unchanged file (a bank or receipt of the
+    user's, one edited since) is renamed aside and named, never written over."""
+    for moved in (files.place(new, target, target.parent), files.register(target.parent, [target])):
+        if moved is not None:
+            print('SET ASIDE', moved, '| the installer did not put it there; it is kept under this name', flush=True)
 
 def requested(lock, only):
     """The bank names that --only asks for: names and groups, comma-separated (None for every bank)."""
@@ -358,20 +372,33 @@ def install_build(item, runtime, source, offline, ffmpeg=None):
             'verified_samples': len(wanted)}
 
 def build_bank(item, spec, root, output, ffmpeg):
-    """Build into a .partial file that becomes the bank only with the locked hash, so a failed build is never kept."""
+    """Build into a new file of its own that becomes the bank only with the locked hash, so a failed build is never
+    kept; the bank and its receipt then take their places as publish() places a file."""
     from soundbank import build
     if files.regular_file(output) and file_hash(output) == item['output_sha256']:
         return
     output.parent.mkdir(parents=True, exist_ok=True)
-    with files.staged_path(output, '.sf2') as partial:
+    partial = files.stage_name(output, '.sf2')
+    try:
         receipt = build(spec, root, partial, ffmpeg)
         if file_hash(partial) != item['output_sha256']:
             import numpy
             raise ValueError(f'Rebuilt bank does not reproduce the locked hash: {item["name"]}.  The lock was built with '
                              f'NumPy {NUMPY_BUILD} (this is NumPy {numpy.__version__}); a different NumPy can round a few '
                              'samples differently.  Install the prebuilt bank instead (leave out --from-source).')
+        publish(partial, output)
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(partial)
     receipt['output']['path'] = str(output)  # it was built under a temporary name
-    save_json(output.with_suffix('.receipt.json'), receipt)
+    sidecar = output.with_suffix('.receipt.json')
+    written = files.stage_name(sidecar, '.json')
+    try:
+        save_json(written, receipt)
+        publish(written, sidecar)
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(written)
 
 def install_split(item, runtime, offline, ffmpeg=None):
     from soundbank import cut_sources, save_manifest

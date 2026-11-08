@@ -63,7 +63,10 @@ def load(folder):
         if (folder / name).stat().st_size > 64_000_000:
             raise ValueError(f'{folder / name} is too large for a render\'s record')
         return json.loads((folder / name).read_text(encoding='utf-8'))
-    return {'folder': folder, 'report': read('report.json'), 'project': load_project(folder / 'project.json'),
+    report = read('report.json')
+    if isinstance(report.get('failed'), dict):
+        raise ValueError(f'{folder} is not a finished render (it stopped: {report["failed"].get("error")})')
+    return {'folder': folder, 'report': report, 'project': load_project(folder / 'project.json'),
             'receipts': {r['track']: r for r in read('stem_receipts.json')}}
 
 

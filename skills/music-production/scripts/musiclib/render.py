@@ -120,12 +120,14 @@ class MemoryBudget:
     needs it all runs alone.  Where the free memory cannot be read, parts run `jobs` at a time as before."""
     def __init__(self,free):
         # A fifth of it is kept back for everything else (our choice: the system, the other programs, estimates' error).
-        self.total=None if free is None else free*.8;self.used=0;self.ready=threading.Condition()
+        # Whole bytes: float sums of the estimates could leave a residue once every part has let go, and a part that
+        # needs it all would wait for ever.
+        self.total=None if free is None else int(free*.8);self.used=0;self.ready=threading.Condition()
     @contextlib.contextmanager
     def hold(self,amount):
         if self.total is None:
             yield;return
-        amount=min(amount,self.total)
+        amount=min(math.ceil(amount),self.total)
         with self.ready:
             self.ready.wait_for(lambda:self.used+amount<=self.total)
             self.used+=amount
@@ -264,14 +266,33 @@ def module_closure(names):
                 todo+=[node.module.split('.')[0]+'.py'] if node.module else [a.name+'.py' for a in node.names]
     return sorted(seen)
 
+def stopped(folder):
+    """Why the render in `folder` stopped before it finished (the error its report.json gives), or None."""
+    report=Path(folder)/'report.json'
+    if not files.regular_file(report):return None
+    try:r=json.loads(report.read_text(encoding='utf-8'))
+    except (OSError,ValueError):return None
+    failed=r.get('failed') if isinstance(r,dict) else None
+    return (failed.get('error') or 'stopped') if isinstance(failed,dict) else None
+
 def render(project_file,output,config_file,cache=None,resume=False,jobs=None,draft=False,quiet=()):
     """Render a project into the new folder `output` (or take up an unfinished render of the same project there with
     `resume`).  Whatever happens, what it wrote is recorded in the folder's files.json (musiclib.files), which is all
     clean ever removes of it.  `quiet`: parts that may barely sound (the other parts of an audition's passage, where
     a held note's last moment is all a part plays): they keep their own level instead of stopping the render."""
-    output=Path(output).resolve();claim={};since=time.time_ns()
+    output=Path(output).resolve();claim={};since=time.time_ns();started=time.monotonic()
     try:
         return _render(project_file,output,config_file,cache,resume,jobs,draft,claim,set(quiet))
+    except BaseException as e:
+        # A render stopped before its report: report.json says so, after which stage, in which part and why, as a
+        # round's record does for its steps.  (A failed delivery check has written its full report already.)
+        if claim.get('folder') and not claim.get('reported'):
+            stages=dict(claim.get('stages') or {})
+            with contextlib.suppress(OSError,ValueError):
+                save_json(output/'report.json',{'status':'FAIL','title':claim.get('title'),'draft':draft,
+                          'failed':{'after_stage':next(reversed(stages),None),'part':claim.get('part'),'error':str(e) or type(e).__name__},
+                          'stage_seconds':stages,'runtime_seconds':round(time.monotonic()-started,2)})
+        raise
     finally:
         if claim.get('folder'):
             with contextlib.suppress(OSError):
@@ -281,7 +302,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
     started=time.monotonic();p=load_project(project_file);clock=Clock(p);cfg=audio.load_config(config_file)
     # Seconds per stage, each from the end of the one before, so they add up to the runtime (profiling the stages
     # before any is optimized: what a change saves shows here).
-    stages={};mark=[started]
+    stages={};mark=[started];claim.update(stages=stages,title=p['title'])
     def lap(name):
         now=time.monotonic();stages[name]=round(now-mark[0],3);mark[0]=now
     output=Path(output).resolve();cache=Path(cache).resolve() if cache else output.parent/'cache'
@@ -318,7 +339,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
     route=midi.write(p,output/'composition.mid')
     midi.write(p,output/'score.mid',expressive=False)
     save_json(output/'midi_routing.json',route)
-    parsed=midi.read(output/'composition.mid')
+    parsed=midi.read_own(output/'composition.mid')
     if any(t['unclosed'] or t['stray_offs'] for t in parsed['tracks']):raise ValueError('Exported MIDI lifecycle failed')
     note_count=sum(len(t['notes']) for t in parsed['tracks'])
     expected=sum(len(t['notes']) for t in p['tracks'])
@@ -406,7 +427,11 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         # Each part's own seconds (they overlap: parts run `jobs` at a time); synthesis includes the cache lookup.
         receipt_data['seconds']={'waiting':round(waited,3),'synthesis':round(synthesized-began-waited,3),'processing':round(time.monotonic()-synthesized,3)}
         return receipt_data,font_name,font
-    with ThreadPoolExecutor(max_workers=jobs) as pool:results=list(pool.map(make_stem,p['tracks']))
+    def stem_of(t):
+        try:return make_stem(t)
+        except BaseException:
+            claim.setdefault('part',t['id']);raise  # the first part that stopped, for the report
+    with ThreadPoolExecutor(max_workers=jobs) as pool:results=list(pool.map(stem_of,p['tracks']))
     receipts=[r for r,_,_ in results];used_fonts={name:font for _,name,font in results if font}
     save_json(output/'stem_receipts.json',receipts)
     lap('parts')
@@ -473,7 +498,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         # The same audio as a full render; what only delivery needs is left out. Deliver a full render.
         report['left_out']=['master.flac']+(['the check that preview.mp3 decodes to the master\'s loudness'] if chain_name=='bus' else [])+(['loop.ogg and the loop layers'] if 'loop' in p else [])
     if looped:report['loop']=looped
-    save_json(output/'report.json',report)
+    save_json(output/'report.json',report);claim['reported']=True
     if not passed:
         failed=[k for k,ok in checks.items() if not ok]
         advice={'tail_quiet':'the master still sounds in its last 50 ms (above -60 dBFS): give the note releases and the reverb more time with clock.tail_seconds'}

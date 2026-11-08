@@ -162,8 +162,11 @@ def has_record(folder):
 
 
 def register(folder, paths):
-    """Add files a tool wrote in `folder` (paths inside it) to its record, with their size and modification time."""
+    """Add files a tool wrote in `folder` (paths inside it) to its record, with their size and modification time.  A
+    files.json there that is no record of the tools (another program's, the user's, a link) is renamed aside first, kept
+    and never written over; returns that name, or None."""
     folder = Path(folder)
+    moved = aside(folder / RECORD) if occupied(folder / RECORD) and not is_record(folder / RECORD) else None
     listed = recorded(folder)
     for p in paths:
         p = Path(p)
@@ -172,6 +175,7 @@ def register(folder, paths):
         if s is not None and stat.S_ISREG(s.st_mode) and not linked(p) and p.name != RECORD:
             listed[p.relative_to(folder).as_posix()] = [s.st_size, s.st_mtime_ns]
     write_json(folder / RECORD, {'kind': KIND, 'files': listed})
+    return moved
 
 
 def links_in(folder):
@@ -317,7 +321,9 @@ def install_tree(staging, target):
             if m is not None:
                 moved.append(m)
             placed.append(dest)
-        register(target, placed)
+        m = register(target, placed)
+        if m is not None:
+            moved.append(m)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
     return moved

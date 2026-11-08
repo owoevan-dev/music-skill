@@ -117,6 +117,13 @@ def write(project,path,tracks=None,expressive=True,single_stem=False,render=Fals
     Path(path).write_bytes(b'MThd'+struct.pack('>IHHH',6,1,len(chunks),TPQ)+b''.join(chunks))
     return routing
 
+def read_own(path):
+    """A MIDI file the skill wrote, read back to check it: bounded by its own size (an event takes at least two bytes,
+    a delta time and a data byte), not by the limits for a file from elsewhere, which a long project's own export
+    (validate allows 500,000 notes, a million note events before the controllers and the wheel) can pass."""
+    size=Path(path).stat().st_size
+    return read(path,max_bytes=size,max_events=size//2+1)
+
 def read(path,max_bytes=8_000_000,max_events=1_000_000):
     if Path(path).stat().st_size>max_bytes:raise ValueError('MIDI byte bound exceeded')
     with Path(path).open('rb') as stream:data=stream.read(max_bytes+1)

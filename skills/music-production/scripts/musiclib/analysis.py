@@ -164,8 +164,10 @@ def load_reference(spec, config=None):
     path = Path(spec)
     if path.is_dir():
         no_links_in(path)
-        master, _ = audio.read_wav(path / 'master.wav')
         report = json.loads((path / 'report.json').read_text(encoding='utf-8'))
+        if isinstance(report.get('failed'), dict):
+            raise ValueError(f'--reference {spec}: that render stopped before it finished ({report["failed"].get("error")})')
+        master, _ = audio.read_wav(path / 'master.wav')
         return f'{path.resolve().parent.name}/{path.name}', long_term(master, report.get('master', {}))
     if path.is_file():
         if path.suffix.lower() != '.wav':
@@ -242,17 +244,19 @@ def lead_presence(lead, accompaniment, spans):
     bl, centres = band_powers(lead.mean(axis=1), edges)
     ba, _ = band_powers(accompaniment.mean(axis=1), edges)
     lead_total, acc_total = bl.sum(axis=0), ba.sum(axis=0)
-    active = db(lead_total) > db(lead_total).max() - 35
+    # A frame counts while the lead sounds: some energy (db() floors silence at -200 dB, so a silent lead would be
+    # within 35 dB of its own "loudest" frame everywhere) and within 35 dB of its loudest.  A lead that rests
+    # throughout a section has no active frames there, and no figures.
+    active = (lead_total > 1e-20) & (db(lead_total) > db(lead_total).max() - 35)
     rows = []
     for sid, a, b in spans:
         sel = active & (centres >= a) & (centres < b)
         row = {'section': sid, 'lead_active_frames': int(sel.sum())}
         if sel.sum() >= 5:
-            row['lead_minus_accompaniment_level_db'] = round(level_diff[sid], 1)
-        if sel.sum() >= 5:
             ratio = db(lead_total[sel]) - db(acc_total[sel])
             masked = (ba[:, sel] > 2 * bl[:, sel]) * bl[:, sel]
-            row.update(lead_minus_accompaniment_db_median=round(float(np.median(ratio)), 1),
+            row.update(lead_minus_accompaniment_level_db=round(level_diff[sid], 1),
+                       lead_minus_accompaniment_db_median=round(float(np.median(ratio)), 1),
                        lead_minus_accompaniment_db_p10=round(float(np.percentile(ratio, 10)), 1),
                        masked_share_pct=round(float(masked.sum() / bl[:, sel].sum() * 100), 1))
         rows.append(row)

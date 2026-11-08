@@ -438,11 +438,15 @@ def linear_master(mastering):
 def mp3_check(cfg, output, master_lufs):
     """Decode preview.mp3 again and compare its loudness with the master's (the MP3 must not change it)."""
     decoded = output / 'logs' / 'preview_decoded.wav'
+    before = files.stamp(decoded)
     try:
         audio.run([cfg['ffmpeg']['path'], '-hide_banner', '-nostdin', '-y', '-i', output / 'preview.mp3', '-ar', str(RATE),
                    '-c:a', 'pcm_f32le', decoded], output / 'logs', 'decode_mp3')
     finally:
-        files.wrote(decoded)  # FFmpeg wrote it there itself: a file of the run, should a failure leave it
+        # FFmpeg writes it there itself: a file of the run, should a failure leave it, once FFmpeg has changed what was
+        # at that name (a file there that it never wrote is not the run's; GPT Pro's sixth review, from the code).
+        if files.stamp(decoded) != before:
+            files.wrote(decoded)
     d = audio.measure(cfg, decoded, output / 'logs', 'measure_mp3')
     decoded.unlink()
     return {'mp3_lufs': d['integrated_lufs'], 'mp3_true_peak_dbtp': d['true_peak_dbtp'],

@@ -123,10 +123,12 @@ without creating any.
 ## files.json (every folder)
 
 Every folder a command writes holds `files.json`: `kind` (`music-production files`) and `files`, each file the tools
-wrote there by its path relative to the folder, with its size and modification time. `clean` removes a file only
-while that record lists it unchanged, as Ninja's clean tool removes only the outputs its build log names (Ninja
-manual); a file put in such a folder, or changed since, stays. Installed banks and tools keep one in the runtime
-folder: an installer replaces only what it recorded there and sets anything else aside as `<name>.replaced-<time>`.
+wrote there by its path relative to the folder, with its size, modification time and file number (`st_ino`). `clean`
+removes a file only while that record lists it unchanged, as Ninja's clean tool removes only the outputs its build log
+names (Ninja manual); a file put in such a folder, or changed since, stays, and so does a copy put in a file's place,
+even one that keeps its size and time. A folder copied elsewhere, rather than moved, is so not the tools' any more:
+`clean` leaves it and `--resume` refuses it. Installed banks and tools keep one in the runtime folder: an installer
+replaces only what it recorded there and sets anything else aside as `<name>.replaced-<time>`.
 
 ## What stays local
 

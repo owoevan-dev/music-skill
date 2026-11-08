@@ -19,9 +19,36 @@ RATE=48000
 # The longest WAV read: a project's 30 minutes (validate) and its tail of up to 15 s, with room to spare.
 MAX_WAV_SECONDS=1860
 
-def absolute_paths(config, base):
+TOOLS = ('fluidsynth', 'ffmpeg', 'soundfont')  # what every configuration names, as bootstrap.py writes it
+
+
+def config_shape(config, where, needs=TOOLS):
+    """A configuration's shape, checked before any of it is read: a JSON object; the entries `needs` names present;
+    each of fluidsynth, ffmpeg, soundfont, surge and pedalboard it holds an object with a text `path`; `soundfonts`, if
+    there, an object of named banks, each an object with a text `path`.  Anything else is refused naming the field: a
+    null path, a list of banks or a missing tool stopped the command with a traceback (found by GPT Pro's sixth review
+    of 0.4.0)."""
+    if not isinstance(config, dict):
+        raise ValueError(f'{where}: a configuration is a JSON object, not {type(config).__name__}')
+    for key in needs:
+        if key not in config:
+            raise ValueError(f'{where}: the configuration needs "{key}"; bootstrap.py writes one')
+    for key in ('fluidsynth', 'ffmpeg', 'soundfont', 'surge', 'pedalboard'):
+        if key in config and not (isinstance(config[key], dict) and isinstance(config[key].get('path'), str) and config[key]['path']):
+            raise ValueError(f'{where}: "{key}" in the configuration is an object with a text "path"')
+    banks = config.get('soundfonts', {})
+    if not isinstance(banks, dict):
+        raise ValueError(f'{where}: "soundfonts" in the configuration maps names to banks (an object), not {type(banks).__name__}')
+    for name, entry in banks.items():
+        if not (isinstance(entry, dict) and isinstance(entry.get('path'), str) and entry['path']):
+            raise ValueError(f'{where}: soundfonts.{name} in the configuration is an object with a text "path"')
+    return config
+
+
+def absolute_paths(config, base, where=None):
     """The configuration with every relative path made absolute against `base` (the folder of the file it was read
-    from), so it can be written anywhere."""
+    from), so it can be written anywhere; its shape is checked first (config_shape, with no tool required)."""
+    config_shape(config, where or base, needs=())
     entries = [config[k] for k in ('fluidsynth', 'ffmpeg', 'soundfont', 'surge', 'pedalboard') if isinstance(config.get(k), dict)]
     entries += [v for v in config.get('soundfonts', {}).values() if isinstance(v, dict)]
     for entry in entries:
@@ -57,9 +84,9 @@ def load_config(path,all_banks=False):
     # passed the reader's check (found by GPT Pro's fifth review of 0.4.0).
     data=files.read_json(os.path.abspath(path))
     path=Path(path).resolve()
-    if not isinstance(data,dict):raise ValueError(f'{path}: a configuration is a JSON object')
+    config_shape(data,path)
     extra=data.get('soundfonts',{})
-    if not isinstance(extra,dict) or 'default' in extra or not all(re.fullmatch(r'[a-z][a-z0-9_]{0,47}',k) for k in extra):
+    if 'default' in extra or not all(re.fullmatch(r'[a-z][a-z0-9_]{0,47}',k) for k in extra):
         raise ValueError('soundfonts must map lower-case names (not "default") to entries')
     for key,entry in [(k,data[k]) for k in ('fluidsynth','ffmpeg','soundfont')]+[('soundfonts.'+k,v) for k,v in extra.items()]:
         p=Path(entry['path'])
@@ -113,8 +140,10 @@ def run(argv,folder,label,timeout=600,cwd=None):
     flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
     cancel=getattr(_scope,'event',None)
     check_cancel(label)  # a run already stopped starts no program (one that ended within 0.2 s ran to its end)
+    opened=False
     try:
         with log.open('wb') as out:
+            opened=True
             proc=subprocess.Popen([str(x) for x in argv],stdin=subprocess.DEVNULL,stdout=out,stderr=subprocess.STDOUT,creationflags=flags,cwd=cwd)
             try:
                 deadline=started+timeout
@@ -131,8 +160,9 @@ def run(argv,folder,label,timeout=600,cwd=None):
                 raise
     finally:
         # The program's log, written here rather than swapped in, noted once the program has finished writing it: a
-        # file of the run (files.register_tree), whatever stopped it.
-        files.wrote(log)
+        # file of the run (files.register_tree), whatever stopped it; only once this run has opened it, so a file at
+        # that name it could not open is never taken for the run's (GPT Pro's sixth review of 0.4.0, from the code).
+        if opened:files.wrote(log)
     receipt={'argv':[str(x) for x in argv],'returncode':code,'seconds':round(time.monotonic()-started,3),'pid':proc.pid,'launch_mode':'CREATE_NO_WINDOW' if flags else 'no stdin; no GUI arguments','log':str(log)}
     save_json(folder/(label+'.process.json'),receipt)
     content=log.read_text(encoding='utf-8',errors='replace')

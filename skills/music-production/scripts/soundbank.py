@@ -1580,7 +1580,13 @@ def main():
         raise ValueError('--output and --receipt name one file: the receipt would replace the bank; give each its own')
     # The bank and its receipt are published only where nothing has taken their names since they were found free:
     # a build takes minutes (GPT Pro's fourth review of 0.4.0).
-    spec = files.read_object(args.spec, 'a bank spec', needs=(('presets', list, 'the presets the bank holds'),))
+    spec = files.read_object(args.spec, 'a bank spec', needs=(('name', str, "the bank's name"), ('presets', list, 'the presets the bank holds')))
+    # Each preset's own fields, as build reads them (a spec without them stopped it with a traceback; found by GPT Pro's
+    # sixth review of 0.4.0).  A layer's own fields are read as each layer is loaded, unchecked there (a known limit).
+    for k, p in enumerate(spec['presets']):
+        if not (isinstance(p, dict) and isinstance(p.get('name'), str) and isinstance(p.get('layers'), list)
+                and isinstance(p.get('program'), int) and not isinstance(p.get('program'), bool) and 0 <= p['program'] <= 127):
+            raise ValueError(f'{args.spec}: presets[{k}] is an object with a text "name", a "program" 0-127 and a list of "layers"')
     receipt = build(spec, args.root, args.output, args.ffmpeg, new=True)
     # Two names for one file that the paths do not show (a case-insensitive volume, a link not yet resolvable): the
     # receipt's path now holds the bank just built, which stays.

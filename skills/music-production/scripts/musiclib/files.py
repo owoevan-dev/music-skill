@@ -478,11 +478,23 @@ def _record_value(record):
     return value if isinstance(value, dict) and value.get('kind') == KIND else None
 
 
+def stamp(path):
+    """What a record keeps of a file the tools wrote: its size, modification time and file number (st_ino), or None for
+    anything but a regular file.  The number tells the file from a copy put in its place since, which can keep the size
+    and time (a backup restored, shutil.copy2): size and time alone took such a copy for the tools' file (found by GPT
+    Pro's sixth review of 0.4.0)."""
+    s = lstat(path)
+    return [s.st_size, s.st_mtime_ns, s.st_ino] if s is not None and stat.S_ISREG(s.st_mode) and not linked(path) else None
+
+
 def recorded(folder):
-    """The files a folder's record lists, {posix relative path: [size, mtime_ns]}; {} without a readable record."""
+    """The files a folder's record lists, {posix relative path: [size, mtime_ns, file number]}; {} without a readable
+    record.  An entry of two numbers, from a record written before the file number was kept, is listed too, and taken as
+    no proof (unchanged)."""
     value = _record_value(Path(folder) / RECORD)
     listed = value.get('files') if value else None
-    return {k: v for k, v in listed.items() if isinstance(v, list) and len(v) == 2} if isinstance(listed, dict) else {}
+    good = lambda v: isinstance(v, list) and len(v) in (2, 3) and all(isinstance(x, int) and not isinstance(x, bool) for x in v)
+    return {k: v for k, v in listed.items() if good(v)} if isinstance(listed, dict) else {}
 
 
 def is_record(path):
@@ -495,7 +507,7 @@ def has_record(folder):
 
 
 def register(folder, paths):
-    """Add files a tool wrote in `folder` (paths inside it) to its record, with their size and modification time.  A
+    """Add files a tool wrote in `folder` (paths inside it) to its record, as stamp() gives them.  A
     files.json there that is no record of the tools (another program's, the user's, a link) is renamed aside first, kept
     and never written over; returns that name, or None."""
     # A relative path is the caller's, from the working folder, as every caller builds it (folder / name): a round or a
@@ -512,7 +524,7 @@ def register(folder, paths):
                 rel = p.relative_to(folder)
             except ValueError:  # one of the two given resolved, the other not (a junction on the way)
                 rel = Path(os.path.realpath(p)).relative_to(os.path.realpath(folder))
-            listed[rel.as_posix()] = [s.st_size, s.st_mtime_ns]
+            listed[rel.as_posix()] = [s.st_size, s.st_mtime_ns, s.st_ino]
     write_json(folder / RECORD, {'kind': KIND, 'files': listed})
     return moved
 
@@ -584,6 +596,7 @@ def remove_own(folder):
     if state == 'busy':
         return False
     try:  # 'unlockable': a drive that cannot lock files, or a work.lock that is no lock file (it stays, as others do)
+        records = {p: stamp(p) for p in tree(folder) if is_record(p)}  # as found: one written since stays, with the folder
         listed = recorded(folder)
         for p in tree(folder):
             if p.name == RECORD or (p.parent == folder and is_lock_file(p)):
@@ -594,8 +607,8 @@ def remove_own(folder):
                     p.unlink()
         if [p for p in tree(folder) if not is_record(p) and not (p.parent == folder and is_lock_file(p))] + links_in(folder):
             return False
-        for p in tree(folder):  # the records; and the lock's file where none is held (the lock held goes on release)
-            if is_record(p) or (fd is None and p.parent == folder and is_lock_file(p)):
+        for p in tree(folder):  # the records as found; and the lock's file where none is held (the lock held goes on release)
+            if (is_record(p) and stamp(p) == records.get(p)) or (fd is None and p.parent == folder and is_lock_file(p)):
                 with contextlib.suppress(OSError):
                     p.unlink()
     finally:
@@ -608,9 +621,11 @@ def remove_own(folder):
 
 
 def unchanged(path, entry):
-    """Whether a file still has the size and modification time its record gave it."""
-    s = lstat(path)
-    return s is not None and stat.S_ISREG(s.st_mode) and not linked(path) and [s.st_size, s.st_mtime_ns] == list(entry)
+    """Whether the file at `path` is still the one a record (or a plan, from stamp()) noted: the same size, modification
+    time and file number.  An entry of two numbers, from a record written before the number was kept, cannot tell a copy
+    from the file it names, so nothing is taken on it: its files stay, and --resume refuses them."""
+    entry = list(entry)
+    return len(entry) == 3 and stamp(path) == entry
 
 
 def aside(path):

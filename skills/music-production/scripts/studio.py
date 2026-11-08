@@ -91,7 +91,7 @@ def main():
         from musiclib.audio import absolute_paths
         base=files.read_json(os.path.abspath(args.config))  # by the name given, never through a link (GPT Pro's fifth review)
         if not isinstance(base,dict):raise ValueError(f'{args.config}: a configuration is a JSON object')
-        base=absolute_paths(base,args.config.resolve().parent);fonts=base.setdefault('soundfonts',{})
+        base=absolute_paths(base,args.config.resolve().parent,args.config);fonts=base.setdefault('soundfonts',{})
         if args.name in fonts:raise ValueError('SoundFont name already configured')
         from musiclib import sf2
         bank=sf2.read(args.path)

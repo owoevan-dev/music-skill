@@ -156,12 +156,14 @@ def ogg_check(cfg, ogg, logs):
     """Decoded length and loop comments of the Ogg file just written (its own output, never an outside file)."""
     decoded, meta = ogg.with_name('loop_ogg_decoded.wav'), ogg.with_name('loop_ogg_tags.txt')
     base = [cfg['ffmpeg']['path'], '-hide_banner', '-nostdin', '-y', '-protocol_whitelist', 'file', '-f', 'ogg', '-i', ogg]
+    before = {p: files.stamp(p) for p in (decoded, meta)}
     try:
         audio.run(base + ['-c:a', 'pcm_f32le', '-f', 'wav', decoded], logs, 'loop_ogg_decode')
         audio.run(base + ['-map_metadata', '0:s:a:0', '-f', 'ffmetadata', meta], logs, 'loop_ogg_tags')
     finally:
-        files.wrote(decoded)  # FFmpeg wrote both there itself: files of the run, should a failure leave them
-        files.wrote(meta)
+        for p, was in before.items():  # FFmpeg writes both there itself: files of the run once it has changed them
+            if files.stamp(p) != was:
+                files.wrote(p)
     frames = audio.read_wav(decoded)[1]['frames']
     tags = dict(re.findall(r'^(LOOPSTART|LOOPLENGTH)=(\d+)$', meta.read_text(encoding='utf-8', errors='replace'), re.M | re.I))
     decoded.unlink()

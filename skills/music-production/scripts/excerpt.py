@@ -175,17 +175,31 @@ def extract(p,first_bar,bars):
         # strikes of a key apart, so nothing of it goes here.
         gone=set()
         clash=lambda n:any(m is not n and m['id'] not in gone and m['pitch']==n['pitch'] and abs(tick_of(m['on'])-tick_of(n['on']))<=1 for m in notes)
+        last=max(0,int((length-1/TPQ)*TPQ+1e-9))
+        def bound(ok):  # the first tick k, 0 to last, for which ok(k) holds (ok is monotone); last+1 if none
+            lo,hi=0,last+1
+            while lo<hi:
+                mid=(lo+hi)//2
+                if ok(mid):hi=mid
+                else:lo=mid+1
+            return lo
         for n in notes:
             if n['id'] in shifted and not one_line(t) and clash(n):
-                o,s1,begin=spans[n['id']];end_w=o+n['duration'];lo,hi=tick_of(o),max(tick_of(o),int((length-1/TPQ)*TPQ+1e-9))
-                while lo<hi:  # the last tick whose time, with the part's offset, is not after the note's played start
-                    mid=(lo+hi+1)//2
-                    if at(mid/TPQ)+offset<=begin+1e-9:lo=mid
-                    else:hi=mid-1
-                n['on']=lo/TPQ;n['duration']=max(1/TPQ,end_w-n['on']);spans[n['id']]=(n['on'],s1,begin)
-                perf['notes'][n['id']].update(timing_ms=min(100,max(-100,(begin-at(n['on'])-offset)*1000)),
-                                              gate=min(1.6,max(.05,(s1-begin)/(at(n['on']+n['duration'])-at(n['on'])))))
-                if clash(n):gone.add(n['id'])
+                o,s1,begin=spans[n['id']];end_w=o+n['duration']
+                # Every tick whose timing (within ±100 ms, the part's offset counted) plays the note where it plays is
+                # tried, nearest first: the last at or before that point, then outward, later ticks too, with negative
+                # timing.  Only ticks up to the played start were tried, so a pickup the passage strikes again on the
+                # cut went, though a later tick kept both (found by GPT Pro's sixth review of 0.4.0).
+                k0=max(tick_of(o),bound(lambda k:at(k/TPQ)+offset>begin+1e-9)-1)
+                k_lo=max(tick_of(o),bound(lambda k:at(k/TPQ)+offset>=begin-.1-1e-9));k_hi=bound(lambda k:at(k/TPQ)+offset>begin+.1+1e-9)-1
+                same=[tick_of(m['on']) for m in notes if m is not n and m['id'] not in gone and m['pitch']==n['pitch']]
+                free=[k for k in sorted(range(k_lo,k_hi+1),key=lambda k:(abs(k-k0),k)) if all(abs(k-x)>1 for x in same)]
+                if not free:
+                    gone.add(n['id']);continue
+                n['on']=free[0]/TPQ
+                d,gate=fit(n['on'],max(1/TPQ,min(length-n['on'],end_w-n['on'])),s1,begin,length-n['on'])
+                n['duration']=d;spans[n['id']]=(n['on'],s1,begin)
+                perf['notes'][n['id']].update(timing_ms=min(100,max(-100,(begin-at(n['on'])-offset)*1000)),gate=gate)
         notes=[n for n in notes if n['id'] not in gone];shifted-=gone
         if one_line(t):
             # The written line keeps the piece's written order.  A note written before the cut that sounds in the
@@ -222,36 +236,61 @@ def extract(p,first_bar,bars):
                 span_of=lambda n:(spans[n['id']][2],spans[n['id']][1]) if n['id'] in spans else inside[n['id']]
                 earliest=lambda n:first(lambda k:when(k)>=span_of(n)[0]-.1-1e-9)  # its timing at most +100 ms
                 latest=lambda n:first(lambda k:when(k)>span_of(n)[0]+.1+1e-9)-1  # and at least -100 ms
-                own=lambda n:earliest(n) if before_cut(n) else math.ceil(n['on']*TPQ-1e-6)  # where it would be written
-                order=sorted(notes,key=lambda n:written_at[n['id']]);laid=[];gone=set()  # laid: [note, tick, ticks]
-                def free(n,overlap=0):
-                    """The first tick after the notes laid that `n` may take: past the last one's written end (by at
-                    most `overlap`, as validate allows a tick), two ticks after its onset for the same key (one tick
-                    apart is refused)."""
-                    if not laid:return 0
-                    pn,pw,pd=laid[-1];return max(pw+pd-overlap,pw+(2 if pn['pitch']==n['pitch'] else 1))
-                for i,n in enumerate(order):
-                    begin,s1=span_of(n)
-                    if not before_cut(n) and n['on']*TPQ>=free(n,1)-1e-6:break  # from here on as the piece writes them
-                    lo,hi=own(n),latest(n);w=max(free(n),lo)
-                    while laid and lo<=hi<w:  # its timing cannot reach back so far: the note before ends sooner, or goes
-                        pn,pw,pd=laid[-1]
-                        if hi>=pw+(2 if pn['pitch']==n['pitch'] else 1):
-                            laid[-1][2]=hi-pw;w=hi;break
-                        if not before_cut(pn):break  # a note of the passage stays; this one plays a little late
-                        gone.add(pn['id']);laid.pop();w=max(free(n),lo)
+                gap=lambda a,b:2 if a['pitch']==b['pitch'] else 1  # one key struck a tick apart is refused
+                order=sorted(notes,key=lambda n:written_at[n['id']])
+                heads=[n for n in order if before_cut(n)];rest=[n for n in order if not before_cut(n)]
+                # How late each note may start and leave the notes after it their places, from the passage's end back.
+                # A note of the passage keeps its played length (a gate of 1.6 at most) and never starts before the
+                # piece writes it, as the piece's own layout fits; a note from before the cut needs a tick at least, and
+                # one that cannot start by then goes.  Laid forward without this, a note from before the cut took its
+                # full length and the passage's note after it ended sooner, 200 ms becoming 132 (found by GPT Pro's
+                # sixth review of 0.4.0).
+                latest_of={};limit=length*TPQ;after=None
+                for n in reversed(rest):
+                    begin,s1=span_of(n);nat=n['on']*TPQ
+                    # The latest whole tick, within its timing and a tick or two before the next note's latest start,
+                    # whose earliest end at a gate of 1.6 is not past that start: found where it would be written, as
+                    # swing and tempo changes make a span's length depend on where it lies (computed where the piece
+                    # writes it, a note moved under swing came out two ticks short).
+                    ends=lambda w,b=begin,e=s1:w+ticks_for(w,b,e,1.6)
+                    lo,hi=math.ceil(nat-1e-9),math.floor(min(latest(n),limit-(gap(n,after) if after is not None else 0))+1e-9)
+                    if hi<lo or ends(lo)>limit+1e-9:
+                        late=nat
+                    else:
+                        while lo<hi:
+                            mid=(lo+hi+1)//2
+                            if ends(mid)<=limit+1e-9:lo=mid
+                            else:hi=mid-1
+                        late=max(nat,lo)
+                    latest_of[n['id']]=late;limit,after=late,n
+                gone=set()
+                for n in reversed(heads):
+                    late=min(latest(n),limit-(gap(n,after) if after is not None else 1))
+                    if late<earliest(n):
+                        gone.add(n['id']);continue
+                    latest_of[n['id']]=late;limit,after=late,n
+                line=[n for n in heads if n['id'] not in gone]+rest;laid=[]  # laid: [note, tick, ticks]
+                for i,n in enumerate(line):
+                    begin,s1=span_of(n);nxt=line[i+1] if i+1<len(line) else None
+                    after_last=laid[-1][1]+gap(laid[-1][0],n) if laid else 0
+                    k=laid[-1][1]+laid[-1][2] if laid else 0
                     if before_cut(n):
-                        nxt=order[i+1] if i+1<len(order) else None
-                        reach=own(nxt) if nxt is not None else last_tick+1
-                        need=2 if nxt is not None and nxt['pitch']==n['pitch'] else 1  # the room free() asks of the next
+                        w=max(k,earliest(n),after_last)
+                    else:
+                        nat=n['on']*TPQ
+                        if nat>=k-1e-6 and nat>=after_last-1e-6:break  # from here on as the piece writes them
+                        w=max(k,nat,after_last)
+                    room=(latest_of[nxt['id']] if nxt is not None else length*TPQ)-w  # the next note's latest start
+                    if before_cut(n):
+                        # As long as its played length needs at a gate of 1, or to where the next note begins (at up to
+                        # 1.6, so it may end sooner than in the piece, as before); a note of the passage written so close
+                        # after the cut that this leaves it no room goes after it, as far as the length needs at 1.6.
+                        reach=(nxt['on']*TPQ if not before_cut(nxt) else earliest(nxt)) if nxt is not None else length*TPQ
                         d=ticks_for(w,begin,s1,1)
-                        # Where that reaches the next note, it ends where that note begins, as before (at the longest gate
-                        # validate allows, so it may end sooner than in the piece), and the passage's notes keep their
-                        # places; only one written so close after the cut that it leaves no room goes after it, as far
-                        # as its played length needs at a gate of 1.6.
-                        if w+d>reach:d=reach-w if reach-w>=need else ticks_for(w,begin,s1,1.6)
+                        if w+d>reach:d=reach-w if reach-w>=(gap(n,nxt) if nxt is not None else 1) else ticks_for(w,begin,s1,1.6)
+                        d=max(1,min(d,room))
                     else:  # to its written end, within the gates validate allows (a note a retrigger trims plays short)
-                        d=min(max((n['on']+n['duration'])*TPQ-w,ticks_for(w,begin,s1,1.6)),ticks_for(w,begin,s1,.05))
+                        d=min(max((n['on']+n['duration'])*TPQ-w,ticks_for(w,begin,s1,1.6)),ticks_for(w,begin,s1,.05),max(1,room))
                     laid.append([n,w,min(d,max(1,length*TPQ-w))])
                 for n,w,d in laid:
                     begin,s1=span_of(n);o=w/TPQ;n['on']=o;n['duration']=d/TPQ;spans[n['id']]=(o,s1,begin)

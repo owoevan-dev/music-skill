@@ -160,7 +160,7 @@ def _plan(folder, kind, record, inner):
     review/) lists unchanged, and what stays.  `inner` are the tool folders inside it, which go or stay on their own."""
     folder = Path(folder)
     finished = kind == 'audition' and record.get('status', 'PASS') != 'FAIL' and _file(folder / 'audition.mp3')
-    seen = lambda p: [files.lstat(p).st_size, files.lstat(p).st_mtime_ns]  # a record as the plan found it
+    seen = files.stamp  # a record as the plan found it: size, time and file number (files.unchanged)
     skip = set(inner) | ({folder / 'cache'} if kind == 'audition' else set())
     records = {folder: files.recorded(folder)}
     take, stay, size, holders, last = [], [], 0, [], []

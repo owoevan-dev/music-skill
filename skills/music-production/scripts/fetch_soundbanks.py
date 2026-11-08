@@ -463,12 +463,9 @@ def main():
     only = requested(lock, args.only)
     prebuilt = {} if args.from_source else lock.get('prebuilt', {}).get('assets', {})
     # The configuration is read before anything is made, so one refused leaves no folder behind.
-    from musiclib.audio import absolute_paths
-    config = files.read_object(args.config, 'a configuration', needs=(('ffmpeg', dict, 'the FFmpeg bootstrap.py configured'),))
-    if not isinstance(config['ffmpeg'].get('path'), str) or not isinstance(config.get('soundfonts', {}), dict):
-        raise ValueError(f'{args.config}: a configuration has "ffmpeg": {{"path": ...}} and, if any, "soundfonts" as an object, '
-                         'as bootstrap.py writes it')
-    config = absolute_paths(config, args.config.resolve().parent)
+    from musiclib.audio import absolute_paths, config_shape
+    config = config_shape(files.read_json(args.config), args.config, needs=('ffmpeg',))
+    config = absolute_paths(config, args.config.resolve().parent, args.config)
     runtime = args.runtime.resolve()
     cache = (args.archive_cache or runtime / 'archives').resolve()
     cache.mkdir(parents=True, exist_ok=True)

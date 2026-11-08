@@ -1806,6 +1806,19 @@ def checks(work,config=None):
                          ['fetch_soundbanks.py','--config',str(old/doc),'--runtime',str(new/'rt'),'--output',str(new/'x_cfg.json'),'--offline']):
                 done=subprocess.run([sys.executable,str(here/argv[0]),*argv[1:]],capture_output=True,text=True)
                 assert done.returncode==2 and says in done.stderr and 'Traceback' not in done.stderr,(argv[1],doc,done.returncode,done.stderr[-300:])
+        # A bank spec without its name, a configuration with a null path, banks given as a list: refused naming the
+        # field, by one shape check for every reader of a configuration (they raised KeyError, TypeError and
+        # AttributeError; found by GPT Pro's sixth review of 0.4.0).
+        (old/'nameless.json').write_text('{"presets": []}',encoding='utf-8')
+        (old/'null_path.json').write_text(json.dumps({'fluidsynth':{'path':None},'ffmpeg':{},'soundfont':{}}),encoding='utf-8')
+        (old/'bank_list.json').write_text(json.dumps({'soundfonts':[]}),encoding='utf-8')
+        for argv,says in ((['soundbank.py','build',str(old/'nameless.json'),'--root',str(old/'root'),'--output',str(new/'y.sf2'),'--receipt',str(new/'y.json')],'"name"'),
+                          (['studio.py','doctor','--config',str(old/'null_path.json')],'"fluidsynth"'),
+                          (['studio.py','add-soundfont','--config',str(old/'bank_list.json'),'--path',str(old/'own.sf2'),'--output',str(new/'z.json'),
+                            '--name','extra','--license','test','--source','test','--version','1'],'"soundfonts"')):
+            done=subprocess.run([sys.executable,str(here/argv[0]),*argv[1:]],capture_output=True,text=True)
+            assert done.returncode==2 and says in done.stderr and 'Traceback' not in done.stderr,(argv[1],done.returncode,done.stderr[-300:])
+        assert not [n for n in ('y.sf2','y.json','z.json') if (new/n).exists()]
         linked_cfg=False
         try:os.symlink(old/'config.json',old/'linked_config.json');linked_cfg=True
         except (OSError,NotImplementedError):pass  # symbolic links need a privilege on Windows
@@ -2356,6 +2369,34 @@ def checks(work,config=None):
         swapped=d/'swapped_run';swapped.mkdir();save_json(swapped/'report.json',{'tools':True});(swapped/'report.json').unlink()
         (swapped/'report.json').write_text('{"the user": "wrote this"}',encoding='utf-8');fs.register_tree(swapped)
         assert 'report.json' not in fs.recorded(swapped),fs.recorded(swapped)
+        # Nor, by its saved record, a copy put back under the name that keeps the size and time (shutil.copy2): the record
+        # keeps the file's number too, and an entry of two numbers proves nothing (found by GPT Pro's sixth review).
+        kept=d/'kept_copy';kept.mkdir();save_json(kept/'report.json',{'tools':True});fs.register_tree(kept)
+        (kept/'report.json').rename(kept/'report.orig');shutil.copy2(kept/'report.orig',kept/'report.json');(kept/'report.orig').unlink()
+        entry=fs.recorded(kept)['report.json'];assert len(entry)==3 and not fs.unchanged(kept/'report.json',entry)
+        assert not fs.unchanged(kept/'report.json',entry[:2]) and not fs.remove_own(kept) and (kept/'report.json').is_file()
+        # From the same review's reading of the code: a program's log that the run could not open, and a check's decoded
+        # file the program never wrote, are not noted as the run's; remove_own takes away only the records it found.
+        import stat as stat_mod,sys
+        from musiclib import mixbus
+        logs=d/'ro_logs';logs.mkdir();(logs/'ro.log').write_text('theirs',encoding='utf-8');os.chmod(logs/'ro.log',stat_mod.S_IREAD)
+        try:
+            try:audio.run([sys.executable,'-c','pass'],logs,'ro')
+            except OSError:pass
+            if (logs/'ro.log').read_text(encoding='utf-8')=='theirs':assert not fs.written_here(logs/'ro.log')  # (an administrator writes it)
+        finally:os.chmod(logs/'ro.log',stat_mod.S_IWRITE|stat_mod.S_IREAD)
+        dec=d/'dec';(dec/'logs').mkdir(parents=True);(dec/'logs'/'preview_decoded.wav').write_bytes(b'theirs');real_run=audio.run
+        def no_program(*a,**k):raise RuntimeError('decode_mp3 failed (1)')
+        audio.run=no_program
+        try:assert rejects_with(RuntimeError,lambda:mixbus.mp3_check({'ffmpeg':{'path':'ffmpeg'}},dec,-14))
+        finally:audio.run=real_run
+        assert not fs.written_here(dec/'logs'/'preview_decoded.wav')
+        late=d/'late_record';late.mkdir();save_json(late/'a.json',{'a':1});fs.register_tree(late);real_links=fs.links_in
+        def rewrite(folder):
+            fs.register(late,[]);return real_links(folder)  # another run writes the record again meanwhile
+        fs.links_in=rewrite
+        try:assert not fs.remove_own(late) and fs.is_record(late/fs.RECORD)
+        finally:fs.links_in=real_links
         # A run taking its own failed output away (an audition rendering again with a longer tail) removes what its
         # record lists, and a file put there keeps the folder and the record (the whole folder went; same review).
         own=d/'own_run';(own/'stems').mkdir(parents=True);save_json(own/'report.json',{'a':1});save_json(own/'stems'/'a.json',{'b':2})
@@ -2964,7 +3005,21 @@ def checks(work,config=None):
                 want={x['id']:(x['tick']-4*TPQ,x['end_tick']-4*TPQ) for x in performed(src['tracks'][0],Clock(src),True)}
                 got={x['id']:(x['tick'],x['end_tick']) for x in performed(q['tracks'][0],Clock(q),True)}
                 assert got==want,(engine,pitch,got,want)
-        return {'cases':30}
+        # From GPT Pro's sixth review of 0.4.0: a pickup at gate 1.6 and a note of the passage played early leave the
+        # passage's notes their lengths, the pickup ending sooner (one of them ended 68 ms early); in a chordal part, a
+        # pickup that the passage strikes again on the cut is written a few ticks later, its timing keeping where it
+        # plays (it was left out).
+        for engine,extra in (('additive',{}),('soundfont',{'legato':{'mode':'slur'},'bend_range':12})):
+            src=line(engine,120,[(60,3.875,.125,100,1.6),(62,4,.25,100,1.6),(64,4.25,.25,-80,1)],**extra);validate(src)
+            q=extract(copy.deepcopy(src),2,1);validate(q)
+            want={x['id']:(x['tick']-4*TPQ,x['end_tick']-4*TPQ) for x in performed(src['tracks'][0],Clock(src),True)}
+            got={x['id']:(x['tick'],x['end_tick']) for x in performed(q['tracks'][0],Clock(q),True)}
+            assert got['n1']==want['n1'] and got['n2']==want['n2'] and got['n0'][0]==want['n0'][0],(engine,got,want)
+        chord=line('soundfont',120,[(60,3.875,.0625,62.5,1),(60,4,.5,50,1)]);validate(chord)
+        q=extract(copy.deepcopy(chord),2,1);validate(q)
+        played=lambda p,shift=0:sorted((x['id'],x['tick']-shift,x['end_tick']-shift) for x in performed(p['tracks'][0],Clock(p),True))
+        assert played(q)==played(chord,4*TPQ),(played(q),played(chord,4*TPQ))
+        return {'cases':33}
     check('excerpt_keeps_the_piece_at_its_edges',excerpt_keeps_the_piece_at_its_edges)
     def tick_rounding_is_stable():
         # A position within float error of a half tick takes the even tick, from either side, as round() does at an
@@ -3149,7 +3204,8 @@ def checks(work,config=None):
             from musiclib import files as fs
             import musiclib.render as rd
             first=work/'render_first';assert not fs.occupied(first/fs.WORK_LOCK)
-            again=work/'render_resume_cases';shutil.copytree(first,again)  # each file keeps the time its record lists
+            # A render of its own: a copy of one (shutil.copytree) is not the run's, its record keeping each file's number.
+            again=work/'render_resume_cases';render(work/'example.json',again,config,cache)
             names=lambda:sorted(x.relative_to(again).as_posix() for x in again.rglob('*'))
             before=names();own=b'MThd'+bytes(10);(again/'composition.mid').write_bytes(own)
             assert rejects(lambda:render(work/'example.json',again,config,cache,resume=True))

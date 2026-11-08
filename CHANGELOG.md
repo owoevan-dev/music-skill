@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-09
 
 Faster revisions with the same music. In the nine 0.3.0 agent sessions most of the time was the model's, and the agents opened the commands' JSON with code of their own 26 times a session, because the printed output did not answer what they had to decide. 0.4.0 changes what reaches the agent and what a render does, not how the music is made: the review's questions, the guidance and the audio are those of 0.3.0.
 
@@ -320,7 +320,7 @@ First public release.
 - `match_notes: "across"` measures each dynamic against its own median, so a dynamic recorded over less of the range than the others can step slightly at the edge of its range (on the Kawai, 0.5 dB at most).
 - Installing banks assumes a runtime folder that no other program changes during the install: archive members are checked against links in the destination before they are written, not while.
 
-[Unreleased]: https://github.com/owoevan-dev/music-skill/compare/v0.3.0...HEAD
+[0.4.0]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.4.0
 [0.3.0]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.3.0
 [0.2.0]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.2.0
 [0.1.1]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.1.1

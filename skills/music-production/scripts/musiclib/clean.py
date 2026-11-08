@@ -196,15 +196,17 @@ def _plan(folder, kind, record, inner):
             size += files.lstat(p).st_size
         else:
             stay.append(p)
+    # A link inside it (a symbolic link, a junction) is nothing the tools wrote: it stays, never followed, and the
+    # folder with it.  (files.tree does not list links.)
+    stay += [p for p in files.links_in(folder) if not any(s == p or s in p.parents for s in skip)]
     return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner, 'holders': holders, 'last': last}
 
 
 def _empty_folders(folder, skip, holders=()):
     """Remove the folders under `folder` (deepest first, not following links, not entering `skip`) left empty, and
     those of `holders` (sub-folders with a record of their own) left holding nothing but that record."""
-    for base, dirs, names in sorted(os.walk(folder, followlinks=False), key=lambda w: -len(Path(w[0]).parts)):
-        base = Path(base)
-        if base == folder or base in skip or any(s in base.parents for s in skip) or not _folder(base):
+    for base in sorted(files.real_folders(folder, skip), key=lambda b: -len(b.parts)):
+        if base == folder:
             continue
         with suppress(OSError):
             if base in holders and [p.name for p in base.iterdir()] == [files.RECORD] and files.is_record(base / files.RECORD):
@@ -224,11 +226,17 @@ def _remove_entry(entry, report, rel):
         if not free:
             report['not_removed'].append({'kind': 'cache entry', 'path': rel(entry), 'error': 'a render is using it'})
             return False
-        for p in entry.iterdir():
-            if p.name != 'entry.lock':
-                p.unlink()
-        if os.name != 'nt':
-            (entry / 'entry.lock').unlink()
+        # The receipt last and the raw synthesis before it: stopped part way by a file another program holds open,
+        # the entry keeps what a render can still use, or what it makes again, and is named; the clean goes on.
+        try:
+            for p in sorted(entry.iterdir(), key=lambda p: (p.name == 'raw.wav') + 2 * (p.name == 'receipt.json')):
+                if p.name != 'entry.lock':
+                    p.unlink()
+            if os.name != 'nt':
+                (entry / 'entry.lock').unlink()
+        except OSError as e:
+            report['not_removed'].append({'kind': 'cache entry', 'path': rel(entry), 'error': str(e)})
+            return False
     if os.name == 'nt':
         with suppress(OSError):
             (entry / 'entry.lock').unlink()

@@ -1702,7 +1702,14 @@ def checks(work,config=None):
         assert r.returncode==2 and 'does not reproduce' in r.stderr and 'Traceback' not in r.stderr and not owned.occupied(root/'cli'),(r.returncode,r.stderr[-400:])
         r=subprocess.run([sys.executable,script,'build',str(root/'manifest.json'),'--root',str(src),'--output',str(root/'same.sf2'),'--receipt',str(root/'.'/'same.sf2')],capture_output=True,text=True,timeout=120)
         assert r.returncode==2 and 'one file' in r.stderr and not owned.occupied(root/'same.sf2'),(r.returncode,r.stderr[-400:])
-        return {'refused':['..','absolute'],'changed_source_kept_nothing':True,'receipt_on_the_bank_refused':True}
+        # So is one that names the bank through another folder name for the same folder (a junction, a link).
+        (root/'banks').mkdir();aliased=False
+        if os.name=='nt':aliased=subprocess.run(['cmd','/c','mklink','/J',str(root/'alias'),str(root/'banks')],capture_output=True).returncode==0
+        else:os.symlink(root/'banks',root/'alias',target_is_directory=True);aliased=True
+        if aliased:
+            r=subprocess.run([sys.executable,script,'build',str(root/'manifest.json'),'--root',str(src),'--output',str(root/'banks'/'kit.sf2'),'--receipt',str(root/'alias'/'kit.sf2')],capture_output=True,text=True,timeout=120)
+            assert r.returncode==2 and 'one file' in r.stderr and not owned.occupied(root/'banks'/'kit.sf2'),(r.returncode,r.stderr[-400:])
+        return {'refused':['..','absolute'],'changed_source_kept_nothing':True,'receipt_on_the_bank_refused':True,'receipt_through_an_alias_refused':aliased}
     check('a_cut_manifest_writes_only_inside_its_folder',files_stay_inside)
     def no_overwrite():
         import subprocess,sys
@@ -2056,7 +2063,30 @@ def checks(work,config=None):
         finally:
             rd.entry_lock=real_lock
             for fd in newer:os.close(fd)
-        return {'records_by_name_alone_kept':True,'link_not_followed':linked,'linked_record_kept':symlinked,'other_piece_left_alone':True,'renamed_piece_cleaned':True,'unrecorded_files_kept':True,'held_entry_kept':True,'emptied_review_removed':True,'files_named_as_records_kept':True}
+        # A link inside a listed folder (a junction on Windows, which os.walk enters) is never walked into: the empty
+        # folders where it leads stay, and the folder holding it stays in part with its records, the link named.
+        # (Found by a review of 0.4.0: the empty folders behind a junction were removed.)
+        g=work2/'song_g';made(g/'final','Song G');old_g=made(g/'r_link','Song G');(base/'beyond'/'empty'/'deeper').mkdir(parents=True)
+        junction=link(old_g/'listen',base/'beyond')
+        if junction:
+            r=clean(g,[g/'final'],remove=True);parts={Path(x['path']).as_posix():x for x in r['listed']}
+            assert (base/'beyond'/'empty'/'deeper').is_dir() and (old_g/'render_input.json').is_file() and (old_g/record.RECORD).is_file(),r
+            assert not parts['r_link']['whole'] and 'r_link/listen' in parts['r_link']['kept_inside'],parts
+            from musiclib import files as owned
+            owned.prune(old_g);assert (base/'beyond'/'empty'/'deeper').is_dir()
+        # A cache entry's file another program holds open (Windows refuses to remove it) leaves that entry, named, and
+        # the clean goes on to the rest.  (Found by a review of 0.4.0: one open file stopped the whole clean.)
+        h2=work2/'song_h';entry(h2/'cache',H('8'));entry(h2/'cache',H('9'));made(h2/'final','Song H',[H('9')]);old_h=made(h2/'r_old','Song H')
+        real_unlink=Path.unlink
+        def held_open(self,*a,**k):
+            if self.name=='raw.wav' and self.parent.name==H('8'):raise PermissionError(13,'held open by another program',str(self))
+            return real_unlink(self,*a,**k)
+        Path.unlink=held_open
+        try:r=clean(h2,[h2/'final'],remove=True)
+        finally:Path.unlink=real_unlink
+        assert [x['path'] for x in r['not_removed']]==[f'cache/{H("8")}'] and (h2/'cache'/H('8')/'receipt.json').is_file() and not old_h.exists(),r
+        return {'records_by_name_alone_kept':True,'link_not_followed':linked,'linked_record_kept':symlinked,'other_piece_left_alone':True,'renamed_piece_cleaned':True,'unrecorded_files_kept':True,'held_entry_kept':True,'emptied_review_removed':True,'files_named_as_records_kept':True,
+                'junction_not_walked':junction,'open_entry_named':True}
     check('clean_removes_only_what_the_tools_made',clean_only_what_the_tools_made)
     def files_never_overwrite_or_write_through():
         # Outputs never take an occupied path, a dangling link included; a write swaps a new file in, so a hard link at
@@ -2109,7 +2139,24 @@ def checks(work,config=None):
             audio.run=real_run
         assert stopped==2,stopped
         assert not fs.occupied(d/'out.wav') and not fs.occupied(d/'synth.wav') and not [x for x in d.iterdir() if x.name.startswith('.out') or x.name.startswith('.synth')],sorted(x.name for x in d.iterdir())
-        return {'dangling_link_refused':dangling,'hard_link_kept':True,'unrecorded_set_aside':True,'foreign_record_set_aside':True,'failed_output_left_nothing':True}
+        # An output is recorded only in a folder whose files.json is the tools' record: another program's files.json a
+        # few folders up is neither set aside nor written over.  (Found by a review of 0.4.0.)
+        mine=d/'project_of_theirs';(mine/'reports'/'music').mkdir(parents=True);(mine/'files.json').write_text('{"their": "list"}',encoding='utf-8')
+        (mine/'reports'/'music'/'compare.json').write_text('{}',encoding='utf-8')
+        assert fs.register_output(mine/'reports'/'music'/'compare.json') is None and json.loads((mine/'files.json').read_text(encoding='utf-8'))=={'their':'list'}
+        assert sorted(x.name for x in mine.iterdir())==['files.json','reports']
+        # A resumed run records a file it did not write only while it is unchanged since the earlier record: one the
+        # user edited between the runs is not adopted (clean would take it for the tools').  (Found by a review.)
+        resumed=d/'resumed';resumed.mkdir();(resumed/'analysis.json').write_text('{"a": 1}',encoding='utf-8');fs.register(resumed,[resumed/'analysis.json'])
+        before=fs.recorded(resumed);(resumed/'analysis.json').write_text('{"a": 1, "mine": true}',encoding='utf-8');since=time.time_ns()+1
+        fs.register_tree(resumed,since_ns=since,keep=before)
+        assert not fs.unchanged(resumed/'analysis.json',fs.recorded(resumed)['analysis.json'])
+        # A file written whole keeps the mode a new file has under the user's umask (mkstemp makes them 0600).
+        import stat
+        made_whole=fs.stage_name(d/'mode.wav','.wav')
+        assert fs.FILE_MODE is None or stat.S_IMODE(os.stat(made_whole).st_mode)==fs.FILE_MODE,oct(os.stat(made_whole).st_mode)
+        return {'dangling_link_refused':dangling,'hard_link_kept':True,'unrecorded_set_aside':True,'foreign_record_set_aside':True,'failed_output_left_nothing':True,
+                'foreign_record_above_an_output_untouched':True,'changed_file_not_adopted_on_resume':True,'staged_mode':oct(fs.FILE_MODE) if fs.FILE_MODE is not None else 'not POSIX'}
     check('files_never_overwrite_or_write_through',files_never_overwrite_or_write_through)
     def delete_sources_takes_only_the_installers_files():
         # --delete-sources removes a download or a sample only while it is the installer's own (its locked size and
@@ -2252,9 +2299,10 @@ def checks(work,config=None):
         assert q['clock']['rubato']['spans'] and abs((a.seconds(16)-a.seconds(8))-b.seconds(8))<1e-6,(q['clock'],a.seconds(16)-a.seconds(8),b.seconds(8))
         bad=copy.deepcopy(q);bad['clock']['rubato']['spans']=[[4,2,.8]];rejects(lambda:validate(bad))
         # A note the piece plays across a cut plays the part of it inside the passage, as played: a long note with a
-        # short gate re-attacked at the cut ends where it ended (not where its gate would end the cut note), a legato
-        # overlap written to end before the cut still sounds past it, a note written before the cut but played after it
-        # starts where it started, and one held past the end sounds to the end.  (Cases a review of 0.4.0 found.)
+        # short gate re-attacked at the cut ends where it ended (not where its gate would end the cut note), a note
+        # written before the cut but played after it starts where it started, and one held past the end sounds to the
+        # end.  A legato overlap, written to end before the cut, is not re-attacked: it belongs to the next note's
+        # attack.  (Cases two reviews of 0.4.0 found.)
         p=example();p.pop('harmony',None);p['clock']={'bars':3,'meter':[4,4],'tempo':[[0,120],[6,90]],'tail_seconds':1}
         p['sections']=[{'id':'a','start_bar':0,'bars':3}];t=copy.deepcopy(p['tracks'][0])
         t['notes']=[{'id':'long','on':0,'duration':8,'pitch':60},{'id':'legato','on':2,'duration':1.5,'pitch':64},
@@ -2264,8 +2312,18 @@ def checks(work,config=None):
         p['tracks']=[t];validate(p);a=Clock(p);q=extract(p,2,1);b=Clock(q);cut,stop=round(4*TPQ),round(8*TPQ)
         piece={n['id']:(max(n['tick'],cut)-cut,min(n['end_tick'],stop)-cut) for n in performed(t,a)}
         part={n['id']:(n['tick'],n['end_tick']) for n in performed(q['tracks'][0],b)}
-        assert part==piece and sorted(part)==['late','legato','long','over'],(piece,part)
-        return {'cases':9}
+        assert part=={k:v for k,v in piece.items() if k!='legato'} and sorted(part)==['late','long','over'],(piece,part)
+        # A note of the next bar that the part's offset plays early is the next passage's, so a part that plays a few
+        # milliseconds ahead (offset_ms for slow attacks) leaves every passage valid; so does a legato line over a bar
+        # line on the additive lead, and a laid-back part whose held note a re-attack cannot reach.  (Found by a
+        # review of 0.4.0: each stopped excerpt and audition.)
+        for offset in (-5,-15,-150,-300,250):
+            p=example();bass=next(t for t in p['tracks'] if t['id']=='bass');bass['performance']['offset_ms']=offset
+            next(n for n in bass['notes'] if n['id']=='bass_n0')['duration']=3.885;validate(p)
+            for first,count in ((1,1),(1,2),(2,1),(2,2),(1,3),(3,1)):extract(p,first,count)
+        p=example();lead=next(t for t in p['tracks'] if t['engine']=='additive');next(n for n in lead['notes'] if n['id']=='lead_n2')['duration']=2.0
+        validate(p);extract(p,2,2)
+        return {'cases':12}
     check('excerpt_keeps_the_piece_at_its_edges',excerpt_keeps_the_piece_at_its_edges)
     def tick_rounding_is_stable():
         # A position within float error of a half tick takes the even tick, from either side, as round() does at an

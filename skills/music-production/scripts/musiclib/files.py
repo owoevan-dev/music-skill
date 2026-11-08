@@ -89,12 +89,30 @@ def no_links(path, below=None):
             raise ValueError(f'{p} is a link; the tools write only into real folders (give the folder itself)')
 
 
+# The mode a new file takes from the process's umask, read once at import, before any thread starts: tempfile.mkstemp
+# makes its files 0600 and a file swapped in keeps its mode, so without this every output would be private to its
+# owner where the user's umask shares it (POSIX; Windows has no such bits).
+if os.name != 'nt':
+    _UMASK = os.umask(0)
+    os.umask(_UMASK)
+    FILE_MODE = 0o666 & ~_UMASK
+else:
+    FILE_MODE = None
+
+
+def _opened(fd):
+    """Give a file mkstemp made the mode a new file would have had."""
+    if FILE_MODE is not None:
+        os.fchmod(fd, FILE_MODE)
+    return fd
+
+
 def stage_name(dest, suffix='.part'):
     """A new, empty file beside `dest`, created exclusively under a name no other run uses, for a program that writes
     a path itself (FFmpeg, a bank build); the caller swaps it in with os.replace or removes it."""
     dest = Path(dest)
     fd, name = tempfile.mkstemp(dir=dest.parent, prefix=f'.{dest.name}.', suffix=suffix)
-    os.close(fd)
+    os.close(_opened(fd))
     return Path(name)
 
 
@@ -106,7 +124,7 @@ def staged(dest, mode='wb', encoding=None):
     dest = Path(dest)
     fd, name = tempfile.mkstemp(dir=dest.parent, prefix=f'.{dest.name}.', suffix='.part')
     try:
-        with os.fdopen(fd, mode, encoding=encoding) as f:
+        with os.fdopen(_opened(fd), mode, encoding=encoding) as f:
             yield f
         os.replace(name, dest)
     except BaseException:
@@ -222,8 +240,10 @@ def register_tree(folder, skip=(), since_ns=None, keep=None):
     for p in tree(folder, skip):
         if p.name == RECORD:
             continue
-        if since_ns is not None and lstat(p).st_mtime_ns < since_ns and p.relative_to(folder).as_posix() not in (keep or {}):
-            continue
+        if since_ns is not None and lstat(p).st_mtime_ns < since_ns:
+            entry = (keep or {}).get(p.relative_to(folder).as_posix())
+            if entry is None or not unchanged(p, entry):
+                continue  # not written by this run, nor listed unchanged before it: changed since, it is not the tools'
         paths.append(p)
     register(folder, paths)
 
@@ -288,10 +308,20 @@ def prune(folder):
     folder = Path(folder)
     if not real_folder(folder):
         return
-    for base, dirs, names in sorted(os.walk(folder, followlinks=False), key=lambda w: -len(Path(w[0]).parts)):
-        if real_folder(base):
-            with contextlib.suppress(OSError):
-                os.rmdir(base)
+    for base in sorted(real_folders(folder), key=lambda b: -len(b.parts)):
+        with contextlib.suppress(OSError):
+            os.rmdir(base)
+
+
+def real_folders(folder, skip=()):
+    """`folder` and every folder under it, never entering a link or a junction (os.walk with followlinks=False still
+    enters a junction on Windows, which is not a symbolic link to it) nor the folders in `skip`."""
+    found = []
+    for base, dirs, names in os.walk(folder, followlinks=False):
+        base = Path(base)
+        dirs[:] = [d for d in dirs if real_folder(base / d) and base / d not in skip]
+        found.append(base)
+    return found
 
 
 def stage_copy(src, dest):
@@ -341,7 +371,7 @@ def register_output(path, levels=4):
     so that clean may later remove it with that folder; outside such a folder, nothing."""
     path = Path(path).resolve()
     for folder in list(path.parents)[:levels]:
-        if has_record(folder):
+        if is_record(folder / RECORD):  # a files.json of another program's is no folder of the tools'
             register(folder, [path])
             return folder
     return None

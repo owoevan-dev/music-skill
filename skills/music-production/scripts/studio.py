@@ -17,7 +17,7 @@ def main():
         if name in ('review','render'):cmd.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
         if name=='render':
             cmd.add_argument('--config',type=Path,required=True);cmd.add_argument('--cache',type=Path);cmd.add_argument('--resume',action='store_true')
-            cmd.add_argument('--jobs',type=int,help='parts rendered at once (default: one per processor, at most 8, and one per 2 GB of free memory; the result is the same)')
+            cmd.add_argument('--jobs',type=int,help='parts rendered at once (default: one per processor, at most 8, each waiting for its share of the free memory; the result is the same)')
             cmd.add_argument('--draft',action='store_true',help='for revising: the same audio, stems, buses and returns, without master.flac, the MP3 loudness check and a loop\'s Ogg copies and layers; deliver a full render')
         if name=='revise':
             cmd.add_argument('--track',required=True);cmd.add_argument('--note',required=True)

@@ -1550,9 +1550,14 @@ def main():
         return
     if files.occupied(args.output) or files.occupied(args.receipt):
         raise ValueError('Choose new output and receipt paths')
-    if os.path.normcase(os.path.abspath(args.output)) == os.path.normcase(os.path.abspath(args.receipt)):
+    if os.path.normcase(str(args.output.resolve())) == os.path.normcase(str(args.receipt.resolve())):
         raise ValueError('--output and --receipt name one file: the receipt would replace the bank; give each its own')
     receipt = build(json.loads(args.spec.read_text(encoding='utf-8')), args.root, args.output, args.ffmpeg)
+    # Two names for one file that the paths do not show (a case-insensitive volume, a link not yet resolvable): the
+    # receipt's path now holds the bank just built, which stays.
+    if files.occupied(args.receipt):
+        raise ValueError(f'--receipt {args.receipt} now names the bank just built (another name for --output); the bank is kept, '
+                         'its receipt is not written: give the receipt a path of its own')
     save_json(args.receipt, receipt)
     print(json.dumps(receipt['output'], ensure_ascii=False, indent=1))
 

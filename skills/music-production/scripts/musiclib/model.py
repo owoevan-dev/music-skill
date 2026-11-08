@@ -309,6 +309,18 @@ def _validate(p):
                 owner[tid]=lid
         missing=sorted(ids-set(owner))
         if missing:raise ValueError('Every track needs a layer; missing: '+', '.join(missing))
+        # A bus that compresses or saturates (every bus but fx, unless mix.dynamics is "wide") acts on the sum of its
+        # parts: split across layers, each layer's bus acted on its own parts only, and the layers no longer added up
+        # to the mix, by 4 dB in the review's case, every check passing (found by GPT Pro's seventh review of 0.4.0).
+        if p['mix'].get('dynamics')!='wide':
+            from .mixbus import bus_of
+            split={}
+            for t in p['tracks']:
+                b=bus_of(t)
+                if b!='fx':split.setdefault(b,set()).add(owner[t['id']])
+            for b,where in sorted(split.items()):
+                if len(where)>1:raise ValueError(f'loop.layers: the {b} bus compresses its parts together, and they are in layers {", ".join(sorted(where))}, '
+                                                 f'which would then not add up to the mix; put them in one layer, give some another bus (mix.bus), or set mix.dynamics "wide"')
     if p['mix'].get('loudness','normal') not in ('normal','loud'):raise ValueError('mix.loudness must be "normal" or "loud"')
     if p['mix'].get('loudness')=='loud' and (p['mix'].get('chain')!='bus' or p['mix'].get('dynamics')=='wide'):raise ValueError('mix.loudness "loud" needs the bus chain without wide dynamics')
     number(p['mix'].get('target_lufs',-16),-30,-8 if p['mix'].get('loudness')=='loud' else -10,'master LUFS')

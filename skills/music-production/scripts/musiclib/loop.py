@@ -315,6 +315,10 @@ def layers(p, clock, cfg, output, mastering, start_f, end_f, cues, master, mix_f
     for lid, members in p['loop']['layers'].items():
         premix, processed = folder / f'{lid}_premix.wav', folder / f'{lid}_processed.wav'
         mixbus.mix(p, clock, cfg, output, frames, [t for t in p['tracks'] if t['id'] in members], premix)
+        if mixbus.premix_production(p):  # the wobble and mono lows the full mix gets before its master, on this layer too
+            x, _ = audio.read_wav(premix)
+            x = x.astype('float64')  # releases the mapped file, which is written again (Windows refuses to replace it)
+            audio.write_wav(premix, mixbus.premix_production(p, x).astype('float32'))
         audio.ffmpeg(cfg, ['-i', premix, '-af', linear, '-ar', str(audio.RATE), '-c:a', 'pcm_f32le', processed], logs, f'layer_{lid}')
         raw[lid] = np.asarray(audio.read_wav(processed)[0], dtype=np.float64)
         premix.unlink()

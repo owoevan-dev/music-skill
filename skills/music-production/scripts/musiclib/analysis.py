@@ -305,6 +305,18 @@ def balance(p, levels, group):
     return out
 
 
+def region_names(sections, bar_spans):
+    """Refuse two regions of one name: a span given twice, or one named as a section is (a section may be called
+    span:focus).  They shared their figures and their sum, and a section's came out wrong, with a cut suggested on them
+    (found by GPT Pro's seventh review of 0.4.0).  A round asks before its render, analyze before it reads a stem."""
+    seen = set()
+    for name in [*sections, *(f'span:{n}' for n, _, _ in bar_spans)]:
+        if name in seen:
+            raise ValueError(f'{name} names two regions (a section and a --span, or one --span label given twice); '
+                             'give each --span a label of its own')
+        seen.add(name)
+
+
 def analyze(render_dir, bar_spans=(), reference=None):
     """`bar_spans`: (name, first bar, last bar), 1-based and inclusive, measured like the sections.  `reference`:
     (name, measures) from load_reference."""
@@ -322,6 +334,7 @@ def analyze(render_dir, bar_spans=(), reference=None):
     extra = [(f'span:{name}', round(clock.seconds((first - 1) * bpb) * RATE), round(clock.seconds(last * bpb) * RATE))
              for name, first, last in bar_spans]
     regions = spans + extra
+    region_names([s['id'] for s in p['sections']], bar_spans)
     beats = {sid: ((s['start_bar']) * bpb, (s['start_bar'] + s['bars']) * bpb) for sid, s in zip([x[0] for x in spans], p['sections'])}
     beats.update({f'span:{name}': ((first - 1) * bpb, last * bpb) for name, first, last in bar_spans})
     groups = {sid: doublings(p, *beats[sid]) for sid, _, _ in regions}

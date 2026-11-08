@@ -778,7 +778,13 @@ def checks(work,config=None):
         for layers in ({'base':ids},{'base':ids[:3],'top':ids[2:]},{'base':ids[:3],'top':ids[3:4]},{'Base':ids[:3],'top':ids[3:]}):
             rejects(lambda:validate({**q,'loop':{'start_bar':0,'layers':layers}}))
         rejects(lambda:validate({**q,'mix':{**q['mix'],'chain':'room'}}))
-        return {'cues':cues,'tempo':t,'layer_cases_rejected':5}
+        # A bus that compresses or saturates its parts together, split across layers, would not let the layers add up
+        # to the mix: refused, unless the mix's dynamics are wide; the fx bus, which does neither, may be split (GPT
+        # Pro's seventh review of 0.4.0).
+        split=copy.deepcopy(q);next(x for x in split['tracks'] if x['id']=='drums')['mix']['bus']='ensemble'
+        assert rejects(lambda:validate(split));split['mix']['dynamics']='wide';validate(split)
+        fxs=copy.deepcopy(q);next(x for x in fxs['tracks'] if x['id']=='piano')['mix']['bus']='fx';validate(fxs)
+        return {'cues':cues,'tempo':t,'layer_cases_rejected':6}
     check('loop_cue_points_tempo_and_layer_rules',loop_markers_and_layers)
     def strum():
         from musiclib import expression
@@ -1593,7 +1599,17 @@ def checks(work,config=None):
         assert rows==[{'section':'a','lead_active_frames':0}] and json.dumps(rows,allow_nan=False),rows
         rows=analysis.lead_presence(tone,tone*.5,[('a',0,n)])
         assert rows[0]['lead_active_frames']>5 and all(np.isfinite(v) for k,v in rows[0].items() if k!='section'),rows
-        return {'group':group,'suggestion':cut[0],'silent_lead_has_no_figures':True}
+        # Analysis regions by names of their own: a --span named as a section is, or one label given twice, is refused
+        # before anything is read (they shared their figures, and a section's came out 19.6 dB wrong with a cut
+        # suggested on it; GPT Pro's seventh review of 0.4.0); a round asks before its render.
+        from musiclib.revision import revision_round
+        analysis.region_names(['intro','verse'],[('focus',1,2),('other',3,4)])
+        assert rejects(lambda:analysis.region_names(['span:focus','tail'],[('focus',3,4)]))
+        assert rejects(lambda:analysis.region_names(['a'],[('take',1,4),('take',3,4)]))
+        save_json(work/'names.json',example())
+        assert rejects(lambda:revision_round(work/'names.json',work/'names_round',None,spans=[('take',1,2),('take',2,2)],show=lambda *a:None))
+        assert not (work/'names_round').exists()
+        return {'group':group,'suggestion':cut[0],'silent_lead_has_no_figures':True,'region_names_refused':3}
     check('analysis_groups_octave_doublings_and_suggests_cuts',melody_group_and_balance)
     def strict_projects():
         # A JSON float where MIDI needs an integer (100.0) and a section id that is not text stop in validation, with
@@ -3637,7 +3653,19 @@ def checks(work,config=None):
             assert all(len(x)==end for x in parts) and loop.read_cues(out/'layers'/'top.wav')==[(s['start_sample'],s['id']) for s in lp['sections']]
             assert corr>.98 and abs(lp['layers']['sum_minus_loop_db'])<3 and 0<lp['layers']['aligned_frames']<1000,(corr,lp['layers'])
             saved=json.loads((out/'loop.json').read_text(encoding='utf-8'));assert set(saved['layers'])=={'base','top'}
-            return {'gain_db':lp['layers']['gain_db'],'sum_minus_loop_db':lp['layers']['sum_minus_loop_db'],'correlation_with_loop':round(corr,4)}
+            # The layers get the mix's own production before the master as the mix does: with mix.mono_below_hz, two low
+            # parts panned apart add up to a mono low end in the layers too (they kept the stereo lows, the side 0 dB
+            # from the mid; GPT Pro's seventh review of 0.4.0).
+            m=copy.deepcopy(q);m['mix'].update(dynamics='wide',mono_below_hz=250);m['loop']['layers']={'base':['bass'],'top':[x['id'] for x in m['tracks'] if x['id']!='bass']}
+            low=next(x for x in m['tracks'] if x['id']=='bass');low['mix']['pan']=-1
+            m['tracks'].append({**copy.deepcopy(low),'id':'bass_r','mix':{**low['mix'],'pan':1}});m['loop']['layers']['top'].append('bass_r')
+            save_json(work/'layers_mono.json',m);render(work/'layers_mono.json',work/'render_layers_mono',config,cache)
+            both=sum(np.asarray(audio.read_wav(work/'render_layers_mono'/'layers'/f'{lid}.wav')[0],dtype=np.float64) for lid in ('base','top'))
+            spec=lambda x:np.abs(np.fft.rfft(x))[(np.fft.rfftfreq(len(x),1/audio.RATE)>30)&(np.fft.rfftfreq(len(x),1/audio.RATE)<150)]
+            side_db=20*np.log10(np.linalg.norm(spec(both[:,0]-both[:,1]))/max(np.linalg.norm(spec(both[:,0]+both[:,1])),1e-12))
+            assert side_db<-30,side_db
+            return {'gain_db':lp['layers']['gain_db'],'sum_minus_loop_db':lp['layers']['sum_minus_loop_db'],'correlation_with_loop':round(corr,4),
+                    'mono_low_side_db':round(float(side_db),1)}
         check('loop_layers_render_and_add_up_to_the_mix',layer_render)
         def wide_render():
             # Four soft bars and four loud ones.  The wide master is one gain and an EQ, so it keeps the mix's contrast
@@ -3744,6 +3772,17 @@ def checks(work,config=None):
                 assert a['surge']['rendered_with']=='Surge XT' and b['cache_hit'] and a['raw_sha256']==b['raw_sha256'],(a.get('surge'),b['cache_hit'])
                 assert first['master']['sha256']==again['master']['sha256'] and float(np.sqrt(np.mean(np.asarray(x,dtype=float)**2)))>1e-4
                 out['with_surge']='Surge XT, take kept by the cache'
+                # A release longer than four seconds rings into the piece's tail (tail_seconds), as far as it asks: the
+                # host stopped four seconds after the last note, and the rest was silence, which passed the quiet-tail
+                # check (GPT Pro's seventh review of 0.4.0).
+                r=copy.deepcopy(q);r['clock']={'bars':1,'meter':[4,4],'tempo':[[0,120]],'tail_seconds':10};r['sections']=[{'id':'one','start_bar':0,'bars':1}]
+                pad=r['tracks'][0];pad.update(surge={'preset':'ghost_pad'},notes=[{'id':'n','on':0,'duration':2,'pitch':60}])
+                pad['performance']={'notes':{'n':{'velocity':90,'gate':1.0}}};save_json(work/'surge_tail.json',r)
+                render(work/'surge_tail.json',work/'render_surge_tail',config,work/'cache_surge')
+                key=json.loads((work/'render_surge_tail'/'stem_receipts.json').read_text(encoding='utf-8'))[0]['cache_key']
+                raw,info=audio.read_wav(work/'cache_surge'/key/'raw.wav');late=np.asarray(raw[6*audio.RATE:7*audio.RATE],dtype=float)
+                assert info['seconds']>=11.9 and late.size and float(np.sqrt(np.mean(late**2)))>1e-6,(info['seconds'],late.size)
+                out['release_past_four_seconds']=True
             return out
         check('surge_part_plays_the_patch_or_its_fallback',surge_part)
         def audition_part():

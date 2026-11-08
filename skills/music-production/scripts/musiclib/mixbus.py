@@ -274,24 +274,34 @@ def soft_clip(x, ceiling, knee=.75, factor=4, block=1 << 16, margin=2048):
     return out
 
 
+def premix_production(p, x=None):
+    """The mix's own production before the master measures and compresses it: tape wobble over the whole mix, then the
+    low frequencies mono (musiclib/production.py).  Both are linear, and the wobble follows one trajectory for a given
+    length (its phases come from the name 'premix'), so loop layers put through it add up to the mix put through it:
+    the layers skipped it, and kept the stereo lows mono_below_hz takes out (found by GPT Pro's seventh review of
+    0.4.0).  Without `x`, whether the mix has any."""
+    if x is None:
+        return bool(p['mix'].get('wow_flutter') or p['mix'].get('mono_below_hz'))
+    from . import production
+    if p['mix'].get('wow_flutter'):
+        x, _ = production.wow_flutter(x, p['mix']['wow_flutter'], 'premix')
+    if p['mix'].get('mono_below_hz'):
+        x = production.mono_below(x, p['mix']['mono_below_hz'])
+    return x
+
+
 def master(p, cfg, output):
     """premix.wav (or master_input.wav) -> master chain -> mixed.wav -> delivery gain and limiter -> master.wav (24-bit).
     Returns the premix measurement, the mastering record and the measurement of master.wav as delivered (the last
     delivery pass measured the file the render keeps, so it is not measured again)."""
     logs = output / 'logs'
     source_in = output / 'premix.wav'
-    if p['mix'].get('wow_flutter') or p['mix'].get('mono_below_hz'):
-        # Tape wobble over the whole mix, then low frequencies mono (musiclib/production.py), before the master
-        # measures and compresses it: written to master_input.wav, so premix.wav stays the buses and returns summed.
-        from . import production
+    if premix_production(p):
+        # Written to master_input.wav, so premix.wav stays the buses and returns summed.
         x, _ = audio.read_wav(source_in)
         x = x.astype('float64')  # releases the mapped file
-        if p['mix'].get('wow_flutter'):
-            x, _ = production.wow_flutter(x, p['mix']['wow_flutter'], 'premix')
-        if p['mix'].get('mono_below_hz'):
-            x = production.mono_below(x, p['mix']['mono_below_hz'])
         source_in = output / 'master_input.wav'
-        audio.write_wav(source_in, x.astype('float32'))
+        audio.write_wav(source_in, premix_production(p, x).astype('float32'))
     before = audio.measure(cfg, source_in, logs, 'measure_premix')
     gain = MIX_LUFS - before['integrated_lufs']
     wide = p['mix'].get('dynamics') == 'wide'

@@ -32,7 +32,7 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
     """Run a round into the new folder `output`, passing each step's summary to `show` as soon as the step is done (a
     failed render still leaves the review shown); returns the round's record, also saved as round.json.  With `clip`
     (an MP3 path) and a previous round, the comparison also writes the change old then new at one loudness."""
-    from .analysis import analyze, load_reference
+    from .analysis import analyze, load_reference, region_names
     from .audio import load_config
     from .compare import clip as make_clip, compare
     from .render import render, stopped
@@ -60,6 +60,7 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
     for name, first, last in spans:  # analyze would refuse them after the render
         if last > p['clock']['bars']:
             raise ValueError(f'--span {name}:{first}-{last}: the piece has {p["clock"]["bars"]} bars')
+    region_names([s['id'] for s in p['sections']], spans)  # so would it two regions of one name
     cfg = load_config(config_file)
     ref = load_reference(reference, cfg) if reference else None  # a bad reference fails before the render
     lap('validate')

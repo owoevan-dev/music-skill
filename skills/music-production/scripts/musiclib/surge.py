@@ -347,8 +347,14 @@ def render(project, track, raw, folder, cfg):
     events = [[bytes([s, *a]).hex(), _seconds(tick, song['tempos'], song['division']) + LEAD_S]
               for t in song['tracks'] for tick, s, *a in t['events']
               if (s >> 4) in (8, 9, 14) or ((s >> 4) == 11 and a[0] in (1, 64))]
+    # The patch rings on after its last event: four seconds at least, and as long as the project's tail asks
+    # (tail_seconds, which the guides raise for a long release), up to the piece's end and its tail.  Four seconds
+    # alone cut a longer release to silence, and the quiet-tail check then passed (found by GPT Pro's seventh review).
+    from .model import Clock
+    clock, last = Clock(project), max((t for _, t in events), default=LEAD_S)
+    duration = max(last + TAIL_S, min(LEAD_S + clock.end + clock.tail, last + clock.tail))
     job.write_text(json.dumps({'plugin': str(plugin), 'pylib': str(pylib), 'patch': str(patch), 'out': str(raw), 'rate': RATE,
-                               'events': events, 'duration': max((t for _, t in events), default=LEAD_S) + TAIL_S,
+                               'events': events, 'duration': duration,
                                'trim': int(round(LEAD_S * RATE)), 'macros': track['surge'].get('macros', {}),
                                'bend_range': track['performance'].get('bend_range', 2)}), encoding='utf-8')
     # The host runs as every program of a render does (audio.run): it stops when the render is stopped (another part

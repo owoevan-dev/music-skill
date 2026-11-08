@@ -82,7 +82,7 @@ The game can fade layers of one piece in and out (vertical layering), for exampl
 - it is delayed by the limiters' look-ahead (about 10 ms, measured on each render), so it lines up with `loop.wav`;
 - it is folded at the loop point like the full loop.
 
-All layers share one gain, so their balance stays as mixed. Played together they add up to the mix before the master's dynamics, a little louder than `loop.wav` (`loop.layers.sum_minus_loop_db` in the report): give the game's music bus a limiter.
+All layers share one gain, so their balance stays as mixed. Played together they add up to the mix before the master's dynamics, a little louder than `loop.wav` (`loop.layers.sum_minus_loop_db` in the report): give the game's music bus a limiter. They get the mix's `mono_below_hz` and `wow_flutter` as the mix does. A bus compresses or saturates the sum of its parts, which no split into layers can add back up to (every bus but `fx`), so `validate` refuses parts of one such bus in different layers: keep them in one layer, give some another bus (`mix.bus`), or set `mix.dynamics` to `"wide"`, which leaves the buses linear.
 
 `stems/` still holds every part processed before the buses, without its reverb, for a developer who builds the mix in the engine.
 

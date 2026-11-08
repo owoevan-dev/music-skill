@@ -82,18 +82,20 @@ def main():
         from musiclib import sf2
         sf2.read(args.soundfont)  # as add-soundfont: a bank whose tables do not hold together is refused before it is configured
         cfg={key:{'path':str(getattr(args,key).resolve()),'sha256':file_hash(getattr(args,key)),'license':'User-supplied; retain upstream notices','source':'User-configured local file; hash is integrity, not provenance or antivirus certification'} for key in ('fluidsynth','ffmpeg','soundfont')}
-        save_json(args.output,cfg);print('Saved configuration; inspect source/license before redistribution');return
+        save_json(args.output,cfg,new=True);print('Saved configuration; inspect source/license before redistribution');return
     if args.command=='add-soundfont':
         import re
         if files.occupied(args.output):raise ValueError('Choose a new configuration path')
         if args.name=='default' or not re.fullmatch(r'[a-z][a-z0-9_]{0,47}',args.name):raise ValueError('Name must be lower-case letters/digits/underscores and not "default"')
         from musiclib.audio import absolute_paths
-        base=absolute_paths(files.loads(args.config.read_text(encoding='utf-8')),args.config.resolve().parent);fonts=base.setdefault('soundfonts',{})
+        base=files.read_json(args.config.resolve())
+        if not isinstance(base,dict):raise ValueError(f'{args.config}: a configuration is a JSON object')
+        base=absolute_paths(base,args.config.resolve().parent);fonts=base.setdefault('soundfonts',{})
         if args.name in fonts:raise ValueError('SoundFont name already configured')
         from musiclib import sf2
         bank=sf2.read(args.path)
         fonts[args.name]={'path':str(args.path.resolve()),'sha256':file_hash(args.path),'license':args.license,'source':args.source,'version':args.version,'presets':[[p['bank'],p['program'],p['name']] for p in bank['presets']]}
-        save_json(args.output,base);print('Saved',args.output,'with',len(bank['presets']),'presets in',args.name);return
+        save_json(args.output,base,new=True);print('Saved',args.output,'with',len(bank['presets']),'presets in',args.name);return
     if args.command=='doctor':
         from musiclib.audio import load_config,run
         import numpy,tempfile
@@ -227,7 +229,7 @@ def main():
         if args.duration is not None:n['duration']=args.duration
         if args.velocity is not None:t['performance']['notes'][n['id']]['velocity']=args.velocity
         revised.setdefault('revision_history',[]).append({'parent_sha256':file_hash(args.project),'track':args.track,'note':args.note,'pitch':args.pitch,'velocity':args.velocity,'duration':args.duration})
-        validate(revised);save_json(args.output,revised);print(str(args.output));return
+        validate(revised);save_json(args.output,revised,new=True);print(str(args.output));return
 
 if __name__=='__main__':
     files.escape_unprintable()

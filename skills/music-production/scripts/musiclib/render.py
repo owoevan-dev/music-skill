@@ -128,7 +128,10 @@ class MemoryBudget:
             yield;return
         amount=min(math.ceil(amount),self.total)
         with self.ready:
-            self.ready.wait_for(lambda:self.used+amount<=self.total)
+            # Looking every 0.2 s whether the render stopped (audio.check_cancel): a part waiting for memory waited on
+            # after another failed, then synthesized (found by GPT Pro's fourth review of 0.4.0).
+            while not self.ready.wait_for(lambda:self.used+amount<=self.total,timeout=.2):
+                audio.check_cancel('a part waiting for memory')
             self.used+=amount
         try:yield
         finally:
@@ -177,6 +180,14 @@ def read_json(path):
     return value if isinstance(value,dict) else {}
 
 @contextlib.contextmanager
+def _holding(lock,what):
+    """Hold a threading lock, waiting for it 0.2 s at a time so a stopped render stops waiting (audio.check_cancel)."""
+    while not lock.acquire(timeout=.2):
+        audio.check_cancel(what)
+    try:yield
+    finally:lock.release()
+
+@contextlib.contextmanager
 def entry_lock(folder,wait=True,create=True):
     """Hold one cache entry against other renders and against clean: an exclusive lock on its file `entry.lock`
     (fcntl.flock on POSIX, msvcrt.locking on Windows), which the system releases when the process ends.  Yields whether
@@ -192,7 +203,15 @@ def entry_lock(folder,wait=True,create=True):
             yield False;return
         except OSError:
             yield False;return
-        held=files.lock(fd,wait) is True  # None (a drive that cannot lock) counts as not held
+        # Waited for by trying again every 0.2 s, not in the lock call: a render stopped meanwhile (another part
+        # failed) stops waiting (audio.check_cancel; found by GPT Pro's fourth review of 0.4.0).
+        got=files.lock(fd,False)
+        while got is False and wait:
+            try:audio.check_cancel('a part waiting for its cache entry')
+            except BaseException:
+                os.close(fd);raise
+            time.sleep(.2);got=files.lock(fd,False)
+        held=got is True  # None (a drive that cannot lock) counts as not held
         if held and not files.same_file(fd,lock):
             files.unlock(fd);os.close(fd);continue
         try:yield held
@@ -357,8 +376,9 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         # here for this part, then finds it in the cache.  The part's memory is taken first, before any lock, so a part
         # never waits for memory while it holds an entry another part waits on.
         asked=time.monotonic()
-        with budget.hold(part_memory(t,clock,frames,font,deps.get('surge',{}).get('plays')=='Surge XT')),lock,entry_lock(folder):
+        with budget.hold(part_memory(t,clock,frames,font,deps.get('surge',{}).get('plays')=='Surge XT')),_holding(lock,t['id']),entry_lock(folder):
             waited=time.monotonic()-asked
+            audio.check_cancel(t['id'])  # stopped while it waited: nothing is synthesized
             check_entry(folder)
             cached=False;raw_sha=None;old=read_json(receipt) if files.regular_file(raw) else {}
             if old:
@@ -396,6 +416,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
                 raw_sha=audio.audio_hash(raw)
                 save_json(receipt,{'key':key,'sha256':raw_sha,'track':t['id']})
             synthesized=time.monotonic()
+            audio.check_cancel(t['id'])  # between synthesis and processing, which runs no program to stop
             stem=output/'stems'/(t['id']+'.wav')
             # The processed stem the cache entry keeps, used when nothing it depends on has changed: the copy this
             # render mixes is what is checked against the receipt read before it.
@@ -429,18 +450,22 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         # Each part's own seconds (they overlap: parts run `jobs` at a time); synthesis includes the cache lookup.
         receipt_data['seconds']={'waiting':round(waited,3),'synthesis':round(synthesized-began-waited,3),'processing':round(time.monotonic()-synthesized,3)}
         return receipt_data,font_name,font
-    cancel=threading.Event()
+    cancel=threading.Event();first_failure=[];failure_lock=threading.Lock()
     def stem_of(t):
         if cancel.is_set():raise audio.Cancelled(f'{t["id"]}: not started, another part failed')
         try:
             with audio.cancel_scope(cancel):return make_stem(t)
         except BaseException as e:
-            # Set here, before this thread takes the next waiting part: set by the main thread, a part could start
-            # in the moment between (found by the selfcheck of the fix).
-            cancel.set()
             # The part travels with its own error, so the report names the part whose error the render stops on.
             with contextlib.suppress(Exception):
                 if getattr(e,'render_part',None) is None:e.render_part=t['id']
+            # The first failure is kept before the others are stopped: a part it stopped fails too (Cancelled), and
+            # one submitted earlier was reported in its place (found by GPT Pro's fourth review of 0.4.0).
+            with failure_lock:
+                if not first_failure and not isinstance(e,audio.Cancelled):first_failure.append(e)
+            # Set here, before this thread takes the next waiting part: set by the main thread, a part could start
+            # in the moment between (found by the selfcheck of the fix).
+            cancel.set()
             raise
     # The first part to fail stops the render at once: the parts waiting do not start, and those at work stop the
     # program they run (audio.run), so the render ends on that part's error without the others' time (they ran on to
@@ -457,6 +482,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         if first:
             cancel.set()
             for f in futures:f.cancel()
+    if first_failure:raise first_failure[0]
     if first:raise first[0].exception()
     results=[f.result() for f in futures]
     receipts=[r for r,_,_ in results];used_fonts={name:font for _,name,font in results if font}

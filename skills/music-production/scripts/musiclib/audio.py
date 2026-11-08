@@ -53,7 +53,8 @@ def load_config(path,all_banks=False):
     hashed the first time a part uses it (soundfont_for), or at once with `all_banks` (doctor): a full set is about 8 GB,
     and hashing it all took a render's first five seconds for the few banks one piece plays."""
     path=Path(path).resolve()
-    data=files.loads(path.read_text(encoding='utf-8'))
+    data=files.read_json(path)  # bounded, as every JSON from elsewhere (found by GPT Pro's fourth review of 0.4.0)
+    if not isinstance(data,dict):raise ValueError(f'{path}: a configuration is a JSON object')
     extra=data.get('soundfonts',{})
     if not isinstance(extra,dict) or 'default' in extra or not all(re.fullmatch(r'[a-z][a-z0-9_]{0,47}',k) for k in extra):
         raise ValueError('soundfonts must map lower-case names (not "default") to entries')
@@ -96,11 +97,19 @@ def cancel_scope(event):
     try:yield
     finally:_scope.event=before
 
+def check_cancel(what):
+    """Stop here (Cancelled) if this thread's run was stopped (cancel_scope): before a program starts, after a wait for
+    memory or a cache entry, between a part's stages.  A part that waited went on to synthesize once let in, and a
+    program started after the stop ran to its end (found by GPT Pro's fourth review of 0.4.0)."""
+    event=getattr(_scope,'event',None)
+    if event is not None and event.is_set():raise Cancelled(f'{what} stopped: another part failed')
+
 def run(argv,folder,label,timeout=600):
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
     log=folder/(label+'.log');started=time.monotonic()
     flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
     cancel=getattr(_scope,'event',None)
+    check_cancel(label)  # a run already stopped starts no program (one that ended within 0.2 s ran to its end)
     with log.open('wb') as out:
         files.wrote(log)  # the program's log, written here rather than swapped in: a file of the run (files.register_tree)
         proc=subprocess.Popen([str(x) for x in argv],stdin=subprocess.DEVNULL,stdout=out,stderr=subprocess.STDOUT,creationflags=flags)

@@ -206,15 +206,19 @@ def _plan(folder, kind, record, inner):
     return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner, 'holders': holders, 'last': last}
 
 
-def _empty_folders(folder, skip, holders=()):
+def _empty_folders(folder, skip, holders=(), stamps=None):
     """Remove the folders under `folder` (deepest first, not following links, not entering `skip`) left empty, and
-    those of `holders` (sub-folders with a record of their own) left holding nothing but that record."""
+    those of `holders` (sub-folders with a record of their own) left holding nothing but that record, while it is as
+    the plan found it (`stamps`, the plan's records with their size and time): one written since keeps its folder, and
+    the folder holding it then stays with its records (it went unseen; found by GPT Pro's fourth review of 0.4.0)."""
     for base in sorted(files.real_folders(folder, skip), key=lambda b: -len(b.parts)):
         if base == folder:
             continue
         with suppress(OSError):
-            if base in holders and [p.name for p in base.iterdir()] == [files.RECORD] and files.is_record(base / files.RECORD):
-                (base / files.RECORD).unlink()
+            record = base / files.RECORD
+            if (base in holders and [p.name for p in base.iterdir()] == [files.RECORD] and files.is_record(record)
+                    and stamps is not None and record in stamps and files.unchanged(record, stamps[record])):
+                record.unlink()
             os.rmdir(base)
 
 
@@ -268,7 +272,13 @@ def clean(folder, keep, remove=False):
     for render_dir, _, _, _ in kept:
         receipts = render_dir / 'stem_receipts.json'
         if _file(receipts):
-            used |= {r['cache_key'] for r in files.loads(receipts.read_text(encoding='utf-8')) if isinstance(r, dict) and 'cache_key' in r}
+            # Bounded, as every record from elsewhere: a kept render may be one (found by GPT Pro's fourth review).
+            try:
+                listed = files.read_json(receipts)
+            except ValueError as e:
+                raise ValueError(f'--keep {render_dir}: its stem_receipts.json cannot be read ({e}), so clean cannot tell '
+                                 'which cache entries it uses') from None
+            used |= {r['cache_key'] for r in listed if isinstance(r, dict) and isinstance(r.get('cache_key'), str)} if isinstance(listed, list) else set()
     protected = {k[0] for k in kept} | {k[1] for k in kept if k[1]}
     folders = _folders(root)
     rel = lambda f: Path(f).relative_to(root).as_posix()
@@ -345,10 +355,18 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
         size = sum(files.lstat(p).st_size for p in contents)
         if remove and not _remove_entry(e, report, rel):
             continue
-        if not remove and files.take(e, create=False, name='entry.lock')[0] == 'busy':
-            # The dry run looks at the entry's lock as --remove takes it, creating nothing: one a render holds stays.
-            report['not_removed'].append({'kind': 'cache entry', 'path': rel(e), 'error': 'a render is using it'})
-            continue
+        if not remove:
+            # The dry run looks at the entry's lock as --remove takes it, creating nothing, and lets it go at once (it
+            # kept it, so the entry looked in use to every render after it while the process lived; found by GPT
+            # Pro's fourth review of 0.4.0).  One a render holds stays, and so does one whose lock cannot be taken,
+            # as --remove leaves it (render.entry_lock).
+            state, fd = files.take(e, create=False, name='entry.lock')
+            if fd is not None:
+                files.let_go(fd)
+            if state in ('busy', 'unlockable'):
+                report['not_removed'].append({'kind': 'cache entry', 'path': rel(e), 'error': 'a render is using it' if state == 'busy'
+                                              else 'its lock cannot be taken, so clean cannot tell whether a render is using it'})
+                continue
         cleared.add(e)
         report['listed'].append({'kind': 'cache entry', 'path': rel(e), 'bytes': size, 'whole': True, 'kept_inside': []})
         report['bytes'] += size
@@ -359,13 +377,19 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
         c = f / 'cache'
         return not files.occupied(c) or (_folder(c) and all(e in cleared for e in c.iterdir()))
 
-    def whole(f):
-        """A listed folder goes whole when nothing of its own stays and every tool folder inside it goes whole."""
-        return (f in plans and f not in failed and not plans[f]['stay'] and all(whole(u) for u in plans[f]['inner'])
-                and (plans[f]['kind'] != 'audition' or own_cache_goes(f)))
+    def whole(f, known=None):
+        """A listed folder goes whole when nothing of its own stays and every tool folder inside it goes whole.  Each
+        is worked out once per question (`known`, filled as it goes): `inner` holds every tool folder below, so asking
+        each again took twice as long for every level of nesting (found by GPT Pro's fourth review of 0.4.0)."""
+        known = {} if known is None else known
+        if f not in known:
+            known[f] = (f in plans and f not in failed and not plans[f]['stay'] and all(whole(u, known) for u in plans[f]['inner'])
+                        and (plans[f]['kind'] != 'audition' or own_cache_goes(f)))
+        return known[f]
     # Deepest first, so that a round's render is gone before the round is looked at.
     for f in sorted(plans, key=lambda f: -len(f.parts)):
         plan = plans[f]
+        known = {}  # whole(), worked out once for this folder and those inside it
         skip = set(plan['inner']) | ({f / 'cache'} if plan['kind'] == 'audition' else set())
         if remove:
             try:
@@ -378,8 +402,8 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
                 if plan['kind'] == 'audition':
                     with suppress(OSError):
                         (f / 'cache').rmdir()  # an audition's own cache, once its entries are gone
-                _empty_folders(f, skip, plan['holders'])
-                goes_whole = whole(f) and not files.occupied(f / 'cache') if plan['kind'] == 'audition' else whole(f)
+                _empty_folders(f, skip, plan['holders'], dict(plan['last']))
+                goes_whole = whole(f, known) and not files.occupied(f / 'cache') if plan['kind'] == 'audition' else whole(f, known)
                 if goes_whole:
                     # The records the plan named, and nothing found anew: a file that appeared since keeps the folder,
                     # which is then named as not removed.  Each must still be as the plan found it (a command writing
@@ -387,6 +411,15 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
                     for p, was in plan['last']:
                         if files.occupied(p) and not files.unchanged(p, was):
                             raise OSError(f'{p.relative_to(f).as_posix()} changed while clean ran; the folder stays with its records')
+                    # And nothing but them is left: a file put there since the plan (a note saved meanwhile) keeps the
+                    # folder with the records that name it, for the next clean.  They went first and the folder's
+                    # removal then failed on it, leaving a folder no clean recognises (found by GPT Pro's fourth
+                    # review of 0.4.0).  One that appears after this look, a moment before the folder goes, stays with
+                    # it, and nothing of the tools' is left beside it.
+                    planned = {p for p, _ in plan['last']}
+                    late = [p for p in files.tree(f) if p not in planned and not (p.parent == f and files.is_lock_file(p))] + files.links_in(f)
+                    if late:
+                        raise OSError(f'{late[0].relative_to(f).as_posix()} appeared while clean ran; the folder stays with its records')
                     for p, _ in plan['last']:
                         if files.regular_file(p):
                             p.unlink()
@@ -402,9 +435,9 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
                 if f in held:
                     files.release(f, held.pop(f))
         else:
-            goes_whole = whole(f)
+            goes_whole = whole(f, known)
         # What stays: its own files no tool recorded (or changed since), and the folders inside it that stay.
-        stays = [p.relative_to(root).as_posix() for p in plan['stay']] + [rel(u) + '/' for u in plan['inner'] if not whole(u)]
+        stays = [p.relative_to(root).as_posix() for p in plan['stay']] + [rel(u) + '/' for u in plan['inner'] if not whole(u, known)]
         report['listed'].append({'kind': plan['kind'], 'path': rel(f), 'bytes': plan['bytes'], 'whole': goes_whole,
                                  'kept_inside': stays[:20]})
         report['bytes'] += plan['bytes']

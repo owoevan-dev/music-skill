@@ -100,17 +100,20 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
             show(summary.analysis(measured, output / 'render' / 'analysis.json', output / 'render'))
             if before is not None:
                 step = 'compare'
-                with files.working(before):  # the previous round's render, held while it is read (clean leaves it)
+                # The previous round's render, held while it is read, the clip's reading of its master included
+                # (clean leaves it alone; it was let go before the clip, and a clean could take that master; found by
+                # GPT Pro's fourth review of 0.4.0).
+                with files.working(before):
                     compared = compare(before, output / 'render')
+                    if clip is not None:
+                        # As compare --clip: if the clip cannot be made, the comparison is still written and says why.
+                        try:
+                            compared['clip'] = make_clip(cfg, compared, clip)
+                        except (ValueError, OSError, RuntimeError) as e:
+                            compared['clip'] = {'error': str(e)}
                 in_round = before.name == 'render' and (before.parent / 'round.json').is_file()
                 name = before.parent.name if in_round else before.name
                 compare_file = output / 'render' / f'compare_{name}.json'
-                if clip is not None:
-                    # As compare --clip: if the clip cannot be made, the comparison is still written and says why.
-                    try:
-                        compared['clip'] = make_clip(cfg, compared, clip)
-                    except (ValueError, OSError, RuntimeError) as e:
-                        compared['clip'] = {'error': str(e)}
                 from .compare import portable
                 save_json(compare_file, portable(compared, compare_file.parent))
                 files.register(output / 'render', [compare_file])

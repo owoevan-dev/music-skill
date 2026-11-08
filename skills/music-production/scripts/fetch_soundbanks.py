@@ -74,7 +74,9 @@ def fetch(url, dest, size=None, max_bytes=2_000_000_000, tries=4, check=None):
         try:
             return _fetch_once(url, dest, size, max_bytes, check)
         except (OSError, http.client.HTTPException) as e:
-            final = isinstance(e, urllib.error.HTTPError) and e.code < 500 and e.code != 429
+            # A name another run or the user took meanwhile is not tried again (FileExistsError: the download is
+            # published only where nothing holds its name; GPT Pro's fourth review of 0.4.0).
+            final = isinstance(e, FileExistsError) or isinstance(e, urllib.error.HTTPError) and e.code < 500 and e.code != 429
             if final or attempt == tries - 1:
                 raise
             print(f'retrying {url} after {type(e).__name__}', flush=True)
@@ -91,7 +93,7 @@ def _fetch_once(url, dest, size, max_bytes, check):
         announced = r.headers.get('Content-Length')
         expected = size if size is not None else int(announced) if announced and announced.isdigit() else None
         count = 0
-        with files.staged_path(dest) as temp:
+        with files.staged_path(dest, new=True) as temp:
             with temp.open('wb') as out:
                 while chunk := r.read(1 << 20):
                     count += len(chunk)
@@ -117,6 +119,14 @@ def cached(url, dest, offline, size=None, check=None, max_bytes=2_000_000_000):
         raise ValueError('Offline cache missing ' + str(dest))
     dest.parent.mkdir(parents=True, exist_ok=True)
     fetch(url, dest, size, max_bytes, check=check)
+
+def json_is(path, expected):
+    """Whether `path` holds `expected` as JSON, read within the record limit and never through a link; False for
+    anything else (too large, a link, not JSON)."""
+    try:
+        return files.read_json(path) == expected
+    except (OSError, ValueError):
+        return False
 
 def sha256_is(expected):
     return lambda path: file_hash(path) == expected
@@ -345,13 +355,13 @@ def install_build(item, runtime, source, offline, ffmpeg=None):
     tree_file.parent.mkdir(parents=True, exist_ok=True)
     def listing(path):
         try:
-            t = json.loads(path.read_text(encoding='utf-8'))
-        except ValueError:
+            t = files.read_json(path, 20_000_000)  # bounded, as the download is (found by GPT Pro's fourth review)
+        except (OSError, ValueError):
             return False
-        return t.get('sha') == commit or t.get('url', '').endswith(commit)
+        return isinstance(t, dict) and (t.get('sha') == commit or str(t.get('url', '')).endswith(commit))
     cached(f'https://api.github.com/repos/{repo}/git/trees/{commit}?recursive=1', tree_file, offline, check=listing, max_bytes=20_000_000)
-    tree = json.loads(tree_file.read_text(encoding='utf-8'))
-    if tree.get('sha') != commit and not tree.get('url', '').endswith(commit):
+    tree = files.read_json(tree_file, 20_000_000)
+    if not isinstance(tree, dict) or (tree.get('sha') != commit and not str(tree.get('url', '')).endswith(commit)):
         raise ValueError('Tree listing does not belong to the pinned commit')
     wanted = pinned_samples(item, tree)
     root = runtime / 'sources' / f'{repo.split("/")[1]}-{commit[:12]}'
@@ -456,7 +466,7 @@ def main():
     cache = (args.archive_cache or runtime / 'archives').resolve()
     cache.mkdir(parents=True, exist_ok=True)
     from musiclib.audio import absolute_paths
-    config = absolute_paths(json.loads(args.config.read_text(encoding='utf-8')), args.config.resolve().parent)
+    config = absolute_paths(files.read_json(args.config), args.config.resolve().parent)
     fonts = config.setdefault('soundfonts', {})
     failed = {}
     mirrors = {} if args.from_source else lock.get('prebuilt', {}).get('archives', {})
@@ -533,15 +543,16 @@ def source_files(lock, only, runtime, cache):
             folders.append((sources / item['source_folder'], {f['path']: sha(f['sha256'], f['bytes']) for f in item['files']}))
             manifest = json.loads((SKILL / 'references' / item['notes']).read_text(encoding='utf-8'))
             notes = {n['file']: sha(n['sha256']) for n in manifest['notes']}
-            notes['split.json'] = lambda p, m=manifest: json.loads(p.read_text(encoding='utf-8')) == m
+            notes['split.json'] = lambda p, m=manifest: json_is(p, m)
             folders.append((sources / f'{item["name"]}-{item["version"].split()[-1]}-notes', notes))
         else:
             repo, commit = item['repository'], item['commit']
             listing = sources / f'{repo.replace("/", "_")}_{commit}_tree.json'
             try:
-                tree = json.loads(listing.read_text(encoding='utf-8')) if files.regular_file(listing) else {}
-            except ValueError:
+                tree = files.read_json(listing, 20_000_000) if files.regular_file(listing) else {}
+            except (OSError, ValueError):
                 tree = {}
+            tree = tree if isinstance(tree, dict) else {}
             # Only a listing that names exactly the pinned samples says which files are the installer's.
             try:
                 pinned = pinned_samples(item, tree) if tree.get('sha') == commit or tree.get('url', '').endswith(commit) else []

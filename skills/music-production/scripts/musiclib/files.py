@@ -115,8 +115,23 @@ def _publish(src, dst):
     except FileExistsError:
         raise
     except OSError:
-        os.close(os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666))
-        os.replace(src, dst)
+        # The name reserved (an empty file, created exclusively), then the new file put in its place.  Should that
+        # fail, the reservation goes while it is still this one, empty: it was left under the output's name, which
+        # then looked taken (found by GPT Pro's fourth review of 0.4.0).  A process killed between the two leaves it,
+        # and a later run then finds the name taken and refuses it rather than write over what may be another's.
+        fd = os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+        try:
+            mine = os.fstat(fd)
+        finally:
+            os.close(fd)
+        try:
+            os.replace(src, dst)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                now = os.lstat(dst)
+                if (now.st_dev, now.st_ino) == (mine.st_dev, mine.st_ino) and now.st_size == 0:
+                    os.unlink(dst)
+            raise
         return None
     os.unlink(src)
     return None
@@ -350,13 +365,13 @@ def staged(dest, mode='wb', encoding=None, newline=None, new=False):
 
 
 @contextlib.contextmanager
-def staged_path(dest, suffix='.part'):
+def staged_path(dest, suffix='.part', new=False):
     """As staged, for code that writes a path itself: yields the new file's path; on success it takes the destination's
-    place, on any failure it is removed."""
+    place (with `new`, only while nothing holds that name: publish_new), on any failure it is removed."""
     temp = stage_name(dest, suffix)
     try:
         yield temp
-        replace(temp, dest)
+        (publish_new if new else replace)(temp, dest)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(temp)

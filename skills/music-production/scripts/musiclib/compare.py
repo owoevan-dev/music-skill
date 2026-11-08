@@ -583,7 +583,7 @@ def clip(cfg, result, out, seconds=8.0, lead_in=1.5):
     master is silent or ends), brought to the same integrated loudness by one gain where both can be measured, 0.8 s
     apart, as an MP3 (FFmpeg measures and encodes it)."""
     out = Path(out)
-    if out.exists():
+    if files.occupied(out):  # in any form, a dangling link included
         raise ValueError(f'{out} exists; outputs never overwrite, so choose a new path')
     start = first_change(result)
     if start is None:
@@ -619,8 +619,12 @@ def clip(cfg, result, out, seconds=8.0, lead_in=1.5):
         if peak > .89:
             both *= .89 / peak
         audio.write_wav(work / 'clip.wav', both.astype(np.float32))
+        # Encoded in its own folder, then given the clip's name only if nothing has taken it since it was found free
+        # (it took the name whatever held it; found by GPT Pro's fourth review of 0.4.0).
+        encoded = work / ('clip' + out.suffix)
+        audio.ffmpeg(cfg, ['-i', work / 'clip.wav', '-c:a', 'libmp3lame', '-b:a', '256k', encoded], work, 'clip_mp3')
         out.parent.mkdir(parents=True, exist_ok=True)
-        audio.ffmpeg(cfg, ['-i', work / 'clip.wav', '-c:a', 'libmp3lame', '-b:a', '256k', out], work, 'clip_mp3')
+        files.publish_new(encoded, out)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     return {'file': str(out), 'start_s': round(start, 2), 'seconds': round(seconds, 2),

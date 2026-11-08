@@ -129,11 +129,19 @@ def extract(p,first_bar,bars):
             # end.  Its written length runs to its written end or the passage's, at least a tick.
             o=max(0.0,n['on']-start)
             if o>length-1/TPQ-1e-9:o=(max(on,cut)-cut)/TPQ
-            room=length-o;d=min(room,n['on']+n['duration']-start-o)
+            # What is left to the passage's end, on its tick grid where it lies within a hair of it: a float residue
+            # under a tick (3.9989583 from 4) left a length a hair under validate's one tick (found by GPT Pro's fourth
+            # review of 0.4.0).
+            room=length-o
+            if abs(room*TPQ-round(room*TPQ))<1e-6:room=round(room*TPQ)/TPQ
+            d=min(room,n['on']+n['duration']-start-o)
             if d<1/TPQ:d=min(room,max(1,x1-x0)/TPQ)  # written to end before the cut, struck after it as played
             timing=min(.1,max(-.1,s0-at(o)-offset))  # validate: timing_ms within ±100
             begin=at(o)+timing+offset  # before the tick rounding: a start before the excerpt's plays at its start
-            if s1-begin<excerpt_clock.seconds(1/TPQ):continue  # a part offset no timing can undo leaves no tick of it
+            # A part offset no timing can undo leaves no tick of it; one that sounds a tick, cut short by a later strike of
+            # its key, stays (float residue had it a hair under the tick, and it went; found by the excerpt fuzzer once it
+            # drew one-line parts, after GPT Pro's fourth review of 0.4.0).
+            if s1-begin<excerpt_clock.seconds(1/TPQ)-1e-9:continue
             gate=(s1-begin)/(at(o+d)-at(o))
             if not .05<=gate<=1.6:
                 # The written length, in whole ticks, that plays as long at the nearest gate validate allows (bisection:
@@ -148,19 +156,6 @@ def extract(p,first_bar,bars):
             spans[n['id']]=(o,s1,begin)
             if on<cut and a0<cut:again.add(n['id'])  # struck before the cut and sounding there: re-attacked at it
             elif on<cut:shifted.add(n['id'])  # written before the cut, struck after it: its written onset moved onto it
-        if one_line(t):
-            # A part validate holds to one written line refuses notes that overlap as written.  A note the passage
-            # re-attacks or moves, its written length stretched to play as long as in the piece, ends where the next
-            # note begins, at the longest gate validate allows: it may end a little earlier than in the piece (the rest
-            # of a legato overlap into the next note).  One left with less than a tick before the next is left out.
-            dropped=set();line=sorted(notes,key=lambda n:(n['on'],n['id'] not in spans))
-            for a,b in zip(line,line[1:]):
-                if a['id'] in spans and a['on']+a['duration']>b['on']+1/TPQ:
-                    o,s1,begin=spans[a['id']];a['duration']=b['on']-a['on']
-                    if a['duration']<1/TPQ:
-                        dropped.add(a['id']);continue
-                    perf['notes'][a['id']]['gate']=min(1.6,max(.05,(s1-begin)/(at(o+a['duration'])-at(o))))
-            notes=[n for n in notes if n['id'] not in dropped];again-=dropped;shifted-=dropped
         # A note written before the cut and struck after it has its written onset moved onto the cut; where a note of
         # its key is written there too, on the tick or the next (one the piece struck first), it is written where it
         # plays instead, its timing then under a tick, so the two do not strike the key at once as written, which
@@ -175,11 +170,33 @@ def extract(p,first_bar,bars):
                     mid=(lo+hi+1)//2
                     if at(mid/TPQ)+offset<=begin+1e-9:lo=mid
                     else:hi=mid-1
-                n['on']=lo/TPQ;n['duration']=max(1/TPQ,end_w-n['on'])
+                n['on']=lo/TPQ;n['duration']=max(1/TPQ,end_w-n['on']);spans[n['id']]=(n['on'],s1,begin)
                 perf['notes'][n['id']].update(timing_ms=min(100,max(-100,(begin-at(n['on'])-offset)*1000)),
                                               gate=min(1.6,max(.05,(s1-begin)/(at(n['on']+n['duration'])-at(n['on'])))))
                 if clash(n):gone.add(n['id'])
         notes=[n for n in notes if n['id'] not in gone];shifted-=gone
+        if one_line(t):
+            # A part validate holds to one written line refuses notes that overlap as written by more than a tick, or
+            # that start within a tick of each other.  A note the passage re-attacks or moves, its written length
+            # stretched to play as long as in the piece, ends where the next note begins, at the longest gate validate
+            # allows: it may end a little earlier than in the piece (the rest of a legato overlap into the next note);
+            # one left with less than a tick before the next is left out.  A note of the passage's own that a moved
+            # note now follows within its written length ends where that note begins, as it ended in the piece when
+            # that note struck.  This runs after the same-key moves above, which can put a note inside the one before
+            # it, and holds to validate's own tests (a moved note within a tick of another, or put inside it, went
+            # through, and the excerpt was refused; found by GPT Pro's fourth review of 0.4.0).
+            dropped=set();line=sorted(notes,key=lambda n:(n['on'],n['id'] not in spans))
+            for a,b in zip(line,line[1:]):
+                if a['id'] in dropped or not (b['on']-a['on']<1/TPQ-1e-9 or a['on']+a['duration']>b['on']+1/TPQ):continue
+                room=b['on']-a['on']
+                if a['id'] in spans:
+                    if room<1/TPQ-1e-9:
+                        dropped.add(a['id']);continue
+                    o,s1,begin=spans[a['id']];a['duration']=room
+                    perf['notes'][a['id']]['gate']=min(1.6,max(.05,(s1-begin)/(at(o+room)-at(o))))
+                else:
+                    a['duration']=max(1/TPQ,room)
+            notes=[n for n in notes if n['id'] not in dropped];again-=dropped;shifted-=dropped
         held[t['id']]=again;moved[t['id']]=shifted
         t['notes']=notes;ids={n['id'] for n in notes}
         t['performance']['notes']={k:v for k,v in t['performance']['notes'].items() if k in ids}
@@ -197,6 +214,12 @@ def extract(p,first_bar,bars):
             perf['bend']=crop(perf['bend'],start,end,bend=True)
             if not perf['bend']:perf.pop('bend')
         if t['mix'].get('filter_sweep'):t['mix']['filter_sweep']['points']=crop(t['mix']['filter_sweep']['points'],start,end)
+        g=t['mix'].get('gate')
+        if g:
+            # The rhythmic gate goes on where the piece's pattern stands at the cut (it began its pattern again at the
+            # passage's first beat, so a cut not on a whole cycle gated other steps; found by GPT Pro's fourth review).
+            cycle=len(g['pattern'])*g.get('step_beats',.25)
+            g['phase_beats']=round((start+g.get('phase_beats',0))%cycle,9)%cycle
     if 'loop' in q:
         q.pop('loop')
         q.setdefault('decisions',[]).append('The excerpt plays as a passage, not a loop; the source keeps its loop.')

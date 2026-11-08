@@ -126,7 +126,9 @@ def download(item,archive,offline,tries=4):
     for attempt in range(tries):
         try:return _download_once(item,archive)
         except (OSError,http.client.HTTPException) as e:
-            if isinstance(e,urllib.error.HTTPError) and e.code<500 and e.code!=429 or attempt==tries-1:
+            # A name another run or the user took meanwhile is not tried again: a download is published only where
+            # nothing holds its name (files.staged new; GPT Pro's fourth review of 0.4.0).
+            if isinstance(e,FileExistsError) or isinstance(e,urllib.error.HTTPError) and e.code<500 and e.code!=429 or attempt==tries-1:
                 print(f'download failed: {item["url"]} ({e})',flush=True);raise
             print(f'retrying {item["url"]} after {e}',flush=True);time.sleep(3*2**attempt)
 
@@ -135,7 +137,7 @@ def _download_once(item,archive):
     with urllib.request.build_opener(Allowed).open(request,timeout=60) as r:
         if urllib.parse.urlsplit(r.url).hostname not in HOSTS:raise ValueError('Unexpected download redirect')
         count=0;digest=hashlib.sha256()
-        with files.staged(archive) as out:
+        with files.staged(archive,new=True) as out:
             while True:
                 data=r.read(1024*1024)
                 if not data:break

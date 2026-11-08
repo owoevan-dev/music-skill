@@ -46,6 +46,10 @@ def checks(work,config=None):
         try:fn()
         except ValueError:return True
         raise AssertionError('Expected rejection')
+    def rejects_with(kind,fn):
+        try:fn()
+        except kind:return True
+        raise AssertionError(f'Expected {kind.__name__}')
     def clock_roundtrip():
         p=example();p['clock']={'bars':8,'meter':[6,8],'tempo':[[0,99],[5.5,76],[12,112],[22,68]],'tail_seconds':3};c=Clock(p)
         for beat in [0,.125,5.49,5.5,5.501,11.9,12,22,24]:assert abs(c.beat(c.seconds(beat))-beat)<1e-9
@@ -963,6 +967,10 @@ def checks(work,config=None):
         layer={'dir':'T','pattern':r'T_(?P<dyn>pp|mf)_(?P<note>[A-G]#?-?\d)\.wav','dynamics':['pp','mf'],'velocity':{'pp':[1,63],'mf':[64,127]},
                'keys':[60,65],'pitch_source':'split','max_correction_cents':100,'layer_levels_db':{'pp':-10,'mf':0},'borrowed_level':'served'}
         build({'name':'split','presets':[{'name':'t','program':0,'layers':[layer]}]},root,work/'split.sf2');bank=sf2.read(work/'split.sf2')
+        # With denoise too, as the Iowa banks build from their sources: the manifest's noise is read (a local name hid
+        # the files module, and every such build stopped; found by GPT Pro's fourth review of 0.4.0).
+        build({'name':'split','presets':[{'name':'t','program':0,'layers':[{**layer,'denoise':{'reduce_db':12}}]}]},root,work/'split_denoised.sf2')
+        assert sf2.read(work/'split_denoised.sf2')['presets']
         zones=[z for z in bank['instruments'][0]['zones'] if z['target'] is not None]
         cents={n['file'].split('_')[-1][:-4]:n['cents'] for n in manifest['notes']}
         names=['C4','C#4','D4','D#4','E4','F4']
@@ -1850,7 +1858,8 @@ def checks(work,config=None):
         try:
             bootstrap.time=types.SimpleNamespace(sleep=waits.append)
             for errors,ok,paused in (((status(504),bootstrap.Short('cut'),TimeoutError('slow')),True,[3,6,12]),((status(404),),False,[]),
-                                     ((ValueError('the download does not match the lock'),),False,[]),((status(503),)*4,False,[3,6,12])):
+                                     ((ValueError('the download does not match the lock'),),False,[]),((status(503),)*4,False,[3,6,12]),
+                                     ((FileExistsError(17,'taken meanwhile'),),False,[])):
                 waits.clear();dest=work/'retried.bin';bootstrap._download_once=failing(errors)
                 if dest.exists():dest.unlink()
                 try:bootstrap.download(item,dest,False);assert ok and dest.read_bytes()==good,errors
@@ -2195,10 +2204,10 @@ def checks(work,config=None):
         assert (aud/'cache'/'my_notes.txt').is_file() and 'aud/cache/my_notes.txt' in parts['aud']['kept_inside'],parts.get('aud')
         import musiclib.clean as cl
         changed=made(k/'r_changed_meanwhile','Song K');real_empty=cl._empty_folders;fired=[]
-        def meanwhile(folder,skip,holders=()):
+        def meanwhile(folder,skip,holders=(),stamps=None):
             if folder==changed and not fired:  # once, after the folder's files went and before its records do
                 fired.append(1);(changed/'late.json').write_text('{}',encoding='utf-8');record.register(changed,[changed/'late.json'])
-            return real_empty(folder,skip,holders)
+            return real_empty(folder,skip,holders,stamps)
         cl._empty_folders=meanwhile
         try:r=clean(k,[k/'final'],remove=True)
         finally:cl._empty_folders=real_empty
@@ -2212,9 +2221,47 @@ def checks(work,config=None):
         try:clean(k,[k/'final'],remove=True)
         finally:cl._remove=real_remove
         assert seen==['busy'] and not inner.exists() and not record.occupied(host/record.WORK_LOCK),seen
+        # From GPT Pro's fourth review of 0.4.0: a round's review/ record written again after the plan keeps the round
+        # with its records (it went unseen); a file of the user's that appears after the plan keeps the folder with the
+        # records that name it (they went first, and the folder's removal then failed on it); a dry run lets go of the
+        # entry locks it takes; tool folders inside each other are worked out once each (it took twice as long for
+        # every level); a kept render's stem receipts are read within the record limit.
+        def after_plan(change):
+            real_plan=cl._plan
+            def planned(folder,kind,rec,inner):
+                plan=real_plan(folder,kind,rec,inner);change(Path(folder));return plan
+            cl._plan=planned;return real_plan
+        m=work2/'song_m';made(m/'final','Song M')
+        rnd=m/'r_round';rnd.mkdir();save_json(rnd/'round.json',{'kind':'music-production round','title':'Song M','project':'../song.json','status':'DRAFT_PASS',
+                                                                 'review':'review/score_review.json','render':'render/report.json','seconds':{}})
+        record.register(rnd,[rnd/'round.json']);(rnd/'review').mkdir();save_json(rnd/'review'/'score_review.json',{})
+        record.register(rnd/'review',[rnd/'review'/'score_review.json']);made(rnd/'render','Song M')
+        real_plan=after_plan(lambda f:(time.sleep(.02),record.register(rnd/'review',[])) if f==rnd else None)
+        try:r=clean(m,[m/'final'],remove=True)
+        finally:cl._plan=real_plan
+        assert record.is_record(rnd/'review'/record.RECORD) and any(x['path']=='r_round' for x in r['not_removed']),r['not_removed']
+        late=made(m/'r_late','Song M')
+        real_plan=after_plan(lambda f:(late/'my_notes.txt').write_text('mine',encoding='utf-8') if f==late else None)
+        try:r=clean(m,[m/'final'],remove=True)
+        finally:cl._plan=real_plan
+        assert (late/'my_notes.txt').is_file() and all((late/n).is_file() for n in ('files.json','render_input.json','project.json')),sorted(x.name for x in late.iterdir())
+        assert any(x['path']=='r_late' and 'appeared' in x['error'] for x in r['not_removed']),r['not_removed']
+        n_=work2/'song_n';made(n_/'final','Song N',keys=[H('e')]);entry(n_/'cache',H('e'));entry(n_/'cache',H('f'));(n_/'cache'/H('f')/'entry.lock').write_bytes(b'')
+        for _ in range(2):  # the second sees the entry as free as the first did
+            r=clean(n_,[n_/'final'],remove=False)
+            assert [x['path'] for x in r['listed'] if x['kind']=='cache entry']==[f'cache/{H("f")}'] and not r['not_removed'],(r['listed'],r['not_removed'])
+        q_=work2/'song_q';made(q_/'final','Song Q');f=q_/'a';made(f,'Song Q')
+        for k in range(1,26):f=f/chr(97+k);made(f,'Song Q')
+        began=time.monotonic();r=clean(q_,[q_/'final'],remove=False);nested_s=time.monotonic()-began
+        assert len(r['listed'])==26 and nested_s<30,(len(r['listed']),nested_s)
+        big=made(work2/'song_r'/'final','Song R');save_json(big/'stem_receipts.json',[{'track':'t','cache_key':H('a'),'pad':'x'*5000}],new=False)
+        real_max=record.MAX_RECORD;record.MAX_RECORD=2000
+        try:assert rejects(lambda:clean(work2/'song_r',[big],remove=False))
+        finally:record.MAX_RECORD=real_max
         return {'records_by_name_alone_kept':True,'link_not_followed':linked,'linked_record_kept':symlinked,'other_piece_left_alone':True,'renamed_piece_cleaned':True,'unrecorded_files_kept':True,'held_entry_kept':True,'emptied_review_removed':True,'files_named_as_records_kept':True,
                 'deep_folder_kept_its_piece':True,'audition_cache_file_named':True,'record_changed_meanwhile_kept':True,'holding_folder_held':True,
-                'junction_not_walked':junction,'open_entry_named':True}
+                'junction_not_walked':junction,'open_entry_named':True,'nested_record_changed_kept':True,'late_file_kept_with_records':True,
+                'dry_run_lets_entry_locks_go':True,'nested_26_units_s':round(nested_s,2),'kept_receipts_bounded':True}
     check('clean_removes_only_what_the_tools_made',clean_only_what_the_tools_made)
     def files_never_overwrite_or_write_through():
         # Outputs never take an occupied path, a dangling link included; a write swaps a new file in, so a hard link at
@@ -2356,7 +2403,26 @@ def checks(work,config=None):
                 except PermissionError:pass
         finally:os.replace=real_replace
         assert not [x.name for x in d.iterdir() if x.name.startswith('.scanned')]
-        return {'writers':sorted(writers),'refused_rename_retried':os.name=='nt'}
+        # publish_new where a drive has no hard links (FAT on POSIX, some network drives): the empty reservation under
+        # the output's name goes when the new file cannot take its place (it stayed, and the name looked taken; found
+        # by GPT Pro's fourth review of 0.4.0).  Run here as on POSIX, with files' own os standing in.
+        import types
+        out=d/'reserved.json';src=d/'reserved.src';src.write_text('{}',encoding='utf-8')
+        def no_link(*a,**k):raise OSError(errno.EOPNOTSUPP,'no hard links')
+        def storage_fails(a,b,*x,**k):
+            if Path(b)==out:raise OSError(errno.EIO,'storage failure')
+            return os.replace(a,b,*x,**k)
+        shim=types.SimpleNamespace(**{k:getattr(os,k) for k in dir(os) if not k.startswith('__')});shim.name,shim.link,shim.replace='posix',no_link,storage_fails
+        real_os=fs.os;fs.os=shim
+        try:assert rejects_with(OSError,lambda:fs.publish_new(src,out))
+        finally:fs.os=real_os
+        assert not fs.occupied(out) and src.is_file()
+        # A bank the soundbank command found free is published only while it still is (sf2.write new).
+        taken=d/'taken.sf2';taken.write_bytes(b'theirs');tone=(.3*np.sin(2*np.pi*440*np.arange(480)/48000)).astype(np.float32)
+        assert rejects_with(FileExistsError,lambda:sf2.write(taken,'x',[{'name':'A4','data':tone,'rate':48000,'root':69}],[{'name':'i','global':{},'zones':[{'gens':{},'sample':0}]}],
+                                                            [{'name':'x','bank':0,'program':0,'global':{},'zones':[{'gens':{},'instrument':0}]}],new=True))
+        assert taken.read_bytes()==b'theirs'
+        return {'writers':sorted(writers),'refused_rename_retried':os.name=='nt','reservation_removed':True,'bank_not_over_a_taken_name':True}
     check('writers_leave_whole_files_when_a_write_fails',writers_leave_whole_files_when_a_write_fails)
     def run_stops_its_program_when_stopped():
         # A run stopped from outside (Ctrl+C, a failure in another part) stops the program it started and waits for it,
@@ -2384,7 +2450,36 @@ def checks(work,config=None):
                 audio.run([sys.executable,'-c','import time;time.sleep(30)'],work/'cancelled_run','sleeper');raise AssertionError('not stopped')
         except audio.Cancelled:pass
         assert time.monotonic()-began<10,time.monotonic()-began
-        return {'program_stopped':True,'returncode':started[0].returncode,'stopped_with_its_render':True}
+        # A part stopped before its program starts starts none; one waiting for memory or for a cache entry another
+        # process holds stops waiting.  (A program started after the stop ran to its end, and a waiting part waited on,
+        # then synthesized; found by GPT Pro's fourth review of 0.4.0.)
+        import musiclib.render as rd
+        stopped=threading.Event();stopped.set();ran=work/'ran_after_the_stop.txt'
+        with audio.cancel_scope(stopped):
+            assert rejects_with(audio.Cancelled,lambda:audio.run([sys.executable,'-c',f'open({str(ran)!r},"w").write("ran")'],work/'late_run','late'))
+        assert not ran.exists()
+        budget=rd.MemoryBudget(10_000);event=threading.Event();threading.Timer(.3,event.set).start();began=time.monotonic()
+        with budget.hold(10_000):
+            with audio.cancel_scope(event):
+                assert rejects_with(audio.Cancelled,lambda:budget.hold(5_000).__enter__())
+        waited_memory=time.monotonic()-began
+        entry=work/'held_entry';entry.mkdir()
+        code=('import sys,time;sys.path.insert(0,sys.argv[1]);from musiclib.render import entry_lock\n'
+              'with entry_lock(sys.argv[2]) as held:\n    print(held,flush=True);time.sleep(20)')
+        holder=subprocess.Popen([sys.executable,'-c',code,str(Path(__file__).resolve().parent),str(entry)],stdout=subprocess.PIPE,text=True)
+        try:
+            assert holder.stdout.readline().strip()=='True'
+            event=threading.Event();threading.Timer(.3,event.set).start();began=time.monotonic()
+            def wait_for_entry():
+                with rd.entry_lock(entry):raise AssertionError('took an entry another process holds')
+            with audio.cancel_scope(event):
+                assert rejects_with(audio.Cancelled,wait_for_entry)
+            waited_entry=time.monotonic()-began
+        finally:
+            holder.kill();holder.wait(timeout=30);holder.stdout.close()
+        assert waited_memory<5 and waited_entry<5,(waited_memory,waited_entry)
+        return {'program_stopped':True,'returncode':started[0].returncode,'stopped_with_its_render':True,
+                'no_program_after_the_stop':True,'memory_wait_stopped_s':round(waited_memory,2),'entry_wait_stopped_s':round(waited_entry,2)}
     check('run_stops_its_program_when_stopped',run_stops_its_program_when_stopped)
     def bootstrap_receipts_set_aside_what_it_did_not_write():
         # The dependency receipts take their place as an installed file does: a dependency_receipts.json bootstrap did
@@ -2435,6 +2530,11 @@ def checks(work,config=None):
         try:
             assert holder.stdout.readline().strip()=='True'
             assert fs.take(busy)[0]=='busy' and rejects(lambda:fs.working(busy).__enter__())
+            # A reference render is held while it is read too, so one a run is still writing is refused (it was read
+            # unheld, and a clean could take its master mid-read; found by GPT Pro's fourth review of 0.4.0).
+            from musiclib.analysis import load_reference
+            try:load_reference(str(busy));raise AssertionError('a reference in use was read')
+            except ValueError as e:assert 'in use' in str(e),e
             dry=clean(piece,[final]);done=clean(piece,[final],remove=True)
         finally:
             holder.wait(timeout=60);holder.stdout.close()
@@ -2769,7 +2869,33 @@ def checks(work,config=None):
         # An older free-form harmony object, which schema.md still accepts, stays as it is (it stopped extract).
         p=example();p['harmony']={'changes':'C major then G major'};validate(p)
         assert extract(p,2,1)['harmony']=={'changes':'C major then G major'}
-        return {'cases':16}
+        # From GPT Pro's fourth review of 0.4.0: a one-line part whose note a same-key move puts inside the one before
+        # it, or within a tick of another, extracts as one line; a note played early that leaves a hair under a tick to
+        # the passage's end keeps a whole tick; the rhythmic gate goes on where the piece's pattern stands at the cut.
+        def line(engine,bpm,notes,**perf):
+            t={'id':'line','engine':engine,'role':'melody','program':0,'notes':[],'performance':{'notes':{},**perf},'mix':{'level_dbfs':-12,'pan':0}}
+            for k,(pitch,on,dur,timing,gate) in enumerate(notes):
+                t['notes'].append({'id':f'n{k}','on':on,'duration':dur,'pitch':pitch});t['performance']['notes'][f'n{k}']={'velocity':80,'timing_ms':timing,'gate':gate}
+            return {'schema':'music-production/v1','title':'Line','clock':{'bars':2,'meter':[4,4],'tempo':[[0,bpm]],'tail_seconds':2},
+                    'sections':[{'id':'a','start_bar':0,'bars':2}],'mix':{},'tracks':[t]}
+        for source,first in ((line('additive',60,[(60,3.99,1/TPQ,50,.05),(60,4,1,0,.1)]),2),
+                             (line('soundfont',120,[(66,3.95,1/TPQ,80,.05),(60,4,1,80,1)],legato={'mode':'slur'},bend_range=12),2),
+                             (line('soundfont',120,[(60,3.9994,1,-50,1)]),1)):
+            validate(source);validate(extract(copy.deepcopy(source),first,1))
+        # A note that sounds one tick, cut short by a later strike of its key, stays in the passage (a float residue had
+        # it a hair under the tick, and it went; found by the excerpt fuzzer once it drew one-line parts).
+        one_tick=line('soundfont',90,[(64,1.2385,.0115,0,1),(64,1.25,.25,-6,1)],legato={'mode':'slur'},bend_range=12);validate(one_tick)
+        sounding={n['id']:n['end_tick']-n['tick'] for n in performed(one_tick['tracks'][0],Clock(one_tick),True)}
+        q=extract(copy.deepcopy(one_tick),1,1);validate(q)
+        assert sounding['n0']==1 and 'n0' in {n['id'] for n in q['tracks'][0]['notes']},(sounding,q['tracks'][0]['notes'])
+        from musiclib import production
+        gated=line('soundfont',120,[(60,4,3,0,1)]);gated['tracks'][0]['mix']['gate']={'pattern':'x.....','step_beats':.25,'depth_db':60}
+        q=extract(copy.deepcopy(gated),2,1);validate(q)
+        def gain(project,beat,seconds):
+            c=Clock(project);y,_=production.gate(np.ones((int(seconds*48000),2)),project['tracks'][0],c);return float(y[int(c.seconds(beat)*48000),0])
+        for beat in (.1,.3,.6,1.6,3.1):
+            assert abs(gain(gated,4+beat,4)-gain(q,beat,2))<1e-3,(beat,gain(gated,4+beat,4),gain(q,beat,2))
+        return {'cases':21}
     check('excerpt_keeps_the_piece_at_its_edges',excerpt_keeps_the_piece_at_its_edges)
     def tick_rounding_is_stable():
         # A position within float error of a half tick takes the even tick, from either side, as round() does at an
@@ -2992,6 +3118,25 @@ def checks(work,config=None):
             assert failed['part']==ids[1] and failed['error']==f'{ids[1]} failed first',failed
             assert set(reached)<=set(ids),reached  # the parts waiting behind the two never started
             assert not fs.occupied(work/'render_two_failures'/fs.WORK_LOCK)
+            # A part the first failure stopped (Cancelled), submitted before it, does not take its place in the report,
+            # however late the render looks: it did once both had ended by then (found by GPT Pro's fourth review).
+            second_failed.clear();real_wait=rd.wait
+            def stopped_first(q,t,*a,**k):
+                if t['id']==ids[1]:
+                    second_failed.set();raise RuntimeError(f'{ids[1]} failed first')
+                if t['id']==ids[0]:
+                    second_failed.wait(60);raise audio.Cancelled(f'{ids[0]} stopped: another part failed')
+                return real(q,t,*a,**k)
+            def late_look(*a,**k):
+                done=real_wait(*a,**k);time.sleep(.3);return done
+            rd.process_stem,rd.wait=stopped_first,late_look
+            try:
+                try:
+                    render(work/'example.json',work/'render_stopped_first',config,work/'cache_stopped_first',jobs=2);raise AssertionError('the failure went unnoticed')
+                except RuntimeError as e:assert str(e)==f'{ids[1]} failed first',e
+            finally:rd.process_stem,rd.wait=real,real_wait
+            failed=json.loads((work/'render_stopped_first'/'report.json').read_text(encoding='utf-8'))['failed']
+            assert failed['part']==ids[1] and failed['error']==f'{ids[1]} failed first',failed
             return {'no_lock_left':True,'changed_file_refused':True,'held_folder_refused':True,'failed_part':failed['part']}
         check('render_folder_is_its_own_run',render_folder_is_its_own_run)
         def local_edit():

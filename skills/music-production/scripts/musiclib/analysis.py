@@ -163,11 +163,17 @@ def load_reference(spec, config=None):
         return spec, table[spec]
     path = Path(spec)
     if path.is_dir():
-        no_links_in(path)
-        report = files.read_json(path / 'report.json')  # bounded: a render folder from elsewhere
-        if isinstance(report.get('failed'), dict):
-            raise ValueError(f'--reference {spec}: that render stopped before it finished ({report["failed"].get("error")})')
-        master, _ = audio.read_wav(path / 'master.wav')
+        # Held while it is read, as analyze and compare hold theirs: clean leaves it alone meanwhile, and a render
+        # still at work there is refused (it was read unheld, and a clean could take its master mid-read; found by
+        # GPT Pro's fourth review of 0.4.0).
+        with files.working(path):
+            no_links_in(path)
+            report = files.read_json(path / 'report.json')  # bounded: a render folder from elsewhere
+            if not isinstance(report, dict):
+                raise ValueError(f'--reference {spec}: its report.json is no render report')
+            if isinstance(report.get('failed'), dict):
+                raise ValueError(f'--reference {spec}: that render stopped before it finished ({report["failed"].get("error")})')
+            master, _ = audio.read_wav(path / 'master.wav')
         return f'{path.resolve().parent.name}/{path.name}', long_term(master, report.get('master', {}))
     if path.is_file():
         if path.suffix.lower() != '.wav':

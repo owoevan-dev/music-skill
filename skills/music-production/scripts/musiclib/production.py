@@ -140,7 +140,9 @@ def gate(stem, track, clock):
     n = len(stem)
     beats = np.array([clock.beat(x) for x in _times(n)[::48]])
     beats = np.interp(np.arange(n), np.arange(0, n, 48)[:len(beats)], beats)
-    idx = (np.floor(beats / step).astype(int)) % len(pattern)
+    # `phase_beats`: where the pattern stands at beat 0, which an excerpt sets so its passage gates as it did in the
+    # piece (it restarted the pattern there; found by GPT Pro's fourth review of 0.4.0).
+    idx = (np.floor((beats + spec.get('phase_beats', 0)) / step).astype(int)) % len(pattern)
     open_ = np.array([c == 'x' for c in pattern])[idx].astype(float)
     ramp = int(.003 * RATE)
     kernel = np.ones(ramp) / ramp
@@ -300,3 +302,4 @@ def validate(project, track):
         if not isinstance(g.get('pattern'), str) or not 1 <= len(g['pattern']) <= 64 or set(g['pattern']) - set('x.'):
             raise ValueError(f'{track["id"]}: gate.pattern is up to 64 steps of "x" and "."')
         number(g.get('step_beats', .25), .03125, 4, 'gate step beats');number(g.get('depth_db', 60), 3, 90, 'gate depth dB')
+        number(g.get('phase_beats', 0), 0, 256, 'gate phase beats')  # the pattern's longest cycle: 64 steps of 4 beats

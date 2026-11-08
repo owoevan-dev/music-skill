@@ -224,7 +224,7 @@ def _genbytes(gens):
         out += GENREC.pack(o, amount)
     return out
 
-def write(path, name, samples, instruments, presets, comment='', copyright_notice='', software='music-production'):
+def write(path, name, samples, instruments, presets, comment='', copyright_notice='', software='music-production', new=False):
     """samples: [{'name','data' (float in [-1,1] or int16),'rate','root','correction','loop':(s,e)|None,'type','link'}]
     instruments: [{'name','global':{gen:val},'mods':[(src,dest,amount,amount_src,transform)],'zones':[{'gens':{...},'sample':i}]}]
     presets: [{'name','bank','program','global':{...},'zones':[{'gens':{...},'instrument':i}]}]
@@ -290,5 +290,7 @@ def write(path, name, samples, instruments, presets, comment='', copyright_notic
     pdta = (b'pdta' + chunk(b'phdr', phdr) + chunk(b'pbag', pbag) + chunk(b'pmod', pmod) + chunk(b'pgen', pgen) +
             chunk(b'inst', ihdr) + chunk(b'ibag', ibag) + chunk(b'imod', imod) + chunk(b'igen', igen) + chunk(b'shdr', shdr))
     body = b'sfbk' + chunk(b'LIST', info) + chunk(b'LIST', sdta) + chunk(b'LIST', pdta)
-    with files.staged(path) as f:  # whole or not at all: a failed write leaves the file that was there
+    # Whole or not at all: a failed write leaves the file that was there; with `new`, only where nothing has taken the
+    # name meanwhile (files.publish_new), as a bank the soundbank command found free (GPT Pro's fourth review of 0.4.0).
+    with files.staged(path, new=new) as f:
         f.write(b'RIFF' + struct.pack('<I', len(body)) + body)

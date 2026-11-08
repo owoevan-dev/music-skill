@@ -1081,7 +1081,7 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
 
 def _split_pitches(root):
     """Each note file's measured offset in cents from its name, from the manifest `split` wrote beside the notes."""
-    manifest = files.loads((Path(root) / 'split.json').read_text(encoding='utf-8'))
+    manifest = files.read_json(Path(root) / 'split.json')
     return {n['file'].replace('\\', '/'): n['cents'] for n in manifest['notes'] if n.get('cents') is not None}
 
 def _load_layer(layer, root, ffmpeg, loaded, receipt):
@@ -1119,11 +1119,13 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
             measured = named + split_cents[rel] / 100
         # Every microphone recorded the same take in its own folder, under the same file name or one that differs by the
         # microphone's own tag (`name`: [text in the first microphone's file name, text in this one's]).
-        files = [f] + [root / mic['dir'] / (f.name.replace(*mic['name']) if mic.get('name') else f.name) for mic in (mics or [])[1:]]
-        for other in files[1:]:
+        # (Named takes, not files: a local `files` hid the module, and the denoise of notes cut by split, which reads
+        # their manifest with files.read_json, stopped every such build; found by GPT Pro's fourth review of 0.4.0.)
+        takes = [f] + [root / mic['dir'] / (f.name.replace(*mic['name']) if mic.get('name') else f.name) for mic in (mics or [])[1:]]
+        for other in takes[1:]:
             if not other.is_file():
                 raise ValueError(f'{other.relative_to(root)}: no take for this microphone')
-        entries.append({'file': f, 'files': files, 'named': named, 'dyn': dyn, 'rr': g.get('rr') or '1', 'measured': measured})
+        entries.append({'file': f, 'files': takes, 'named': named, 'dyn': dyn, 'rr': g.get('rr') or '1', 'measured': measured})
     if not entries:
         raise ValueError(f'No samples matched {folder.relative_to(root)}')
     # Load, trim, measure pitch and level.
@@ -1139,7 +1141,7 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
         # it was split (the manifest stores it, rounded, so every build gets the same numbers).  A recording played
         # without pauses borrows the median, band by band, of the recordings of the same layer and dynamic that have
         # one (one session, one setup), or of all the layer's.
-        manifest = files.loads((root / 'split.json').read_text(encoding='utf-8'))
+        manifest = files.read_json(root / 'split.json')
         bands = {s['file']: s.get('noise_bands') for s in manifest['sources']}
         source_of = {n['file']: n['source'] for n in manifest['notes']}
         measured = {}
@@ -1326,7 +1328,7 @@ def _across_levels(local, layer_med):
         common.setdefault(n, []).append(v / layer_med[dyn])
     return {(n, dyn): float(np.median(common[n])) * layer_med[dyn] for (n, dyn) in local}
 
-def build(spec, root, output, ffmpeg=None):
+def build(spec, root, output, ffmpeg=None, new=False):
     root = Path(root)
     samples, instruments, presets, receipt = [], [], [], {'spec': spec.get('name'), 'files': [], 'layers': []}
     loaded, stored = {}, {}
@@ -1505,7 +1507,7 @@ def build(spec, root, output, ffmpeg=None):
                 gens[48] = min(1440, int(round(gens[48] / sf2.EMU_ATTENUATION)))
             seen.add(id(gens))
     sf2.write(output, spec['name'], samples, instruments, presets, comment=spec.get('comment', ''),
-              copyright_notice=spec.get('copyright', ''))
+              copyright_notice=spec.get('copyright', ''), new=new)
     receipt['output'] = {'path': str(output), 'sha256': file_hash(output), 'bytes': output.stat().st_size,
                          'presets': sf2.inventory(sf2.read(output))}
     return receipt
@@ -1544,7 +1546,7 @@ def main():
         # The notes and their manifest are made in a private folder that becomes the output only when all of them
         # are: a failure at any point, the manifest's write included, leaves no output folder.
         files.fresh(args.output, 'choose a new output folder')
-        manifest = files.loads(args.manifest.read_text(encoding='utf-8'))
+        manifest = files.read_json(args.manifest)
         staging = files.staging_folder(args.output)
         try:
             count = cut_sources(manifest, args.root, staging)
@@ -1558,7 +1560,7 @@ def main():
     if args.command == 'split':
         # As cut: made in a private folder that becomes the output only when every note and the manifest are written.
         files.fresh(args.output, 'choose a new output folder')
-        spec = files.loads(args.spec.read_text(encoding='utf-8'))
+        spec = files.read_json(args.spec)
         staging = files.staging_folder(args.output)
         try:
             manifest = split_sources(spec['split'], args.root, staging)
@@ -1573,13 +1575,15 @@ def main():
         raise ValueError('Choose new output and receipt paths')
     if os.path.normcase(str(args.output.resolve())) == os.path.normcase(str(args.receipt.resolve())):
         raise ValueError('--output and --receipt name one file: the receipt would replace the bank; give each its own')
-    receipt = build(files.loads(args.spec.read_text(encoding='utf-8')), args.root, args.output, args.ffmpeg)
+    # The bank and its receipt are published only where nothing has taken their names since they were found free:
+    # a build takes minutes (GPT Pro's fourth review of 0.4.0).
+    receipt = build(files.read_json(args.spec), args.root, args.output, args.ffmpeg, new=True)
     # Two names for one file that the paths do not show (a case-insensitive volume, a link not yet resolvable): the
     # receipt's path now holds the bank just built, which stays.
     if files.occupied(args.receipt):
         raise ValueError(f'--receipt {args.receipt} now names the bank just built (another name for --output); the bank is kept, '
                          'its receipt is not written: give the receipt a path of its own')
-    save_json(args.receipt, receipt)
+    save_json(args.receipt, receipt, new=True)
     print(json.dumps(receipt['output'], ensure_ascii=True, indent=1))
 
 if __name__ == '__main__':

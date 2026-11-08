@@ -2831,6 +2831,21 @@ def checks(work,config=None):
             finally:soundbank.MAX_SOURCE_SECONDS=limit
             return {'limit_s':limit}
         check('flac_sources_decode_within_a_limit',flac_sources_decode_within_a_limit)
+        def a_silent_part_is_named():
+            # A part whose synthesis is silent (here drum notes on a key the kit has no sample for) stops the render
+            # with its name and what to check; as an audition's context part (`quiet`) it keeps its own level instead.
+            q=copy.deepcopy(p);q['clock']={'bars':1,'meter':[4,4],'tempo':[[0,100]],'tail_seconds':1};q['sections']=[{'id':'a','start_bar':0,'bars':1}]
+            q.pop('harmony',None);piano=copy.deepcopy(next(t for t in p['tracks'] if t['id']=='piano'));drums=copy.deepcopy(next(t for t in p['tracks'] if t['drums']))
+            piano['notes']=[{'id':'pn','on':0,'duration':3,'pitch':60}];piano['performance']={'notes':{'pn':{'velocity':80}},'cc':[]}
+            drums['notes']=[{'id':'dn','on':0,'duration':.25,'pitch':2}];drums['performance']={'notes':{'dn':{'velocity':100}},'cc':[]};drums['range']=[0,127]
+            q['tracks']=[piano,drums];save_json(work/'silent.json',q)
+            try:render(work/'silent.json',work/'render_silent',config,work/'cache_silent',draft=True);raise AssertionError('a silent part rendered')
+            except ValueError as e:assert f'{drums["id"]}: its synthesis is silent' in str(e) and 'keys' in str(e),e
+            r=render(work/'silent.json',work/'render_silent_quiet',config,work/'cache_silent',draft=True,quiet={drums['id']})
+            receipt=next(x for x in json.loads((work/'render_silent_quiet'/'stem_receipts.json').read_text(encoding='utf-8')) if x['track']==drums['id'])
+            assert r['status']=='DRAFT_PASS' and receipt.get('nearly_silent') is True,(r['status'],receipt)
+            return {'named':drums['id']}
+        check('a_silent_part_is_named',a_silent_part_is_named)
         def long_automation_renders():
             # A part ridden by 200 automation points renders (FFmpeg's expression failed past 95), and its stem follows them.
             q=copy.deepcopy(p);q['clock']={'bars':4,'meter':[4,4],'tempo':[[0,120]],'tail_seconds':1}

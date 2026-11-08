@@ -312,8 +312,10 @@ def clean(folder, keep, remove=False):
                 continue
         else:
             goes_whole = whole(f)
+        # What stays: its own files no tool recorded (or changed since), and the folders inside it that stay.
+        stays = [p.relative_to(root).as_posix() for p in plan['stay']] + [rel(u) + '/' for u in plan['inner'] if not whole(u)]
         report['listed'].append({'kind': plan['kind'], 'path': rel(f), 'bytes': plan['bytes'], 'whole': goes_whole,
-                                 'kept_inside': [p.relative_to(root).as_posix() for p in plan['stay']][:20]})
+                                 'kept_inside': stays[:20]})
         report['bytes'] += plan['bytes']
     return report
 
@@ -329,7 +331,7 @@ def describe(report):
     lines = [f'{verb} {what} from {report["folder"]}: {report["bytes"] / 1e9:.2f} GB in all.',
              'Kept: ' + '; '.join(report['kept']) + f'; the {report["cache_entries_kept"]} cache entries they use.']
     for r in report['listed'][:20]:
-        part = '' if r['whole'] else ' (in part: ' + ', '.join(r['kept_inside'][:5]) + (' and more' if len(r['kept_inside']) > 5 else '') + ' stay, not written by the tools)'
+        part = '' if r['whole'] else ' (in part: ' + ', '.join(r['kept_inside'][:5]) + (' and more' if len(r['kept_inside']) > 5 else '') + ' stay)'
         lines.append(f'- {r["kind"]}: {r["path"]} ({r["bytes"] / 1e6:.0f} MB){part}')
     if len(report['listed']) > 20:
         lines.append(f'- and {len(report["listed"]) - 20} more')
@@ -339,6 +341,9 @@ def describe(report):
             + (f'; and {len(report["left_alone"]) - 10} more' if len(report['left_alone']) > 10 else ''))
     for r in report['not_removed']:
         lines.append(f'Not removed, {r["kind"]} {r["path"]}: {r["error"]} (close what holds it open and run clean again)')
+    if any(not r['whole'] for r in report['listed']):
+        lines.append('A folder listed "in part" keeps what the tools did not write there, or that changed since, and the '
+                     'folders inside it that stay; its records stay with them.')
     if report['dry_run'] and report['listed']:
         lines.append('Nothing was removed: check the list, then run the same command with --remove.')
     return '\n'.join(lines)

@@ -483,10 +483,18 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
 def process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=False):
     """The part's raw synthesis to its processed stem: the gain to its level, filters, EQ, effects, compressor, width,
     pan or stage position and automation, then the production tools.  Returns what the receipt records of it.  With
-    `quiet`, a part that barely sounds keeps its own level rather than stopping the render."""
-    ref=audio.reference_level(raw,t['mix'].get('level_mode','active_rms')) if t['notes'] else 0
-    gain=t['mix']['level_dbfs']-ref if t['notes'] else 0
-    nearly_silent=False
+    `quiet`, a part that barely sounds, or not at all, keeps its own level rather than stopping the render."""
+    try:
+        ref=audio.reference_level(raw,t['mix'].get('level_mode','active_rms')) if t['notes'] else 0
+    except ValueError as e:
+        if str(e)!='Silent stem':raise
+        if not quiet:
+            raise ValueError(f'{t["id"]}: its synthesis is silent: check that its notes lie in its bank\'s keys (review '
+                             '--config names any outside them), that its patch is in the bank, and that its notes are '
+                             'long and loud enough to sound') from None
+        ref=None
+    gain=t['mix']['level_dbfs']-ref if t['notes'] and ref is not None else 0
+    nearly_silent=ref is None
     if not -60<=gain<=45:
         if quiet and gain>45:
             gain,nearly_silent=0.0,True

@@ -109,7 +109,8 @@ numbered folder.
 
 `studio.py clean` writes nothing of its own; `--json` prints its report: `dry_run` (true unless `--remove` was given),
 `listed` (each folder it takes files from, or would: `kind` render, round, audition or cache entry, `path`, `bytes`,
-`whole` whether the folder goes, and `kept_inside`, what stays in it: files no tool recorded, or changed since),
+`whole` whether the folder goes, and `kept_inside`, what stays in it: files no tool recorded or changed since, and the
+folders inside it that stay, ending in `/`),
 `bytes`, `kept` and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
 files.json (made before 0.4.0), or cache entries holding files renders do not write: `kind`, `path`, `title`, `why`)
 and `not_removed` (what was held open or in use by a render, with the `error`).

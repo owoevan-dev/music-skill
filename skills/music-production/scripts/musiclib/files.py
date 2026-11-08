@@ -19,6 +19,7 @@ import shutil
 import stat
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -48,11 +49,38 @@ def escape_unprintable():
         stream.reconfigure(errors='backslashreplace')
 
 
+# The files this process put in place (replace, publish_new) or wrote itself (wrote): all that register_tree may record
+# as a run's own.  A file someone else put in a folder while a run worked in it, a note saved there during a render,
+# was recorded with the run's files, and clean removed it (found by a probe of 0.4.0).
+_WROTE, _WROTE_LOCK = set(), threading.Lock()
+
+
+def _key(path):
+    return os.path.normcase(os.path.abspath(path))
+
+
+def wrote(path):
+    """Note `path` as a file this process wrote: replace and publish_new note theirs; a program's own output (a log, a
+    file a check decodes) is noted by the code that names it."""
+    with _WROTE_LOCK:
+        _WROTE.add(_key(path))
+
+
+def written_here(path):
+    with _WROTE_LOCK:
+        return _key(path) in _WROTE
+
+
 def replace(src, dst):
     """os.replace, tried again for up to a second where Windows refuses it with PermissionError: a virus scanner or the
     search indexer may hold a file just written for a moment.  pip replaces its own files so (its utils.filesystem
     replace: for up to a second, every quarter), and graceful-fs, npm's file layer, retries a rename on Windows for up
-    to a second for the same reason."""
+    to a second for the same reason.  `dst` is noted as a file this process wrote (wrote)."""
+    _swap(src, dst)
+    wrote(dst)
+
+
+def _swap(src, dst):
     for attempt in range(5):
         try:
             return os.replace(src, dst)
@@ -67,7 +95,13 @@ def publish_new(src, dst):
     was found free (another run, the user), FileExistsError, and `src` stays for the caller to remove.  os.replace
     would put it in the other's place.  Windows' rename refuses an existing name; on POSIX, where rename replaces, a
     hard link refuses it, then the temporary name goes; a file system without hard links gets the name reserved first
-    (created exclusively), which the new file then replaces (found by GPT Pro's third review of 0.4.0)."""
+    (created exclusively), which the new file then replaces (found by GPT Pro's third review of 0.4.0).  `dst` is
+    noted as a file this process wrote (wrote)."""
+    _publish(src, dst)
+    wrote(dst)
+
+
+def _publish(src, dst):
     if os.name == 'nt':
         for attempt in range(5):
             try:
@@ -471,19 +505,20 @@ def tree(folder, skip=()):
     return found
 
 
-def register_tree(folder, skip=(), since_ns=None, keep=None):
-    """Record every file under `folder` (but the folders in `skip`, which keep their own records).  With `since_ns`, a
-    file is recorded only if it was written from then on or `keep` (an earlier record) listed it: a folder a run
-    resumes may hold files that run did not write."""
+def register_tree(folder, skip=(), keep=None):
+    """Record the files under `folder` (but the folders in `skip`, which keep their own records) that this process
+    wrote (wrote), and those `keep` (the record of a run resumed) listed and that are unchanged since.  Anything else
+    there is not the tools': a file saved into the folder while the run worked in it was recorded, and clean removed
+    it (found by a probe of 0.4.0); one the user changed between a run and its resume stays the user's."""
     folder = Path(folder)
     paths = []
     for p in tree(folder, skip):
         if p.name == RECORD or (p.parent == folder and is_lock_file(p)):
             continue  # the record itself, and the run's lock, which goes with the run
-        if since_ns is not None and lstat(p).st_mtime_ns < since_ns:
+        if not written_here(p):
             entry = (keep or {}).get(p.relative_to(folder).as_posix())
             if entry is None or not unchanged(p, entry):
-                continue  # not written by this run, nor listed unchanged before it: changed since, it is not the tools'
+                continue
         paths.append(p)
     register(folder, paths)
 
@@ -501,7 +536,7 @@ def aside(path):
     for k in range(1000):
         other = path.with_name(f'{path.name}.replaced-{stamp}' + (f'-{k}' if k else ''))
         if not occupied(other):
-            replace(path, other)
+            _swap(path, other)  # not noted as the tools': it is what they set aside
             return other
     raise ValueError(f'No free name to set {path} aside')
 

@@ -42,7 +42,7 @@ import math
 
 import numpy as np
 
-from . import audio, stage
+from . import audio, files, stage
 from .loop import starts_at_zero
 from .measure import k_filter, k_level
 from .model import BUSES, save_json
@@ -438,6 +438,7 @@ def linear_master(mastering):
 def mp3_check(cfg, output, master_lufs):
     """Decode preview.mp3 again and compare its loudness with the master's (the MP3 must not change it)."""
     decoded = output / 'logs' / 'preview_decoded.wav'
+    files.wrote(decoded)  # FFmpeg writes it there itself: a file of the run, should a failure leave it
     audio.run([cfg['ffmpeg']['path'], '-hide_banner', '-nostdin', '-y', '-i', output / 'preview.mp3', '-ar', str(RATE),
                '-c:a', 'pcm_f32le', decoded], output / 'logs', 'decode_mp3')
     d = audio.measure(cfg, decoded, output / 'logs', 'measure_mp3')

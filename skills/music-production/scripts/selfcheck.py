@@ -2276,15 +2276,20 @@ def checks(work,config=None):
         # A resumed run records a file it did not write only while it is unchanged since the earlier record: one the
         # user edited between the runs is not adopted (clean would take it for the tools').  (Found by a review.)
         resumed=d/'resumed';resumed.mkdir();(resumed/'analysis.json').write_text('{"a": 1}',encoding='utf-8');fs.register(resumed,[resumed/'analysis.json'])
-        before=fs.recorded(resumed);(resumed/'analysis.json').write_text('{"a": 1, "mine": true}',encoding='utf-8');since=time.time_ns()+1
-        fs.register_tree(resumed,since_ns=since,keep=before)
+        before=fs.recorded(resumed);(resumed/'analysis.json').write_text('{"a": 1, "mine": true}',encoding='utf-8')
+        fs.register_tree(resumed,keep=before)
         assert not fs.unchanged(resumed/'analysis.json',fs.recorded(resumed)['analysis.json'])
+        # Nor is a file put into a run's folder while the run works there, a note saved into a render folder during the
+        # render: a run records only what it wrote itself, and clean keeps the rest.  (It was recorded with the run's
+        # files and clean removed it; found by a probe of 0.4.0.)
+        busy=d/'busy_run';busy.mkdir();save_json(busy/'report.json',{'a':1});(busy/'my_notes.txt').write_text('mine',encoding='utf-8')
+        fs.register_tree(busy);assert list(fs.recorded(busy))==['report.json'],fs.recorded(busy)
         # A record made with a relative folder, as a round or a review given a relative --output makes it, lists the
         # files: each was taken from the folder a second time and nothing was recorded.  (Found by the stress test.)
         here=os.getcwd();os.chdir(d)
         try:
             Path('rel_round').mkdir();Path('rel_round/round.json').write_text('{}',encoding='utf-8');(Path('rel_round')/'review').mkdir()
-            Path('rel_round/review/notes.csv').write_text('x',encoding='utf-8')
+            Path('rel_round/review/notes.csv').write_text('x',encoding='utf-8');fs.wrote(Path('rel_round/review/notes.csv'))  # as review writes it
             fs.register(Path('rel_round'),[Path('rel_round')/'round.json']);fs.register_tree(Path('rel_round')/'review')
         finally:os.chdir(here)
         assert list(fs.recorded(d/'rel_round'))==['round.json'] and list(fs.recorded(d/'rel_round'/'review'))==['notes.csv']

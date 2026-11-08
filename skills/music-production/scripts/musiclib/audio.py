@@ -102,6 +102,7 @@ def run(argv,folder,label,timeout=600):
     flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
     cancel=getattr(_scope,'event',None)
     with log.open('wb') as out:
+        files.wrote(log)  # the program's log, written here rather than swapped in: a file of the run (files.register_tree)
         proc=subprocess.Popen([str(x) for x in argv],stdin=subprocess.DEVNULL,stdout=out,stderr=subprocess.STDOUT,creationflags=flags)
         try:
             deadline=started+timeout

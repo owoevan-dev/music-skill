@@ -257,7 +257,7 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
     if files.linked(Path(output)):
         # Resolving it first would follow the link (a dangling one included) and write wherever it leads.
         raise ValueError(f'{output} is a link; give a new folder (a render never writes through a link)')
-    output=Path(output).resolve();since=time.time_ns();claim={'since':since};started=time.monotonic()
+    output=Path(output).resolve();claim={};started=time.monotonic()
     with contextlib.ExitStack() as held:  # the folder's work lock (files.working), let go after its record is written
         claim['hold']=held.enter_context
         try:
@@ -275,7 +275,7 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
         finally:
             if claim.get('folder'):
                 with contextlib.suppress(OSError):
-                    files.register_tree(output,since_ns=since if claim.get('resumed') else None,keep=claim.get('kept'))
+                    files.register_tree(output,keep=claim.get('kept'))
 
 def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet):
     started=time.monotonic();p=load_project(project_file);clock=Clock(p);cfg=audio.load_config(config_file)
@@ -288,7 +288,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
             # What the render wrote so far is recorded at the end of each stage, not only when it ends: a render whose
             # process was killed leaves a record of all but its last stage, which clean removes and --resume names
             # (found by GPT Pro's third review of 0.4.0).
-            files.register_tree(output,since_ns=claim['since'] if claim.get('resumed') else None,keep=claim.get('kept'))
+            files.register_tree(output,keep=claim.get('kept'))
     output=Path(output).resolve();cache=Path(cache).resolve() if cache else output.parent/'cache'
     # Before anything is synthesized: every part's bank is configured and can play what the part asks of it.
     fonts={t['id']:audio.soundfont_for(cfg,t)[1] for t in p['tracks'] if t['engine']=='soundfont'}

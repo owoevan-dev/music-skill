@@ -1805,6 +1805,13 @@ def checks(work,config=None):
             try:fs._fetch_once(base+'/short',dest,None,10**6,None);raise AssertionError('kept a short download')
             except fs.Damaged:pass
             assert not dest.exists() and not dest.with_name('dl.bin.partial').exists()
+            # The bootstrap's downloads too: one the server cuts short is a Short, tried again, and leaves nothing.
+            import bootstrap;bh=bootstrap.HOSTS;bootstrap.HOSTS=bh+('127.0.0.1',)
+            try:
+                try:bootstrap._download_once({'url':base+'/short','bytes':1000,'sha256':'0'*64},dest);raise AssertionError('kept a short download')
+                except bootstrap.Short:pass
+            finally:bootstrap.HOSTS=bh
+            assert not dest.exists() and not list(work.glob('.dl.bin.*'))
             dest.write_bytes(b'damaged')
             fs.fetch=lambda url,d,size=None,max_bytes=0,tries=4,check=None:fs._fetch_once(base+'/ok',d,size,10**6,check)
             fs.cached('https://example.invalid/ok',dest,False,1000,lambda f:f.read_bytes()==body)
@@ -1827,7 +1834,31 @@ def checks(work,config=None):
             path,meta=bootstrap.pedalboard_wheel(lock,wc,False)
         finally:bootstrap.download=real
         assert path==wc/name and path.read_bytes()==good and file_hash(path)==meta['sha256'] and len(list(wc.glob(name+'.replaced-*')))==1
-        return {'short_read':'tried again, never cached','damaged_cache':'downloaded again','damaged_wheel':'replaced'}
+        # bootstrap.download tries a server error, a download cut short and a timeout again, after 3, 6 and 12 s, as
+        # fetch_soundbanks.fetch does, and nothing else: one HTTP 504 from GitHub's servers stopped a whole install,
+        # without saying which download (found by CI).
+        import types,urllib.error
+        item={'url':'https://github.com/x/y.zip','bytes':len(good),'sha256':hashlib.sha256(good).hexdigest()}
+        status=lambda code:urllib.error.HTTPError(item['url'],code,'x',{},None)
+        def failing(errors):
+            left=list(errors)
+            def once(item,dest):
+                if left:raise left.pop(0)
+                dest.write_bytes(good)
+            return once
+        waits=[];real_once=bootstrap._download_once
+        try:
+            bootstrap.time=types.SimpleNamespace(sleep=waits.append)
+            for errors,ok,paused in (((status(504),bootstrap.Short('cut'),TimeoutError('slow')),True,[3,6,12]),((status(404),),False,[]),
+                                     ((ValueError('the download does not match the lock'),),False,[]),((status(503),)*4,False,[3,6,12])):
+                waits.clear();dest=work/'retried.bin';bootstrap._download_once=failing(errors)
+                if dest.exists():dest.unlink()
+                try:bootstrap.download(item,dest,False);assert ok and dest.read_bytes()==good,errors
+                except (OSError,ValueError):assert not ok,errors
+                assert waits==paused,(errors,waits)
+        finally:bootstrap.time=time;bootstrap._download_once=real_once
+        return {'short_read':'tried again, never cached','damaged_cache':'downloaded again','damaged_wheel':'replaced',
+                'bootstrap_retries':'server errors, short reads and timeouts, after 3, 6 and 12 s'}
     check('a_short_or_damaged_download_is_never_kept',short_downloads)
     def compare_unit():
         # Hand-made renders of the setup study (no buses: the premix is the stems summed), the bass a quiet part:

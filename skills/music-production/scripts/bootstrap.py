@@ -36,6 +36,7 @@ import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
@@ -108,14 +109,28 @@ class Allowed(urllib.request.HTTPRedirectHandler):
             raise ValueError('Redirect to a host that is not allowed: '+newurl)
         return super().redirect_request(req,fp,code,msg,headers,newurl)
 
-def download(item,archive,offline):
+class Short(OSError):
+    """A download the server ended before its locked size: tried again like a dropped connection."""
+
+def download(item,archive,offline,tries=4):
     """Download to `archive` through a new file of its own (musiclib.files.staged), hashed as it arrives: it takes the
     archive's place only with the locked size and SHA-256, and is removed otherwise.  Two runs never share it.  An
-    archive already there is left for the caller, which checks it."""
+    archive already there is left for the caller, which checks it.  A dropped connection, a timeout, a download cut
+    short or a server error (5xx, 429) is tried again after 3, 6 and 12 s, as fetch_soundbanks.fetch does; a refused
+    host, another HTTP error, a size over the lock or a file that does not match it is not.  Before, one HTTP 504
+    from GitHub's servers stopped a whole install, and the error did not say which download (found by CI)."""
     if files.occupied(archive):return
     if offline:raise ValueError('Offline cache missing '+str(archive))
     parts=urllib.parse.urlsplit(item['url'])
     if parts.scheme!='https' or parts.hostname not in HOSTS:raise ValueError('Host not allowed: '+item['url'])
+    for attempt in range(tries):
+        try:return _download_once(item,archive)
+        except (OSError,http.client.HTTPException) as e:
+            if isinstance(e,urllib.error.HTTPError) and e.code<500 and e.code!=429 or attempt==tries-1:
+                print(f'download failed: {item["url"]} ({e})',flush=True);raise
+            print(f'retrying {item["url"]} after {e}',flush=True);time.sleep(3*2**attempt)
+
+def _download_once(item,archive):
     request=urllib.request.Request(item['url'],headers={'User-Agent':'MusicProductionSkill/1.0'})
     with urllib.request.build_opener(Allowed).open(request,timeout=60) as r:
         if urllib.parse.urlsplit(r.url).hostname not in HOSTS:raise ValueError('Unexpected download redirect')
@@ -125,9 +140,11 @@ def download(item,archive,offline):
                 data=r.read(1024*1024)
                 if not data:break
                 count+=len(data)
-                if count>item['bytes']:raise ValueError('Download exceeds locked size')
+                if count>item['bytes']:raise ValueError(f'{item["url"]}: the download exceeds its locked size')
                 digest.update(data);out.write(data)
-            if count!=item['bytes'] or digest.hexdigest()!=item['sha256']:raise ValueError('Download integrity failed')
+            # A connection the server closes early ends the reads without an error: the locked size tells.
+            if count<item['bytes']:raise Short(f'{item["url"]}: {count} of {item["bytes"]} bytes arrived')
+            if digest.hexdigest()!=item['sha256']:raise ValueError(f'{item["url"]}: the download does not match the lock')
 
 def system_tool(name,given):
     """A fluidsynth/ffmpeg executable from the system: its path, hash and the first line of its version output."""
@@ -254,11 +271,7 @@ def install_catalog(runtime,cache,args,config):
     def one(e):
         local=cache/'surge_patches_all'/e['path'];local.parent.mkdir(parents=True,exist_ok=True)
         url=f'https://raw.githubusercontent.com/surge-synthesizer/surge/{origin["commit"]}/{origin["path"]}/'+urllib.parse.quote(e['path'])
-        for attempt in range(4):
-            try:download({'url':url,'bytes':e['bytes'],'sha256':e['sha256']},local,args.offline);break
-            except (OSError,http.client.HTTPException):
-                if attempt==3 or args.offline:raise
-                time.sleep(2**attempt)
+        download({'url':url,'bytes':e['bytes'],'sha256':e['sha256']},local,args.offline)  # tried again there
         if local.stat().st_size!=e['bytes'] or file_hash(local)!=e['sha256']:raise ValueError('Patch integrity failed: '+e['path'])
         out=staging/e['path'];out.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(local,out)
     try:

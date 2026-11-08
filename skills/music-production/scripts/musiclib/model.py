@@ -37,6 +37,13 @@ def text(value, name):
         raise ValueError(f'{name} is text (a string), got {type(value).__name__}')
 
 
+def shape(value, kind, name):
+    """`value` must be a JSON object (`kind` dict) or a list: the project's frame, checked before its fields are read."""
+    if not isinstance(value, kind):
+        raise ValueError(f'{name} is {"an object" if kind is dict else "a list"}, got {type(value).__name__}')
+    return value
+
+
 def number(value, lo, hi, name, integer=False):
     """`value` must be a number in lo..hi; with `integer`, a JSON integer (100, not 100.0, which MIDI cannot carry)."""
     if isinstance(value, bool) or not isinstance(value, int if integer else (int, float)) or not math.isfinite(value) or not lo <= value <= hi:
@@ -174,16 +181,27 @@ class Clock:
         return self.beats[i] + (seconds-self.times[i])/self.spb[i]
 
 def validate(p):
-    """Check a project; returns its size and `warnings` (unknown fields).  A missing field is reported with its place."""
+    """Check a project; returns its size and `warnings` (unknown fields).  A missing field is reported with its place,
+    and so is a field of another JSON type where an object or a list belongs (shape); any other field of the wrong
+    type is refused as that.  A project that was a list, or a list where the clock, the mix, a track or its notes
+    belong, raised AttributeError or TypeError and stopped the command (found by CI on Python 3.14, which parsed a
+    deeply nested list that older Pythons refused)."""
+    shape(p, dict, 'A project')
     try:
         return _validate(p)
     except KeyError as e:
         raise ValueError(f'missing field {e}') from None
+    except (TypeError, AttributeError) as e:
+        raise ValueError(f'a field has the wrong type ({e})') from None
 
 def _validate(p):
     warnings = []
     if p.get('schema') != 'music-production/v1':
         raise ValueError('Unsupported project schema')
+    for k, kind in (('clock', dict), ('mix', dict), ('sections', list), ('tracks', list)):
+        if k in p:shape(p[k], kind, k)
+    for s in p.get('sections', []):shape(s, dict, 'each section')
+    for t in p.get('tracks', []):shape(t, dict, 'each track')
     if not isinstance(p.get('title'),str) or not 1<=len(p['title'])<=200:
         raise ValueError('Title required')
     unknown_fields(p,'project','project',warnings)
@@ -213,6 +231,7 @@ def _validate(p):
             if not isinstance(s,list) or len(s)!=3:raise ValueError('rubato spans: each is [from_beat, to_beat, ratio]')
             number(s[0],-32,length,'rubato span from beat');number(s[1],0,length+32,'rubato span to beat');number(s[2],.3,1,'rubato span ratio')
             if not 0<s[1]-s[0]<=32:raise ValueError(f'rubato span {s}: it runs forward, over at most 32 beats')
+    if not all(isinstance(x,list) and len(x)==2 for x in shape(c['tempo'],list,'clock.tempo')):raise ValueError('clock.tempo is a list of [beat, quarter-note BPM]')
     if not 1<=len(c['tempo'])<=2048 or c['tempo'][0][0]!=0:
         raise ValueError('Tempo map must start at zero')
     total=c['bars']*c['meter'][0]*4/c['meter'][1]
@@ -254,10 +273,12 @@ def _validate(p):
         try:events+=_track(p,t,c,total,clock,warnings)
         except KeyError as e:
             raise ValueError(f'{t["id"]}: missing field {e}') from None
+        except (TypeError,AttributeError) as e:
+            raise ValueError(f'{t["id"]}: a field has the wrong type ({e})') from None
     if events>500000:raise ValueError('Too many notes')
     if isinstance(p.get('harmony'),list):
         for h in p['harmony']:
-            number(h['bar'],1,c['bars'],'harmony bar',True);number(h.get('beat',0),0,clock.beats_per_bar-1/TPQ,'harmony beat')
+            shape(h,dict,'each harmony entry');number(h['bar'],1,c['bars'],'harmony bar',True);number(h.get('beat',0),0,clock.beats_per_bar-1/TPQ,'harmony beat')
             if not isinstance(h.get('symbol'),str) or not 1<=len(h['symbol'])<=40:raise ValueError('harmony entries need a chord symbol')
             number(h.get('transpose_semitones',0),-24,24,'harmony transpose',True)
     if p['mix'].get('chain','room') not in ('room','bus'):raise ValueError('mix.chain must be "room" or "bus"')
@@ -299,6 +320,9 @@ def _validate(p):
 
 def _track(p,t,c,total,clock,warnings):
     """One track's checks (validate); returns its note count."""
+    tid=t['id'];shape(t['performance'],dict,f'{tid}.performance');shape(t['mix'],dict,f'{tid}.mix')
+    for n in shape(t['notes'],list,f'{tid}.notes'):shape(n,dict,f'each note of {tid}')
+    for x in shape(t['performance']['notes'],dict,f'{tid}.performance.notes').values():shape(x,dict,f'each entry of {tid}.performance.notes')
     if t['engine'] not in ('soundfont','additive','noise','synth','drum_synth','surge'):
         raise ValueError('Unsupported instrument engine')
     if t['engine']=='synth':

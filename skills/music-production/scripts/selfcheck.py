@@ -73,7 +73,25 @@ def checks(work,config=None):
         for change in (lambda p:p.__setitem__('brief',{'mood':'warm'}),lambda p:p.__setitem__('decisions',None),
                        lambda p:p['tracks'][0]['notes'][0].__setitem__('phrase',['A']),lambda p:p['tracks'][0].__setitem__('role',['melody'])):
             p=example();change(p);rejects(lambda p=p:validate(p))
-        return {'invalid_cases_rejected':11}
+        # A project, or its clock, mix, tracks, sections, tempo, harmony, notes or performance, of another JSON type is
+        # refused with its place, and any other field of the wrong type as that: they raised AttributeError or TypeError
+        # and stopped the command (found by CI on Python 3.14, which parsed a deeply nested list).
+        for q in ([],'x',1,None):rejects(lambda q=q:validate(q))
+        first=lambda p:p['tracks'][0]['notes'][0]['id']
+        for change,place in ((lambda p:p.__setitem__('clock',[]),'clock'),(lambda p:p.__setitem__('mix','x'),'mix'),
+                             (lambda p:p.__setitem__('tracks','x'),'tracks'),(lambda p:p.__setitem__('tracks',[1]),'track'),
+                             (lambda p:p.__setitem__('sections',[1]),'section'),(lambda p:p['clock'].__setitem__('tempo',[1]),'tempo'),
+                             (lambda p:p.__setitem__('harmony',[1]),'harmony'),(lambda p:p['tracks'][0].__setitem__('notes',[1]),'note'),
+                             (lambda p:p['tracks'][0].__setitem__('performance',[]),'performance'),
+                             (lambda p:p['tracks'][0]['performance'].__setitem__('notes',[]),'performance.notes'),
+                             (lambda p:p['tracks'][0].__setitem__('mix',[]),'mix'),
+                             (lambda p:p['tracks'][0]['performance']['notes'].__setitem__(first(p),1),'performance.notes'),
+                             (lambda p:p['tracks'][0]['performance'].__setitem__('cc',[1]),'wrong type'),
+                             (lambda p:p['tracks'][0].__setitem__('range',5),'wrong type')):
+            p=example();change(p)
+            try:validate(p);raise AssertionError(f'{place} of the wrong type passed validation')
+            except ValueError as e:assert place in str(e),str(e)
+        return {'invalid_cases_rejected':29}
     check('malformed_projects_rejected',invalid)
     def midi_roundtrip():
         p=example();path=work/'roundtrip.mid';routing=midi.write(p,path);m=midi.read(path);clock=Clock(p)
@@ -2431,6 +2449,15 @@ def checks(work,config=None):
         from musiclib.model import load_project
         deep=work/'deep.json';deep.write_text('['*100000+']'*100000,encoding='utf-8')
         assert rejects(lambda:load_project(deep))
+        # Python 3.14 parses those 100,000 levels, and a free-form harmony 600 levels deep, which every Python parses,
+        # passed validate and stopped excerpt's copy of the project with RecursionError: JSON is read to MAX_DEPTH
+        # levels, no deeper (found by CI on Python 3.14).
+        assert fs.loads('['*fs.MAX_DEPTH+']'*fs.MAX_DEPTH) and rejects(lambda:fs.loads('['*(fs.MAX_DEPTH+1)+']'*(fs.MAX_DEPTH+1)))
+        nested=[]
+        for _ in range(600):nested=[nested]
+        q=example();q['harmony']={'chart':nested};(work/'deep_harmony.json').write_text(json.dumps(q),encoding='utf-8')
+        assert rejects(lambda:load_project(work/'deep_harmony.json'))
+        q['harmony']={'chart':[[['C','G']]]};(work/'deep_harmony.json').write_text(json.dumps(q),encoding='utf-8');load_project(work/'deep_harmony.json')
         (work/'deep_record').mkdir();(work/'deep_record'/fs.RECORD).write_text('{"kind": '+'['*100000+']'*100000+'}',encoding='utf-8')
         assert fs.recorded(work/'deep_record')=={} and not fs.is_record(work/'deep_record'/fs.RECORD)
         tone=(.4*np.sin(2*np.pi*440*np.arange(480)/48000)).astype(np.float32)

@@ -29,6 +29,11 @@ MAX_RECORD = 64_000_000  # the largest record, report or receipt read
 # The largest project read: one of validate's 500,000 notes as save_json writes it, 205 bytes a note measured (102 MB
 # for 499,200 notes in the stress test of 0.4.0, which 64 MB had refused), with room for its CC and automation.
 MAX_PROJECT = 160_000_000
+# The deepest nesting of lists and objects a JSON document read may have: our own limit, the same on every Python
+# (3.14 parsed the stress test's 100,000 levels that 3.13 refuses; a free-form harmony 600 levels deep passed validate
+# and stopped excerpt's copy of the project with RecursionError).  It is eight times the deepest of the tools' own
+# documents: 8 levels, measured over 183,131 JSON files of the project, its renders and the agents' examples.
+MAX_DEPTH = 64
 WORK_LOCK = 'work.lock'  # held in a render, round or audition folder by the run writing it, and by clean
 LOCKS = (WORK_LOCK, 'entry.lock')  # a work lock's file, and a cache entry's (render.entry_lock)
 
@@ -325,13 +330,21 @@ def staged_path(dest, suffix='.part'):
 
 
 def loads(text):
-    """json.loads, refusing as ValueError a document nested deeper than Python parses (json raises RecursionError): a
-    record, a project or a report someone else made is refused with a reason, not a crash (found by the stress test of
-    0.4.0)."""
+    """json.loads, refusing as ValueError a document nested more than MAX_DEPTH levels deep, or deeper than Python
+    parses (json raises RecursionError): a record, a project or a report someone else made is refused with a reason,
+    not a crash (found by the stress test of 0.4.0; the depth limit by CI on Python 3.14).  The depth is measured a
+    level at a time, without recursion: about a quarter of a second for a project of 500,000 notes."""
     try:
-        return json.loads(text)
+        value = json.loads(text)
     except RecursionError:
         raise ValueError('a JSON document nested too deeply to read') from None
+    level, depth = ([value] if isinstance(value, (dict, list)) else []), 0
+    while level:
+        depth += 1
+        if depth > MAX_DEPTH:
+            raise ValueError(f'a JSON document nested more than {MAX_DEPTH} levels deep')
+        level = [x for c in level for x in (c.values() if isinstance(c, dict) else c) if isinstance(x, (dict, list))]
+    return value
 
 
 def read_json(path, limit=None):

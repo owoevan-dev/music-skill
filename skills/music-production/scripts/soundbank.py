@@ -27,6 +27,7 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path, PurePosixPath
@@ -146,7 +147,8 @@ def write_float_wav(path, x, rate):
     ch = x.shape[1]
     fmt = (3).to_bytes(2, 'little') + ch.to_bytes(2, 'little') + int(rate).to_bytes(4, 'little') + (rate * ch * 4).to_bytes(4, 'little') + (ch * 4).to_bytes(2, 'little') + (32).to_bytes(2, 'little')
     body = b'WAVE' + b'fmt ' + len(fmt).to_bytes(4, 'little') + fmt + b'data' + len(data).to_bytes(4, 'little') + data
-    Path(path).write_bytes(b'RIFF' + len(body).to_bytes(4, 'little') + body)
+    with files.staged(path) as f:  # whole or not at all (musiclib.files)
+        f.write(b'RIFF' + len(body).to_bytes(4, 'little') + body)
 
 def pitch_track(mono, rate, fmin, fmax, hop, threshold=0.15, chunk=400, guide=None):
     """YIN (de Cheveigne and Kawahara 2002) on frames `hop` samples apart: f0 in Hz, nan where no period's
@@ -434,7 +436,8 @@ def save_manifest(path, manifest):
         lines.append(f' "{key}": [\n{rows}\n ]' + (',' if i < 2 else ''))
     lines.append('}')
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+    with files.staged(path) as f:  # whole or not at all; bytes, so the lines end in LF on every system as before
+        f.write(('\n'.join(lines) + '\n').encode('utf-8'))
 
 def cut_sources(manifest, src_root, out_root):
     """Cut the notes a `split` manifest records (source, sample span, fade) from the same source files, each checked
@@ -466,7 +469,7 @@ def cut_sources(manifest, src_root, out_root):
                         raise ValueError(f'{n["file"]}: the cut does not reproduce the recorded note (is {source} the '
                                          'recording the manifest was made from?); no note was kept')
                     files.fresh(path, 'cut writes into a new folder')
-                    os.replace(temp, path)
+                    files.replace(temp, path)
                     made.append(path)
                 finally:
                     with contextlib.suppress(OSError):
@@ -1171,15 +1174,16 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
     for e in entries:
         # A take is loaded once per build and shared by the layers that use it alike: its key holds everything that
         # changes what is kept of it (the files and microphones, the onset threshold, the ring and length cut, the
-        # level statistic, the loop, the noise profile it is cleaned with, the declick and the high-pass, and the named
-        # note where the high-pass or the loop's pitch follows it), so a layer that trims or measures it otherwise
-        # loads its own.
+        # level statistic, the loop, the noise profile it is cleaned with, the declick and the high-pass, the named
+        # note where the high-pass or the loop's pitch follows it, and the measured pitch where the partials the
+        # denoiser keeps follow it), so a layer that trims or measures it otherwise loads its own.
         rel = e['file'].relative_to(root).as_posix()
         cleaned_with = (per_take[rel] if dn and rel in per_take else
                         hashlib.sha256(np.ascontiguousarray(noise[e['dyn']]).tobytes()).hexdigest() if dn and e['dyn'] in noise else None)
         key = json.dumps([[str(f) for f in e['files']], mics, layer.get('onset_db'), layer.get('max_seconds'), layer.get('ring_db'),
                           layer.get('level'), layer.get('loop'), layer.get('loop_window'), layer.get('loop_repair'), dn, cleaned_with, dc, hpf,
-                          e['named'] if looped or hpf else None])
+                          e['named'] if looped or hpf else None,
+                          e['measured'] if dn and dn.get('keep_partials_below') else None])
         if key not in loaded:
             x, info = mic_mix(e['files'], mics, ffmpeg) if mics else read_audio(e['file'], ffmpeg)
             if hpf:
@@ -1534,19 +1538,36 @@ def main():
         result = inspect(args.bank)
         if args.output:
             save_json(args.output, result)
-        print(json.dumps(result['presets'], ensure_ascii=False, indent=1))
+        print(json.dumps(result['presets'], ensure_ascii=True, indent=1))
         return
     if args.command == 'cut':
+        # The notes and their manifest are made in a private folder that becomes the output only when all of them
+        # are: a failure at any point, the manifest's write included, leaves no output folder.
         files.fresh(args.output, 'choose a new output folder')
         manifest = json.loads(args.manifest.read_text(encoding='utf-8'))
-        print(cut_sources(manifest, args.root, args.output), 'notes cut and verified')
-        save_manifest(args.output / 'split.json', manifest)
+        staging = files.staging_folder(args.output)
+        try:
+            count = cut_sources(manifest, args.root, staging)
+            save_manifest(staging / 'split.json', manifest)
+            files.replace(staging, args.output)
+        except BaseException:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        print(count, 'notes cut and verified')
         return
     if args.command == 'split':
+        # As cut: made in a private folder that becomes the output only when every note and the manifest are written.
         files.fresh(args.output, 'choose a new output folder')
-        manifest = split_sources(json.loads(args.spec.read_text(encoding='utf-8'))['split'], args.root, args.output)
-        save_manifest(args.output / 'split.json', manifest)
-        print(json.dumps(manifest['groups'], ensure_ascii=False, indent=1))
+        spec = json.loads(args.spec.read_text(encoding='utf-8'))
+        staging = files.staging_folder(args.output)
+        try:
+            manifest = split_sources(spec['split'], args.root, staging)
+            save_manifest(staging / 'split.json', manifest)
+            files.replace(staging, args.output)
+        except BaseException:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        print(json.dumps(manifest['groups'], ensure_ascii=True, indent=1))
         return
     if files.occupied(args.output) or files.occupied(args.receipt):
         raise ValueError('Choose new output and receipt paths')
@@ -1559,7 +1580,7 @@ def main():
         raise ValueError(f'--receipt {args.receipt} now names the bank just built (another name for --output); the bank is kept, '
                          'its receipt is not written: give the receipt a path of its own')
     save_json(args.receipt, receipt)
-    print(json.dumps(receipt['output'], ensure_ascii=False, indent=1))
+    print(json.dumps(receipt['output'], ensure_ascii=True, indent=1))
 
 if __name__ == '__main__':
     import sys

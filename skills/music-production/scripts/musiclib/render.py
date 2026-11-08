@@ -16,7 +16,6 @@ only delivery needs, master.flac, the MP3's decoded-loudness check and a game lo
 dry-run render processes everything but writes no output files (REAPER 6.30)."""
 import ast
 import contextlib
-import errno
 import json
 import math
 import os
@@ -177,32 +176,6 @@ def read_json(path):
     except (OSError,ValueError):return {}
     return value if isinstance(value,dict) else {}
 
-def _lock(fd,wait):
-    """Take the lock on an open file: True when held."""
-    if os.name=='nt':
-        import msvcrt
-        while True:
-            try:os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_LOCK if wait else msvcrt.LK_NBLCK,1);return True
-            except OSError as e:
-                # LK_LOCK gives up after ten tries a second apart while another render holds the entry: wait on.
-                if not wait or e.errno not in (errno.EDEADLK,errno.EACCES):return False
-    import fcntl
-    try:fcntl.flock(fd,fcntl.LOCK_EX|(0 if wait else fcntl.LOCK_NB));return True
-    except OSError:return False
-
-def _unlock(fd):
-    with contextlib.suppress(OSError):
-        if os.name=='nt':
-            import msvcrt;os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_UNLCK,1)
-        else:
-            import fcntl;fcntl.flock(fd,fcntl.LOCK_UN)
-
-def _same_file(fd,path):
-    """Whether `path` is still the file open as `fd` (clean may remove an entry while a render waits for it)."""
-    try:a,b=os.fstat(fd),os.stat(path)
-    except OSError:return False
-    return (a.st_dev,a.st_ino)==(b.st_dev,b.st_ino)
-
 @contextlib.contextmanager
 def entry_lock(folder,wait=True,create=True):
     """Hold one cache entry against other renders and against clean: an exclusive lock on its file `entry.lock`
@@ -219,12 +192,12 @@ def entry_lock(folder,wait=True,create=True):
             yield False;return
         except OSError:
             yield False;return
-        held=_lock(fd,wait)
-        if held and not _same_file(fd,lock):
-            _unlock(fd);os.close(fd);continue
+        held=files.lock(fd,wait) is True  # None (a drive that cannot lock) counts as not held
+        if held and not files.same_file(fd,lock):
+            files.unlock(fd);os.close(fd);continue
         try:yield held
         finally:
-            if held:_unlock(fd)
+            if held:files.unlock(fd)
             os.close(fd)
         return
     yield False
@@ -235,7 +208,7 @@ def keep_stem(folder,stem,receipt):
     replace a file another program holds open) the render goes on, and the next one processes the part again."""
     spare=None
     try:
-        spare=files.stage_name(Path(folder)/'stem.wav','.wav');shutil.copyfile(stem,spare);os.replace(spare,Path(folder)/'stem.wav')
+        spare=files.stage_name(Path(folder)/'stem.wav','.wav');shutil.copyfile(stem,spare);files.replace(spare,Path(folder)/'stem.wav')
         files.write_json(Path(folder)/'stem.json',receipt)
         return True
     except OSError:
@@ -269,7 +242,7 @@ def module_closure(names):
 def stopped(folder):
     """Why the render in `folder` stopped before it finished (the error its report.json gives), or None."""
     report=Path(folder)/'report.json'
-    if not files.regular_file(report):return None
+    if not files.regular_file(report) or files.lstat(report).st_size>files.MAX_RECORD:return None
     try:r=json.loads(report.read_text(encoding='utf-8'))
     except (OSError,ValueError):return None
     failed=r.get('failed') if isinstance(r,dict) else None
@@ -280,23 +253,28 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
     `resume`).  Whatever happens, what it wrote is recorded in the folder's files.json (musiclib.files), which is all
     clean ever removes of it.  `quiet`: parts that may barely sound (the other parts of an audition's passage, where
     a held note's last moment is all a part plays): they keep their own level instead of stopping the render."""
+    if files.linked(Path(output)):
+        # Resolving it first would follow the link (a dangling one included) and write wherever it leads.
+        raise ValueError(f'{output} is a link; give a new folder (a render never writes through a link)')
     output=Path(output).resolve();claim={};since=time.time_ns();started=time.monotonic()
-    try:
-        return _render(project_file,output,config_file,cache,resume,jobs,draft,claim,set(quiet))
-    except BaseException as e:
-        # A render stopped before its report: report.json says so, after which stage, in which part and why, as a
-        # round's record does for its steps.  (A failed delivery check has written its full report already.)
-        if claim.get('folder') and not claim.get('reported'):
-            stages=dict(claim.get('stages') or {})
-            with contextlib.suppress(OSError,ValueError):
-                save_json(output/'report.json',{'status':'FAIL','title':claim.get('title'),'draft':draft,
-                          'failed':{'after_stage':next(reversed(stages),None),'part':claim.get('part'),'error':str(e) or type(e).__name__},
-                          'stage_seconds':stages,'runtime_seconds':round(time.monotonic()-started,2)})
-        raise
-    finally:
-        if claim.get('folder'):
-            with contextlib.suppress(OSError):
-                files.register_tree(output,since_ns=since if claim.get('resumed') else None,keep=claim.get('kept'))
+    with contextlib.ExitStack() as held:  # the folder's work lock (files.working), let go after its record is written
+        claim['hold']=held.enter_context
+        try:
+            return _render(project_file,output,config_file,cache,resume,jobs,draft,claim,set(quiet))
+        except BaseException as e:
+            # A render stopped before its report: report.json says so, after which stage, in which part and why, as a
+            # round's record does for its steps.  (A failed delivery check has written its full report already.)
+            if claim.get('folder') and not claim.get('reported'):
+                stages=dict(claim.get('stages') or {})
+                with contextlib.suppress(OSError,ValueError):
+                    save_json(output/'report.json',{'status':'FAIL','title':claim.get('title'),'draft':draft,
+                              'failed':{'after_stage':next(reversed(stages),None),'part':getattr(e,'render_part',None),'error':str(e) or type(e).__name__},
+                              'stage_seconds':stages,'runtime_seconds':round(time.monotonic()-started,2)})
+            raise
+        finally:
+            if claim.get('folder'):
+                with contextlib.suppress(OSError):
+                    files.register_tree(output,since_ns=since if claim.get('resumed') else None,keep=claim.get('kept'))
 
 def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet):
     started=time.monotonic();p=load_project(project_file);clock=Clock(p);cfg=audio.load_config(config_file)
@@ -326,12 +304,22 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         # A folder a render takes up again holds only what renders write: a link or a hard link in it would carry a
         # write out of the folder, so it is refused rather than written through.
         files.no_links(output)
+        claim['hold'](files.working(output))  # before reading what is there: clean may be removing it
         odd=files.foreign(output)
         if odd:raise ValueError(f'{output} holds links or files with other names ({", ".join(str(x.relative_to(output)) for x in odd[:5])}); '
                                 'render into a new folder')
+        # A resumed render writes over its own files only: what is there must be the earlier render's, as its record
+        # lists it, unchanged since.  A file it did not write, or one changed since, stops it before anything is written.
+        kept=files.recorded(output)
+        strays=[x for x in files.tree(output) if x.name!=files.RECORD and not (x.parent==output and files.is_lock_file(x))
+                and not files.unchanged(x,kept.get(x.relative_to(output).as_posix(),(-1,-1)))]
+        if strays:raise ValueError(f'{output} holds files the earlier render did not write, or that changed since '
+                                   f'({", ".join(x.relative_to(output).as_posix() for x in strays[:5])}); move them away or render into a new folder')
     if files.linked(cache):raise ValueError(f'The cache {cache} is a link; give the folder itself')
     claim['kept']=files.recorded(output) if resumed else {}
-    for d in (output,cache,output/'logs',output/'stems',output/'midi',output/'returns'):d.mkdir(parents=True,exist_ok=True)
+    output.mkdir(parents=True,exist_ok=True)
+    if not resumed:claim['hold'](files.working(output))  # a render started into the same new folder meanwhile is refused
+    for d in (cache,output/'logs',output/'stems',output/'midi',output/'returns'):d.mkdir(parents=True,exist_ok=True)
     save_json(marker,{'project_sha256':project_key,'renderer_sha256':code_hash})
     claim.update(folder=True,resumed=resumed)
     save_json(output/'project.json',p)
@@ -395,7 +383,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
                         save_json(folder/'surge.json',played)
                     elif t['engine']=='drum_synth':drums.render(p,t,fresh,clock)
                     else:audio.noise_fx(p,t,fresh)
-                    os.replace(fresh,raw)
+                    files.replace(fresh,raw)
                 except BaseException:
                     with contextlib.suppress(OSError):fresh.unlink()
                     raise
@@ -409,8 +397,16 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
             stem_key=digest({**stem_identity(p,t,key,raw_sha,frames,code_hash,cfg),'quiet':t['id'] in quiet})
             kept=read_json(frozen_receipt);reused=False
             if kept.get('key')==stem_key and isinstance(kept.get('processing'),dict) and {'reference_level_dbfs','gain_db','filter_chain'}<=set(kept['processing']) and frozen.is_file():
-                try:shutil.copyfile(frozen,stem);reused=file_hash(stem)==kept.get('sha256')
+                # Copied under a name of its own and checked before it takes the stem's name: a copy that fails or
+                # does not match leaves no stem, half or otherwise, and the part is processed again.
+                copy=None
+                try:
+                    copy=files.stage_copy(frozen,stem)
+                    if file_hash(copy)==kept.get('sha256'):files.replace(copy,stem);reused=True
                 except OSError:reused=False
+                finally:
+                    if copy is not None:
+                        with contextlib.suppress(OSError):os.unlink(copy)
             if reused:done,stem_sha=kept['processing'],kept['sha256']
             else:
                 done=process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=t['id'] in quiet);stem_sha=file_hash(stem)
@@ -429,8 +425,12 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         return receipt_data,font_name,font
     def stem_of(t):
         try:return make_stem(t)
-        except BaseException:
-            claim.setdefault('part',t['id']);raise  # the first part that stopped, for the report
+        except BaseException as e:
+            # The part travels with its own error, so the report names the part whose error the render stops on
+            # (parts run at once; the first to fail is not always the one reported).
+            with contextlib.suppress(Exception):
+                if getattr(e,'render_part',None) is None:e.render_part=t['id']
+            raise
     with ThreadPoolExecutor(max_workers=jobs) as pool:results=list(pool.map(stem_of,p['tracks']))
     receipts=[r for r,_,_ in results];used_fonts={name:font for _,name,font in results if font}
     save_json(output/'stem_receipts.json',receipts)

@@ -21,6 +21,10 @@ It is the one command that deletes, so it errs toward keeping (musiclib.files):
   project file) is left alone and listed, also inside a folder that goes; so is one whose piece cannot be read.
 - A cache entry goes only from a cache folder the kept renders use, only if it holds nothing but what renders write
   there, and under its lock (render.entry_lock), so a render never loses an entry it is using.
+- A render, round or audition at work holds its folder's lock (files.working), and clean takes the same lock on each
+  folder it would remove from before it looks inside, keeping it until that folder is done: a folder in use, or inside
+  one in use, is left alone and named, and no run starts in a folder while clean removes from it.  Each file is looked
+  at again just before it goes, and one changed since stays.
 - A finished audition keeps its audition.mp3 and audition.json; its version renders and own cache go.
 - Links are never followed or removed; a folder or a --keep given as a link is refused."""
 import json
@@ -167,6 +171,8 @@ def _plan(folder, kind, record, inner):
     records = {folder: files.recorded(folder)}
     take, stay, size, holders, last = [], [], 0, [], []
     for p in files.tree(folder, skip):
+        if p.parent == folder and files.is_lock_file(p):
+            continue  # the folder's work lock, which clean holds: it goes with the folder (files.release)
         # The records go last, when nothing else stays: the tools' files.json, and at the top what names the folder's
         # tool and piece as its record lists it, unchanged.  A file is no record by its name: a file of the user's so
         # named, or one changed since, stays.
@@ -192,7 +198,7 @@ def _plan(folder, kind, record, inner):
         listed = records.setdefault(holder, files.recorded(holder))
         entry = listed.get(p.relative_to(holder).as_posix())
         if entry is not None and files.unchanged(p, entry):
-            take.append(p)
+            take.append((p, entry))
             size += files.lstat(p).st_size
         else:
             stay.append(p)
@@ -283,6 +289,44 @@ def clean(folder, keep, remove=False):
                          'why': 'no record of the files the tools wrote in it (made before 0.4.0); remove it by hand if you want'})
         else:
             listed[f] = (kind, record)
+    held, busy = _hold(units, listed, remove)
+    try:
+        for f, why in busy.items():
+            kind, record = listed.pop(f)
+            left.append({'kind': kind, 'path': rel(f), 'title': piece(f, kind, record)[0], 'why': why})
+        return _remove(root, kept, used, folders, units, caches, listed, left, held, remove, rel)
+    finally:
+        for f, fd in held.items():  # those a failure left held
+            files.release(f, fd)
+
+
+def _hold(units, listed, remove):
+    """Take the work lock (files.take) of each listed folder, and look at those of the tool folders holding one:
+    returns ({folder: its lock, held}, {listed folder: why it stays}).  A dry run only looks, and lets go at once."""
+    held, busy = {}, {}
+    for f in sorted(units, key=lambda f: len(f.parts)):  # a folder before those inside it
+        if f not in listed and not any(f in u.parents for u in listed):
+            continue
+        above = next((why for u, why in busy.items() if u in f.parents), None)
+        if above is not None:
+            busy[f] = above
+            continue
+        state, fd = files.take(f, create=remove and f in listed)
+        if state == 'held' and remove and f in listed:
+            held[f] = fd
+        elif state == 'held':
+            files.let_go(fd)
+        elif state == 'busy':
+            busy[f] = 'a render, round or audition is working in it; run clean again once it has finished'
+        elif state == 'unlockable':
+            busy[f] = ('its work lock cannot be taken (the drive cannot lock files, or its work.lock is no lock file), '
+                       'so clean cannot tell whether a run is using it; remove it by hand when none is')
+    return held, {f: why for f, why in busy.items() if f in listed}
+
+
+def _remove(root, kept, used, folders, units, caches, listed, left, held, remove, rel):
+    """The listed folders' plans, and with `remove` their removal, each folder under its lock (`held`), which is let
+    go as soon as that folder is done."""
     plans = {f: _plan(f, kind, record, [u for u in units if u != f and f in u.parents]) for f, (kind, record) in listed.items()}
     report = {'folder': str(root), 'kept': [str(k[0]) for k in kept], 'cache_entries_kept': len(used), 'dry_run': not remove,
               'listed': [], 'bytes': 0, 'left_alone': left, 'not_removed': []}
@@ -320,8 +364,12 @@ def clean(folder, keep, remove=False):
         skip = set(plan['inner']) | ({f / 'cache'} if plan['kind'] == 'audition' else set())
         if remove:
             try:
-                for p in plan['take']:
-                    p.unlink()
+                for p, entry in plan['take']:
+                    if files.unchanged(p, entry):  # still as the plan found it
+                        p.unlink()
+                    else:
+                        plan['stay'].append(p)  # changed since: it stays, and the folder with it
+                        plan['bytes'] -= entry[0]
                 if plan['kind'] == 'audition':
                     with suppress(OSError):
                         (f / 'cache').rmdir()  # an audition's own cache, once its entries are gone
@@ -334,12 +382,16 @@ def clean(folder, keep, remove=False):
                         if files.regular_file(p):
                             p.unlink()
                     _empty_folders(f, set())
+                    files.release(f, held.pop(f))  # its lock file goes last, then the folder
                     f.rmdir()
             except OSError as e:
                 # A file another program holds open: the rest stays, its records with it, and the folder is named.
                 failed.add(f)
                 report['not_removed'].append({'kind': plan['kind'], 'path': rel(f), 'error': str(e)})
                 continue
+            finally:
+                if f in held:
+                    files.release(f, held.pop(f))
         else:
             goes_whole = whole(f)
         # What stays: its own files no tool recorded (or changed since), and the folders inside it that stay.

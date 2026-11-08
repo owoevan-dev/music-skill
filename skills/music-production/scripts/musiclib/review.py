@@ -7,7 +7,7 @@ import json
 import math
 from pathlib import Path
 import statistics
-from . import harmony
+from . import files, harmony
 from .model import Clock, performed, save_json, validate
 
 FOREGROUND = ('melody', 'countermelody')
@@ -574,14 +574,14 @@ def review(p,out,config=None):
         # A text cell a spreadsheet would read as a formula (one starting with =, +, -, @, a tab or a carriage return)
         # gets a leading apostrophe, as OWASP's CSV injection guidance advises: a project's names stay text.
         safe=lambda v:"'"+v if isinstance(v,str) and v[:1] in ('=','+','-','@','\t','\r') else v
-        with (out/'notes.csv').open('w',encoding='utf-8',newline='') as f:
+        with files.staged(out/'notes.csv','w',encoding='utf-8',newline='') as f:  # whole or not at all
             w=csv.DictWriter(f,fieldnames=csv_rows[0].keys());w.writeheader();w.writerows({k:safe(v) for k,v in r.items()} for r in csv_rows)
     lines=[f'# {p["title"]}', '',p.get('brief',''),'', '| Section | Bars (1-based) | Time | Function |','|---|---:|---:|---|']
     for s in summary['sections']:
         lines.append(f'| {s["id"]} | {s["start_bar"]+1}–{s["start_bar"]+s["bars"]} | {s["start_seconds"]:.1f}–{s["end_seconds"]:.1f}s | {s.get("intent","")} |')
     lines+=['','## Authored musical decisions','']+[f'- {x}' for x in p.get('decisions',[])]+['','## Review questions','']+['- '+x for x in summary['prompts']]
     lines+=['','Metrics do not establish whether a piece sounds good. Key gaps exclude pedal/release tails. Different durations and more tracks are not quality scores.']
-    (out/'arrangement.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
-    from . import files
+    with files.staged(out/'arrangement.md','w',encoding='utf-8') as f:
+        f.write('\n'.join(lines)+'\n')
     files.register(out,[out/n for n in ('score_review.json','notes.csv','arrangement.md') if (out/n).is_file()])
     return summary

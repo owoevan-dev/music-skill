@@ -2,7 +2,7 @@
 from collections import Counter, defaultdict, deque
 from pathlib import Path
 import struct
-from . import variation
+from . import files, variation
 from .model import Clock, TPQ, performed, cc_events, bend_curve, bend_events, legato_notes, wheel_events
 
 def vlq(n):
@@ -114,7 +114,8 @@ def write(project,path,tracks=None,expressive=True,single_stem=False,render=Fals
         e.extend([(end,7,bytes([176+channel,64,0])),(end,8,bytes([176+channel,123,0]))])
         if bends:e.append((end,7,bytes([224+channel,0,64])))
         chunks.append(chunk(e))
-    Path(path).write_bytes(b'MThd'+struct.pack('>IHHH',6,1,len(chunks),TPQ)+b''.join(chunks))
+    with files.staged(path) as f:  # whole or not at all (musiclib.files)
+        f.write(b'MThd'+struct.pack('>IHHH',6,1,len(chunks),TPQ)+b''.join(chunks))
     return routing
 
 def read_own(path):

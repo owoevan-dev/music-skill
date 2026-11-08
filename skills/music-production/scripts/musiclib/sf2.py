@@ -8,6 +8,7 @@ are published as WAV files).  Nothing in a bank is executed.
 import struct
 from pathlib import Path
 import numpy as np
+from . import files
 
 GEN = {'startAddrsOffset': 0, 'endAddrsOffset': 1, 'startloopAddrsOffset': 2, 'endloopAddrsOffset': 3,
        'startAddrsCoarseOffset': 4, 'modLfoToPitch': 5, 'vibLfoToPitch': 6, 'modEnvToPitch': 7,
@@ -280,4 +281,5 @@ def write(path, name, samples, instruments, presets, comment='', copyright_notic
     pdta = (b'pdta' + chunk(b'phdr', phdr) + chunk(b'pbag', pbag) + chunk(b'pmod', pmod) + chunk(b'pgen', pgen) +
             chunk(b'inst', ihdr) + chunk(b'ibag', ibag) + chunk(b'imod', imod) + chunk(b'igen', igen) + chunk(b'shdr', shdr))
     body = b'sfbk' + chunk(b'LIST', info) + chunk(b'LIST', sdta) + chunk(b'LIST', pdta)
-    Path(path).write_bytes(b'RIFF' + struct.pack('<I', len(body)) + body)
+    with files.staged(path) as f:  # whole or not at all: a failed write leaves the file that was there
+        f.write(b'RIFF' + struct.pack('<I', len(body)) + body)

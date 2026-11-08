@@ -112,7 +112,7 @@ def main():
     if args.command=='clean':
         from musiclib.clean import clean,describe
         r=clean(args.folder,args.keep,remove=args.remove)
-        print(json.dumps(r,ensure_ascii=False) if args.json else describe(r));return
+        print(json.dumps(r,ensure_ascii=True) if args.json else describe(r));return
     if args.command=='inspect-midi':
         if args.output:fresh(args.output,args.file)
         m=midi.read(args.file);result={'division':m['division'],'tracks':len(m['tracks']),'notes':sum(len(t['notes']) for t in m['tracks']),'unclosed':sum(t['unclosed'] for t in m['tracks']),'stray_offs':sum(t['stray_offs'] for t in m['tracks']),'sha256':file_hash(args.file)}
@@ -135,7 +135,7 @@ def main():
         if args.jobs is not None and args.jobs<1:raise ValueError('--jobs is 1 or more')
         show=(lambda text:None) if args.json else (lambda text:print(text,end='\n\n',flush=True))
         r=revision_round(args.project,args.output,args.config,args.previous,args.cache,parse_spans(args.span),reference_of(args.reference),args.jobs,show,args.clip)
-        if args.json:print(json.dumps(r,ensure_ascii=False))
+        if args.json:print(json.dumps(r,ensure_ascii=True))
         return
     if args.command=='analyze':
         from musiclib.analysis import analyze,load_reference
@@ -147,7 +147,7 @@ def main():
         reference=load_reference(reference_of(args.reference),load_config(args.config) if args.config else None) if args.reference else None
         r=analyze(args.render,spans,reference);save_json(out,r)
         files.register_output(out)  # inside a render or round folder, it goes with that folder in clean
-        print(json.dumps(r,ensure_ascii=False) if args.json else summary.analysis(r,out,args.render));return
+        print(json.dumps(r,ensure_ascii=True) if args.json else summary.analysis(r,out,args.render));return
     if args.command=='compare':
         from musiclib.compare import compare,clip
         from musiclib.audio import load_config
@@ -175,24 +175,24 @@ def main():
             files.register_output(written)
         if args.differences:
             for f in files.tree(args.differences):files.register_output(f)
-        print(json.dumps(shared,ensure_ascii=False) if args.json else summary.compare(r,out));return
+        print(json.dumps(shared,ensure_ascii=True) if args.json else summary.compare(r,out));return
     if args.command=='sounds':
         from musiclib.sounds import describe,search
-        print(json.dumps(describe(args.id) if args.id else search(args.role,[w for w in args.character.split(',') if w.strip()],args.name,args.source,args.limit,args.all),ensure_ascii=False,indent=1));return
+        print(json.dumps(describe(args.id) if args.id else search(args.role,[w for w in args.character.split(',') if w.strip()],args.name,args.source,args.limit,args.all),ensure_ascii=True,indent=1));return
     p=load_project(args.project)
     if args.command=='validate':print(json.dumps(validate(p)));return
     if args.command=='profile':
         from musiclib.profile import profile
         r=profile(p)
-        if not args.output:print(json.dumps(r,ensure_ascii=False,indent=1));return
+        if not args.output:print(json.dumps(r,ensure_ascii=True,indent=1));return
         fresh(args.output);save_json(args.output,r)
         brief={k:{f:v.get(f) for f in ('notes_per_bar','register','rhythm_repeat_pct','offbeat_onsets_pct') if f in v}|({'top_line':{f:v['top_line'][f] for f in ('mean_abs_interval','leaps_pct','recurring_cells_pct')}} if v.get('top_line') else {}) for k,v in r['parts'].items()}
-        print(json.dumps({'output':str(args.output),'seconds':r['seconds'],'notes_per_bar':r['notes_per_bar'],'parts':brief},ensure_ascii=False));return
+        print(json.dumps({'output':str(args.output),'seconds':r['seconds'],'notes_per_bar':r['notes_per_bar'],'parts':brief},ensure_ascii=True));return
     if args.command=='review':
         from musiclib.review import review
         from musiclib.audio import load_config
         fresh(args.output);r=review(p,args.output,load_config(args.config) if args.config else None)
-        print(json.dumps(r,ensure_ascii=False) if args.json else summary.review(r,args.output));return
+        print(json.dumps(r,ensure_ascii=True) if args.json else summary.review(r,args.output));return
     if args.command=='export-midi':
         if files.occupied(args.output):raise ValueError('Output already exists')
         args.output.parent.mkdir(parents=True,exist_ok=True);midi.write(p,args.output);print(str(args.output));return
@@ -201,12 +201,12 @@ def main():
         bars=args.bars.split('-')
         if len(bars)!=2 or not all(b.isdigit() for b in bars):raise ValueError('--bars is FIRST-LAST, for example 21-24')
         r=audition(args.project,args.track,[parse_sound(x) for x in args.sounds.split(',') if x.strip()],int(bars[0]),int(bars[1]),args.output,args.config,args.cache,args.solo)
-        print(json.dumps(r,ensure_ascii=False) if args.json else summary.audition(r,args.output));return
+        print(json.dumps(r,ensure_ascii=True) if args.json else summary.audition(r,args.output));return
     if args.command=='render':
         from musiclib.render import render
         if args.jobs is not None and args.jobs<1:raise ValueError('--jobs is 1 or more')
         r=render(args.project,args.output,args.config,args.cache,args.resume,args.jobs,args.draft)
-        print(json.dumps(r,ensure_ascii=False) if args.json else summary.render(r,args.output));return
+        print(json.dumps(r,ensure_ascii=True) if args.json else summary.render(r,args.output));return
     if args.command=='revise':
         if files.occupied(args.output) or args.output.resolve()==args.project.resolve():raise ValueError('Revision must use a fresh output path')
         if args.pitch is None and args.velocity is None and args.duration is None:raise ValueError('Specify a change')

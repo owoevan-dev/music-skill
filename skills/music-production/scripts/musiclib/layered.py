@@ -58,7 +58,7 @@ import threading
 
 import numpy as np
 
-from . import audio, sf2, variation
+from . import audio, files, sf2, variation
 from .midi import chunk, meta
 from .model import TPQ, bend_curve, bend_events, cc_events, curve_at, effective_tempo, legato_notes, performed, save_json, wheel_events
 
@@ -256,7 +256,8 @@ def write_midi(path, project, track, notes, program, layer_bank, legato_bank, en
         key = n['pitch'] + (0 if n['legato'] else n.get('rr_shift', 0))
         events += [(n['tick'], 6, bytes([144 + channel, key, n['velocity']])), (n['end_tick'], 5, bytes([128 + channel, key, 0]))]
     body = chunk(conductor) + chunk(events)
-    Path(path).write_bytes(b'MThd' + (6).to_bytes(4, 'big') + (1).to_bytes(2, 'big') + (2).to_bytes(2, 'big') + TPQ.to_bytes(2, 'big') + body)
+    with files.staged(path) as f:  # whole or not at all (musiclib.files)
+        f.write(b'MThd' + (6).to_bytes(4, 'big') + (1).to_bytes(2, 'big') + (2).to_bytes(2, 'big') + TPQ.to_bytes(2, 'big') + body)
 
 
 def curve(track, notes):

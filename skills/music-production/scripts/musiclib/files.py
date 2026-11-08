@@ -12,6 +12,7 @@
   (Reparse Point Tags, IsReparseTagNameSurrogate).  Tested with os.lstat, on every Python the skill runs on
   (Path.is_junction exists only from 3.12)."""
 import contextlib
+import errno
 import json
 import os
 import shutil
@@ -25,6 +26,7 @@ NAME_SURROGATE = 0x20000000
 RECORD = 'files.json'
 KIND = 'music-production files'
 MAX_RECORD = 64_000_000  # the largest record read, as a project file's limit (model.load_project)
+WORK_LOCK = 'work.lock'  # held in a render, round or audition folder by the run writing it, and by clean
 
 
 def escape_unprintable():
@@ -35,6 +37,20 @@ def escape_unprintable():
     backslashreplace handler); this does the same for stdout."""
     for stream in (sys.stdout, sys.stderr):
         stream.reconfigure(errors='backslashreplace')
+
+
+def replace(src, dst):
+    """os.replace, tried again for up to a second where Windows refuses it with PermissionError: a virus scanner or the
+    search indexer may hold a file just written for a moment.  pip replaces its own files so (its utils.filesystem
+    replace: for up to a second, every quarter), and graceful-fs, npm's file layer, retries a rename on Windows for up
+    to a second for the same reason."""
+    for attempt in range(5):
+        try:
+            return os.replace(src, dst)
+        except PermissionError:
+            if os.name != 'nt' or attempt == 4:
+                raise
+            time.sleep(.25)
 
 
 def lstat(path):
@@ -70,6 +86,136 @@ def regular_file(path):
 def occupied(path):
     """Whether anything is at `path`: a file, a folder or a link, a dangling one included."""
     return os.path.lexists(path)
+
+
+def lock(fd, wait):
+    """Take an exclusive lock on an open file: fcntl.flock on POSIX, msvcrt.locking on Windows.  The system releases
+    it when the process ends, however it ends (flock(2): when every descriptor of the open file is closed; LockFileEx:
+    when the process terminates, after a delay that depends on the system's resources), so a stopped run leaves no
+    stale lock, as a lock file made to exist would.  A second descriptor of the same file is refused even in the same
+    process (flock(2); LockFileEx), and child processes do not hold it: Python's descriptors are not inherited (PEP 446).
+    True when held; False while another process holds it; None where the drive cannot lock files."""
+    if os.name == 'nt':
+        import msvcrt
+        while True:
+            try:
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_LOCK if wait else msvcrt.LK_NBLCK, 1)
+                return True
+            except OSError as e:
+                # The C runtime's _locking: EACCES while another holds the bytes, EDEADLOCK once LK_LOCK has tried ten
+                # times a second apart (wait on); anything else is a drive or file that cannot lock.  The byte locked
+                # lies past the end of the empty file, which both _locking and LockFileEx allow; an exclusive lock
+                # bars other processes from reading it, and the file is never read.
+                if e.errno not in (errno.EDEADLK, errno.EACCES):
+                    return None
+                if not wait:
+                    return False
+    import fcntl
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | (0 if wait else fcntl.LOCK_NB))
+        return True
+    except BlockingIOError:  # EWOULDBLOCK: another holds it (flock(2))
+        return False
+    except OSError:  # ENOLCK, or a file system without locks
+        return None
+
+
+def unlock(fd):
+    with contextlib.suppress(OSError):
+        if os.name == 'nt':
+            import msvcrt
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fd, fcntl.LOCK_UN)
+
+
+def same_file(fd, path):
+    """Whether `path` is still the file open as `fd` (its last holder may have removed it meanwhile)."""
+    try:
+        a, b = os.fstat(fd), os.stat(path)
+    except OSError:
+        return False
+    return (a.st_dev, a.st_ino) == (b.st_dev, b.st_ino)
+
+
+def is_lock_file(path):
+    """A work lock's file as the tools make it: named work.lock, a regular file, empty (nothing is written to it)."""
+    s = lstat(path)
+    return Path(path).name == WORK_LOCK and s is not None and stat.S_ISREG(s.st_mode) and not linked(path) and s.st_size == 0
+
+
+def take(folder, create=True):
+    """Try the work lock of a render, round or audition folder without waiting.  Returns (state, fd): 'held' with the
+    open file holding it; 'busy' while another process holds it; 'unlockable' where it cannot be taken (the drive
+    cannot lock files, or work.lock there is no lock file: a link, a folder, a file with contents); with create=False,
+    'free' where no lock file is there, as no run holds one then.  A lock taken on a file its holder removed meanwhile
+    is let go and taken afresh."""
+    path = Path(folder) / WORK_LOCK
+    for _ in range(10):
+        if occupied(path) and not is_lock_file(path):
+            return 'unlockable', None
+        if not create and not occupied(path):
+            return 'free', None
+        try:
+            fd = os.open(path, os.O_RDWR | (os.O_CREAT if create else 0) | getattr(os, 'O_NOFOLLOW', 0), 0o666)
+        except FileNotFoundError:
+            if create:
+                return 'unlockable', None  # the folder itself is gone
+            continue
+        except OSError:
+            return 'unlockable', None
+        held = lock(fd, False)
+        if held and not same_file(fd, path):
+            unlock(fd)
+            os.close(fd)
+            continue
+        if held:
+            return 'held', fd
+        os.close(fd)
+        return ('busy' if held is False else 'unlockable'), None
+    return 'unlockable', None
+
+
+def let_go(fd):
+    """Release a lock `take` gave, keeping its file (a look that changes nothing, as a dry run's)."""
+    unlock(fd)
+    os.close(fd)
+
+
+def release(folder, fd):
+    """Release a work lock `take` gave and remove its file, only where no other process can hold another by that
+    name: on POSIX under the lock (a process that opens the name after makes a new file, its own lock); on Windows,
+    which cannot remove a file a process holds open, once released, so a process that has opened it since keeps it."""
+    path = Path(folder) / WORK_LOCK
+    if os.name != 'nt' and same_file(fd, path):
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+    let_go(fd)
+    if os.name == 'nt':
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+
+
+@contextlib.contextmanager
+def working(folder):
+    """Hold a render, round or audition folder while a run writes it: clean takes the same lock before it reads or
+    removes anything there, so neither works in a folder the other is using, and two runs never write one folder at
+    once.  A folder another holds is refused at once, as Bazel serves one command at a time per output folder and
+    makes another wait or fail at once (Bazel documentation, Client/server implementation).  The file is opened for
+    writing, which an NFS client needs for an exclusive lock (flock(2)).  Where the drive cannot lock files the run goes
+    on without the lock, and clean leaves the folder alone."""
+    state, fd = take(folder)
+    if state == 'busy':
+        raise ValueError(f'{folder} is in use: a render, round, audition or clean is working in it; wait for it to '
+                         'finish, or write into a new folder')
+    try:
+        yield state == 'held'
+    finally:
+        if fd is not None:
+            release(folder, fd)
 
 
 def fresh(path, what='outputs never overwrite, so choose a new path'):
@@ -117,16 +263,16 @@ def stage_name(dest, suffix='.part'):
 
 
 @contextlib.contextmanager
-def staged(dest, mode='wb', encoding=None):
+def staged(dest, mode='wb', encoding=None, newline=None):
     """Write `dest` whole: yields a file opened on a new name of its own beside it; on success that file takes the
     destination's place (os.replace swaps the name, so a hard link at the destination is never written through), on
     any failure it is removed."""
     dest = Path(dest)
     fd, name = tempfile.mkstemp(dir=dest.parent, prefix=f'.{dest.name}.', suffix='.part')
     try:
-        with os.fdopen(_opened(fd), mode, encoding=encoding) as f:
+        with os.fdopen(_opened(fd), mode, encoding=encoding, newline=newline) as f:
             yield f
-        os.replace(name, dest)
+        replace(name, dest)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(name)
@@ -140,7 +286,7 @@ def staged_path(dest, suffix='.part'):
     temp = stage_name(dest, suffix)
     try:
         yield temp
-        os.replace(temp, dest)
+        replace(temp, dest)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(temp)
@@ -238,8 +384,8 @@ def register_tree(folder, skip=(), since_ns=None, keep=None):
     folder = Path(folder)
     paths = []
     for p in tree(folder, skip):
-        if p.name == RECORD:
-            continue
+        if p.name == RECORD or (p.parent == folder and is_lock_file(p)):
+            continue  # the record itself, and the run's lock, which goes with the run
         if since_ns is not None and lstat(p).st_mtime_ns < since_ns:
             entry = (keep or {}).get(p.relative_to(folder).as_posix())
             if entry is None or not unchanged(p, entry):
@@ -261,7 +407,7 @@ def aside(path):
     for k in range(1000):
         other = path.with_name(f'{path.name}.replaced-{stamp}' + (f'-{k}' if k else ''))
         if not occupied(other):
-            os.replace(path, other)
+            replace(path, other)
             return other
     raise ValueError(f'No free name to set {path} aside')
 
@@ -298,7 +444,7 @@ def place(src, dest, root, listed=None):
             return None
         else:
             moved = aside(dest)
-    os.replace(src, dest)
+    replace(src, dest)
     return moved
 
 

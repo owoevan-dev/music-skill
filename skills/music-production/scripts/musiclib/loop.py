@@ -29,7 +29,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import audio, measure
+from . import audio, files, measure
 from .model import TPQ, performed, save_json
 
 BEFORE, AFTER = 5.0, 1.0
@@ -80,7 +80,8 @@ def write_wav(path, data, loop_start, loop_end, cues=()):
         labels = b''.join(chunk(b'labl', struct.pack('<I', k + 1) + label.encode('utf-8') + b'\0')
                           for k, (_, label) in enumerate(cues))
         body += chunk(b'cue ', struct.pack('<I', len(cues)) + points) + chunk(b'LIST', b'adtl' + labels)
-    Path(path).write_bytes(b'RIFF' + struct.pack('<I', len(body)) + body)
+    with files.staged(path) as f:  # whole or not at all (musiclib.files)
+        f.write(b'RIFF' + struct.pack('<I', len(body)) + body)
 
 
 def chunks(path):

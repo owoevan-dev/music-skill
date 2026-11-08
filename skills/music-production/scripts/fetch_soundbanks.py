@@ -362,7 +362,7 @@ def install_build(item, runtime, source, offline, ffmpeg=None):
         local = Path(source) / path if source else None
         if not files.occupied(dest) and local and local.is_file():
             dest.parent.mkdir(parents=True, exist_ok=True)
-            os.replace(files.stage_copy(local, dest), dest)
+            files.replace(files.stage_copy(local, dest), dest)
         # At most the locked size: a download is the blob as stored.
         cached(f'https://raw.githubusercontent.com/{repo}/{commit}/{urllib.parse.quote(path)}', dest, offline, check=matches, max_bytes=size)
     output = runtime / 'build' / f'{item["name"]}-{item["version"].split()[-1]}.sf2'
@@ -423,7 +423,7 @@ def install_split(item, runtime, offline, ffmpeg=None):
         try:
             cut_sources(manifest, source, partial)
             save_manifest(partial / 'split.json', manifest)
-            os.replace(partial, notes)
+            files.replace(partial, notes)
         except BaseException:
             shutil.rmtree(partial, ignore_errors=True)
             raise

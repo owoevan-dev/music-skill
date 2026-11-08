@@ -91,7 +91,8 @@ def validate(track):
         check_lfo(track, l, 'lfo', {'to_pitch_cents': (0, 200), 'to_cutoff_octaves': (0, 6), 'to_amp': (0, 1)}, closed=False)
     arp = patch.get('arpeggio')
     if arp:
-        if not isinstance(arp, dict) or set(arp) - {'rate_hz', 'rate_beats', 'order'} or arp.get('order', 'up') not in ('up', 'down', 'updown'):
+        if (not isinstance(arp, dict) or set(arp) - {'rate_hz', 'rate_beats', 'order'} or arp.get('order', 'up') not in ('up', 'down', 'updown')
+                or 'rate_hz' in arp and 'rate_beats' in arp):
             raise ValueError(f'{track["id"]}: arpeggio takes rate_hz or rate_beats, and order up/down/updown')
         if 'rate_beats' in arp:
             number(arp['rate_beats'], 1 / 64, 1, 'synth arpeggio rate beats')
@@ -122,6 +123,8 @@ def check_lfo(track, spec, name, extra, closed=True):
         raise ValueError(f'{track["id"]}: synth {name} takes ' + ', '.join(sorted(known)) + f'; not {", ".join(sorted(set(spec) - known))}')
     if spec.get('shape', 'sine') not in LFO_SHAPES:
         raise ValueError(f'{track["id"]}: synth {name} shape ' + '/'.join(LFO_SHAPES))
+    if 'rate_beats' in spec and 'rate_hz' in spec:
+        raise ValueError(f'{track["id"]}: synth {name} takes rate_hz or rate_beats, not both')
     if 'rate_beats' in spec:
         number(spec['rate_beats'], .0625, 32, f'synth {name} rate beats')
     else:
@@ -258,13 +261,17 @@ def adsr(n, off, env, rate):
     return np.where(np.arange(n) < off, held, rel)
 
 
-def lfo(n, spec, rate, beat_seconds=None):
+def lfo(n, spec, rate, beats=None):
+    """An LFO over n samples at `rate`.  One in beats (`rate_beats`) follows the beats the voice has played, `beats`
+    (one value per sample, from its start: the played clock's, tempo changes and rubato included); one in Hz, time."""
     if not spec:
         return np.zeros(n)
-    hz = spec.get('rate_hz') or (1.0 / (spec['rate_beats'] * beat_seconds) if spec.get('rate_beats') and beat_seconds else 5.0)
     t = np.arange(n) / rate
     shape = spec.get('shape', 'sine')
-    ph = (hz * t + spec.get('phase', 0.0)) % 1.0
+    if spec.get('rate_beats') and beats is not None:
+        ph = (beats / spec['rate_beats'] + spec.get('phase', 0.0)) % 1.0
+    else:
+        ph = (spec.get('rate_hz', 5.0) * t + spec.get('phase', 0.0)) % 1.0
     wave = {'sine': np.sin(2 * np.pi * ph), 'triangle': 1 - 4 * np.abs(ph - .5), 'square': np.where(ph < .5, 1.0, -1.0),
             'saw': 2 * ph - 1}[shape]
     delay, fade = spec.get('delay', 0.0), spec.get('fade', 0.0)
@@ -367,12 +374,12 @@ def resample_down(x, factor):
     return np.fft.irfft(spec[:m // 2 + 1], n=m, axis=0) * (m / (m * factor))
 
 
-def voice(patch, pitch_curve, n_on, n, velocity, note_id, rate, beat_seconds):
+def voice(patch, pitch_curve, n_on, n, velocity, note_id, rate, beats):
     """One voice at `rate` (the oversampled rate): `pitch_curve` gives its MIDI pitch per sample; the key is held for
-    n_on samples of n.  Returns stereo samples."""
+    n_on samples of n; `beats`, the beats played since its start, per sample (lfo).  Returns stereo samples."""
     freq = 440.0 * 2 ** ((pitch_curve - 69) / 12)
     lfo_spec = patch.get('lfo')
-    mod = lfo(n, lfo_spec, rate, beat_seconds)
+    mod = lfo(n, lfo_spec, rate, beats)
     if lfo_spec and lfo_spec.get('to_pitch_cents'):
         freq = freq * 2 ** (mod * lfo_spec['to_pitch_cents'] / 1200)
     rng = np.random.default_rng(seed(note_id))
@@ -392,7 +399,7 @@ def voice(patch, pitch_curve, n_on, n, velocity, note_id, rate, beat_seconds):
             elif wave in ('square', 'pulse'):
                 width = osc.get('width', .5)
                 if osc.get('pwm'):
-                    width = np.clip(width + osc['pwm'].get('depth', .2) * lfo(n, osc['pwm'], rate, beat_seconds), .05, .95)
+                    width = np.clip(width + osc['pwm'].get('depth', .2) * lfo(n, osc['pwm'], rate, beats), .05, .95)
                 sig = pulse(phase, dt, width)
             elif wave == 'triangle':
                 sig = stepped_triangle(phase, dt, int(osc['steps'])) if osc.get('steps') else triangle(phase, fv, rate)
@@ -436,15 +443,23 @@ def voice(patch, pitch_curve, n_on, n, velocity, note_id, rate, beat_seconds):
     return out
 
 
-def arpeggio_curve(chord, arp, start, n, rate, beat_seconds):
+def arpeggio_curve(chord, arp, start, n, rate, beats, clock):
     """The pitch per sample of an arpeggiated chord: one of the notes still held per step, in order; after the last
-    note ends the voice keeps the pitch it had."""
-    step = arp['rate_beats'] * beat_seconds if arp.get('rate_beats') else 1.0 / arp.get('rate_hz', 60)
-    count = int(n / rate / step) + 1
+    note ends the voice keeps the pitch it had.  A step in beats (`rate_beats`) follows the played clock (`beats`, per
+    sample since `start`), a step in Hz, time."""
+    if arp.get('rate_beats'):
+        index = (beats / arp['rate_beats'] + 1e-9).astype(int)
+        first = clock.beat(start)
+        at = lambda k: clock.seconds(first + k * arp['rate_beats'])
+    else:
+        step = 1.0 / arp.get('rate_hz', 60)
+        index = (np.arange(n) / rate / step).astype(int)
+        at = lambda k: start + k * step
+    count = int(index[-1]) + 1 if n else 1
     order = arp.get('order', 'up')
     pitches, last = [], float(chord[0]['pitch'])
     for k in range(count):
-        t = start + k * step
+        t = at(k)
         live = sorted(e['pitch'] for e in chord if e['start_seconds'] - 1e-9 <= t < e['end_seconds'])
         if live:
             if order == 'down':
@@ -453,8 +468,7 @@ def arpeggio_curve(chord, arp, start, n, rate, beat_seconds):
                 live = live + live[-2:0:-1]
             last = float(live[k % len(live)])
         pitches.append(last)
-    idx = np.minimum((np.arange(n) / rate / step).astype(int), count - 1)
-    return np.asarray(pitches)[idx]
+    return np.asarray(pitches)[np.minimum(index, count - 1)]
 
 
 def render(project, track, path, clock=None):
@@ -466,7 +480,6 @@ def render(project, track, path, clock=None):
     total = round((clock.end + clock.tail) * RATE)
     out = np.zeros((total, 2))
     notes = sorted(performed(track, clock), key=lambda e: (e['start_seconds'], e['pitch']))
-    beat_seconds = 60.0 / project['clock']['tempo'][0][1]
     release = (patch.get('amp') or {}).get('release', .2)
     rate = RATE * OVER
     glide = patch.get('glide_ms', 0) / 1000
@@ -483,9 +496,12 @@ def render(project, track, path, clock=None):
         n = int(round(length * rate))
         n_on = int(round(held * rate))
         t = np.arange(n) / rate + start
+        # The beats the voice plays through, from its start: what an LFO or arpeggio in beats follows, so a tempo
+        # change or rubato under a held note moves it as it moves the beat.
+        beats = audio.beats_at(clock, t) - clock.beat(start)
         pitch = np.full(n, float(first['pitch']))
         if arp:
-            pitch = arpeggio_curve(group, arp, start, n, rate, beat_seconds)
+            pitch = arpeggio_curve(group, arp, start, n, rate, beats, clock)
             group = group[:1]
         for prev, cur in zip(group, group[1:]):
             i = int(round((cur['start_seconds'] - start) * rate))
@@ -503,7 +519,7 @@ def render(project, track, path, clock=None):
             from .model import bend_curve, curve_at
             bends = bend_curve(bends)
             pitch = pitch + np.array([curve_at(bends, clock.beat(x)) for x in t[::OVER * 48]]).repeat(OVER * 48)[:n]
-        y = voice(patch, pitch, n_on, n, first['velocity'] / 127, first['id'], rate, beat_seconds)
+        y = voice(patch, pitch, n_on, n, first['velocity'] / 127, first['id'], rate, beats)
         y = resample_down(np.pad(y, ((0, (-len(y)) % OVER + OVER * 64), (0, 0))), OVER)
         i0 = int(round(start * RATE))
         m = min(len(y), total - i0)

@@ -372,6 +372,14 @@ def _track(p,t,c,total,clock,warnings):
             number(leg.get('max_notes',4),2,16,'legato max notes',True)
             if span<leg.get('max_interval',5)+max((abs(v) for _,v in bend),default=0):
                 raise ValueError(f'{t["id"]}: bend_range must cover the legato interval plus the authored bends')
+            # A slur plays one line: it glides the part's pitch wheel, which bends every note the part holds, so notes
+            # that overlap as written (a chord, a held note under a run) would sound merged or bent together.
+            reach,longest=-1.0,None
+            for n in sorted(t['notes'],key=lambda n:(n['on'],n['pitch'])):
+                if longest is not None and n['on']<reach-1/TPQ:
+                    raise ValueError(f'{t["id"]}: slur legato plays one line, and notes {longest["id"]} and {n["id"]} overlap as written; '
+                                     'use crossfade legato, or another part for the second voice')
+                if n['on']+n['duration']>reach:reach,longest=n['on']+n['duration'],n
         else:
             number(leg.get('crossfade_ms',100),20,400,'legato crossfade ms');number(leg.get('max_interval',12),1,24,'legato max interval',True)
             number(leg.get('portamento_ms',0),0,300,'legato portamento ms');number(leg.get('portamento_from',.6),.2,1,'legato portamento from')

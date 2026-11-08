@@ -91,6 +91,12 @@ def run(argv,folder,label,timeout=600):
         try:code=proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             proc.kill();proc.wait();raise TimeoutError(f'{label} exceeded {timeout}s; log: {log}')
+        except BaseException:
+            # Stopped from outside (Ctrl+C, a failure elsewhere): the program it started stops too, and is waited for,
+            # so nothing it writes outlives the run.
+            proc.kill()
+            with contextlib.suppress(Exception):proc.wait(timeout=10)
+            raise
     receipt={'argv':[str(x) for x in argv],'returncode':code,'seconds':round(time.monotonic()-started,3),'pid':proc.pid,'launch_mode':'CREATE_NO_WINDOW' if flags else 'no stdin; no GUI arguments','log':str(log)}
     save_json(folder/(label+'.process.json'),receipt)
     content=log.read_text(encoding='utf-8',errors='replace')
@@ -102,11 +108,12 @@ def written_whole(run_it,outputs):
     extension (a program picks the format from it); each takes its output's place only when the run succeeds, and all
     are removed when it fails, so a stopped or failed program never leaves half a file under the output's name.  A
     null sink (os.devnull, -) is passed through."""
-    named=[o if str(o) in (os.devnull,'-') else files.stage_name(o,Path(o).suffix) for o in outputs]
+    named=[]
     try:
+        for o in outputs:named.append(o if str(o) in (os.devnull,'-') else files.stage_name(o,Path(o).suffix))
         result=run_it(named)
         for o,n in zip(outputs,named):
-            if n is not o:os.replace(n,o)
+            if n is not o:files.replace(n,o)
         return result
     finally:
         for o,n in zip(outputs,named):
@@ -114,12 +121,15 @@ def written_whole(run_it,outputs):
                 with contextlib.suppress(OSError):os.unlink(n)
 
 def fluidsynth(config,font_path,midi_path,wav_path,folder,label='fluidsynth'):
-    """Render a MIDI file on one SoundFont: dry (no chorus or reverb), 48 kHz float, sample-accurate timing."""
-    log=written_whole(lambda names:run([config['fluidsynth']['path'],'-n','-i','-C','0','-R','0','-g','.55','-r',str(RATE),'-T','wav','-O','float','-o','synth.cpu-cores=1','-o','synth.polyphony=256','-o','synth.midi-bank-select=mma','-o','player.timing-source=sample','-F',names[0],font_path,midi_path],folder,label),[wav_path])
-    # Only FluidSynth's own messages ("fluidsynth: error: ...", a preset "not found"), not paths it echoes.
-    problems=[line for line in log.splitlines() if line.lower().startswith('fluidsynth:') and any(w in line.lower() for w in ('error','panic','failed','not found'))]
-    if problems:raise ValueError('Instrument rendering diagnostic: '+'\n'.join(problems)[-2000:])
-    return log
+    """Render a MIDI file on one SoundFont: dry (no chorus or reverb), 48 kHz float, sample-accurate timing.  A run
+    whose log reports a problem publishes nothing (written_whole)."""
+    def run_it(names):
+        log=run([config['fluidsynth']['path'],'-n','-i','-C','0','-R','0','-g','.55','-r',str(RATE),'-T','wav','-O','float','-o','synth.cpu-cores=1','-o','synth.polyphony=256','-o','synth.midi-bank-select=mma','-o','player.timing-source=sample','-F',names[0],font_path,midi_path],folder,label)
+        # Only FluidSynth's own messages ("fluidsynth: error: ...", a preset "not found"), not paths it echoes.
+        problems=[line for line in log.splitlines() if line.lower().startswith('fluidsynth:') and any(w in line.lower() for w in ('error','panic','failed','not found'))]
+        if problems:raise ValueError('Instrument rendering diagnostic: '+'\n'.join(problems)[-2000:])
+        return log
+    return written_whole(run_it,[wav_path])
 
 def ffmpeg(config,args,folder,label):
     """Run FFmpeg on the skill's own WAVs.  Every option the scripts pass takes one value, so any other argument is an
@@ -135,7 +145,7 @@ def ffmpeg(config,args,folder,label):
             with p.open('rb') as f:header=f.read(12)
             if header[:4]!=b'RIFF' or header[8:12]!=b'WAVE':raise ValueError('Not RIFF/WAVE')
             guarded.extend(['-protocol_whitelist','file,pipe','-f','wav','-i',p]);i+=2
-        elif str(args[i]).startswith('-'):
+        elif str(args[i]).startswith('-') and str(args[i])!='-':
             if i+1>=len(args):raise ValueError(f'FFmpeg option {args[i]} has no value')
             guarded.extend(args[i:i+2]);i+=2
         else:
@@ -158,7 +168,7 @@ def graph_file(config,path,text):
         out=subprocess.run([exe,'-hide_banner','-version'],capture_output=True,text=True,errors='replace',stdin=subprocess.DEVNULL,creationflags=flags,timeout=30)
         m=re.search(r'version\s+n?(\d+)\.',out.stdout)
         _GRAPH[exe]='-filter_complex_script' if m and int(m.group(1))<7 else '-/filter_complex'
-    Path(path).write_bytes(text.encode('utf-8'))
+    with files.staged(path) as f:f.write(text.encode('utf-8'))
     return [_GRAPH[exe],str(Path(path).resolve())]
 
 _AFIR={}
@@ -179,7 +189,7 @@ def write_wav(path,data,rate=RATE):
     if not np.isfinite(data).all():raise ValueError('Nonfinite audio')
     channels=data.shape[1];raw=data.tobytes()
     fmt=struct.pack('<HHIIHH',3,channels,rate,rate*channels*4,channels*4,32)
-    with Path(path).open('wb') as f:
+    with files.staged(path) as f:  # whole or not at all: a failed write leaves the file that was there
         f.write(b'RIFF'+struct.pack('<I',36+len(raw))+b'WAVEfmt '+struct.pack('<I',16)+fmt+b'data'+struct.pack('<I',len(raw))+raw)
 
 def read_wav(path):
@@ -194,7 +204,9 @@ def read_wav(path):
             if len(header)!=8:raise ValueError('Truncated WAV chunk')
             name,size=struct.unpack('<4sI',header)
             if size>path.stat().st_size:raise ValueError('Invalid WAV chunk size')
-            if name==b'fmt ':fmt=f.read(size)
+            if name==b'fmt ':
+                if size>1024:raise ValueError('Invalid WAV format chunk')  # 16 to 40 bytes in practice
+                fmt=f.read(size)
             elif name==b'data':payload=(f.tell(),size);f.seek(size,1)
             else:f.seek(size,1)
             if size%2:f.seek(1,1)

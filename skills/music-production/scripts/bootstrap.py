@@ -22,6 +22,7 @@ them, Surge parts play their fallback presets on the built-in synth.
 External files keep their own licences.
 """
 import argparse
+import contextlib
 import hashlib
 import http.client
 import json
@@ -280,6 +281,8 @@ def main():
     args=ap.parse_args()
     system=args.system or os.name!='nt'
     if files.occupied(args.config):raise ValueError('Configuration exists; choose a new path')
+    if os.path.normcase(str(args.config.resolve()))==os.path.normcase(str((args.runtime/'dependency_receipts.json').resolve())):
+        raise ValueError("--config names the runtime folder's dependency_receipts.json; choose another path for the configuration")
     runtime=args.runtime.resolve();runtime.mkdir(parents=True,exist_ok=True)
     lock=json.loads((Path(__file__).resolve().parents[1]/'references'/'runtime-lock.json').read_text(encoding='utf-8'))
     cache=args.archive_cache.resolve() if args.archive_cache else runtime/'downloads';cache.mkdir(parents=True,exist_ok=True)
@@ -316,8 +319,20 @@ def main():
     if not args.no_surge:
         install_surge(lock,runtime,cache,args,system,config)
         if config.get('surge') and not args.no_surge_catalog:install_catalog(runtime,cache,args,config)
-    save_json(args.config.resolve(),config);save_json(runtime/'dependency_receipts.json',receipts)
+    save_json(args.config.resolve(),config)
+    save_receipts(runtime,receipts)
     print('Saved',args.config.resolve())
+
+def save_receipts(runtime,receipts):
+    """The receipts take their place as an installed file does (files.place): a dependency_receipts.json the bootstrap
+    did not write there, or one edited since, is set aside and named, never written over."""
+    receipts_file=Path(runtime)/'dependency_receipts.json';written=files.stage_name(receipts_file,'.json')
+    try:
+        save_json(written,receipts)
+        for moved in (files.place(written,receipts_file,runtime),files.register(runtime,[receipts_file])):
+            if moved is not None:print('SET ASIDE',moved,'| bootstrap did not write it there; it is kept under this name',flush=True)
+    finally:
+        with contextlib.suppress(OSError):os.unlink(written)
 
 if __name__=='__main__':
     files.escape_unprintable()

@@ -20,7 +20,7 @@ python <skill>/scripts/bootstrap.py --runtime <work>/.runtime --config <work>/lo
 
 This downloads the pinned FluidSynth 2.6.1 (2.7 MB) and FFmpeg 9.0.2 essentials (115 MB) builds from their official GitHub releases and the MuseScore MS Basic SF3 (51 MB) from a pinned MuseScore commit. Every size and SHA-256 must match `runtime-lock.json`, or installation stops. Nothing runs an installer or changes the registry or PATH. With the archives already downloaded, add `--archive-cache <folder> --offline`.
 
-Folder names may hold any characters and spaces: the setup, a render with Surge XT parts and the selfcheck were run in folders whose names held Chinese characters, spaces and 喆, which code page 950 lacks (Python on Traditional Chinese Windows writes piped output in that page), and the scripts print a character their output cannot hold as an escape (`喆`). Keep the runtime folder's path, and each piece's, under 120 characters: Windows limits a path to 260 characters unless long paths are turned on and the program opts in (Microsoft, [Maximum Path Length Limitation](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation)), FluidSynth 2.6.1 does not opt in, and the setup writes files up to 133 characters below the runtime folder (our measurement).
+Folder names may hold any characters and spaces: the setup, a render with Surge XT parts and the selfcheck were run in folders whose names held Chinese characters, spaces and 喆, which code page 950 lacks (Python on Traditional Chinese Windows writes piped output in that page), and the scripts print a character their output cannot hold as an escape (喆 as `喆`). Keep the runtime folder's path, and each piece's, under 120 characters: Windows limits a path to 260 characters unless long paths are turned on and the program opts in (Microsoft, [Maximum Path Length Limitation](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation)), FluidSynth 2.6.1 does not opt in, and the setup writes files up to 133 characters below the runtime folder (our measurement).
 
 ## Linux and macOS
 
@@ -52,7 +52,7 @@ python <skill>/scripts/studio.py doctor --config <work>/local-config.json
 python <skill>/scripts/selfcheck.py --work <new empty folder> --config <work>/local-config.json
 ```
 
-`doctor` re-hashes every configured file. The selfcheck runs 99 checks on its own and 125 with a configuration (`--config`), real renders included, in a few minutes.
+`doctor` re-hashes every configured file. The selfcheck runs 109 checks on its own and 136 with a configuration (`--config`), real renders included, in a few minutes.
 
 ## Optional sound banks
 
@@ -86,7 +86,7 @@ python <skill>/scripts/make_example.py --output <work>/example.json
 python <skill>/scripts/studio.py render <work>/example.json --config <work>/local-config.json --output <work>/example_render
 ```
 
-A four-bar fixture that checks the setup, not a musical demonstration. To revise a passage on its own, `excerpt.py` cuts bars into a new project that plays the passage as the piece does: the notes still sounding at its start, as written and as played, are re-attacked (a note that only its gate or timing carries past the cut is not, as that would add an attack the piece does not have); dynamics, bends, filter sweeps, CC and automation are cut at the values they have there, linear CC ramps included; and the piece's ritardandi that reach into the passage are kept (`clock.rubato.spans`). A loop is left out. For an exact audio excerpt cut the finished WAV instead.
+A four-bar fixture that checks the setup, not a musical demonstration. To revise a passage on its own, `excerpt.py` cuts bars into a new project that plays the passage as the piece does: a note written across its start and still sounding there is re-attacked; one written to end at or before the start that only its gate carries past it is a legato overlap, part of the next note's attack, and is left out (a re-attack would double it), and one written before the start that its timing plays after it plays where the piece plays it; dynamics, bends, filter sweeps, CC and automation are cut at the values they have there, linear CC ramps included; and the piece's ritardandi that reach into the passage are kept (`clock.rubato.spans`). A loop is left out. For an exact audio excerpt cut the finished WAV instead.
 
 ## Installing the skill
 

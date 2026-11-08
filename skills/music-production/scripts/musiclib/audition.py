@@ -159,6 +159,7 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
         record = {'kind': 'music-production audition', 'title': p['title'], 'project': project, 'track': track_id,
                   'bars': [first_bar, last_bar], 'solo': solo, 'status': 'RUNNING', 'failed': None, 'versions': rows}
         save_json(output / 'audition.json', record)
+        files.register(output, [output / 'audition.json'])  # recorded from the start: a killed audition is clean's
         folders, current = [], None
         try:
             for i, sound, q, part, left_out in versions:
@@ -217,6 +218,7 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
                         row['surge_character'] = described['character']
                 rows.append(row)
                 cuts.append((master, lufs))
+                files.register_tree(output, skip={f / 'render' for f in folders} | {output / 'cache'})  # each version
             current = 'the A/B'
             # The passage's length as played, plus a short ring-out; the quietest version's loudness for all.
             clock = Clock(passage)

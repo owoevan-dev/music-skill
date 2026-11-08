@@ -36,7 +36,6 @@ from pathlib import Path
 from . import files
 from .files import linked, real_folder as _folder, regular_file as _file
 
-DEPTH = 4  # piece/round/render; piece/audition/version/render; piece/cache/entry
 HEX64 = re.compile(r'[0-9a-f]{64}')
 ROUND, AUDITION = 'music-production round', 'music-production audition'  # the `kind` round.json and audition.json hold
 # What names a folder's tool and its piece: they go last, with files.json, once nothing else in the folder stays, so a
@@ -48,15 +47,18 @@ AUDITION_KEEPS = ('audition.mp3', 'audition.json')  # what a finished audition i
 ENTRY_FILES = re.compile(r'(raw\.wav|receipt\.json|stem\.wav|stem\.json|entry\.lock|synth\.mid|surge\.mid|surge_job\.json|'
                          r'surge\.log|surge\.json|patch_at_tempo\.fxp|layered\.json|(take|pass)_\d+_\d+\.(mid|wav)|'
                          r'[A-Za-z0-9_.-]+\.(log|process\.json)|\.[^/\\]+\.part|stem\.new\.wav|stem\.\d+\.\d+\.(wav|json)|'
-                         r'[A-Za-z0-9_.-]+\.json(\.\d+\.\d+)?\.tmp)')
+                         r'[A-Za-z0-9_.-]+\.json(\.\d+\.\d+)?\.tmp|'
+                         # a file a stopped render was writing under a name of its own (files.stage_name: mkstemp's
+                         # eight characters), kept stems' copies among them (found by GPT Pro's third review)
+                         r'\.[A-Za-z0-9_.-]+\.[a-z0-9_]{8}\.(wav|mid|copy))')
 
 
-def _record(path):
+def _record(path, limit=None):
     """The JSON object in a regular file, or None."""
-    if not _file(path) or files.lstat(path).st_size > files.MAX_RECORD:
+    if not _file(path) or files.lstat(path).st_size > (limit or files.MAX_RECORD):
         return None
     try:
-        value = json.loads(Path(path).read_text(encoding='utf-8'))
+        value = files.loads(Path(path).read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
     return value if isinstance(value, dict) else None
@@ -107,7 +109,7 @@ def unit(folder):
 
 
 def _title(project_file):
-    r = _record(project_file)
+    r = _record(project_file, files.MAX_PROJECT)  # a render's copy of its project, as large as a project may be
     return r['title'] if r and isinstance(r.get('title'), str) else None
 
 
@@ -130,20 +132,11 @@ def piece(folder, kind, record):
     return own or next((t for t in (_title(v / 'song.json') for v in versions) if t), None), None
 
 
-def _folders(root, depth=DEPTH):
-    """Every folder under `root` to `depth` levels, without following links."""
-    found, level = [], [root]
-    for _ in range(depth):
-        nxt = []
-        for folder in level:
-            try:
-                children = [c for c in folder.iterdir() if _folder(c)]
-            except OSError:
-                continue
-            found += children
-            nxt += children
-        level = nxt
-    return found
+def _folders(root):
+    """Every folder under `root`, however deep, without following links: what clean finds is what its plans may walk,
+    so a tool's folder deeper than it looked (it looked four levels down) is never taken as plain files of the folder
+    holding it, and keeps its own piece, record and lock (found by GPT Pro's third review of 0.4.0)."""
+    return [f for f in files.real_folders(root) if f != root]
 
 
 def _kept(path):
@@ -167,6 +160,7 @@ def _plan(folder, kind, record, inner):
     review/) lists unchanged, and what stays.  `inner` are the tool folders inside it, which go or stay on their own."""
     folder = Path(folder)
     finished = kind == 'audition' and record.get('status', 'PASS') != 'FAIL' and _file(folder / 'audition.mp3')
+    seen = lambda p: [files.lstat(p).st_size, files.lstat(p).st_mtime_ns]  # a record as the plan found it
     skip = set(inner) | ({folder / 'cache'} if kind == 'audition' else set())
     records = {folder: files.recorded(folder)}
     take, stay, size, holders, last = [], [], 0, [], []
@@ -179,11 +173,11 @@ def _plan(folder, kind, record, inner):
         if files.is_record(p):
             if p.parent != folder:
                 holders.append(p.parent)  # a sub-folder's own record (a round's review/): it goes once nothing else is there
-            last.append(p)
+            last.append((p, seen(p)))
             continue
         own = records[folder].get(p.name) if p.parent == folder and p.name in TOP_RECORDS else None
         if own is not None and files.unchanged(p, own):
-            last.append(p)
+            last.append((p, seen(p)))
             continue
         if finished and p.parent == folder and p.name in AUDITION_KEEPS:
             stay.append(p)
@@ -205,6 +199,10 @@ def _plan(folder, kind, record, inner):
     # A link inside it (a symbolic link, a junction) is nothing the tools wrote: it stays, never followed, and the
     # folder with it.  (files.tree does not list links.)
     stay += [p for p in files.links_in(folder) if not any(s == p or s in p.parents for s in skip)]
+    # What an audition's own cache holds besides its entries (a file of the user's put there) stays, and is named:
+    # the cache is left out of the walk above.  (Found by GPT Pro's third review.)
+    if kind == 'audition' and _folder(folder / 'cache'):
+        stay += [c for c in sorted((folder / 'cache').iterdir()) if not (_folder(c) and entry_record(c))]
     return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner, 'holders': holders, 'last': last}
 
 
@@ -270,7 +268,7 @@ def clean(folder, keep, remove=False):
     for render_dir, _, _, _ in kept:
         receipts = render_dir / 'stem_receipts.json'
         if _file(receipts):
-            used |= {r['cache_key'] for r in json.loads(receipts.read_text(encoding='utf-8')) if isinstance(r, dict) and 'cache_key' in r}
+            used |= {r['cache_key'] for r in files.loads(receipts.read_text(encoding='utf-8')) if isinstance(r, dict) and 'cache_key' in r}
     protected = {k[0] for k in kept} | {k[1] for k in kept if k[1]}
     folders = _folders(root)
     rel = lambda f: Path(f).relative_to(root).as_posix()
@@ -286,7 +284,8 @@ def clean(folder, keep, remove=False):
             left.append({'kind': kind, 'path': rel(f), 'title': title, 'why': why})
         elif not files.has_record(f):
             left.append({'kind': kind, 'path': rel(f), 'title': title,
-                         'why': 'no record of the files the tools wrote in it (made before 0.4.0); remove it by hand if you want'})
+                         'why': 'no record of the files the tools wrote in it (made before 0.4.0, or by a run killed before it '
+                                'wrote one); remove it by hand if you want'})
         else:
             listed[f] = (kind, record)
     held, busy = _hold(units, listed, remove)
@@ -296,13 +295,15 @@ def clean(folder, keep, remove=False):
             left.append({'kind': kind, 'path': rel(f), 'title': piece(f, kind, record)[0], 'why': why})
         return _remove(root, kept, used, folders, units, caches, listed, left, held, remove, rel)
     finally:
-        for f, fd in held.items():  # those a failure left held
+        for f, fd in held.items():  # the folders holding listed ones, and any a failure left held
             files.release(f, fd)
 
 
 def _hold(units, listed, remove):
-    """Take the work lock (files.take) of each listed folder, and look at those of the tool folders holding one:
-    returns ({folder: its lock, held}, {listed folder: why it stays}).  A dry run only looks, and lets go at once."""
+    """Take the work lock (files.take) of each listed folder and of the tool folders holding one, and keep them while
+    clean removes: returns ({folder: its lock, held}, {listed folder: why it stays}).  A folder holding a listed one
+    stays held to the end, so no run starts in it while clean removes inside it (it was looked at and let go; found by
+    GPT Pro's third review of 0.4.0).  A dry run only looks, and lets go at once."""
     held, busy = {}, {}
     for f in sorted(units, key=lambda f: len(f.parts)):  # a folder before those inside it
         if f not in listed and not any(f in u.parents for u in listed):
@@ -311,8 +312,8 @@ def _hold(units, listed, remove):
         if above is not None:
             busy[f] = above
             continue
-        state, fd = files.take(f, create=remove and f in listed)
-        if state == 'held' and remove and f in listed:
+        state, fd = files.take(f, create=remove)
+        if state == 'held' and remove:
             held[f] = fd
         elif state == 'held':
             files.let_go(fd)
@@ -343,6 +344,10 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
             continue
         size = sum(files.lstat(p).st_size for p in contents)
         if remove and not _remove_entry(e, report, rel):
+            continue
+        if not remove and files.take(e, create=False, name='entry.lock')[0] == 'busy':
+            # The dry run looks at the entry's lock as --remove takes it, creating nothing: one a render holds stays.
+            report['not_removed'].append({'kind': 'cache entry', 'path': rel(e), 'error': 'a render is using it'})
             continue
         cleared.add(e)
         report['listed'].append({'kind': 'cache entry', 'path': rel(e), 'bytes': size, 'whole': True, 'kept_inside': []})
@@ -377,8 +382,12 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
                 goes_whole = whole(f) and not files.occupied(f / 'cache') if plan['kind'] == 'audition' else whole(f)
                 if goes_whole:
                     # The records the plan named, and nothing found anew: a file that appeared since keeps the folder,
-                    # which is then named as not removed.
-                    for p in plan['last']:
+                    # which is then named as not removed.  Each must still be as the plan found it (a command writing
+                    # into the folder meanwhile records its file there): one changed keeps them all, and the folder.
+                    for p, was in plan['last']:
+                        if files.occupied(p) and not files.unchanged(p, was):
+                            raise OSError(f'{p.relative_to(f).as_posix()} changed while clean ran; the folder stays with its records')
+                    for p, _ in plan['last']:
                         if files.regular_file(p):
                             p.unlink()
                     _empty_folders(f, set())

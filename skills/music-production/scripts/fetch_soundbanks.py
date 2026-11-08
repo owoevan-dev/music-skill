@@ -448,8 +448,7 @@ def main():
     ap.add_argument('--delete-sources', action='store_true',
                     help='after every requested bank is verified, delete the downloads they were made from')
     args = ap.parse_args()
-    if files.occupied(args.output):
-        raise ValueError('Choose a new configuration path')
+    files.check_config_path(args.output, '--output')
     lock = json.loads((SKILL / 'references' / 'soundbank-lock.json').read_text(encoding='utf-8'))
     only = requested(lock, args.only)
     prebuilt = {} if args.from_source else lock.get('prebuilt', {}).get('assets', {})
@@ -499,7 +498,7 @@ def main():
                 failed[item['name']] = str(e)
                 print('FAILED', item['name'], '|', e, flush=True)
     # The banks that did install are written to the configuration either way; a failure is listed and ends in exit 2.
-    save_json(args.output.resolve(), config)
+    files.save_config(args.output, config, '--output')  # never over a bank or record this run put at that path
     print('Saved', args.output.resolve())
     if failed:
         raise ValueError(f'{len(failed)} bank(s) failed: ' + '; '.join(f'{k}: {v}' for k, v in failed.items()) +

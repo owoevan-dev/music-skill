@@ -100,7 +100,8 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
             show(summary.analysis(measured, output / 'render' / 'analysis.json', output / 'render'))
             if before is not None:
                 step = 'compare'
-                compared = compare(before, output / 'render')
+                with files.working(before):  # the previous round's render, held while it is read (clean leaves it)
+                    compared = compare(before, output / 'render')
                 in_round = before.name == 'render' and (before.parent / 'round.json').is_file()
                 name = before.parent.name if in_round else before.name
                 compare_file = output / 'render' / f'compare_{name}.json'

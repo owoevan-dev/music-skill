@@ -35,7 +35,7 @@ def remap(notes,key_map):
             kept.append(n);prev=n
     return sorted(kept,key=lambda n:(n['tick'],n['pitch']))
 
-def write(project,path,tracks=None,expressive=True,single_stem=False,render=False,keys=None,cycles=None):
+def write(project,path,tracks=None,expressive=True,single_stem=False,render=False,keys=None,cycles=None,new=False):
     """Standard MIDI file. With render=True (synthesis input only) a track's `patch` replaces its
     program/bank and `key_map` remaps pitches; a drum part whose patch is not bank 128 plays on a
     melodic channel; with `keys` (a preset's recordings per key, musiclib/variation.py) a part with
@@ -114,7 +114,7 @@ def write(project,path,tracks=None,expressive=True,single_stem=False,render=Fals
         e.extend([(end,7,bytes([176+channel,64,0])),(end,8,bytes([176+channel,123,0]))])
         if bends:e.append((end,7,bytes([224+channel,0,64])))
         chunks.append(chunk(e))
-    with files.staged(path) as f:  # whole or not at all (musiclib.files)
+    with files.staged(path,new=new) as f:  # whole or not at all; with `new`, never over a file that took the name meanwhile
         f.write(b'MThd'+struct.pack('>IHHH',6,1,len(chunks),TPQ)+b''.join(chunks))
     return routing
 

@@ -73,6 +73,18 @@ BANDS = 1000 * 2 ** (np.arange(-13, 13) / 3)  # 1/3-octave centres, 50 Hz to 16 
 EXCERPT = (0.15, 0.75)  # seconds after a take's start over which its tone and level are measured
 FIR = 2047  # taps of the brightness filters (48 kHz: 23 Hz resolution; the 21 ms delay is compensated)
 _profiles, _profile_lock = {}, threading.Lock()
+_names, _names_lock = {}, threading.Lock()
+
+
+def preset_names(font_path):
+    """{(bank, program): name} of a bank's presets, read once for the file as it is (its size and modification time):
+    every SoundFont part of a render asks."""
+    st = Path(font_path).stat()
+    key = (str(font_path), st.st_size, st.st_mtime_ns)
+    with _names_lock:
+        if key not in _names:
+            _names[key] = {(x['bank'], x['program']): x['name'] for x in sf2.read(font_path)['presets']}
+        return _names[key]
 
 
 def wanted(track):
@@ -82,7 +94,7 @@ def wanted(track):
 
 def banks(font_path, program):
     """Banks of the dynamic layers (soft to loud) and of their legato versions on `program`."""
-    have = {(x['bank'], x['program']) for x in sf2.read(font_path)['presets']}
+    have = set(preset_names(font_path))
     layers, legato = [], []
     while (LAYER_BANK + len(layers), program) in have:
         layers.append(LAYER_BANK + len(layers))
@@ -92,13 +104,27 @@ def banks(font_path, program):
 
 
 def unsupported(track, font_path):
-    """Why the bank cannot play a part's dynamics or crossfade legato (None when it can), with the programs that can:
-    `review --config` reports it and a render stops on it before any part is synthesized."""
-    if not wanted(track):
-        return None
+    """Why the bank cannot play a part (None when it can), with what it can play instead: `review --config` reports it
+    and a render stops on it before any part is synthesized.  First, that the bank holds the preset the part plays: a
+    drum part on the drum channel plays bank 128 (the MIDI writer), and FluidSynth puts another preset in the place of
+    a missing one, which the render found only after synthesis (found by the stress test of 0.4.0); then the part's
+    dynamics or crossfade legato."""
     patch = track.get('patch') or {'bank': track.get('bank', 0), 'program': track.get('program', 0)}
     program = patch.get('program', 0)
-    names = {(x['bank'], x['program']): x['name'] for x in sf2.read(font_path)['presets']}
+    names = preset_names(font_path)
+    drum = bool(track.get('drums')) and (track.get('patch') is None or patch.get('bank', 0) == 128)
+    plays = (128 if drum else patch.get('bank', 0), program)
+    if plays not in names:
+        there = sorted(p for b, p in names if b == plays[0])
+        listed = ', '.join(f'{p} ({names[(plays[0], p)]})' for p in there[:24]) + (' and more' if len(there) > 24 else '')
+        zero = sorted(p for b, p in names if b == 0)
+        also = ('' if plays[0] in (0, 128) else '; at bank 0: ' + (', '.join(f'{p} ({names[(0, p)]})' for p in zero[:24]) or 'none')
+                + (' and more' if len(zero) > 24 else ''))
+        return (f'{track["id"]}: the bank has no preset at bank {plays[0]} program {plays[1]}, which this part plays'
+                f'{" (its drum kits are at bank 128)" if drum else ""}; FluidSynth would play another in its place. '
+                f'At bank {plays[0]} it has: {listed or "none"}{also}.')
+    if not wanted(track):
+        return None
     able = ', '.join(f'{p} ({names.get((0, p), "?")})' for p in sorted({p for b, p in names if b == LAYER_BANK}))
     what = 'performance.dynamics' if 'dynamics' in track['performance'] else 'crossfade legato'
     hint = f' In this bank, these programs have them, at bank 0: {able or "none"}.'

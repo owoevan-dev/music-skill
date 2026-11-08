@@ -7,6 +7,11 @@ from musiclib.model import TPQ,Clock,curve_at,load_project,performed,rubato_span
 
 REATTACK_GAP_S=.1  # the most a note's own timing may move it (validate: timing_ms within ±100)
 
+def one_line(t):
+    """A part validate holds to one written line: the additive lead, and a SoundFont part that slurs (legato mode slur)."""
+    leg=t['performance'].get('legato')
+    return t['engine']=='additive' or (t['engine']=='soundfont' and isinstance(leg,dict) and leg.get('mode','slur')=='slur')
+
 def collides(track,first,clock,struck,gap=0.0):
     """Whether the note `first`, struck before the cut in the piece and so at the excerpt's start, meets a later strike
     of its key (later in the piece as played, `struck`): on its tick or one tick off, as played or as written, which the
@@ -96,17 +101,23 @@ def extract(p,first_bar,bars):
         # (within their bounds) so the excerpt plays it on those ticks.
         written={n['id']:n for n in performed(source,clock,False)};played={n['id']:n for n in performed(source,clock,True)}
         struck[t['id']]={k:n['tick'] for k,n in played.items()}
-        notes=[];again=set();shifted=set();length=end-start;perf=t['performance']
+        notes=[];again=set();shifted=set();spans={};length=end-start;perf=t['performance']
         sw=perf.get('swing');offset=perf.get('offset_ms',0)/1000;bar=excerpt_clock.beats_per_bar
         at=lambda b:excerpt_clock.seconds(swung(b,sw,bar))  # where the excerpt plays a written position, before timing
         for n in t['notes']:
             a0,a1=played[n['id']]['tick'],played[n['id']]['end_tick'];w=written[n['id']]
             on=w['tick'];off=max(on+1,tick_of(clock.beat(clock.seconds(n['on']+n['duration']))))
+            # Written in the passage and played wholly before its first beat (a note shorter than the timing or offset
+            # that plays it early): it sounds at the excerpt's start, as the passage's other notes played before the
+            # cut do, for as long as it sounded; no passage held it before.  (Found by the stress test of 0.4.0.)
+            early_whole=cut<=on<stop and a1<=cut
+            if early_whole:a0,a1=cut,cut+(a1-a0)
             if on>=stop or min(stop,a1)-max(cut,a0)<1:continue
             if on<cut and w['end_tick']<=cut and a0<cut:continue
             # (A note a later strike of its key cut short in the piece takes the boundary's way too, so it ends where it
             # ended even where that strike is not in the passage.)
-            if start<=n['on'] and n['on']+n['duration']<=end and cut<=a0 and a1<=stop and not played[n['id']].get('retrigger_trimmed'):
+            if (start<=n['on'] and n['on']+n['duration']<=end and cut<=a0 and a1<=stop and not played[n['id']].get('retrigger_trimmed')
+                    and not early_whole):
                 a=n['on']-start;d=n['duration']
                 if not (a<=length-1/TPQ and 1/TPQ<=d and a+d<=length+1e-9):
                     a=(max(cut,on)-cut)/TPQ;d=(min(stop,off)-max(cut,on))/TPQ
@@ -134,8 +145,41 @@ def extract(p,first_bar,bars):
                     else:hi=mid
                 d=min(room,lo/TPQ);gate=min(1.6,max(.05,(s1-begin)/(at(o+d)-at(o))))
             n['on']=o;n['duration']=d;perf['notes'][n['id']].update(timing_ms=timing*1000,gate=gate);notes.append(n)
+            spans[n['id']]=(o,s1,begin)
             if on<cut and a0<cut:again.add(n['id'])  # struck before the cut and sounding there: re-attacked at it
             elif on<cut:shifted.add(n['id'])  # written before the cut, struck after it: its written onset moved onto it
+        if one_line(t):
+            # A part validate holds to one written line refuses notes that overlap as written.  A note the passage
+            # re-attacks or moves, its written length stretched to play as long as in the piece, ends where the next
+            # note begins, at the longest gate validate allows: it may end a little earlier than in the piece (the rest
+            # of a legato overlap into the next note).  One left with less than a tick before the next is left out.
+            dropped=set();line=sorted(notes,key=lambda n:(n['on'],n['id'] not in spans))
+            for a,b in zip(line,line[1:]):
+                if a['id'] in spans and a['on']+a['duration']>b['on']+1/TPQ:
+                    o,s1,begin=spans[a['id']];a['duration']=b['on']-a['on']
+                    if a['duration']<1/TPQ:
+                        dropped.add(a['id']);continue
+                    perf['notes'][a['id']]['gate']=min(1.6,max(.05,(s1-begin)/(at(o+a['duration'])-at(o))))
+            notes=[n for n in notes if n['id'] not in dropped];again-=dropped;shifted-=dropped
+        # A note written before the cut and struck after it has its written onset moved onto the cut; where a note of
+        # its key is written there too, on the tick or the next (one the piece struck first), it is written where it
+        # plays instead, its timing then under a tick, so the two do not strike the key at once as written, which
+        # validate refuses.  One that still meets it plays within a tick of it, which the render refuses: it goes.
+        # (Found by the stress test of 0.4.0.)
+        clash=lambda n:any(m is not n and m['pitch']==n['pitch'] and abs(tick_of(m['on'])-tick_of(n['on']))<=1 for m in notes)
+        gone=set()
+        for n in notes:
+            if n['id'] in shifted and clash(n):
+                o,s1,begin=spans[n['id']];end_w=o+n['duration'];lo,hi=tick_of(o),max(tick_of(o),int((length-1/TPQ)*TPQ+1e-9))
+                while lo<hi:  # the last tick whose time, with the part's offset, is not after the note's played start
+                    mid=(lo+hi+1)//2
+                    if at(mid/TPQ)+offset<=begin+1e-9:lo=mid
+                    else:hi=mid-1
+                n['on']=lo/TPQ;n['duration']=max(1/TPQ,end_w-n['on'])
+                perf['notes'][n['id']].update(timing_ms=min(100,max(-100,(begin-at(n['on'])-offset)*1000)),
+                                              gate=min(1.6,max(.05,(s1-begin)/(at(n['on']+n['duration'])-at(n['on'])))))
+                if clash(n):gone.add(n['id'])
+        notes=[n for n in notes if n['id'] not in gone];shifted-=gone
         held[t['id']]=again;moved[t['id']]=shifted
         t['notes']=notes;ids={n['id'] for n in notes}
         t['performance']['notes']={k:v for k,v in t['performance']['notes'].items() if k in ids}
@@ -156,7 +200,9 @@ def extract(p,first_bar,bars):
     if 'loop' in q:
         q.pop('loop')
         q.setdefault('decisions',[]).append('The excerpt plays as a passage, not a loop; the source keeps its loop.')
-    if 'harmony' in q:q['harmony']=[{**h,'bar':h['bar']-first_bar+1} for h in q['harmony'] if first_bar<=h['bar']<first_bar+bars]
+    # The chord list moves to the passage's bars; an older free-form harmony object, which schema.md still accepts and
+    # does not check, stays as it is (it was read as a list and stopped extract; found by GPT Pro's third review).
+    if isinstance(q.get('harmony'),list):q['harmony']=[{**h,'bar':h['bar']-first_bar+1} for h in q['harmony'] if first_bar<=h['bar']<first_bar+bars]
     # What the piece struck before the cut starts the excerpt: the re-attacks, and the passage's own notes that their
     # timing or the part's earlier offset plays before the cut (the excerpt cannot start before its first beat, so they
     # all sound at its start).  Of these, and of the notes written before the cut whose written onset moved onto it, a
@@ -178,7 +224,7 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('project',type=Path);p.add_argument('--first-bar',type=int,required=True);p.add_argument('--bars',type=int,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
     from musiclib import files
     files.fresh(a.output,'preserve prior output; use a new path')
-    save_json(a.output,extract(load_project(a.project),a.first_bar,a.bars));print(a.output)
+    save_json(a.output,extract(load_project(a.project),a.first_bar,a.bars),new=True);print(a.output)
 
 if __name__=='__main__':
     from musiclib import files

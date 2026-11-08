@@ -164,7 +164,7 @@ def load_reference(spec, config=None):
     path = Path(spec)
     if path.is_dir():
         no_links_in(path)
-        report = json.loads((path / 'report.json').read_text(encoding='utf-8'))
+        report = files.read_json(path / 'report.json')  # bounded: a render folder from elsewhere
         if isinstance(report.get('failed'), dict):
             raise ValueError(f'--reference {spec}: that render stopped before it finished ({report["failed"].get("error")})')
         master, _ = audio.read_wav(path / 'master.wav')
@@ -323,7 +323,7 @@ def analyze(render_dir, bar_spans=(), reference=None):
     master, _ = audio.read_wav(render_dir / 'master.wav')
     rows = master_sections(master, spans)
     report_file = render_dir / 'report.json'
-    report = json.loads(report_file.read_text(encoding='utf-8')) if report_file.is_file() else {}
+    report = files.read_json(report_file) if report_file.is_file() else {}
     buses = (report.get('buses') or {}).get('assignment') if report.get('chain') == 'bus' else None
     stems, lead, accompaniment = {}, None, None
     for t in p['tracks']:
@@ -379,7 +379,7 @@ def analyze(render_dir, bar_spans=(), reference=None):
                         'transients; have it heard, lower target_lufs, or lower that section\'s peaks '
                         '(mix.saturate on its loudest parts, ducking, less level on what it adds).')
     receipts_file = render_dir / 'stem_receipts.json'
-    for r in json.loads(receipts_file.read_text(encoding='utf-8')) if receipts_file.is_file() else []:
+    for r in files.read_json(receipts_file) if receipts_file.is_file() else []:
         played = r.get('surge') or {}
         if played.get('rendered_with') == 'built-in synth':
             warnings.append(f'{r["track"]}: Surge XT preset {played.get("preset")} played on the built-in synth\'s '

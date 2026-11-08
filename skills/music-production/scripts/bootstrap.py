@@ -280,7 +280,7 @@ def main():
     ap.add_argument('--no-surge-catalog',action='store_true',help='skip the full Surge patch set (about 217 MB): only the curated patches; parts that name a catalog patch play their fallback presets')
     args=ap.parse_args()
     system=args.system or os.name!='nt'
-    if files.occupied(args.config):raise ValueError('Configuration exists; choose a new path')
+    files.check_config_path(args.config,'--config')
     if os.path.normcase(str(args.config.resolve()))==os.path.normcase(str((args.runtime/'dependency_receipts.json').resolve())):
         raise ValueError("--config names the runtime folder's dependency_receipts.json; choose another path for the configuration")
     runtime=args.runtime.resolve();runtime.mkdir(parents=True,exist_ok=True)
@@ -319,7 +319,7 @@ def main():
     if not args.no_surge:
         install_surge(lock,runtime,cache,args,system,config)
         if config.get('surge') and not args.no_surge_catalog:install_catalog(runtime,cache,args,config)
-    save_json(args.config.resolve(),config)
+    files.save_config(args.config,config,'--config')  # never over a bank or record the setup put at that path
     save_receipts(runtime,receipts)
     print('Saved',args.config.resolve())
 

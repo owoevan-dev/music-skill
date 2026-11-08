@@ -94,10 +94,13 @@ def chunks(path):
 
 
 def read_smpl(path):
-    """The loops of a WAV's `smpl` chunk as [(type, start, end)], end being the last frame played."""
+    """The loops of a WAV's `smpl` chunk as [(type, start, end)], end being the last frame played; a chunk shorter
+    than the loops it counts is refused (ValueError)."""
     for cid, body in chunks(path):
         if cid == b'smpl':
-            count = struct.unpack_from('<I', body, 28)[0]
+            count = struct.unpack_from('<I', body, 28)[0] if len(body) >= 32 else -1
+            if count < 0 or len(body) < 36 + 24 * count:
+                raise ValueError(f'{path}: its smpl chunk is shorter than the loops it counts')
             return [struct.unpack_from('<6I', body, 36 + 24 * i)[1:4] for i in range(count)]
     return []
 
@@ -107,14 +110,17 @@ def read_cues(path):
     frames, labels = {}, {}
     for cid, body in chunks(path):
         if cid == b'cue ':
-            for k in range(struct.unpack_from('<I', body, 0)[0]):
+            count = struct.unpack_from('<I', body, 0)[0] if len(body) >= 4 else -1
+            if count < 0 or len(body) < 4 + 24 * count:
+                raise ValueError(f'{path}: its cue chunk is shorter than the points it counts')
+            for k in range(count):
                 name, _, _, _, _, offset = struct.unpack_from('<II4sIII', body, 4 + 24 * k)
                 frames[name] = offset
         elif cid == b'LIST' and body[:4] == b'adtl':
             pos = 4
             while pos + 8 <= len(body):
                 sub, size = struct.unpack_from('<4sI', body, pos)
-                if sub == b'labl':
+                if sub == b'labl' and pos + 12 <= len(body):
                     labels[struct.unpack_from('<I', body, pos + 8)[0]] = body[pos + 12:pos + 8 + size].split(b'\0')[0].decode('utf-8', 'replace')
                 pos += 8 + size + (size & 1)
     return [(frames[k], labels.get(k, '')) for k in sorted(frames)]

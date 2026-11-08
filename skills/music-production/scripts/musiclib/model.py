@@ -12,13 +12,14 @@ TPQ = 960
 BUSES = ('drums', 'bass', 'rhythm', 'ensemble', 'lead', 'fx')
 SPACES = ('room', 'plate', 'hall', 'church')
 
-def save_json(path, value):
+def save_json(path, value, new=False):
     """Write JSON whole (musiclib.files.staged): a reader never sees half a file, two writers never share a temporary
-    file, and nothing already at a temporary name is written through."""
+    file, and nothing already at a temporary name is written through.  With `new`, an output found free beforehand is
+    never put in the place of one that took the name meanwhile (files.publish_new)."""
     from .files import write_json
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(path, value)
+    write_json(path, value, new=new)
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
@@ -29,6 +30,12 @@ def file_hash(path):
         for chunk in iter(lambda: f.read(1024*1024), b''):
             h.update(chunk)
     return h.hexdigest()
+
+def text(value, name):
+    """`value` must be text (a JSON string): the brief, decisions, intents, roles and note labels review reads."""
+    if not isinstance(value, str):
+        raise ValueError(f'{name} is text (a string), got {type(value).__name__}')
+
 
 def number(value, lo, hi, name, integer=False):
     """`value` must be a number in lo..hi; with `integer`, a JSON integer (100, not 100.0, which MIDI cannot carry)."""
@@ -180,6 +187,12 @@ def _validate(p):
     if not isinstance(p.get('title'),str) or not 1<=len(p['title'])<=200:
         raise ValueError('Title required')
     unknown_fields(p,'project','project',warnings)
+    # The text the review reads (schema.md): a brief, decisions as a list of text.  Another type passed and stopped
+    # review (found by GPT Pro's third review of 0.4.0).
+    if 'brief' in p:text(p['brief'],'brief')
+    if 'decisions' in p:
+        if not isinstance(p['decisions'],list):raise ValueError('decisions is a list of text')
+        for d in p['decisions']:text(d,'each decision')
     c=p['clock'];unknown_fields(c,'clock','clock',warnings);unknown_fields(p['mix'],'mix','mix',warnings)
     number(c['bars'],1,512,'bars',True)
     if not isinstance(c['meter'],list) or len(c['meter'])!=2:raise ValueError('clock.meter is [beats, beat unit], e.g. [3, 4]')
@@ -221,6 +234,7 @@ def _validate(p):
         if s['id'] in section_ids or s['start_bar']!=cursor:
             raise ValueError('Sections must uniquely cover all bars')
         number(s['bars'],1,c['bars'],'section bars',True)
+        if 'intent' in s:text(s['intent'],f'section {s["id"]} intent')
         section_ids.add(s['id'])
         cursor+=s['bars']
     if cursor!=c['bars']:
@@ -329,9 +343,12 @@ def _track(p,t,c,total,clock,warnings):
     if t['engine']=='synth':unknown_fields(t.get('synth'),'synth',f'{tid}.synth',warnings)
     unknown_note_fields(t['notes'],'note',f'{tid} notes',warnings)
     unknown_note_fields(list(t['performance']['notes'].values()),'played note',f'{tid} performance.notes',warnings)
+    if 'role' in t:text(t['role'],f'{tid} role')
     for n in t['notes']:
         if not isinstance(n.get('id'),str) or not 1<=len(n['id'])<=120 or n['id'] in local_ids:
             raise ValueError(f'{tid}: duplicate or invalid note id {n.get("id")!r}')
+        for k in ('phrase','articulation','comment'):
+            if k in n:text(n[k],f'{tid}/{n["id"]} {k}')
         local_ids.add(n['id']);events+=1;at=f'{tid}/{n["id"]}'
         number(n['on'],0,total-1/TPQ,f'{at} onset (beats)')
         number(n['duration'],1/TPQ,total,f'{at} duration (beats)')
@@ -591,7 +608,8 @@ def legato_notes(track,notes,clock):
 
 def load_project(path):
     path=Path(path)
-    if path.stat().st_size>64_000_000:raise ValueError('Project exceeds size limit')
-    p=json.loads(path.read_text(encoding='utf-8'))
+    from .files import MAX_PROJECT, loads
+    if path.stat().st_size>MAX_PROJECT:raise ValueError(f'Project exceeds size limit ({MAX_PROJECT // 1_000_000} MB)')
+    p=loads(path.read_text(encoding='utf-8'))
     validate(p)
     return p

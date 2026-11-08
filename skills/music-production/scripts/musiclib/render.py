@@ -20,7 +20,7 @@ import json
 import math
 import os
 import stat
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from pathlib import Path
 import shutil
 import threading
@@ -172,7 +172,7 @@ def stem_identity(p,t,key,raw_sha256,frames,code_hash,cfg):
 
 def read_json(path):
     """A receipt's JSON object, or {} where there is none or it cannot be read."""
-    try:value=json.loads(Path(path).read_text(encoding='utf-8'))
+    try:value=files.read_json(path)  # bounded: a cache entry's receipt
     except (OSError,ValueError):return {}
     return value if isinstance(value,dict) else {}
 
@@ -208,13 +208,14 @@ def keep_stem(folder,stem,receipt):
     replace a file another program holds open) the render goes on, and the next one processes the part again."""
     spare=None
     try:
-        spare=files.stage_name(Path(folder)/'stem.wav','.wav');shutil.copyfile(stem,spare);files.replace(spare,Path(folder)/'stem.wav')
+        spare=files.stage_name(Path(folder)/'stem.wav','.wav');shutil.copyfile(stem,spare);files.replace(spare,Path(folder)/'stem.wav');spare=None
         files.write_json(Path(folder)/'stem.json',receipt)
         return True
     except OSError:
-        if spare is not None:
-            with contextlib.suppress(OSError):spare.unlink()
         return False
+    finally:
+        if spare is not None:  # stopped by anything (an error, Ctrl+C) before its copy took the stem's name
+            with contextlib.suppress(OSError):spare.unlink()
 
 def check_entry(folder):
     """A cache entry holds only files of its own: a link, or a file with another name (a hard link), would carry a
@@ -243,7 +244,7 @@ def stopped(folder):
     """Why the render in `folder` stopped before it finished (the error its report.json gives), or None."""
     report=Path(folder)/'report.json'
     if not files.regular_file(report) or files.lstat(report).st_size>files.MAX_RECORD:return None
-    try:r=json.loads(report.read_text(encoding='utf-8'))
+    try:r=files.loads(report.read_text(encoding='utf-8'))
     except (OSError,ValueError):return None
     failed=r.get('failed') if isinstance(r,dict) else None
     return (failed.get('error') or 'stopped') if isinstance(failed,dict) else None
@@ -256,7 +257,7 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
     if files.linked(Path(output)):
         # Resolving it first would follow the link (a dangling one included) and write wherever it leads.
         raise ValueError(f'{output} is a link; give a new folder (a render never writes through a link)')
-    output=Path(output).resolve();claim={};since=time.time_ns();started=time.monotonic()
+    output=Path(output).resolve();since=time.time_ns();claim={'since':since};started=time.monotonic()
     with contextlib.ExitStack() as held:  # the folder's work lock (files.working), let go after its record is written
         claim['hold']=held.enter_context
         try:
@@ -283,6 +284,11 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
     stages={};mark=[started];claim.update(stages=stages,title=p['title'])
     def lap(name):
         now=time.monotonic();stages[name]=round(now-mark[0],3);mark[0]=now
+        if claim.get('folder'):
+            # What the render wrote so far is recorded at the end of each stage, not only when it ends: a render whose
+            # process was killed leaves a record of all but its last stage, which clean removes and --resume names
+            # (found by GPT Pro's third review of 0.4.0).
+            files.register_tree(output,since_ns=claim['since'] if claim.get('resumed') else None,keep=claim.get('kept'))
     output=Path(output).resolve();cache=Path(cache).resolve() if cache else output.parent/'cache'
     # Before anything is synthesized: every part's bank is configured and can play what the part asks of it.
     fonts={t['id']:audio.soundfont_for(cfg,t)[1] for t in p['tracks'] if t['engine']=='soundfont'}
@@ -423,15 +429,36 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         # Each part's own seconds (they overlap: parts run `jobs` at a time); synthesis includes the cache lookup.
         receipt_data['seconds']={'waiting':round(waited,3),'synthesis':round(synthesized-began-waited,3),'processing':round(time.monotonic()-synthesized,3)}
         return receipt_data,font_name,font
+    cancel=threading.Event()
     def stem_of(t):
-        try:return make_stem(t)
+        if cancel.is_set():raise audio.Cancelled(f'{t["id"]}: not started, another part failed')
+        try:
+            with audio.cancel_scope(cancel):return make_stem(t)
         except BaseException as e:
-            # The part travels with its own error, so the report names the part whose error the render stops on
-            # (parts run at once; the first to fail is not always the one reported).
+            # Set here, before this thread takes the next waiting part: set by the main thread, a part could start
+            # in the moment between (found by the selfcheck of the fix).
+            cancel.set()
+            # The part travels with its own error, so the report names the part whose error the render stops on.
             with contextlib.suppress(Exception):
                 if getattr(e,'render_part',None) is None:e.render_part=t['id']
             raise
-    with ThreadPoolExecutor(max_workers=jobs) as pool:results=list(pool.map(stem_of,p['tracks']))
+    # The first part to fail stops the render at once: the parts waiting do not start, and those at work stop the
+    # program they run (audio.run), so the render ends on that part's error without the others' time (they ran on to
+    # their end; found by GPT Pro's third review of 0.4.0).  Ctrl+C stops them the same way.
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        futures=[pool.submit(stem_of,t) for t in p['tracks']]
+        try:
+            done,_=wait(futures,return_when=FIRST_EXCEPTION)
+        except BaseException:
+            cancel.set()
+            for f in futures:f.cancel()
+            raise
+        first=[f for f in futures if f in done and f.exception() is not None]
+        if first:
+            cancel.set()
+            for f in futures:f.cancel()
+    if first:raise first[0].exception()
+    results=[f.result() for f in futures]
     receipts=[r for r,_,_ in results];used_fonts={name:font for _,name,font in results if font}
     save_json(output/'stem_receipts.json',receipts)
     lap('parts')

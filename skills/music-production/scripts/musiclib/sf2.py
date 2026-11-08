@@ -103,6 +103,15 @@ def structure(tables):
         raise ValueError(f'SoundFont with {zones} zones: more than the {MAX_ZONES} this reader takes')
 
 def read(path):
+    """A SoundFont's tables and where its sample data lies, refusing a damaged file with ValueError: a chunk shorter
+    than its fields says what is wrong rather than raising struct.error (found by the stress test of 0.4.0)."""
+    try:
+        return _read(path)
+    except struct.error as e:
+        raise ValueError(f'{path}: not a whole SoundFont 2 file (a chunk is shorter than its fields: {e})') from None
+
+
+def _read(path):
     path = Path(path)
     total = path.stat().st_size
     with path.open('rb') as f:

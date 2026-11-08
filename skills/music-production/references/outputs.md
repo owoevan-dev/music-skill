@@ -116,7 +116,9 @@ since, and the folders inside it that stay, ending in `/`),
 files.json (made before 0.4.0), a render, round or audition at work, or inside one, cache entries holding files renders
 do not write: `kind`, `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the
 `error`).  A render, round or audition holds its folder's lock file `work.lock` while it runs and removes it when it
-ends; clean takes the same lock before it looks inside a folder.
+ends, `analyze` and `compare` hold the renders they read, and clean takes the same lock before it looks inside a
+folder, keeping it, and those of the tool folders holding it, until it is done there; its dry run looks at each lock
+without creating any.
 
 ## files.json (every folder)
 

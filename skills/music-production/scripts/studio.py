@@ -88,7 +88,7 @@ def main():
         if files.occupied(args.output):raise ValueError('Choose a new configuration path')
         if args.name=='default' or not re.fullmatch(r'[a-z][a-z0-9_]{0,47}',args.name):raise ValueError('Name must be lower-case letters/digits/underscores and not "default"')
         from musiclib.audio import absolute_paths
-        base=absolute_paths(json.loads(args.config.read_text(encoding='utf-8')),args.config.resolve().parent);fonts=base.setdefault('soundfonts',{})
+        base=absolute_paths(files.loads(args.config.read_text(encoding='utf-8')),args.config.resolve().parent);fonts=base.setdefault('soundfonts',{})
         if args.name in fonts:raise ValueError('SoundFont name already configured')
         from musiclib import sf2
         bank=sf2.read(args.path)
@@ -116,7 +116,7 @@ def main():
     if args.command=='inspect-midi':
         if args.output:fresh(args.output,args.file)
         m=midi.read(args.file);result={'division':m['division'],'tracks':len(m['tracks']),'notes':sum(len(t['notes']) for t in m['tracks']),'unclosed':sum(t['unclosed'] for t in m['tracks']),'stray_offs':sum(t['stray_offs'] for t in m['tracks']),'sha256':file_hash(args.file)}
-        if args.output:save_json(args.output,result)
+        if args.output:save_json(args.output,result,new=True)
         print(json.dumps(result));return
     def parse_spans(given):
         import re
@@ -145,8 +145,11 @@ def main():
             raise ValueError(f'{out} exists'+(' (the round measured its render already)' if args.render!=given else '')+'; outputs never overwrite, so to measure again (other --span or --reference) choose a path with --output')
         fresh(out)
         reference=load_reference(reference_of(args.reference),load_config(args.config) if args.config else None) if args.reference else None
-        r=analyze(args.render,spans,reference);save_json(out,r)
-        files.register_output(out)  # inside a render or round folder, it goes with that folder in clean
+        # The render is held while it is read and the report written into it: clean leaves it alone meanwhile, and
+        # a render still at work there is refused (found by GPT Pro's third review of 0.4.0).
+        with files.working(args.render):
+            r=analyze(args.render,spans,reference);save_json(out,r,new=True)
+            files.register_output(out)  # inside a render or round folder, it goes with that folder in clean
         print(json.dumps(r,ensure_ascii=True) if args.json else summary.analysis(r,out,args.render));return
     if args.command=='compare':
         from musiclib.compare import compare,clip
@@ -161,20 +164,26 @@ def main():
         fresh(out)
         if args.clip:fresh(args.clip)
         if args.differences:fresh(args.differences)
-        r=compare(args.before,args.after,args.differences)
-        if args.clip:
-            # The clip is optional: if it cannot be made, the report still is, and says why.
-            try:r['clip']=clip(load_config(args.config),r,args.clip)
-            except (ValueError,OSError,RuntimeError) as e:r['clip']={'error':str(e)}
-        from musiclib.compare import portable
-        # The report as saved, its folders relative to it, is also what --json prints: shared or redirected, it carries
-        # no local folders either.
-        shared=portable(r,out.parent);save_json(out,shared)
-        # Written inside a render or round folder, each goes with that folder in clean.
-        for written in [out]+([Path(r['clip']['file'])] if isinstance(r.get('clip'),dict) and r['clip'].get('file') else []):
-            files.register_output(written)
-        if args.differences:
-            for f in files.tree(args.differences):files.register_output(f)
+        # Both renders are held while they are read and the report written into one: clean leaves them alone
+        # meanwhile, and a render still at work is refused (files.working; found by GPT Pro's third review of 0.4.0).
+        import contextlib
+        with contextlib.ExitStack() as held:
+            held.enter_context(files.working(args.before))
+            if args.after.resolve()!=args.before.resolve():held.enter_context(files.working(args.after))
+            r=compare(args.before,args.after,args.differences)
+            if args.clip:
+                # The clip is optional: if it cannot be made, the report still is, and says why.
+                try:r['clip']=clip(load_config(args.config),r,args.clip)
+                except (ValueError,OSError,RuntimeError) as e:r['clip']={'error':str(e)}
+            from musiclib.compare import portable
+            # The report as saved, its folders relative to it, is also what --json prints: shared or redirected, it
+            # carries no local folders either.
+            shared=portable(r,out.parent);save_json(out,shared,new=True)
+            # Written inside a render or round folder, each goes with that folder in clean.
+            for written in [out]+([Path(r['clip']['file'])] if isinstance(r.get('clip'),dict) and r['clip'].get('file') else []):
+                files.register_output(written)
+            if args.differences:
+                for f in files.tree(args.differences):files.register_output(f)
         print(json.dumps(shared,ensure_ascii=True) if args.json else summary.compare(r,out));return
     if args.command=='sounds':
         from musiclib.sounds import describe,search
@@ -185,7 +194,7 @@ def main():
         from musiclib.profile import profile
         r=profile(p)
         if not args.output:print(json.dumps(r,ensure_ascii=True,indent=1));return
-        fresh(args.output);save_json(args.output,r)
+        fresh(args.output);save_json(args.output,r,new=True)
         brief={k:{f:v.get(f) for f in ('notes_per_bar','register','rhythm_repeat_pct','offbeat_onsets_pct') if f in v}|({'top_line':{f:v['top_line'][f] for f in ('mean_abs_interval','leaps_pct','recurring_cells_pct')}} if v.get('top_line') else {}) for k,v in r['parts'].items()}
         print(json.dumps({'output':str(args.output),'seconds':r['seconds'],'notes_per_bar':r['notes_per_bar'],'parts':brief},ensure_ascii=True));return
     if args.command=='review':
@@ -195,7 +204,7 @@ def main():
         print(json.dumps(r,ensure_ascii=True) if args.json else summary.review(r,args.output));return
     if args.command=='export-midi':
         if files.occupied(args.output):raise ValueError('Output already exists')
-        args.output.parent.mkdir(parents=True,exist_ok=True);midi.write(p,args.output);print(str(args.output));return
+        args.output.parent.mkdir(parents=True,exist_ok=True);midi.write(p,args.output,new=True);print(str(args.output));return
     if args.command=='audition':
         from musiclib.audition import audition,parse_sound
         bars=args.bars.split('-')

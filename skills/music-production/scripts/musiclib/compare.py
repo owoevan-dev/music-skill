@@ -60,9 +60,7 @@ def load(folder):
                          'folder holds its own files only, so compare reads none through a link')
 
     def read(name):
-        if (folder / name).stat().st_size > 64_000_000:
-            raise ValueError(f'{folder / name} is too large for a render\'s record')
-        return json.loads((folder / name).read_text(encoding='utf-8'))
+        return files.read_json(folder / name)  # bounded (files.MAX_RECORD), and never through a link
     report = read('report.json')
     if isinstance(report.get('failed'), dict):
         raise ValueError(f'{folder} is not a finished render (it stopped: {report["failed"].get("error")})')

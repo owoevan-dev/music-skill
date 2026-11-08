@@ -569,19 +569,24 @@ def review(p,out,config=None):
         if pc['not_before']:summary['prompts'].append(f'Loop seam: {", ".join(pc["not_before"])} sound in the first second after the loop point but not in the five seconds before it. Check that the last bar leads into the first.')
         moves=[x for x in (f'entering: {", ".join(tb["entering"])}' if tb['entering'] else '',f'leaving: {", ".join(tb["leaving"])}' if tb['leaving'] else '') if x]
         if moves:summary['prompts'].append('Loop seam: parts '+'; '.join(moves)+'. Confirm the change of instruments at the loop point is meant.')
-    save_json(out/'score_review.json',summary)
-    if csv_rows:
-        # A text cell a spreadsheet would read as a formula (one starting with =, +, -, @, a tab or a carriage return)
-        # gets a leading apostrophe, as OWASP's CSV injection guidance advises: a project's names stay text.
-        safe=lambda v:"'"+v if isinstance(v,str) and v[:1] in ('=','+','-','@','\t','\r') else v
-        with files.staged(out/'notes.csv','w',encoding='utf-8',newline='') as f:  # whole or not at all
-            w=csv.DictWriter(f,fieldnames=csv_rows[0].keys());w.writeheader();w.writerows({k:safe(v) for k,v in r.items()} for r in csv_rows)
+    # Everything is composed before the first file is written, and what was written is recorded whatever stops the
+    # review, so clean can take it (a failure part way left two files and no record; found by GPT Pro's third review).
     lines=[f'# {p["title"]}', '',p.get('brief',''),'', '| Section | Bars (1-based) | Time | Function |','|---|---:|---:|---|']
     for s in summary['sections']:
         lines.append(f'| {s["id"]} | {s["start_bar"]+1}–{s["start_bar"]+s["bars"]} | {s["start_seconds"]:.1f}–{s["end_seconds"]:.1f}s | {s.get("intent","")} |')
     lines+=['','## Authored musical decisions','']+[f'- {x}' for x in p.get('decisions',[])]+['','## Review questions','']+['- '+x for x in summary['prompts']]
     lines+=['','Metrics do not establish whether a piece sounds good. Key gaps exclude pedal/release tails. Different durations and more tracks are not quality scores.']
-    with files.staged(out/'arrangement.md','w',encoding='utf-8') as f:
-        f.write('\n'.join(lines)+'\n')
-    files.register(out,[out/n for n in ('score_review.json','notes.csv','arrangement.md') if (out/n).is_file()])
+    arrangement='\n'.join(lines)+'\n'
+    try:
+        save_json(out/'score_review.json',summary)
+        if csv_rows:
+            # A text cell a spreadsheet would read as a formula (one starting with =, +, -, @, a tab or a carriage
+            # return) gets a leading apostrophe, as OWASP's CSV injection guidance advises: a project's names stay text.
+            safe=lambda v:"'"+v if isinstance(v,str) and v[:1] in ('=','+','-','@','\t','\r') else v
+            with files.staged(out/'notes.csv','w',encoding='utf-8',newline='') as f:  # whole or not at all
+                w=csv.DictWriter(f,fieldnames=csv_rows[0].keys());w.writeheader();w.writerows({k:safe(v) for k,v in r.items()} for r in csv_rows)
+        with files.staged(out/'arrangement.md','w',encoding='utf-8') as f:
+            f.write(arrangement)
+    finally:
+        files.register(out,[out/n for n in ('score_review.json','notes.csv','arrangement.md') if (out/n).is_file()])
     return summary

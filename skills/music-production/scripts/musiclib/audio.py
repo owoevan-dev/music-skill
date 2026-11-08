@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import struct
 import subprocess
+import threading
 import time
 import numpy as np
 from . import files
@@ -52,7 +53,7 @@ def load_config(path,all_banks=False):
     hashed the first time a part uses it (soundfont_for), or at once with `all_banks` (doctor): a full set is about 8 GB,
     and hashing it all took a render's first five seconds for the few banks one piece plays."""
     path=Path(path).resolve()
-    data=json.loads(path.read_text(encoding='utf-8'))
+    data=files.loads(path.read_text(encoding='utf-8'))
     extra=data.get('soundfonts',{})
     if not isinstance(extra,dict) or 'default' in extra or not all(re.fullmatch(r'[a-z][a-z0-9_]{0,47}',k) for k in extra):
         raise ValueError('soundfonts must map lower-case names (not "default") to entries')
@@ -82,15 +83,33 @@ def soundfont_for(config,track):
         p=Path(entry['path']);_verify('soundfonts.'+name,entry,p);VERIFIED[str(p)]=(entry['sha256'],_stamp(p))
     return name,entry
 
+class Cancelled(Exception):
+    """The run a program belonged to stopped (another part of the render failed), and the program was stopped too."""
+
+_scope=threading.local()
+
+@contextlib.contextmanager
+def cancel_scope(event):
+    """Programs this thread starts with run() stop once `event` is set: a render's other parts, when one has failed
+    (they ran on, and the parts still waiting started, until each finished; found by GPT Pro's third review)."""
+    before=getattr(_scope,'event',None);_scope.event=event
+    try:yield
+    finally:_scope.event=before
+
 def run(argv,folder,label,timeout=600):
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
     log=folder/(label+'.log');started=time.monotonic()
     flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
+    cancel=getattr(_scope,'event',None)
     with log.open('wb') as out:
         proc=subprocess.Popen([str(x) for x in argv],stdin=subprocess.DEVNULL,stdout=out,stderr=subprocess.STDOUT,creationflags=flags)
-        try:code=proc.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            proc.kill();proc.wait();raise TimeoutError(f'{label} exceeded {timeout}s; log: {log}')
+        try:
+            deadline=started+timeout
+            while True:
+                try:code=proc.wait(timeout=.2 if cancel is not None else max(.01,deadline-time.monotonic()));break
+                except subprocess.TimeoutExpired:
+                    if time.monotonic()>=deadline:raise TimeoutError(f'{label} exceeded {timeout}s; log: {log}') from None
+                    if cancel is not None and cancel.is_set():raise Cancelled(f'{label} stopped: another part failed') from None
         except BaseException:
             # Stopped from outside (Ctrl+C, a failure elsewhere): the program it started stops too, and is waited for,
             # so nothing it writes outlives the run.

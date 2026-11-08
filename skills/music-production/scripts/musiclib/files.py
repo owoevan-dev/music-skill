@@ -25,8 +25,12 @@ from pathlib import Path
 NAME_SURROGATE = 0x20000000
 RECORD = 'files.json'
 KIND = 'music-production files'
-MAX_RECORD = 64_000_000  # the largest record read, as a project file's limit (model.load_project)
+MAX_RECORD = 64_000_000  # the largest record, report or receipt read
+# The largest project read: one of validate's 500,000 notes as save_json writes it, 205 bytes a note measured (102 MB
+# for 499,200 notes in the stress test of 0.4.0, which 64 MB had refused), with room for its CC and automation.
+MAX_PROJECT = 160_000_000
 WORK_LOCK = 'work.lock'  # held in a render, round or audition folder by the run writing it, and by clean
+LOCKS = (WORK_LOCK, 'entry.lock')  # a work lock's file, and a cache entry's (render.entry_lock)
 
 
 def escape_unprintable():
@@ -51,6 +55,32 @@ def replace(src, dst):
             if os.name != 'nt' or attempt == 4:
                 raise
             time.sleep(.25)
+
+
+def publish_new(src, dst):
+    """Give the new file `src` the name `dst`, which nothing may hold: where something has taken it since the output
+    was found free (another run, the user), FileExistsError, and `src` stays for the caller to remove.  os.replace
+    would put it in the other's place.  Windows' rename refuses an existing name; on POSIX, where rename replaces, a
+    hard link refuses it, then the temporary name goes; a file system without hard links gets the name reserved first
+    (created exclusively), which the new file then replaces (found by GPT Pro's third review of 0.4.0)."""
+    if os.name == 'nt':
+        for attempt in range(5):
+            try:
+                return os.rename(src, dst)
+            except PermissionError:  # a virus scanner holding the new file (replace())
+                if attempt == 4:
+                    raise
+                time.sleep(.25)
+    try:
+        os.link(src, dst)
+    except FileExistsError:
+        raise
+    except OSError:
+        os.close(os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666))
+        os.replace(src, dst)
+        return None
+    os.unlink(src)
+    return None
 
 
 def lstat(path):
@@ -144,16 +174,16 @@ def same_file(fd, path):
 def is_lock_file(path):
     """A work lock's file as the tools make it: named work.lock, a regular file, empty (nothing is written to it)."""
     s = lstat(path)
-    return Path(path).name == WORK_LOCK and s is not None and stat.S_ISREG(s.st_mode) and not linked(path) and s.st_size == 0
+    return Path(path).name in LOCKS and s is not None and stat.S_ISREG(s.st_mode) and not linked(path) and s.st_size == 0
 
 
-def take(folder, create=True):
+def take(folder, create=True, name=WORK_LOCK):
     """Try the work lock of a render, round or audition folder without waiting.  Returns (state, fd): 'held' with the
     open file holding it; 'busy' while another process holds it; 'unlockable' where it cannot be taken (the drive
     cannot lock files, or work.lock there is no lock file: a link, a folder, a file with contents); with create=False,
     'free' where no lock file is there, as no run holds one then.  A lock taken on a file its holder removed meanwhile
     is let go and taken afresh."""
-    path = Path(folder) / WORK_LOCK
+    path = Path(folder) / name
     for _ in range(10):
         if occupied(path) and not is_lock_file(path):
             return 'unlockable', None
@@ -263,16 +293,17 @@ def stage_name(dest, suffix='.part'):
 
 
 @contextlib.contextmanager
-def staged(dest, mode='wb', encoding=None, newline=None):
+def staged(dest, mode='wb', encoding=None, newline=None, new=False):
     """Write `dest` whole: yields a file opened on a new name of its own beside it; on success that file takes the
     destination's place (os.replace swaps the name, so a hard link at the destination is never written through), on
-    any failure it is removed."""
+    any failure it is removed.  With `new`, the destination must still be free when the file is done (publish_new): an
+    output a command found free is never put in the place of one that took its name meanwhile."""
     dest = Path(dest)
     fd, name = tempfile.mkstemp(dir=dest.parent, prefix=f'.{dest.name}.', suffix='.part')
     try:
         with os.fdopen(_opened(fd), mode, encoding=encoding, newline=newline) as f:
             yield f
-        replace(name, dest)
+        (publish_new if new else replace)(name, dest)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(name)
@@ -293,8 +324,52 @@ def staged_path(dest, suffix='.part'):
         raise
 
 
-def write_json(path, value):
-    with staged(path, 'w', encoding='utf-8') as f:
+def loads(text):
+    """json.loads, refusing as ValueError a document nested deeper than Python parses (json raises RecursionError): a
+    record, a project or a report someone else made is refused with a reason, not a crash (found by the stress test of
+    0.4.0)."""
+    try:
+        return json.loads(text)
+    except RecursionError:
+        raise ValueError('a JSON document nested too deeply to read') from None
+
+
+def read_json(path, limit=None):
+    """The JSON in a regular file someone else may have made (a report, a receipt, a record), refused as ValueError
+    where it is a link or larger than `limit` (MAX_RECORD by default) before any of it is read, or nested too deeply
+    (found by GPT Pro's third review of 0.4.0: the limits did not reach every reader)."""
+    path = Path(path)
+    s = lstat(path)
+    if s is None:
+        raise FileNotFoundError(f'{path} is not there')
+    if not stat.S_ISREG(s.st_mode) or linked(path):
+        raise ValueError(f'{path} is no regular file (a link or a folder): it is not read')
+    if s.st_size > (MAX_RECORD if limit is None else limit):
+        raise ValueError(f'{path} is {s.st_size} bytes, more than a record of the tools is: it is not read')
+    return loads(path.read_text(encoding='utf-8'))
+
+
+def check_config_path(path, flag):
+    """An installer's configuration path, before it installs: free, and not named as the records the tools keep."""
+    if occupied(path):
+        raise ValueError(f'{flag} {path} exists; choose a new path for the configuration')
+    if Path(path).name == RECORD:
+        raise ValueError(f'{flag} names {RECORD}, the records the tools keep; choose another name for the configuration')
+
+
+def save_config(path, config, flag):
+    """An installer's configuration, written last: only where nothing has taken the path since the install began (a
+    bank or a record the install put there, which a configuration written over left broken), and never over what
+    takes it meanwhile (publish_new).  Found by GPT Pro's third review of 0.4.0."""
+    if occupied(path):
+        raise ValueError(f'{flag} {path} now holds a file the install put there; everything else is installed: run it '
+                         f'again with a {flag} of its own')
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    write_json(Path(path).resolve(), config, new=True)
+
+
+def write_json(path, value, new=False):
+    with staged(path, 'w', encoding='utf-8', new=new) as f:
         f.write(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False))
 
 
@@ -303,7 +378,7 @@ def _record_value(record):
     if not regular_file(record) or lstat(record).st_size > MAX_RECORD:
         return None
     try:
-        value = json.loads(Path(record).read_text(encoding='utf-8'))
+        value = loads(Path(record).read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
     return value if isinstance(value, dict) and value.get('kind') == KIND else None
@@ -329,15 +404,21 @@ def register(folder, paths):
     """Add files a tool wrote in `folder` (paths inside it) to its record, with their size and modification time.  A
     files.json there that is no record of the tools (another program's, the user's, a link) is renamed aside first, kept
     and never written over; returns that name, or None."""
-    folder = Path(folder)
+    # A relative path is the caller's, from the working folder, as every caller builds it (folder / name): a round or a
+    # review given a relative --output recorded nothing when it was taken from `folder` instead (found by the stress
+    # test of 0.4.0).
+    folder = Path(os.path.abspath(folder))
     moved = aside(folder / RECORD) if occupied(folder / RECORD) and not is_record(folder / RECORD) else None
     listed = recorded(folder)
     for p in paths:
-        p = Path(p)
-        p = p if p.is_absolute() else folder / p
+        p = Path(os.path.abspath(p))
         s = lstat(p)
         if s is not None and stat.S_ISREG(s.st_mode) and not linked(p) and p.name != RECORD:
-            listed[p.relative_to(folder).as_posix()] = [s.st_size, s.st_mtime_ns]
+            try:
+                rel = p.relative_to(folder)
+            except ValueError:  # one of the two given resolved, the other not (a junction on the way)
+                rel = Path(os.path.realpath(p)).relative_to(os.path.realpath(folder))
+            listed[rel.as_posix()] = [s.st_size, s.st_mtime_ns]
     write_json(folder / RECORD, {'kind': KIND, 'files': listed})
     return moved
 

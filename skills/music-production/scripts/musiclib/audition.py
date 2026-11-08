@@ -17,7 +17,6 @@ import copy
 import json
 import math
 import os
-import shutil
 from pathlib import Path
 
 import numpy as np
@@ -190,7 +189,12 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
                                   if report.is_file() else {})
                         if k == len(tails) - 1 or [c for c, ok in checks.items() if not ok] != ['tail_quiet']:
                             raise
-                        shutil.rmtree(folder / 'render')  # this run's own render, made again with a longer tail
+                        # This run's own render, made again with a longer tail: only what its record lists goes; a file
+                        # put there meanwhile keeps it, and the audition stops rather than remove it (the whole folder
+                        # went; found by GPT Pro's fifth review of 0.4.0).
+                        if not files.remove_own(folder / 'render'):
+                            raise ValueError(f'{folder / "render"} holds files the render did not write, or another run is '
+                                             'working in it; move them away and run the audition again') from None
                 stem, rate = audio.read_wav(folder / 'render' / 'stems' / f'{track_id}.wav')[0], audio.RATE
                 master = audio.read_wav(folder / 'render' / 'master.wav')[0]
                 lufs = audio.measure(cfg, folder / 'render' / 'master.wav', folder, 'measure')['integrated_lufs']

@@ -462,11 +462,16 @@ def main():
     lock = json.loads((SKILL / 'references' / 'soundbank-lock.json').read_text(encoding='utf-8'))
     only = requested(lock, args.only)
     prebuilt = {} if args.from_source else lock.get('prebuilt', {}).get('assets', {})
+    # The configuration is read before anything is made, so one refused leaves no folder behind.
+    from musiclib.audio import absolute_paths
+    config = files.read_object(args.config, 'a configuration', needs=(('ffmpeg', dict, 'the FFmpeg bootstrap.py configured'),))
+    if not isinstance(config['ffmpeg'].get('path'), str) or not isinstance(config.get('soundfonts', {}), dict):
+        raise ValueError(f'{args.config}: a configuration has "ffmpeg": {{"path": ...}} and, if any, "soundfonts" as an object, '
+                         'as bootstrap.py writes it')
+    config = absolute_paths(config, args.config.resolve().parent)
     runtime = args.runtime.resolve()
     cache = (args.archive_cache or runtime / 'archives').resolve()
     cache.mkdir(parents=True, exist_ok=True)
-    from musiclib.audio import absolute_paths
-    config = absolute_paths(files.read_json(args.config), args.config.resolve().parent)
     fonts = config.setdefault('soundfonts', {})
     failed = {}
     mirrors = {} if args.from_source else lock.get('prebuilt', {}).get('archives', {})

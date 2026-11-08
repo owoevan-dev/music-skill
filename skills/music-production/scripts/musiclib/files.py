@@ -49,26 +49,39 @@ def escape_unprintable():
         stream.reconfigure(errors='backslashreplace')
 
 
-# The files this process put in place (replace, publish_new) or wrote itself (wrote): all that register_tree may record
-# as a run's own.  A file someone else put in a folder while a run worked in it, a note saved there during a render,
-# was recorded with the run's files, and clean removed it (found by a probe of 0.4.0).
-_WROTE, _WROTE_LOCK = set(), threading.Lock()
+# The files this process put in place (replace, publish_new) or wrote itself (wrote), each as it was then (its device,
+# inode, size and modification time): all that register_tree may record as a run's own.  A file someone else put in a
+# folder while a run worked in it, a note saved there during a render, was recorded with the run's files, and clean
+# removed it (found by a probe of 0.4.0); a file put under a name the run had written, or one changed since, was still
+# taken for the run's, as only names were kept (found by GPT Pro's fifth review of 0.4.0).
+_WROTE, _WROTE_LOCK = {}, threading.Lock()
 
 
 def _key(path):
     return os.path.normcase(os.path.abspath(path))
 
 
+def _stamp(path):
+    s = lstat(path)
+    return None if s is None or not stat.S_ISREG(s.st_mode) else (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns)
+
+
 def wrote(path):
-    """Note `path` as a file this process wrote: replace and publish_new note theirs; a program's own output (a log, a
-    file a check decodes) is noted by the code that names it."""
+    """Note the file now at `path` as one this process wrote: replace and publish_new note theirs; a program's own output
+    (a log, a file a check decodes) is noted by the code that runs it, once the program has finished writing."""
+    stamp = _stamp(path)
     with _WROTE_LOCK:
-        _WROTE.add(_key(path))
+        if stamp is None:
+            _WROTE.pop(_key(path), None)
+        else:
+            _WROTE[_key(path)] = stamp
 
 
 def written_here(path):
+    """Whether the file at `path` is the one this process noted there, unchanged since."""
     with _WROTE_LOCK:
-        return _key(path) in _WROTE
+        want = _WROTE.get(_key(path))
+    return want is not None and _stamp(path) == want
 
 
 def replace(src, dst):
@@ -96,16 +109,18 @@ def publish_new(src, dst):
     would put it in the other's place.  Windows' rename refuses an existing name; on POSIX, where rename replaces, a
     hard link refuses it, then the temporary name goes; a file system without hard links gets the name reserved first
     (created exclusively), which the new file then replaces (found by GPT Pro's third review of 0.4.0).  `dst` is
-    noted as a file this process wrote (wrote)."""
+    noted as a file this process wrote (wrote) the moment it holds the new file, before the temporary name goes: a
+    failure to remove that name left a published output unnoted (found by GPT Pro's fifth review of 0.4.0)."""
     _publish(src, dst)
-    wrote(dst)
 
 
 def _publish(src, dst):
     if os.name == 'nt':
         for attempt in range(5):
             try:
-                return os.rename(src, dst)
+                os.rename(src, dst)
+                wrote(dst)
+                return None
             except PermissionError:  # a virus scanner holding the new file (replace())
                 if attempt == 4:
                     raise
@@ -132,7 +147,9 @@ def _publish(src, dst):
                 if (now.st_dev, now.st_ino) == (mine.st_dev, mine.st_ino) and now.st_size == 0:
                     os.unlink(dst)
             raise
+        wrote(dst)
         return None
+    wrote(dst)
     os.unlink(src)
     return None
 
@@ -411,6 +428,21 @@ def read_json(path, limit=None):
     return loads(path.read_text(encoding='utf-8'))
 
 
+
+def read_object(path, what, limit=None, needs=()):
+    """read_json for a document that must be a JSON object (a spec, a manifest, a configuration) holding the fields
+    `needs` names, as (key, type, what it holds): anything else is refused with what it should be (a list there, or an
+    object without the field the command reads first, stopped it with a traceback; found by GPT Pro's fifth review of
+    0.4.0)."""
+    value = read_json(path, limit)
+    if not isinstance(value, dict):
+        raise ValueError(f'{path}: {what} is a JSON object, not {type(value).__name__}')
+    for key, kind, holds in needs:
+        if not isinstance(value.get(key), kind):
+            raise ValueError(f'{path}: {what} needs "{key}", {holds}')
+    return value
+
+
 def check_config_path(path, flag):
     """An installer's configuration path, before it installs: free, and not named as the records the tools keep."""
     if occupied(path):
@@ -536,6 +568,43 @@ def register_tree(folder, skip=(), keep=None):
                 continue
         paths.append(p)
     register(folder, paths)
+
+
+def remove_own(folder):
+    """Remove what a run's folder holds of the run's own, under the folder's work lock: the files its record lists
+    unchanged, then the record and the folders left empty, the folder itself last.  Anything else (a file someone put
+    there, one changed since, a link) stays, with the record, and False is returned, as it is while another run holds
+    the folder; True once the folder is gone.  For a run that takes its own failed output away, as an audition does to
+    render again with a longer tail: it removed the whole folder, whatever was in it (found by GPT Pro's fifth review of
+    0.4.0)."""
+    folder = Path(folder)
+    if not real_folder(folder):
+        return not occupied(folder)
+    state, fd = take(folder)
+    if state == 'busy':
+        return False
+    try:  # 'unlockable': a drive that cannot lock files, or a work.lock that is no lock file (it stays, as others do)
+        listed = recorded(folder)
+        for p in tree(folder):
+            if p.name == RECORD or (p.parent == folder and is_lock_file(p)):
+                continue
+            entry = listed.get(p.relative_to(folder).as_posix())
+            if entry is not None and unchanged(p, entry):
+                with contextlib.suppress(FileNotFoundError):
+                    p.unlink()
+        if [p for p in tree(folder) if not is_record(p) and not (p.parent == folder and is_lock_file(p))] + links_in(folder):
+            return False
+        for p in tree(folder):  # the records; and the lock's file where none is held (the lock held goes on release)
+            if is_record(p) or (fd is None and p.parent == folder and is_lock_file(p)):
+                with contextlib.suppress(OSError):
+                    p.unlink()
+    finally:
+        if fd is not None:
+            release(folder, fd)
+    for base in sorted(real_folders(folder), key=lambda b: -len(b.parts)):
+        with contextlib.suppress(OSError):
+            os.rmdir(base)
+    return not occupied(folder)
 
 
 def unchanged(path, entry):

@@ -526,9 +526,29 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
     def looping():
         from . import loop
         return loop.deliver(p,clock,cfg,output,mastering,draft)
+    # They share a stop (audio.cancel_scope), as the parts do: Ctrl+C, or one of them failing, stops the programs the
+    # others run, and the render ends on the first failure without waiting for them (they ran to their end, and a
+    # failure was seen only once the outputs before it had ended; found by GPT Pro's fifth review and its selfcheck).
+    stop_outputs=threading.Event();output_failure=[];output_lock=threading.Lock()
+    def scoped(make):
+        def run():
+            try:
+                with audio.cancel_scope(stop_outputs):return make()
+            except BaseException as e:
+                with output_lock:
+                    if not output_failure and not isinstance(e,audio.Cancelled):output_failure.append(e)
+                stop_outputs.set()
+                raise
+        return run
     with ThreadPoolExecutor(max_workers=3) as pool:
-        made=[pool.submit(preview)]+([] if draft else [pool.submit(lossless)])+([pool.submit(looping)] if 'loop' in p else [])
-        results=[f.result() for f in made]
+        made=[pool.submit(scoped(preview))]+([] if draft else [pool.submit(scoped(lossless))])+([pool.submit(scoped(looping))] if 'loop' in p else [])
+        try:wait(made,return_when=FIRST_EXCEPTION)
+        except BaseException:
+            stop_outputs.set()
+            for f in made:f.cancel()
+            raise
+    if output_failure:raise output_failure[0]
+    results=[f.result() for f in made]
     mp3,looped=results[0],(results[-1] if 'loop' in p else None)
     from .measure import release
     release()  # the measuring is done: the K-weighting responses kept for it are let go

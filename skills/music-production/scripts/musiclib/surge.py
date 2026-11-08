@@ -22,7 +22,6 @@ import math
 import os
 import re
 import struct
-import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
@@ -352,12 +351,16 @@ def render(project, track, raw, folder, cfg):
                                'events': events, 'duration': max((t for _, t in events), default=LEAD_S) + TAIL_S,
                                'trim': int(round(LEAD_S * RATE)), 'macros': track['surge'].get('macros', {}),
                                'bend_range': track['performance'].get('bend_range', 2)}), encoding='utf-8')
-    flags = subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
-    done = subprocess.run([sys.executable, str(SCRIPTS / 'surge_host.py'), str(job)], cwd=SCRIPTS, capture_output=True, text=True,
-                          timeout=1800, stdin=subprocess.DEVNULL, creationflags=flags)
-    (Path(folder) / 'surge.log').write_text(done.stdout + done.stderr, encoding='utf-8')
-    if done.returncode or not Path(raw).is_file() or Path(raw).stat().st_size <= 44:
-        raise Unavailable(f'Surge XT failed to render (exit {done.returncode}; see surge.log in the cache entry {Path(folder).name[:12]})')
+    # The host runs as every program of a render does (audio.run): it stops when the render is stopped (another part
+    # failed, Ctrl+C), which subprocess.run could not see (found by GPT Pro's fifth review of 0.4.0), and its output
+    # goes to surge.log in the cache entry.  A stop is not a failed host: it is raised, never answered with the fallback.
+    from . import audio
+    try:
+        audio.run([sys.executable, str(SCRIPTS / 'surge_host.py'), str(job)], folder, 'surge', timeout=1800, cwd=SCRIPTS)
+    except RuntimeError as e:
+        raise Unavailable(f'Surge XT failed to render ({str(e)[:160]}; see surge.log in the cache entry {Path(folder).name[:12]})') from None
+    if not Path(raw).is_file() or Path(raw).stat().st_size <= 44:
+        raise Unavailable(f'Surge XT wrote no audio (see surge.log in the cache entry {Path(folder).name[:12]})')
     return {'tempo_synced': {'bpm': round(bpm, 3), 'parameters': synced}} if synced else {}
 
 

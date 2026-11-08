@@ -52,8 +52,11 @@ def load_config(path,all_banks=False):
     bank; optional `soundfonts` adds named banks that tracks select with `soundfont`.  A named bank is found at load and
     hashed the first time a part uses it (soundfont_for), or at once with `all_banks` (doctor): a full set is about 8 GB,
     and hashing it all took a render's first five seconds for the few banks one piece plays."""
+    # Read by the name given, bounded and never through a link (found by GPT Pro's fourth review), and only then
+    # resolved, for the folder its relative entries start from: resolved first, a link had become its target and
+    # passed the reader's check (found by GPT Pro's fifth review of 0.4.0).
+    data=files.read_json(os.path.abspath(path))
     path=Path(path).resolve()
-    data=files.read_json(path)  # bounded, as every JSON from elsewhere (found by GPT Pro's fourth review of 0.4.0)
     if not isinstance(data,dict):raise ValueError(f'{path}: a configuration is a JSON object')
     extra=data.get('soundfonts',{})
     if not isinstance(extra,dict) or 'default' in extra or not all(re.fullmatch(r'[a-z][a-z0-9_]{0,47}',k) for k in extra):
@@ -104,28 +107,32 @@ def check_cancel(what):
     event=getattr(_scope,'event',None)
     if event is not None and event.is_set():raise Cancelled(f'{what} stopped: another part failed')
 
-def run(argv,folder,label,timeout=600):
+def run(argv,folder,label,timeout=600,cwd=None):
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
     log=folder/(label+'.log');started=time.monotonic()
     flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
     cancel=getattr(_scope,'event',None)
     check_cancel(label)  # a run already stopped starts no program (one that ended within 0.2 s ran to its end)
-    with log.open('wb') as out:
-        files.wrote(log)  # the program's log, written here rather than swapped in: a file of the run (files.register_tree)
-        proc=subprocess.Popen([str(x) for x in argv],stdin=subprocess.DEVNULL,stdout=out,stderr=subprocess.STDOUT,creationflags=flags)
-        try:
-            deadline=started+timeout
-            while True:
-                try:code=proc.wait(timeout=.2 if cancel is not None else max(.01,deadline-time.monotonic()));break
-                except subprocess.TimeoutExpired:
-                    if time.monotonic()>=deadline:raise TimeoutError(f'{label} exceeded {timeout}s; log: {log}') from None
-                    if cancel is not None and cancel.is_set():raise Cancelled(f'{label} stopped: another part failed') from None
-        except BaseException:
-            # Stopped from outside (Ctrl+C, a failure elsewhere): the program it started stops too, and is waited for,
-            # so nothing it writes outlives the run.
-            proc.kill()
-            with contextlib.suppress(Exception):proc.wait(timeout=10)
-            raise
+    try:
+        with log.open('wb') as out:
+            proc=subprocess.Popen([str(x) for x in argv],stdin=subprocess.DEVNULL,stdout=out,stderr=subprocess.STDOUT,creationflags=flags,cwd=cwd)
+            try:
+                deadline=started+timeout
+                while True:
+                    try:code=proc.wait(timeout=.2 if cancel is not None else max(.01,deadline-time.monotonic()));break
+                    except subprocess.TimeoutExpired:
+                        if time.monotonic()>=deadline:raise TimeoutError(f'{label} exceeded {timeout}s; log: {log}') from None
+                        if cancel is not None and cancel.is_set():raise Cancelled(f'{label} stopped: another part failed') from None
+            except BaseException:
+                # Stopped from outside (Ctrl+C, a failure elsewhere): the program it started stops too, and is waited for,
+                # so nothing it writes outlives the run.
+                proc.kill()
+                with contextlib.suppress(Exception):proc.wait(timeout=10)
+                raise
+    finally:
+        # The program's log, written here rather than swapped in, noted once the program has finished writing it: a
+        # file of the run (files.register_tree), whatever stopped it.
+        files.wrote(log)
     receipt={'argv':[str(x) for x in argv],'returncode':code,'seconds':round(time.monotonic()-started,3),'pid':proc.pid,'launch_mode':'CREATE_NO_WINDOW' if flags else 'no stdin; no GUI arguments','log':str(log)}
     save_json(folder/(label+'.process.json'),receipt)
     content=log.read_text(encoding='utf-8',errors='replace')

@@ -46,8 +46,11 @@ def shape(value, kind, name):
 
 def number(value, lo, hi, name, integer=False):
     """`value` must be a number in lo..hi; with `integer`, a JSON integer (100, not 100.0, which MIDI cannot carry)."""
-    if isinstance(value, bool) or not isinstance(value, int if integer else (int, float)) or not math.isfinite(value) or not lo <= value <= hi:
-        show = lambda x: f'{x:g}' if isinstance(x, float) else repr(x)
+    # An integer is compared as it is: math.isfinite turns it into a float, and one past 10**308 (bars of 10**400 in
+    # a small file) raised OverflowError instead of this message (found by GPT Pro's fifth review of 0.4.0).
+    if (isinstance(value, bool) or not isinstance(value, int if integer else (int, float))
+            or (isinstance(value, float) and not math.isfinite(value)) or not lo <= value <= hi):
+        show = lambda x: f'{x:g}' if isinstance(x, float) else repr(x) if not isinstance(x, int) or abs(x) < 10 ** 30 else f'an integer of {len(str(abs(x)))} digits'
         hint = f' (write {int(value)}, not {value!r})' if integer and isinstance(value, float) and math.isfinite(value) and value.is_integer() else ''
         raise ValueError(f'{name}: expected {"an integer " if integer else ""}{show(lo)}..{show(hi)}, got {show(value)}{hint}')
 
@@ -211,6 +214,8 @@ def _validate(p):
     if 'decisions' in p:
         if not isinstance(p['decisions'],list):raise ValueError('decisions is a list of text')
         for d in p['decisions']:text(d,'each decision')
+    # revise adds to it: as another type it passed here and stopped revise (found by GPT Pro's fifth review of 0.4.0).
+    if 'revision_history' in p and not isinstance(p['revision_history'],list):raise ValueError('revision_history is a list of the revisions made')
     c=p['clock'];unknown_fields(c,'clock','clock',warnings);unknown_fields(p['mix'],'mix','mix',warnings)
     number(c['bars'],1,512,'bars',True)
     if not isinstance(c['meter'],list) or len(c['meter'])!=2:raise ValueError('clock.meter is [beats, beat unit], e.g. [3, 4]')

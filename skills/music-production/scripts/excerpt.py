@@ -1,6 +1,7 @@
 """Extract a score passage for revision. Held notes at the cut re-attack."""
 import argparse
 import copy
+import math
 from pathlib import Path
 import sys
 from musiclib.model import TPQ,Clock,curve_at,load_project,performed,rubato_spans,save_json,swung,tick_of,validate
@@ -104,6 +105,20 @@ def extract(p,first_bar,bars):
         notes=[];again=set();shifted=set();spans={};length=end-start;perf=t['performance']
         sw=perf.get('swing');offset=perf.get('offset_ms',0)/1000;bar=excerpt_clock.beats_per_bar
         at=lambda b:excerpt_clock.seconds(swung(b,sw,bar))  # where the excerpt plays a written position, before timing
+        def fit(o,d,s1,begin,room):
+            """The written length near `d` (whole ticks, within `room`) and the gate that play a note written at `o`
+            from `begin` to `s1`: bisection where the gate would leave validate's bounds (the length a written span
+            plays grows with it, swing and tempo changes included)."""
+            gate=(s1-begin)/(at(o+d)-at(o))
+            if not .05<=gate<=1.6:
+                want=(s1-begin)/min(1.6,max(.05,gate));lo,hi=1,max(1,int(room*TPQ+1e-9))
+                while lo<hi:
+                    mid=(lo+hi)//2
+                    if at(o+mid/TPQ)-at(o)<want:lo=mid+1
+                    else:hi=mid
+                d=min(room,lo/TPQ);gate=min(1.6,max(.05,(s1-begin)/(at(o+d)-at(o))))
+            return d,gate
+        inside={}  # a note of the passage's own: where it plays in the excerpt, (start, end) in seconds
         for n in t['notes']:
             a0,a1=played[n['id']]['tick'],played[n['id']]['end_tick'];w=written[n['id']]
             on=w['tick'];off=max(on+1,tick_of(clock.beat(clock.seconds(n['on']+n['duration']))))
@@ -121,7 +136,9 @@ def extract(p,first_bar,bars):
                 a=n['on']-start;d=n['duration']
                 if not (a<=length-1/TPQ and 1/TPQ<=d and a+d<=length+1e-9):
                     a=(max(cut,on)-cut)/TPQ;d=(min(stop,off)-max(cut,on))/TPQ
-                n['on']=a;n['duration']=d;notes.append(n);continue
+                n['on']=a;n['duration']=d;notes.append(n)
+                inside[n['id']]=(at(a)+perf['notes'][n['id']].get('timing_ms',0)/1000+offset,excerpt_clock.seconds((min(stop,a1)-cut)/TPQ))
+                continue
             x0,x1=max(a0,cut)-cut,min(a1,stop)-cut
             s0,s1=excerpt_clock.seconds(x0/TPQ),excerpt_clock.seconds(x1/TPQ)
             # Its written onset: its own where it is written in the passage (its timing then stays its own), the cut
@@ -139,19 +156,12 @@ def extract(p,first_bar,bars):
             timing=min(.1,max(-.1,s0-at(o)-offset))  # validate: timing_ms within ±100
             begin=at(o)+timing+offset  # before the tick rounding: a start before the excerpt's plays at its start
             # A part offset no timing can undo leaves no tick of it; one that sounds a tick, cut short by a later strike of
-            # its key, stays (float residue had it a hair under the tick, and it went; found by the excerpt fuzzer once it
-            # drew one-line parts, after GPT Pro's fourth review of 0.4.0).
-            if s1-begin<excerpt_clock.seconds(1/TPQ)-1e-9:continue
-            gate=(s1-begin)/(at(o+d)-at(o))
-            if not .05<=gate<=1.6:
-                # The written length, in whole ticks, that plays as long at the nearest gate validate allows (bisection:
-                # the length a written span plays grows with it, swing and tempo changes included).
-                want=(s1-begin)/min(1.6,max(.05,gate));lo,hi=1,max(1,int(room*TPQ+1e-9))
-                while lo<hi:
-                    mid=(lo+hi)//2
-                    if at(o+mid/TPQ)-at(o)<want:lo=mid+1
-                    else:hi=mid
-                d=min(room,lo/TPQ);gate=min(1.6,max(.05,(s1-begin)/(at(o+d)-at(o))))
+            # its key, stays.  Judged on the tick grid the excerpt plays on, as performed() rounds a start to its tick:
+            # a tick's length at the excerpt's first tempo let a float residue drop such a note, and after a change of
+            # tempo dropped one that sounds a whole tick (found by the excerpt fuzzer once it drew one-line parts, and by
+            # GPT Pro's fifth review of 0.4.0).
+            if x1-(0 if begin<=0 else tick_of(excerpt_clock.beat(begin)))<1:continue
+            d,gate=fit(o,d,s1,begin,room)
             n['on']=o;n['duration']=d;perf['notes'][n['id']].update(timing_ms=timing*1000,gate=gate);notes.append(n)
             spans[n['id']]=(o,s1,begin)
             if on<cut and a0<cut:again.add(n['id'])  # struck before the cut and sounding there: re-attacked at it
@@ -159,12 +169,14 @@ def extract(p,first_bar,bars):
         # A note written before the cut and struck after it has its written onset moved onto the cut; where a note of
         # its key is written there too, on the tick or the next (one the piece struck first), it is written where it
         # plays instead, its timing then under a tick, so the two do not strike the key at once as written, which
-        # validate refuses.  One that still meets it plays within a tick of it, which the render refuses: it goes.
-        # (Found by the stress test of 0.4.0.)
-        clash=lambda n:any(m is not n and m['pitch']==n['pitch'] and abs(tick_of(m['on'])-tick_of(n['on']))<=1 for m in notes)
+        # validate refuses.  One that still meets it plays within a tick of it, which the render refuses: it goes, and
+        # only it (both of two such notes went; found by the excerpt fuzzer's count of notes from before the cut).  (Found
+        # by the stress test of 0.4.0.)  A part held to one line is written in the piece's order below, which keeps two
+        # strikes of a key apart, so nothing of it goes here.
         gone=set()
+        clash=lambda n:any(m is not n and m['id'] not in gone and m['pitch']==n['pitch'] and abs(tick_of(m['on'])-tick_of(n['on']))<=1 for m in notes)
         for n in notes:
-            if n['id'] in shifted and clash(n):
+            if n['id'] in shifted and not one_line(t) and clash(n):
                 o,s1,begin=spans[n['id']];end_w=o+n['duration'];lo,hi=tick_of(o),max(tick_of(o),int((length-1/TPQ)*TPQ+1e-9))
                 while lo<hi:  # the last tick whose time, with the part's offset, is not after the note's played start
                     mid=(lo+hi+1)//2
@@ -176,6 +188,76 @@ def extract(p,first_bar,bars):
                 if clash(n):gone.add(n['id'])
         notes=[n for n in notes if n['id'] not in gone];shifted-=gone
         if one_line(t):
+            # The written line keeps the piece's written order.  A note written before the cut that sounds in the
+            # passage (re-attacked at the cut, moved onto it or to where it plays) comes before the passage's own notes,
+            # as it does in the piece, whichever its timing plays first: written where it plays, inside a note of the
+            # passage, it had the pass below cut that note to where it began (500 ms to 25 ms; found by GPT Pro's fifth
+            # review of 0.4.0, and in its other forms by the excerpt fuzzer's check of played lengths).  Those notes are
+            # written from the cut, each as early as its timing (within 100 ms) plays it where it plays and as long as
+            # its played length needs at a gate of 1, or to where the next note begins; the passage's notes keep their
+            # places, but one written so close after the cut that it leaves no room is written after them, its timing
+            # making up the difference, and so on to the first note left where the piece writes it.  Where a note's
+            # timing cannot make that up, the note before ends sooner, or goes when no tick is left for it.
+            written_at={m['id']:m['on']-start for m in source['notes']}
+            before_cut=lambda n:written_at[n['id']]<-1e-9
+            if any(before_cut(n) for n in notes):
+                last_tick=max(0,int((length-1/TPQ)*TPQ+1e-9))
+                when=lambda k:at(k/TPQ)+offset  # where a note written at tick k plays, before its own timing
+                def first(ok):
+                    """The first tick k, 0 to last_tick, for which ok(k) holds (ok is monotone); last_tick+1 if none."""
+                    lo,hi=0,last_tick+1
+                    while lo<hi:
+                        mid=(lo+hi)//2
+                        if ok(mid):hi=mid
+                        else:lo=mid+1
+                    return lo
+                def ticks_for(k,begin,s1,gate):
+                    """The fewest whole ticks a note written at tick k needs to play from begin to s1 at `gate`."""
+                    want=(s1-begin)/gate;lo,hi=1,max(1,last_tick+1-math.floor(k))
+                    while lo<hi:
+                        mid=(lo+hi)//2
+                        if at((k+mid)/TPQ)-at(k/TPQ)>=want-1e-12:hi=mid
+                        else:lo=mid+1
+                    return lo
+                span_of=lambda n:(spans[n['id']][2],spans[n['id']][1]) if n['id'] in spans else inside[n['id']]
+                earliest=lambda n:first(lambda k:when(k)>=span_of(n)[0]-.1-1e-9)  # its timing at most +100 ms
+                latest=lambda n:first(lambda k:when(k)>span_of(n)[0]+.1+1e-9)-1  # and at least -100 ms
+                own=lambda n:earliest(n) if before_cut(n) else math.ceil(n['on']*TPQ-1e-6)  # where it would be written
+                order=sorted(notes,key=lambda n:written_at[n['id']]);laid=[];gone=set()  # laid: [note, tick, ticks]
+                def free(n,overlap=0):
+                    """The first tick after the notes laid that `n` may take: past the last one's written end (by at
+                    most `overlap`, as validate allows a tick), two ticks after its onset for the same key (one tick
+                    apart is refused)."""
+                    if not laid:return 0
+                    pn,pw,pd=laid[-1];return max(pw+pd-overlap,pw+(2 if pn['pitch']==n['pitch'] else 1))
+                for i,n in enumerate(order):
+                    begin,s1=span_of(n)
+                    if not before_cut(n) and n['on']*TPQ>=free(n,1)-1e-6:break  # from here on as the piece writes them
+                    lo,hi=own(n),latest(n);w=max(free(n),lo)
+                    while laid and lo<=hi<w:  # its timing cannot reach back so far: the note before ends sooner, or goes
+                        pn,pw,pd=laid[-1]
+                        if hi>=pw+(2 if pn['pitch']==n['pitch'] else 1):
+                            laid[-1][2]=hi-pw;w=hi;break
+                        if not before_cut(pn):break  # a note of the passage stays; this one plays a little late
+                        gone.add(pn['id']);laid.pop();w=max(free(n),lo)
+                    if before_cut(n):
+                        nxt=order[i+1] if i+1<len(order) else None
+                        reach=own(nxt) if nxt is not None else last_tick+1
+                        need=2 if nxt is not None and nxt['pitch']==n['pitch'] else 1  # the room free() asks of the next
+                        d=ticks_for(w,begin,s1,1)
+                        # Where that reaches the next note, it ends where that note begins, as before (at the longest gate
+                        # validate allows, so it may end sooner than in the piece), and the passage's notes keep their
+                        # places; only one written so close after the cut that it leaves no room goes after it, as far
+                        # as its played length needs at a gate of 1.6.
+                        if w+d>reach:d=reach-w if reach-w>=need else ticks_for(w,begin,s1,1.6)
+                    else:  # to its written end, within the gates validate allows (a note a retrigger trims plays short)
+                        d=min(max((n['on']+n['duration'])*TPQ-w,ticks_for(w,begin,s1,1.6)),ticks_for(w,begin,s1,.05))
+                    laid.append([n,w,min(d,max(1,length*TPQ-w))])
+                for n,w,d in laid:
+                    begin,s1=span_of(n);o=w/TPQ;n['on']=o;n['duration']=d/TPQ;spans[n['id']]=(o,s1,begin)
+                    perf['notes'][n['id']].update(timing_ms=min(100,max(-100,(begin-at(o)-offset)*1000)),
+                                                  gate=min(1.6,max(.05,(s1-begin)/(at(o+d/TPQ)-at(o)))))
+                notes=[n for n in notes if n['id'] not in gone];again-=gone;shifted-=gone
             # A part validate holds to one written line refuses notes that overlap as written by more than a tick, or
             # that start within a tick of each other.  A note the passage re-attacks or moves, its written length
             # stretched to play as long as in the piece, ends where the next note begins, at the longest gate validate

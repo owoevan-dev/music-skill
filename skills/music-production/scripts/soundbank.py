@@ -1081,7 +1081,7 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
 
 def _split_pitches(root):
     """Each note file's measured offset in cents from its name, from the manifest `split` wrote beside the notes."""
-    manifest = files.read_json(Path(root) / 'split.json')
+    manifest = files.read_object(Path(root) / 'split.json', 'a split manifest', needs=(('notes', list, 'the notes split cut'),))
     return {n['file'].replace('\\', '/'): n['cents'] for n in manifest['notes'] if n.get('cents') is not None}
 
 def _load_layer(layer, root, ffmpeg, loaded, receipt):
@@ -1141,7 +1141,8 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
         # it was split (the manifest stores it, rounded, so every build gets the same numbers).  A recording played
         # without pauses borrows the median, band by band, of the recordings of the same layer and dynamic that have
         # one (one session, one setup), or of all the layer's.
-        manifest = files.read_json(root / 'split.json')
+        manifest = files.read_object(root / 'split.json', 'a split manifest',
+                                     needs=(('notes', list, 'the notes split cut'), ('sources', list, 'the recordings it cut them from')))
         bands = {s['file']: s.get('noise_bands') for s in manifest['sources']}
         source_of = {n['file']: n['source'] for n in manifest['notes']}
         measured = {}
@@ -1546,7 +1547,7 @@ def main():
         # The notes and their manifest are made in a private folder that becomes the output only when all of them
         # are: a failure at any point, the manifest's write included, leaves no output folder.
         files.fresh(args.output, 'choose a new output folder')
-        manifest = files.read_json(args.manifest)
+        manifest = files.read_object(args.manifest, 'a cut manifest', needs=(('notes', list, 'the notes split cut, each with its source and span'),))
         staging = files.staging_folder(args.output)
         try:
             count = cut_sources(manifest, args.root, staging)
@@ -1560,7 +1561,9 @@ def main():
     if args.command == 'split':
         # As cut: made in a private folder that becomes the output only when every note and the manifest are written.
         files.fresh(args.output, 'choose a new output folder')
-        spec = files.read_json(args.spec)
+        spec = files.read_object(args.spec, 'a split spec', needs=(('split', dict, 'the recordings to split, as {"groups": [...]}'),))
+        if not isinstance(spec['split'].get('groups'), list):
+            raise ValueError(f'{args.spec}: a split spec needs "split": {{"groups": [...]}}, the groups of recordings to split')
         staging = files.staging_folder(args.output)
         try:
             manifest = split_sources(spec['split'], args.root, staging)
@@ -1577,7 +1580,8 @@ def main():
         raise ValueError('--output and --receipt name one file: the receipt would replace the bank; give each its own')
     # The bank and its receipt are published only where nothing has taken their names since they were found free:
     # a build takes minutes (GPT Pro's fourth review of 0.4.0).
-    receipt = build(files.read_json(args.spec), args.root, args.output, args.ffmpeg, new=True)
+    spec = files.read_object(args.spec, 'a bank spec', needs=(('presets', list, 'the presets the bank holds'),))
+    receipt = build(spec, args.root, args.output, args.ffmpeg, new=True)
     # Two names for one file that the paths do not show (a case-insensitive volume, a link not yet resolvable): the
     # receipt's path now holds the bank just built, which stays.
     if files.occupied(args.receipt):

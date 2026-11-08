@@ -95,7 +95,11 @@ def checks(work,config=None):
             p=example();change(p)
             try:validate(p);raise AssertionError(f'{place} of the wrong type passed validation')
             except ValueError as e:assert place in str(e),str(e)
-        return {'invalid_cases_rejected':29}
+        # A revision history of another type (revise stopped on it) and a huge integer in a small file (it raised
+        # OverflowError) are refused with a reason.  (Found by GPT Pro's fifth review of 0.4.0.)
+        p=example();p['revision_history']={};rejects(lambda:validate(p))
+        p=example();p['clock']['bars']=10**400;rejects(lambda:validate(p))
+        return {'invalid_cases_rejected':31}
     check('malformed_projects_rejected',invalid)
     def midi_roundtrip():
         p=example();path=work/'roundtrip.mid';routing=midi.write(p,path);m=midi.read(path);clock=Clock(p)
@@ -1790,7 +1794,23 @@ def checks(work,config=None):
             done=subprocess.run([sys.executable,str(here/'studio.py'),'configure','--fluidsynth',str(old/'fs.exe'),'--ffmpeg',str(old/'ff.exe'),
                                  '--soundfont',str(font),'--output',str(out)],capture_output=True,text=True)
             assert done.returncode==want and out.is_file()==(want==0),(font,done.returncode,done.stderr[-300:])
-        return {'named_bank':'still found','configure_refuses_a_file_that_is_no_bank':True}
+        # A spec, manifest or configuration that is no JSON object is refused with what it should be (a list stopped
+        # the command with a traceback); a configuration given as a link is not read through it (it was resolved
+        # first; both found by GPT Pro's fifth review of 0.4.0).
+        # An object without the fields each reads first is refused the same way (it raised KeyError).
+        (old/'list.json').write_text('[]',encoding='utf-8');(old/'empty.json').write_text('{}',encoding='utf-8');(old/'root').mkdir(exist_ok=True)
+        for doc,says in (('list.json','JSON object'),('empty.json','needs')):
+            for argv in (['soundbank.py','build',str(old/doc),'--root',str(old/'root'),'--output',str(new/'x.sf2'),'--receipt',str(new/'x.json')],
+                         ['soundbank.py','split',str(old/doc),'--root',str(old/'root'),'--output',str(new/'x_split')],
+                         ['soundbank.py','cut',str(old/doc),'--root',str(old/'root'),'--output',str(new/'x_cut')],
+                         ['fetch_soundbanks.py','--config',str(old/doc),'--runtime',str(new/'rt'),'--output',str(new/'x_cfg.json'),'--offline']):
+                done=subprocess.run([sys.executable,str(here/argv[0]),*argv[1:]],capture_output=True,text=True)
+                assert done.returncode==2 and says in done.stderr and 'Traceback' not in done.stderr,(argv[1],doc,done.returncode,done.stderr[-300:])
+        linked_cfg=False
+        try:os.symlink(old/'config.json',old/'linked_config.json');linked_cfg=True
+        except (OSError,NotImplementedError):pass  # symbolic links need a privilege on Windows
+        if linked_cfg:assert rejects(lambda:audio.load_config(old/'linked_config.json'))
+        return {'named_bank':'still found','configure_refuses_a_file_that_is_no_bank':True,'linked_config_refused':linked_cfg}
     check('a_config_written_elsewhere_keeps_relative_banks',relative_banks)
     def short_downloads():
         import http.server,threading
@@ -2331,6 +2351,21 @@ def checks(work,config=None):
         # files and clean removed it; found by a probe of 0.4.0.)
         busy=d/'busy_run';busy.mkdir();save_json(busy/'report.json',{'a':1});(busy/'my_notes.txt').write_text('mine',encoding='utf-8')
         fs.register_tree(busy);assert list(fs.recorded(busy))==['report.json'],fs.recorded(busy)
+        # Nor a file put under a name the run wrote: what the run noted is the file as it was then (its device, inode,
+        # size and time), not the name (found by GPT Pro's fifth review of 0.4.0).
+        swapped=d/'swapped_run';swapped.mkdir();save_json(swapped/'report.json',{'tools':True});(swapped/'report.json').unlink()
+        (swapped/'report.json').write_text('{"the user": "wrote this"}',encoding='utf-8');fs.register_tree(swapped)
+        assert 'report.json' not in fs.recorded(swapped),fs.recorded(swapped)
+        # A run taking its own failed output away (an audition rendering again with a longer tail) removes what its
+        # record lists, and a file put there keeps the folder and the record (the whole folder went; same review).
+        own=d/'own_run';(own/'stems').mkdir(parents=True);save_json(own/'report.json',{'a':1});save_json(own/'stems'/'a.json',{'b':2})
+        fs.register_tree(own);(own/'stems'/'my_notes.txt').write_text('mine',encoding='utf-8')
+        assert not fs.remove_own(own) and (own/'stems'/'my_notes.txt').is_file() and fs.is_record(own/fs.RECORD) and not (own/'report.json').exists()
+        (own/'stems'/'my_notes.txt').unlink();(own/'stems'/fs.RECORD).write_text('{"mine": true}',encoding='utf-8')  # no record
+        assert not fs.remove_own(own) and (own/'stems'/fs.RECORD).is_file() and fs.is_record(own/fs.RECORD)
+        (own/'stems'/fs.RECORD).unlink()
+        with fs.working(own):assert not fs.remove_own(own) and fs.is_record(own/fs.RECORD)  # another run holds it
+        assert fs.remove_own(own) and not fs.occupied(own)
         # A record made with a relative folder, as a round or a review given a relative --output makes it, lists the
         # files: each was taken from the folder a second time and nothing was recorded.  (Found by the stress test.)
         here=os.getcwd();os.chdir(d)
@@ -2422,6 +2457,17 @@ def checks(work,config=None):
         assert rejects_with(FileExistsError,lambda:sf2.write(taken,'x',[{'name':'A4','data':tone,'rate':48000,'root':69}],[{'name':'i','global':{},'zones':[{'gens':{},'sample':0}]}],
                                                             [{'name':'x','bank':0,'program':0,'global':{},'zones':[{'gens':{},'instrument':0}]}],new=True))
         assert taken.read_bytes()==b'theirs'
+        # On POSIX, a published output whose temporary name cannot then be removed is still noted as the run's (it
+        # was not, and went unrecorded; found by GPT Pro's fifth review of 0.4.0).
+        out=d/'linked_out.json';src=d/'linked_out.src';src.write_text('{}',encoding='utf-8');real_unlink=os.unlink
+        def stuck(path,*a,**k):
+            if Path(path)==src:raise OSError(errno.EIO,'storage failure')
+            return real_unlink(path,*a,**k)
+        shim=types.SimpleNamespace(**{k:getattr(os,k) for k in dir(os) if not k.startswith('__')});shim.name,shim.unlink='posix',stuck
+        real_os=fs.os;fs.os=shim
+        try:assert rejects_with(OSError,lambda:fs.publish_new(src,out))
+        finally:fs.os=real_os
+        assert out.is_file() and fs.written_here(out)
         return {'writers':sorted(writers),'refused_rename_retried':os.name=='nt','reservation_removed':True,'bank_not_over_a_taken_name':True}
     check('writers_leave_whole_files_when_a_write_fails',writers_leave_whole_files_when_a_write_fails)
     def run_stops_its_program_when_stopped():
@@ -2895,7 +2941,30 @@ def checks(work,config=None):
             c=Clock(project);y,_=production.gate(np.ones((int(seconds*48000),2)),project['tracks'][0],c);return float(y[int(c.seconds(beat)*48000),0])
         for beat in (.1,.3,.6,1.6,3.1):
             assert abs(gain(gated,4+beat,4)-gain(q,beat,2))<1e-3,(beat,gain(gated,4+beat,4),gain(q,beat,2))
-        return {'cases':21}
+        # From GPT Pro's fifth review of 0.4.0: after a same-key move, a note of the passage keeps its length (the
+        # one-line pass cut it by the written order, 500 to 25 ms); a note that sounds one tick after a change of tempo
+        # stays (a tick at the excerpt's first tempo was the test).
+        for engine,extra in (('additive',{}),('soundfont',{'legato':{'mode':'slur'},'bend_range':12})):
+            src=line(engine,120,[(60,3.95,.04,50,.5),(60,4,1,100,1)],**extra);validate(src)
+            q=extract(copy.deepcopy(src),2,1);validate(q)
+            want=next((x['tick']-4*TPQ,x['end_tick']-4*TPQ) for x in performed(src['tracks'][0],Clock(src),True) if x['id']=='n1')
+            got=next((x['tick'],x['end_tick']) for x in performed(q['tracks'][0],Clock(q),True) if x['id']=='n1')
+            assert got==want,(engine,got,want)
+        fast=line('soundfont',60,[(64,4.0,4/TPQ,0,1),(64,4+2/TPQ,.25,0,1)]);fast['clock']['tempo']=[[0,60],[4,120]];validate(fast)
+        q=extract(copy.deepcopy(fast),1,2);assert {'n0','n1'}<={n['id'] for n in q['tracks'][0]['notes']},q['tracks'][0]['notes']
+        for engine,extra in (('additive',{}),('soundfont',{'legato':{'mode':'slur'},'bend_range':12})):  # and held to one line
+            fast=line(engine,60,[(64,4.0,2/TPQ,0,1),(64,4+2/TPQ,.25,0,1)],**extra);fast['clock']['tempo']=[[0,60],[4,120]];validate(fast)
+            q=extract(copy.deepcopy(fast),1,2);assert {'n0','n1'}<={n['id'] for n in q['tracks'][0]['notes']},(engine,q['tracks'][0]['notes'])
+        # A pickup written before the cut and played inside the passage's first note is written before it, as in the
+        # piece, of another key or the same: both play their ticks (the pickup was left out, or cut to 2 of 9 ticks).
+        for engine,extra in (('additive',{}),('soundfont',{'legato':{'mode':'slur'},'bend_range':12})):
+            for pitch in (64,67):
+                src=line(engine,120,[(pitch,3.99,.01,20,1),(67,4,1,0,1)],**extra);validate(src)
+                q=extract(copy.deepcopy(src),2,1);validate(q)
+                want={x['id']:(x['tick']-4*TPQ,x['end_tick']-4*TPQ) for x in performed(src['tracks'][0],Clock(src),True)}
+                got={x['id']:(x['tick'],x['end_tick']) for x in performed(q['tracks'][0],Clock(q),True)}
+                assert got==want,(engine,pitch,got,want)
+        return {'cases':30}
     check('excerpt_keeps_the_piece_at_its_edges',excerpt_keeps_the_piece_at_its_edges)
     def tick_rounding_is_stable():
         # A position within float error of a half tick takes the even tick, from either side, as round() does at an
@@ -3118,6 +3187,9 @@ def checks(work,config=None):
             assert failed['part']==ids[1] and failed['error']==f'{ids[1]} failed first',failed
             assert set(reached)<=set(ids),reached  # the parts waiting behind the two never started
             assert not fs.occupied(work/'render_two_failures'/fs.WORK_LOCK)
+            # Every file a render writes is recorded as its own, a failed one's too: removing its own output (as an
+            # audition does before it renders again) leaves nothing (GPT Pro's fifth review of 0.4.0).
+            assert fs.remove_own(work/'render_two_failures') and not fs.occupied(work/'render_two_failures')
             # A part the first failure stopped (Cancelled), submitted before it, does not take its place in the report,
             # however late the render looks: it did once both had ended by then (found by GPT Pro's fourth review).
             second_failed.clear();real_wait=rd.wait
@@ -3137,7 +3209,28 @@ def checks(work,config=None):
             finally:rd.process_stem,rd.wait=real,real_wait
             failed=json.loads((work/'render_stopped_first'/'report.json').read_text(encoding='utf-8'))['failed']
             assert failed['part']==ids[1] and failed['error']==f'{ids[1]} failed first',failed
-            return {'no_lock_left':True,'changed_file_refused':True,'held_folder_refused':True,'failed_part':failed['part']}
+            # The files made from the master stop together: the first to fail (the FLAC here, beside a slow MP3) stops
+            # the program the other runs, and the render ends on its error at once (they ran to their end, and the
+            # failure waited for the MP3 before it; GPT Pro's fifth review of 0.4.0 and the test of its fix).
+            real_ffmpeg=audio.ffmpeg;slow=threading.Event();ended={}
+            def outputs(cfg_,args,folder,label):
+                if label=='mp3':
+                    slow.set()
+                    try:return audio.run([sys.executable,'-c','import time;time.sleep(120)'],folder,'mp3_slow')
+                    finally:ended['mp3']=time.monotonic()
+                if label=='flac':
+                    slow.wait(60);time.sleep(.5);ended['flac']=time.monotonic();raise RuntimeError('flac failed')
+                return real_ffmpeg(cfg_,args,folder,label)
+            audio.ffmpeg=outputs
+            try:
+                try:
+                    render(work/'example.json',work/'render_outputs_stop',config,cache);raise AssertionError('the failure went unnoticed')
+                except RuntimeError as e:assert str(e)=='flac failed',e
+            finally:audio.ffmpeg=real_ffmpeg
+            assert ended['mp3']-ended['flac']<10 and not (work/'render_outputs_stop'/'logs'/'mp3_slow.process.json').exists(),ended
+            assert fs.remove_own(work/'render_outputs_stop')  # the stopped program's log is the run's too
+            return {'no_lock_left':True,'changed_file_refused':True,'held_folder_refused':True,'failed_part':failed['part'],
+                    'outputs_stopped_after_s':round(ended['mp3']-ended['flac'],2)}
         check('render_folder_is_its_own_run',render_folder_is_its_own_run)
         def local_edit():
             q=copy.deepcopy(p);q['tracks'][0]['notes'][0]['pitch']+=2;save_json(work/'edited.json',q)

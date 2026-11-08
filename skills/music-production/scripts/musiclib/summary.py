@@ -94,9 +94,9 @@ def review(r, folder):
 def render(report, folder):
     """The status and failed checks, the master against its target, limiting per section, what was made again."""
     m, mastering = report['master'], report.get('mastering') or {}
-    stages = report.get('stage_seconds') or {}
+    stages = ', '.join(f'{k} {v:.1f}' for k, v in (report.get('stage_seconds') or {}).items() if v >= 1)
     lines = [f'Render{" (draft)" if report.get("draft") else ""} of {report["title"]}: {report["status"]} in '
-             f'{report["runtime_seconds"]:.1f} s (' + ', '.join(f'{k} {v:.1f}' for k, v in stages.items() if v >= 1) + ').']
+             f'{report["runtime_seconds"]:.1f} s' + (f' ({stages})' if stages else '') + '.']
     target = mastering.get('target_lufs')
     lines.append(f'Master: {m["integrated_lufs"]:g} LUFS' + (f' (target {target:g})' if target is not None else '') +
                  f', true peak {m["true_peak_dbtp"]:g} dBTP, loudness range {m["lra_lu"]:g} LU.')

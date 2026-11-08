@@ -20,6 +20,8 @@ python <skill>/scripts/bootstrap.py --runtime <work>/.runtime --config <work>/lo
 
 This downloads the pinned FluidSynth 2.6.1 (2.7 MB) and FFmpeg 9.0.2 essentials (115 MB) builds from their official GitHub releases and the MuseScore MS Basic SF3 (51 MB) from a pinned MuseScore commit. Every size and SHA-256 must match `runtime-lock.json`, or installation stops. Nothing runs an installer or changes the registry or PATH. With the archives already downloaded, add `--archive-cache <folder> --offline`.
 
+Folder names may hold any characters and spaces: the setup, a render with Surge XT parts and the selfcheck were run in folders whose names held Chinese characters, spaces and 喆, which code page 950 lacks (Python on Traditional Chinese Windows writes piped output in that page), and the scripts print a character their output cannot hold as an escape (`喆`). Keep the runtime folder's path, and each piece's, under 120 characters: Windows limits a path to 260 characters unless long paths are turned on and the program opts in (Microsoft, [Maximum Path Length Limitation](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation)), FluidSynth 2.6.1 does not opt in, and the setup writes files up to 133 characters below the runtime folder (our measurement).
+
 ## Linux and macOS
 
 Install the tools from your package manager, then bootstrap with `--system`:

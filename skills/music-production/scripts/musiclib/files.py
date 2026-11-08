@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import stat
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -24,6 +25,16 @@ NAME_SURROGATE = 0x20000000
 RECORD = 'files.json'
 KIND = 'music-production files'
 MAX_RECORD = 64_000_000  # the largest record read, as a project file's limit (model.load_project)
+
+
+def escape_unprintable():
+    """Make a script print a character its output cannot encode as an escape (喆 as \\u5586), not stop on it.  On
+    Windows, Python writes to a pipe or a file, as an agent reads a script's output, in the ANSI code page (Python
+    documentation, sys.stdout), and a folder or piece name can hold a character that page lacks: 喆 and 堃 are not in
+    code page 950, Traditional Chinese Windows' (Python's cp950 codec).  stderr already escapes so (Python gives it the
+    backslashreplace handler); this does the same for stdout."""
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(errors='backslashreplace')
 
 
 def lstat(path):
@@ -123,17 +134,27 @@ def write_json(path, value):
         f.write(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False))
 
 
+def _record_value(record):
+    """What a record the tools wrote holds (a regular files.json of this kind), or None."""
+    if not regular_file(record) or lstat(record).st_size > MAX_RECORD:
+        return None
+    try:
+        value = json.loads(Path(record).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    return value if isinstance(value, dict) and value.get('kind') == KIND else None
+
+
 def recorded(folder):
     """The files a folder's record lists, {posix relative path: [size, mtime_ns]}; {} without a readable record."""
-    record = Path(folder) / RECORD
-    if not regular_file(record) or lstat(record).st_size > MAX_RECORD:
-        return {}
-    try:
-        value = json.loads(record.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return {}
-    listed = value.get('files') if isinstance(value, dict) and value.get('kind') == KIND else None
+    value = _record_value(Path(folder) / RECORD)
+    listed = value.get('files') if value else None
     return {k: v for k, v in listed.items() if isinstance(v, list) and len(v) == 2} if isinstance(listed, dict) else {}
+
+
+def is_record(path):
+    """Whether `path` is a record the tools wrote: a file named files.json alone is not one."""
+    return Path(path).name == RECORD and _record_value(path) is not None
 
 
 def has_record(folder):

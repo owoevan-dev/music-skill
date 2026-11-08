@@ -1932,6 +1932,18 @@ def checks(work,config=None):
         assert left.get('r_old/alt')=='another piece' and 'no record' in left.get('r_legacy',''),left
         again=clean(e,[e/'final'])  # what the first left is found again, and still not removed
         assert {Path(x['path']).as_posix() for x in again['listed']}=={'r_old','r_changed'} and not any(x['whole'] for x in again['listed']),again
+        # A round left in part (a file of the user's in its render) loses its review/ whole, the record with it; a file
+        # named as a record but not one (files.json in a folder of the user's, a project.json no record lists at a
+        # round's top) stays, so the round goes in part even when all else goes.  (Found by a clean-room run.)
+        kept_round=round_of(e/'r_kept','Song E',e/'song.json');(kept_round/'review').mkdir()
+        save_json(kept_round/'review'/'score_review.json',{});record.register(kept_round/'review',[kept_round/'review'/'score_review.json'])
+        (kept_round/'render'/'mine.txt').write_text('mine',encoding='utf-8')
+        named=round_of(e/'r_named','Song E',e/'song.json');(named/'mine').mkdir();(named/'mine'/record.RECORD).write_text('{}',encoding='utf-8')
+        save_json(named/'project.json',{'title':'Song E'})
+        r=clean(e,[e/'final'],remove=True);parts={Path(x['path']).as_posix():x for x in r['listed']}
+        assert not (kept_round/'review').exists() and (kept_round/'round.json').is_file() and (kept_round/'render'/'mine.txt').is_file(),r
+        assert (named/'mine'/record.RECORD).is_file() and (named/'project.json').is_file() and not (named/'render').exists(),r
+        assert not parts['r_named']['whole'] and {'r_named/mine/files.json','r_named/project.json'}<=set(parts['r_named']['kept_inside']),parts
         # A folder or a --keep given as a link is refused.
         assert not linked or (link(base/'root_link',proj) and rejects(lambda:clean(base/'root_link',[base/'root_link'/'final'])))
         assert not linked or (link(proj/'final_link',final) and rejects(lambda:clean(proj,[proj/'final_link'])))
@@ -1946,7 +1958,7 @@ def checks(work,config=None):
         finally:
             holder.wait(timeout=60);holder.stdout.close()
         assert [x['error'] for x in held['not_removed']]==['a render is using it'] and (d/'cache'/H('4')).is_dir(),held
-        return {'records_by_name_alone_kept':True,'link_not_followed':linked,'linked_record_kept':symlinked,'other_piece_left_alone':True,'renamed_piece_cleaned':True,'unrecorded_files_kept':True,'held_entry_kept':True}
+        return {'records_by_name_alone_kept':True,'link_not_followed':linked,'linked_record_kept':symlinked,'other_piece_left_alone':True,'renamed_piece_cleaned':True,'unrecorded_files_kept':True,'held_entry_kept':True,'emptied_review_removed':True,'files_named_as_records_kept':True}
     check('clean_removes_only_what_the_tools_made',clean_only_what_the_tools_made)
     def files_never_overwrite_or_write_through():
         # Outputs never take an occupied path, a dangling link included; a write swaps a new file in, so a hard link at
@@ -2028,6 +2040,22 @@ def checks(work,config=None):
         assert r['before']=='../../r1/render' and r['after']=='.' and r['clip']['file']=='../clip.mp3',r
         return {'relative':True}
     check('shared_reports_name_folders_relatively',shared_reports_name_folders_relatively)
+    def scripts_escape_what_their_output_cannot_show():
+        # On Windows a script's output read through a pipe, as an agent reads it, is written in the ANSI code page
+        # (Python documentation, sys.stdout), which lacks characters some folder names hold (喆 is not in code page 950):
+        # every script that prints escapes them instead of stopping.  PYTHONIOENCODING=ascii makes any system's pipe
+        # such a page.  (Found by setting the skill up in a folder named with 喆.)
+        import subprocess,sys
+        here=Path(__file__).resolve().parent
+        printing=[s.name for s in sorted(here.glob('*.py')) for t in [s.read_text(encoding='utf-8')] if "__name__=='__main__'" in t.replace(' ','') and 'print(' in t]
+        missing=[n for n in printing if 'escape_unprintable()' not in (here/n).read_text(encoding='utf-8')]
+        assert len(printing)>=7 and not missing,(printing,missing)
+        out=work/'console_喆'/'song.json';out.parent.mkdir()
+        run=subprocess.run([sys.executable,str(here/'make_example.py'),'--output',str(out)],capture_output=True,timeout=120,
+                           env={**os.environ,'PYTHONIOENCODING':'ascii'},creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+        assert run.returncode==0 and b'console_\\u5586' in run.stdout and out.is_file(),(run.returncode,run.stdout[-300:],run.stderr[-500:])
+        return {'printing_scripts':len(printing),'escaped':True}
+    check('scripts_escape_what_their_output_cannot_show',scripts_escape_what_their_output_cannot_show)
     def pedalboard_checked_against_its_record():
         # pedalboard runs Surge in this process's Python, so it must be the files pip installed: each file the RECORD
         # lists with its SHA-256 and size, no code file it does not list, and the RECORD bootstrap saw.
@@ -2868,11 +2896,12 @@ def checks(work,config=None):
     save_json(work/'selfcheck_report.json',report);return report
 
 if __name__=='__main__':
+    import sys
+    from musiclib import files
+    files.escape_unprintable()
     p=argparse.ArgumentParser();p.add_argument('--work',type=Path,required=True);p.add_argument('--config',type=Path);args=p.parse_args()
     # The checks write many files under fixed names, so the folder must be new or empty: a report there or not, what
     # it already holds is not theirs to overwrite.
-    import sys
-    from musiclib import files
     if files.linked(args.work) or (files.occupied(args.work) and (not args.work.is_dir() or any(args.work.iterdir()))):
         print(f'ERROR: --work {args.work} is not empty (or is a link); give a new or empty folder (the selfcheck writes many files there)',file=sys.stderr)
         sys.exit(2)

@@ -15,7 +15,8 @@ It is the one command that deletes, so it errs toward keeping (musiclib.files):
 - Inside such a folder only the files its record `files.json` lists, unchanged since the tools wrote them, are removed,
   as a build tool's clean removes only the outputs its build log lists (Ninja manual, the clean tool): a listening copy
   or notes put there stay, and the folder with them, and are listed.  A folder made before the tools kept that record
-  is left alone.  The records go last, when nothing else stays.
+  is left alone.  The records go last, when nothing else stays (a sub-folder's, such as a round's review/, when
+  nothing else stays in it), and a file is a record by what it holds: a file of the user's named files.json stays.
 - Only the kept renders' piece: a render, round or audition of another piece (another title, and for a round another
   project file) is left alone and listed, also inside a folder that goes; so is one whose piece cannot be read.
 - A cache entry goes only from a cache folder the kept renders use, only if it holds nothing but what renders write
@@ -163,11 +164,18 @@ def _plan(folder, kind, record, inner):
     folder = Path(folder)
     finished = kind == 'audition' and record.get('status', 'PASS') != 'FAIL' and _file(folder / 'audition.mp3')
     skip = set(inner) | ({folder / 'cache'} if kind == 'audition' else set())
-    records = {}
-    take, stay, size = [], [], 0
+    records = {folder: files.recorded(folder)}
+    take, stay, size, holders = [], [], 0, []
     for p in files.tree(folder, skip):
-        if p.name == files.RECORD or (p.parent == folder and p.name in TOP_RECORDS):
-            continue  # the records go last, when nothing else stays
+        # The records go last, when nothing else stays: the tools' files.json, and at the top what names the folder's
+        # tool and piece as its record lists it.  A file is no record by its name: a file of the user's so named stays.
+        if files.is_record(p):
+            if p.parent != folder:
+                holders.append(p.parent)  # a sub-folder's own record (a round's review/): it goes once nothing else is there
+            continue
+        own = records[folder].get(p.name) if p.parent == folder and p.name in TOP_RECORDS else None
+        if own is not None and files.unchanged(p, own):
+            continue
         if finished and p.parent == folder and p.name in AUDITION_KEEPS:
             stay.append(p)
             continue
@@ -185,16 +193,19 @@ def _plan(folder, kind, record, inner):
             size += files.lstat(p).st_size
         else:
             stay.append(p)
-    return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner}
+    return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner, 'holders': holders}
 
 
-def _empty_folders(folder, skip):
-    """Remove the folders under `folder` (deepest first, not following links, not entering `skip`) left empty."""
+def _empty_folders(folder, skip, holders=()):
+    """Remove the folders under `folder` (deepest first, not following links, not entering `skip`) left empty, and
+    those of `holders` (sub-folders with a record of their own) left holding nothing but that record."""
     for base, dirs, names in sorted(os.walk(folder, followlinks=False), key=lambda w: -len(Path(w[0]).parts)):
         base = Path(base)
         if base == folder or base in skip or any(s in base.parents for s in skip) or not _folder(base):
             continue
         with suppress(OSError):
+            if base in holders and [p.name for p in base.iterdir()] == [files.RECORD] and files.is_record(base / files.RECORD):
+                (base / files.RECORD).unlink()
             os.rmdir(base)
 
 
@@ -298,7 +309,7 @@ def clean(folder, keep, remove=False):
                 if plan['kind'] == 'audition':
                     with suppress(OSError):
                         (f / 'cache').rmdir()  # an audition's own cache, once its entries are gone
-                _empty_folders(f, skip)
+                _empty_folders(f, skip, plan['holders'])
                 goes_whole = whole(f) and not files.occupied(f / 'cache') if plan['kind'] == 'audition' else whole(f)
                 if goes_whole:
                     for p in files.tree(f, skip):

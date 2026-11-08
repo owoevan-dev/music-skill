@@ -320,7 +320,7 @@ def main():
     print('Saved',args.config.resolve())
 
 if __name__=='__main__':
+    files.escape_unprintable()
     try:main()
     except (ValueError,OSError) as e:
-        import sys
         print('ERROR:',e,file=sys.stderr);sys.exit(2)

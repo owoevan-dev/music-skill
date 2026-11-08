@@ -566,8 +566,7 @@ def delete_sources(lock, only, runtime, cache):
         print(f'Kept {len(kept) - 20} more files of that kind', flush=True)
 
 if __name__ == '__main__':
-    for stream in (sys.stdout, sys.stderr):
-        stream.reconfigure(errors='backslashreplace')
+    files.escape_unprintable()
     try:
         main()
     except (ValueError, OSError) as e:

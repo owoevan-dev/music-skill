@@ -1529,4 +1529,5 @@ def main():
     print(json.dumps(receipt['output'], ensure_ascii=False, indent=1))
 
 if __name__ == '__main__':
+    files.escape_unprintable()
     main()

@@ -25,7 +25,8 @@ def example():
     validate(p);return p
 
 if __name__=='__main__':
-    a=argparse.ArgumentParser();a.add_argument('--output',type=Path,required=True);args=a.parse_args()
     from musiclib import files
+    files.escape_unprintable()
+    a=argparse.ArgumentParser();a.add_argument('--output',type=Path,required=True);args=a.parse_args()
     files.fresh(args.output)
     save_json(args.output,example());print(args.output)

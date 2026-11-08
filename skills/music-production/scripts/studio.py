@@ -217,8 +217,7 @@ def main():
         validate(revised);save_json(args.output,revised);print(str(args.output));return
 
 if __name__=='__main__':
-    # A console that cannot show a character (a CJK title on a Western code page) gets an escape, not a crash.
-    for stream in (sys.stdout,sys.stderr):stream.reconfigure(errors='backslashreplace')
+    files.escape_unprintable()
     try:main()
     except KeyError as e:
         print('ERROR: missing field',e,file=sys.stderr);sys.exit(2)

@@ -145,7 +145,8 @@ def main():
     save_json(a.output,extract(load_project(a.project),a.first_bar,a.bars));print(a.output)
 
 if __name__=='__main__':
-    for stream in (sys.stdout,sys.stderr):stream.reconfigure(errors='backslashreplace')
+    from musiclib import files
+    files.escape_unprintable()
     try:main()
     except (ValueError,KeyError,OSError) as e:
         print('ERROR:',str(e),file=sys.stderr);sys.exit(2)

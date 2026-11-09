@@ -47,9 +47,11 @@ One entry per part: `track`, `cache_key` (its cache entry), `cache_hit` (raw syn
 `expressive` (crossfaded dynamics), `surge` (`rendered_with`, the fallback and why), `automation_points` (the
 automation, applied after the chain), `nearly_silent` (an audition's context part kept at its own level), `stage`
 (depth and early reflections), `production` (what each production tool did), `unlocked_cache` (the cache's drive could
-not lock the entry, so the part was made in the render's own `unlocked_cache/` folder and nothing was cached) and
-`seconds`: `waiting` (for another render's hold on the same cache entry, or for memory while other parts held it),
-`synthesis` and `processing`.
+not lock the entry, or the entry's folder could not be made there for want of permission, so the part was made in the
+render's own `unlocked_cache/` folder: none of the cache's files was read or written, and trying for the lock made at
+most the entry's folder and its `entry.lock`; the folder is the render's own, which `clean` takes with the render by
+its record, never as a cache) and `seconds`: `waiting` (for another render's hold on the same cache entry, or for
+memory while other parts held it), `synthesis` and `processing`.
 
 ## score_review.json (review)
 
@@ -134,20 +136,28 @@ even one that keeps its size and time. A folder copied elsewhere, rather than mo
 `clean` leaves it and `--resume` refuses it. Installed banks and tools keep one in the runtime folder: an installer
 replaces only what it recorded there and sets anything else aside as `<name>.replaced-<time>`.
 
-While a render works, its folder and each cache entry it writes also hold `files.journal`, appended line by line:
-each new file's name before the file is made and again once it is made (the render writes every file under a
-new name of its own and gives it its name when it is whole), and each file's size, time and number before it takes
-its name, as a database logs a change before it makes it (PostgreSQL documentation, Write-Ahead Logging). A killed
-render so leaves only files its record or its journal proves: `--resume` removes those half written and takes up the
-rest, and `clean` removes them with the recorded files. A name alone proves nothing, so a render killed in the
-instant between making a new file and noting it made leaves that file unproven: `--resume` names it and stops,
-and `clean` leaves it. A program the killed render had started (FluidSynth, FFmpeg, the
-Surge host) can run on to its end and hold its new file meanwhile, which Windows will not let go: that file stays,
-the journal naming it, until the next render or `clean` removes it. The journal goes when the render ends and its
-record lists everything. A cache entry keeps a `files.json` of its own, of what renders wrote in it, and `clean`
-removes an entry by it; an entry of 0.4.0, which has none, goes by the names renders gave their files, its key and
-its receipt, as before. A render killed before its first file, `render_input.json` (which names the piece too),
-leaves a folder `clean` cannot tell for a render's: it stays, and `--resume` takes it up.
+While a render works, its folder and each cache entry it writes also hold `files.journal`, appended line by line: each
+new file's name before the file is made and again, with its file number, once it is made (the render writes every file
+under a new name of its own and gives it its name when it is whole), and each file's size, time and number before it
+takes its name, as a database logs a change before it makes it (PostgreSQL documentation, Write-Ahead Logging). A
+killed render so leaves only files its record or its journal proves: `--resume` removes those half written and takes
+up the rest, and `clean` removes them with the recorded files. A name alone proves nothing: the journal proves the
+file it noted, by its number, so a file put later under a name it holds, a copy even, is not the render's, and a
+render killed in the instant between making a new file and noting it made leaves that file unproven. `--resume` names
+such a file and stops, and `clean` leaves it. A file the render made stays the render's whatever is written into it
+afterwards, as the programs it runs write their output into the file made for them: the temporary files of a render
+(`.<name>.<random part>`) are its working space, so copy elsewhere what a stopped render left under such a name and is
+worth keeping, before the next `--resume` or `clean`. A program the killed render had started (FluidSynth, FFmpeg, the
+Surge host) can run on to its end and hold its new file meanwhile, which Windows will not let go: that file stays, the
+journal naming it, until the next render or `clean` removes it. One case more leaves a file nothing proves: a
+`--resume` or `clean` run before such a program has opened its output removes the file the render made for it, and the
+program then makes another under that name (FluidSynth opens its output once its SoundFont is loaded: 0.1 to 6 seconds
+after it starts on the three banks we measured, on one machine). That file stays too, named, until it is removed by
+hand; the master is the same. The journal goes when the render ends and its record lists everything. A cache entry
+keeps a `files.json` of its own, of what renders wrote in it, and `clean` removes an entry by it; an entry of 0.4.0,
+which has none, goes by the names renders gave their files, its key and its receipt, as before. A render killed before
+its first file, `render_input.json` (which names the piece too), leaves a folder `clean` cannot tell for a render's:
+it stays, and `--resume` takes it up.
 
 ## What stays local
 

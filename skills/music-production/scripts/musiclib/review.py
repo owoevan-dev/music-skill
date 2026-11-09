@@ -635,9 +635,15 @@ def review(p,out,config=None):
     for t in p['tracks']:
         sp=t.get('surge') if t['engine']=='surge' else None
         if sp and 'glide_ms' in sp and 'velocity_to_cutoff' in sp:
+            # A note glides in when any note begun before it still sounds, not only the one just before it: a long
+            # note held under a short one is still down when the next begins (GPT's second re-review of 0.5, R06).
             ns=sorted(performed(t,clock),key=lambda n:(n['start_seconds'],n['pitch']))
-            slid=[b['id'] for a,b in zip(ns,ns[1:]) if a['start_seconds']+1e-6<b['start_seconds']<a['end_seconds']-1e-6]
-            if slid:summary['prompts'].append(f'{t["id"]}: {len(slid)} notes glide in from the note before ({", ".join(slid[:3])}{", ..." if len(slid)>3 else ""}); Surge XT keeps the velocity of the note a slide starts from, so velocity_to_cutoff does not accent them. End the note before one that must be accented (it then attacks), or let it slide unaccented.')
+            slid,down,began=[],float('-inf'),[]  # the latest end of the notes begun before; those begun with this one
+            for n in ns:
+                while began and began[0][0]+1e-6<n['start_seconds']:down=max(down,began.pop(0)[1])
+                if n['start_seconds']<down-1e-6:slid.append(n['id'])
+                began.append((n['start_seconds'],n['end_seconds']))
+            if slid:summary['prompts'].append(f'{t["id"]}: {len(slid)} note{"s" if len(slid)>1 else ""} glide{"" if len(slid)>1 else "s"} in from a note still sounding ({", ".join(slid[:3])}{", ..." if len(slid)>3 else ""}); Surge XT keeps the velocity of the note a slide starts from, so velocity_to_cutoff does not accent them. End every note still sounding before one that must be accented (it then attacks), or let it slide unaccented.')
     if config is not None:
         from . import surge
         if surge.installed(config):

@@ -216,4 +216,4 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 
 ## ライセンス
 
-コードとドキュメントは [MIT](LICENSE) です。サンプル曲の録音と楽曲は [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) でパブリックドメインに提供しています。サードパーティのツールと音源はそれぞれのライセンスのままで、このリポジトリには含めていません。ツールは配布元から、30 の音源はすべてこのプロジェクトのリリースからダウンロードします（25 は配布元のサンプルから構築したもの、5 は FreePats のファイルをそのまま詰め直したもの）。`skills/music-production/scripts/surge_host.py` は、動かす Surge XT と pedalboard と同じ GPL-3.0-or-later です。序曲の図はそのプロジェクトファイルからコードで描いたもので、ロゴの文字は Noto Serif TC（SIL Open Font License）をアウトライン化したものです。
+このプロジェクト自身のコードとドキュメントは [MIT](LICENSE) です。サードパーティのデータ、その測定値、引用した抜粋はそれぞれの条件のままで、[THIRD_PARTY.md](THIRD_PARTY.md) にまとめています。サンプル曲の録音と楽曲は [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) でパブリックドメインに提供しています。サードパーティのツールと音源はそれぞれのライセンスのままで、このリポジトリには含めていません。ツールは配布元から、30 の音源はすべてこのプロジェクトのリリースからダウンロードします（25 は配布元のサンプルから構築したもの、5 は FreePats のファイルをそのまま詰め直したもの）。`skills/music-production/scripts/surge_host.py` は、動かす Surge XT と pedalboard と同じ GPL-3.0-or-later です。序曲の図はそのプロジェクトファイルからコードで描いたもので、ロゴの文字は Noto Serif TC（SIL Open Font License）をアウトライン化したものです。

@@ -16,6 +16,7 @@ only delivery needs, master.flac, the MP3's decoded-loudness check and a game lo
 dry-run render processes everything but writes no output files (REAPER 6.30)."""
 import ast
 import contextlib
+import errno
 import json
 import math
 import os
@@ -218,11 +219,21 @@ def entry_lock(folder,wait=True,create=True):
     (fcntl.flock on POSIX, msvcrt.locking on Windows), which the system releases when the process ends.  Yields whether
     it is held; without `wait`, False at once when another holds it.  With `create` the entry's folder is made where it
     is missing, and a lock taken on a file that clean removed meanwhile is let go and taken afresh.  Where the drive
-    cannot lock, yields False: the render goes on, making the part in a folder of its own (unlocked_cache/ in the
-    render's folder) and leaving the shared cache alone."""
+    cannot lock, or the entry's folder or lock file cannot be made for want of permission (a cache this user may not
+    write, a read-only drive), yields False: the render goes on, making the part in a folder of its own
+    (unlocked_cache/ in the render's folder), and the shared cache's files are neither read nor written; taking the
+    lock may have made the entry's folder and its entry.lock there.  Any other failure to make the folder (a file
+    where it should be) is raised: it is no cache to work beside."""
     folder=Path(folder);lock=folder/'entry.lock'
     for _ in range(10):
-        if create:folder.mkdir(parents=True,exist_ok=True)
+        if create:
+            # Refused for want of permission, the folder is as unusable as one that cannot be locked: the same way out,
+            # where the failure had stopped the render (GPT's re-review of 0.5, RR03).  EROFS is a read-only file
+            # system (POSIX, errno.h), which Python raises as a plain OSError, not a PermissionError.
+            try:folder.mkdir(parents=True,exist_ok=True)
+            except OSError as e:
+                if not (isinstance(e,PermissionError) or e.errno==errno.EROFS):raise
+                yield False;return
         try:fd=os.open(lock,os.O_RDWR|os.O_CREAT,0o644)
         except FileNotFoundError:
             if create:continue  # clean removed the folder between the two calls: make it again
@@ -366,14 +377,19 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         found,listed=files.proofs(output),files.recorded(output)
         own=lambda x:files.unchanged(x,listed.get(files.relative(output,x),(-1,-1))) or files.proven(output,x,found)
         strays=[x for x in files.tree(output) if x.name not in (files.RECORD,files.JOURNAL) and not (x.parent==output and files.is_lock_file(x)) and not own(x)]
-        # A new file the journal named and never noted made: the render stopped in the instant between making it and
-        # noting it (on Windows about one hard kill in twenty, measured), or the making failed on a file already there.
-        # Said as such, so the user can tell it from a file of their own (GPT's review of 0.5, C01).
-        unmade=[x for x in strays if found[0].get(files.relative(output,x)) is False]
+        # A file under a name the journal gave a new file, which the journal cannot prove the render's.  Either it was
+        # named and never noted made: the render stopped in the instant between making it and noting it (8 of 212
+        # hard kills on Windows, measured), or the making failed on a file already there.  Or it is not the file
+        # noted made: a program the stopped render had started wrote it anew, or someone put it there since.  Said
+        # as such, without claiming the render made it, so the user can tell it from a file of their own (GPT's
+        # review of 0.5, C01, and its re-review, RR01).
+        unmade=[x for x in strays if files.relative(output,x) in found[0]]
         if strays and len(unmade)==len(strays):
-            raise ValueError(f'{output} holds new files the earlier render named but stopped before noting it had made '
-                             f'({", ".join(x.relative_to(output).as_posix() for x in strays[:5])}), so they cannot be proved its own; '
-                             'if you did not put them there, remove them and resume, or render into a new folder')
+            raise ValueError(f'{output} holds files under names the earlier render gave new files, which it cannot prove it made '
+                             f'({", ".join(x.relative_to(output).as_posix() for x in strays[:5])}): its journal has no note that the file was made, '
+                             'or the file there now is not the one it noted.  They may be the stopped render\'s, or have been there before, '
+                             'or been put there since, so they are kept; check where they came from, then remove them and resume, '
+                             'or render into a new folder')
         if strays:raise ValueError(f'{output} holds files the earlier render did not write, or that changed since '
                                    f'({", ".join(x.relative_to(output).as_posix() for x in strays[:5])}); move them away or render into a new folder')
         if files.regular_file(marker):
@@ -428,11 +444,13 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
           audio.check_cancel(t['id'])  # stopped while it waited: nothing is synthesized
           if held:entry.enter_context(files.journaled(folder))
           else:
-              # Where the drive cannot lock the entry (or clean took it from under the lock ten times), the part is
-              # made in a folder of this render's own, which its journal and record cover, and the shared cache is
-              # neither read nor written: unlocked, another render could drop the journal this one writes there, and
-              # each would record the other's files (GPT's review of 0.5, C04).  Nothing is cached for later renders.
-              folder=output/'unlocked_cache'/key;folder.mkdir(parents=True,exist_ok=True)
+              # Where the entry cannot be locked (a drive without locks, a cache this user may not write, or clean took
+              # it from under the lock ten times), the part is made in a folder of this render's own, which its journal
+              # and record cover, and the shared cache's files are neither read nor written: unlocked, another render
+              # could drop the journal this one writes there, and each would record the other's files (GPT's review of
+              # 0.5, C04).  Trying for the lock may have made the entry's folder and its entry.lock there, nothing
+              # else.  Nothing is cached for later renders.
+              folder=output/files.UNLOCKED_CACHE/key;folder.mkdir(parents=True,exist_ok=True)
               raw,receipt=folder/'raw.wav',folder/'receipt.json'
           check_entry(folder)
           # The entry keeps a record of its own (files.json), of what renders wrote in it, and a journal while one works

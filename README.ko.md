@@ -216,4 +216,4 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 
 ## 라이선스
 
-코드와 문서는 [MIT](LICENSE)입니다. 예제 녹음과 곡은 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)으로 퍼블릭 도메인에 공개합니다. 서드파티 도구와 음원은 각자의 라이선스를 따르며 이 저장소에는 포함하지 않습니다. 도구는 배포처에서, 음원 30종은 모두 이 프로젝트의 릴리스에서 내려받습니다(25종은 배포처의 샘플로 구성, 5종은 FreePats 파일을 그대로 다시 묶은 것). `skills/music-production/scripts/surge_host.py`는 그것이 실행하는 Surge XT, pedalboard와 같은 GPL-3.0-or-later입니다. 서곡 그림은 그 프로젝트 파일에서 코드로 그린 것이고, 로고의 글자는 Noto Serif TC(SIL Open Font License)를 아웃라인으로 바꾼 것입니다.
+이 프로젝트 자체의 코드와 문서는 [MIT](LICENSE)입니다. 서드파티 데이터, 그 측정값, 인용한 발췌문은 각자의 조건을 따르며 [THIRD_PARTY.md](THIRD_PARTY.md)에 정리되어 있습니다. 예제 녹음과 곡은 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)으로 퍼블릭 도메인에 공개합니다. 서드파티 도구와 음원은 각자의 라이선스를 따르며 이 저장소에는 포함하지 않습니다. 도구는 배포처에서, 음원 30종은 모두 이 프로젝트의 릴리스에서 내려받습니다(25종은 배포처의 샘플로 구성, 5종은 FreePats 파일을 그대로 다시 묶은 것). `skills/music-production/scripts/surge_host.py`는 그것이 실행하는 Surge XT, pedalboard와 같은 GPL-3.0-or-later입니다. 서곡 그림은 그 프로젝트 파일에서 코드로 그린 것이고, 로고의 글자는 Noto Serif TC(SIL Open Font License)를 아웃라인으로 바꾼 것입니다.

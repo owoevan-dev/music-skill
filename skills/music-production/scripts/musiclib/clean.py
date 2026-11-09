@@ -23,7 +23,8 @@ It is the one command that deletes, so it errs toward keeping (musiclib.files):
   there, and under its lock (render.entry_lock), so a render never loses an entry it is using.  An entry renders of 0.5
   wrote keeps its own record of them, and while a render works in it a journal (musiclib.files), so it goes by the
   files they prove; an entry of 0.4.0, which keeps neither, goes by the names renders gave their files, its key and its
-  receipt, as 0.4.0's clean took it.
+  receipt, as 0.4.0's clean took it.  A render's own unlocked_cache/ (its parts, made there where the shared cache
+  could not be locked) is no cache: it goes with the render's folder, by the render's record.
 - A run killed while it worked leaves a journal that proves the files it was writing: they go with the run's
   recorded files.
 - A render, round or audition at work holds its folder's lock (files.working), and clean takes the same lock on each
@@ -265,6 +266,21 @@ def _empty_folders(folder, skip, holders=(), stamps=None):
             os.rmdir(base)
 
 
+def _record_left(folder, last):
+    """Write a new record of the files that name a folder's tool and piece (`last`, as the plan found them) and are
+    still there, after the folder's record and journal went and one of them could not be removed: without it nothing
+    proved them the tools', and every later clean left the folder, naming them as files of the user's (GPT's re-review
+    of 0.5, RR02).  Only those the plan had found proven and that are the same files still (size, time and number) are
+    listed: nothing is looked for anew.  The record is made as a new file, so a files.json that is there (the folder's
+    own, not yet removed, or one someone put there meanwhile) is never written over; where it cannot be written, the
+    folder stays as it is."""
+    left = {p.name: was for p, was in last
+            if p.parent == folder and p.name in TOP_RECORDS and was is not None and files.unchanged(p, was)}
+    if left and not files.occupied(folder / files.RECORD):
+        with suppress(OSError, ValueError):
+            files.write_json(folder / files.RECORD, {'kind': files.KIND, 'files': left}, new=True)
+
+
 def _remove_entry(entry, report, rel):
     """A cache entry, under its lock: its files but the lock, then the lock file and the folder.  A render waiting for
     the lock finds the entry gone and takes it afresh (render.entry_lock).  The lock file is removed only where no
@@ -334,7 +350,13 @@ def clean(folder, keep, remove=False):
     folders = _folders(root)
     rel = lambda f: Path(f).relative_to(root).as_posix()
     units = {f: u for f in folders for u in [unit(f)] if u}
-    caches = {f.parent for f in folders if f.name in used and entry_record(f)}
+    # A folder named unlocked_cache is never a cache, though its folders are named by keys and hold a raw.wav and a
+    # receipt: where the shared cache could not be locked, a render made its parts there, in its own folder, under its
+    # work lock, and its record and journal cover them (render.entry_lock).  Taken for a cache because a kept render
+    # used one of its keys, its other parts were listed and removed by their names, under an entry lock no render
+    # holds there, while the render worked (GPT's second re-review of 0.5, R01).  They go with the render's folder,
+    # by its record.  The name alone decides, so the parts of a render clean cannot read as one stay too.
+    caches = {f.parent for f in folders if f.name in used and entry_record(f) and f.parent.name != files.UNLOCKED_CACHE}
     listed, left = {}, []
     for f, (kind, record) in units.items():
         if any(f == p or p in f.parents or f in p.parents for p in protected):
@@ -473,10 +495,16 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
                     if late:
                         raise OSError(f'{late[0].relative_to(f).as_posix()} appeared while clean ran; the folder stays with its records')
                     # The file that names the folder's tool goes last of all: one of the others that cannot be removed
-                    # leaves it, so the folder is still known for what it is.
-                    for p, _ in sorted(plan['last'], key=lambda e: e[0].parent == f and e[0].name in MARKERS):
-                        if files.regular_file(p):
-                            p.unlink()
+                    # leaves it, so the folder is still known for what it is.  Should one of these fail to go once the
+                    # record is gone (the marker itself, held open by another program), what is left of them is
+                    # recorded anew, so the next clean still knows it for the tools' (_record_left).
+                    try:
+                        for p, _ in sorted(plan['last'], key=lambda e: e[0].parent == f and e[0].name in MARKERS):
+                            if files.regular_file(p):
+                                p.unlink()
+                    except OSError:
+                        _record_left(f, plan['last'])
+                        raise
                     _empty_folders(f, set())
                     files.release(f, held.pop(f))  # its lock file goes last, then the folder
                     f.rmdir()

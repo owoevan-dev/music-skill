@@ -216,4 +216,4 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 ## 许可
 
-代码与文档采用 [MIT](LICENSE) 许可。示例的录音与乐曲以 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 贡献到公有领域。第三方工具和音色库保留各自的许可，不包含在这个仓库中：工具从发布者下载，三十个音色库都从本项目的 release 下载，其中二十五个用发布者的采样构建，五个是 FreePats 的原文件重新打包。`skills/music-production/scripts/surge_host.py` 采用 GPL-3.0-or-later，与它运行的 Surge XT 和 pedalboard 相同。序曲的那张图是程序直接从它的项目文件画出来的；logo 的文字是将 Noto Serif TC（SIL Open Font License）转为轮廓。
+本项目自己的代码与文档采用 [MIT](LICENSE) 许可；第三方数据、对它们的测量结果和引用的片段保留各自的条款，列在 [THIRD_PARTY.md](THIRD_PARTY.md)。示例的录音与乐曲以 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 贡献到公有领域。第三方工具和音色库保留各自的许可，不包含在这个仓库中：工具从发布者下载，三十个音色库都从本项目的 release 下载，其中二十五个用发布者的采样构建，五个是 FreePats 的原文件重新打包。`skills/music-production/scripts/surge_host.py` 采用 GPL-3.0-or-later，与它运行的 Surge XT 和 pedalboard 相同。序曲的那张图是程序直接从它的项目文件画出来的；logo 的文字是将 Noto Serif TC（SIL Open Font License）转为轮廓。

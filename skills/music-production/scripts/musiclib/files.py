@@ -8,14 +8,16 @@
   modification time when it was written.  Only what a record lists, and what is unchanged since, is ever removed, as a
   build tool's clean removes only the outputs its build log lists (Ninja manual, the clean tool).
 - While a run writes a folder (journaled), the folder keeps a journal of the run's writes, `files.journal`, appended
-  line by line, each line written whole: each new file's name before the file is made and again once it is made,
-  and each finished file's size, modification time and file number before it takes its name.  A run stopped at any
-  moment, killed even, then leaves only files the record or the journal proves the run's own, so a render takes the
-  folder up again (--resume) and clean removes it, as a database logs a change before it makes it and recovers from the
-  log after a crash (PostgreSQL documentation, Write-Ahead Logging).  One exception is kept on purpose: stopped in the
-  instant between making a new file and noting it made, a run leaves that file unproven, as a name noted before it is
-  made proves nothing (GPT's review of 0.5, C01); --resume names it and stops, and clean leaves it.  The journal goes once the
-  record lists everything.
+  line by line, each line written whole: each new file's name before the file is made and again, with the file's
+  number, once it is made, and each finished file's size, modification time and file number before it takes its name.
+  A run stopped at any moment, killed even, then leaves only files the record or the journal proves the run's own, so
+  a render takes the folder up again (--resume) and clean removes it, as a database logs a change before it makes it
+  and recovers from the log after a crash (PostgreSQL documentation, Write-Ahead Logging).  A proof is of a file, never
+  of a name: a file under a name the journal holds that is not the file the run made there (another number) is not
+  the run's (GPT's re-review of 0.5, RR01).  Two cases are left unproven on purpose, for --resume to name and stop on
+  and for clean to leave: a file the run made and was stopped before noting (a name noted before the file is made
+  proves nothing: GPT's review of 0.5, C01), and a file a program the stopped run had started wrote under one of its
+  names after the run's own was removed.  The journal goes once the record lists everything.
 - Links are never followed: a symbolic link, or a reparse point whose tag has the name-surrogate bit, which Microsoft
   defines for tags that stand for another named entity, as a junction's (mount point's) and a symbolic link's do
   (Reparse Point Tags, IsReparseTagNameSurrogate).  Tested with os.lstat, on every Python the skill runs on
@@ -49,6 +51,9 @@ MAX_PROJECT = 160_000_000
 MAX_DEPTH = 64
 WORK_LOCK = 'work.lock'  # held in a render, round or audition folder by the run writing it, and by clean
 LOCKS = (WORK_LOCK, 'entry.lock')  # a work lock's file, and a cache entry's (render.entry_lock)
+# In a render's folder, the parts it made itself where the shared cache could not be locked (render.entry_lock): the
+# render's own files, under its work lock, record and journal, and no cache to clean (clean.clean).
+UNLOCKED_CACHE = 'unlocked_cache'
 
 
 def escape_unprintable():
@@ -111,7 +116,18 @@ class _Journal:
         with self.lock:
             if self.fd is None:
                 self.fd = _open_journal(self.root / JOURNAL)
-            _write_all(self.fd, line)
+            try:
+                _write_all(self.fd, line)
+            except BaseException:
+                # A write that failed part way leaves a cut line.  The journal is closed, so the next line opens it
+                # anew and starts on a line of its own (_open_journal): written on after the cut one, it ran into it,
+                # and neither was read, the proof of the file the next one announced lost with them (GPT's second
+                # re-review of 0.5, R03: a render's report and its record are written after a failure, the journal
+                # still open).
+                fd, self.fd = self.fd, None
+                with contextlib.suppress(OSError):
+                    os.close(fd)
+                raise
 
     def close(self):
         with self.lock:
@@ -216,12 +232,13 @@ def _coming(src, dst):
 
 
 def proofs(folder):
-    """What the journal in `folder` proves: ({name: made} of the new files it named before they were made, made true
-    where it noted the file made, {name: [stamps]} of the files it noted as they took their names), by posix path
-    relative to the folder; nothing without a journal of the tools.  A cut last line (the run stopped as it wrote it),
-    or one nested too deeply to read, is passed over."""
+    """What the journal in `folder` proves: ({name: numbers} of the new files it named before they were made, with the
+    file numbers it noted for the files made under each name (none: named and never noted made), {name: [stamps]} of
+    the files it noted as they took their names), by posix path relative to the folder; nothing without a journal of
+    the tools.  A cut last line (the run stopped as it wrote it), or one nested too deeply to read, is passed over, and
+    so is a made line without a file number (0.5 before its release wrote those: its files stay, named by --resume)."""
     path = Path(folder) / JOURNAL
-    named, made, gone, stamps = set(), set(), set(), {}
+    named, made, gone, stamps = set(), {}, set(), {}
     if not is_journal(path):
         return {}, stamps
     with open(path, 'rb') as f:
@@ -238,27 +255,33 @@ def proofs(folder):
         if isinstance(entry.get('t'), str):
             named.add(entry['t'])
         elif isinstance(entry.get('c'), str):
-            made.add(entry['c'])  # made: the name was the run's
+            if number(entry.get('i')):
+                made.setdefault(entry['c'], set()).add(entry['i'])  # made: the file of that number is the run's
         elif isinstance(entry.get('x'), str):
             gone.add(entry['x'])  # a name found taken when it was to be made: someone else's, never the run's
         elif isinstance(entry.get('f'), str) and good(entry.get('s')):
             stamps.setdefault(entry['f'], []).append(entry['s'])
-    return {n: n in made for n in named - gone}, stamps
+    return {n: frozenset(made.get(n, ())) for n in named - gone}, stamps
 
 
 def proven(folder, path, found=None):
-    """Whether the file at `path`, in `folder`, is one the folder's journal proves a run's own: a new file whose name it
-    held before the file was made exclusively and noted made once it was, or a file it noted as it took its name,
-    unchanged since.  A name noted before the file is made proves nothing alone: making it may then fail on a file
-    someone else has there (GPT's review of 0.5, C01).  A made file's number is not held to: the program writing into
-    it may make the file anew (FluidSynth's output did on Windows), and the name was the run's.  `found` is
-    proofs(folder), read once by a caller looking at many files."""
+    """Whether the file at `path`, in `folder`, is one the folder's journal proves a run's own: the new file it made
+    exclusively under a name it held first, the same file still (its number, noted once it was made), or a file it
+    noted as it took its name, unchanged since.  A name noted before the file is made proves nothing alone: making it
+    may then fail on a file someone else has there (GPT's review of 0.5, C01).  Nor does a name noted made prove the
+    file there now: one put in its place since, a copy even, is another file with another number (GPT's re-review of
+    0.5, RR01; the name alone had proved it, on the belief that FluidSynth makes its output anew).  A made file's size
+    and time are not held to, as the run or a program it starts is still writing it.  Every writer of the tools keeps
+    the number of a file made first: FluidSynth -F, FFmpeg -y, Python's open('wb') and shutil.copyfile, measured on
+    NTFS with Python 3.10 and 3.13; what replaces a made file by a rename goes through replace, which notes its stamp.
+    The number is as good as the file system makes it: POSIX has the device and number identify a file among those
+    that exist (IEEE Std 1003.1, <sys/stat.h>), not that a deleted file's number is never given again; NTFS gave 2,000
+    different numbers to 2,000 files made and deleted under one name (our measurement).  `found` is proofs(folder),
+    read once by a caller looking at many files."""
     named, stamps = found if found is not None else proofs(folder)
     rel = _rel(folder, path)
-    if named.get(rel) and regular_file(path):
-        return True
     now = stamp(path)
-    return now is not None and now in stamps.get(rel, [])
+    return now is not None and (now[2] in named.get(rel, ()) or now in stamps.get(rel, []))
 
 
 def adopt(folder):
@@ -273,8 +296,9 @@ def adopt(folder):
     for p in tree(folder):
         rel = _rel(folder, p)
         if rel in named:
-            # Removed only where the journal noted it made (or its stamp as it took the name); a run stopped in the
-            # instant between making it and noting it leaves one it cannot prove, which stays for strays to name.
+            # Removed only where it is the file the journal noted made (or has the stamp noted as it took the name);
+            # a run stopped in the instant between making it and noting it leaves one it cannot prove, and so does a
+            # file of another number under the name: both stay for strays to name.
             if proven(folder, p, found):
                 with contextlib.suppress(OSError):
                     p.unlink()
@@ -285,8 +309,9 @@ def adopt(folder):
 
 
 def strays(folder, keep):
-    """The files under `folder` neither the run's records nor its journal account for: not the record, the journal or
-    the folder's lock, and not in `keep` (adopt) unchanged."""
+    """The files under `folder` that are not in `keep` (what adopt found to keep) unchanged, the record, the journal
+    and the folder's lock aside.  The journal is not read again here: a file adopt proved the run's and could not
+    remove (one a program holds open) is listed with those nothing accounts for."""
     folder = Path(folder)
     return [p for p in tree(folder) if p.name not in (RECORD, JOURNAL) and not (p.parent == folder and is_lock_file(p))
             and not unchanged(p, keep.get(_rel(folder, p), (-1, -1)))]
@@ -587,10 +612,10 @@ def _opened(fd):
 def new_file(dest, suffix='.part'):
     """A new, empty file beside `dest`, opened for writing: (descriptor, path).  It is created exclusively under a name
     no other run uses, as tempfile.mkstemp makes one (a random part, O_EXCL, retried when taken), and in a journaled
-    folder the journal holds its name before it is made and again once it is made: a run stopped at any moment leaves
-    no file of its own that the journal cannot name, and only one it noted made counts as the run's (proven).  Stopped
-    in the instant between making the file and noting it, the run leaves that one file unproven.  A name found taken is
-    noted as not the run's."""
+    folder the journal holds its name before it is made and again, with the file's number, once it is made: a run
+    stopped at any moment leaves no file of its own that the journal cannot name, and only the file it noted made
+    counts as the run's (proven).  Stopped in the instant between making the file and noting it, the run leaves that
+    one file unproven.  A name found taken is noted as not the run's."""
     dest = Path(dest)
     journal = _journal_for(dest)
     flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NOFOLLOW', 0)
@@ -606,7 +631,7 @@ def new_file(dest, suffix='.part'):
             continue
         try:
             if journal is not None:
-                journal.append({'c': _rel(journal.root, name)})
+                journal.append({'c': _rel(journal.root, name), 'i': os.fstat(fd).st_ino})
         except BaseException:
             os.close(fd)
             with contextlib.suppress(OSError):

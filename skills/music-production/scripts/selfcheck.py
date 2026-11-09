@@ -1292,8 +1292,14 @@ def checks(work,config=None):
         t['notes']=[{'id':'n1','on':0,'duration':1.25,'pitch':36},{'id':'n2','on':1,'duration':1,'pitch':41},{'id':'n3','on':3,'duration':1,'pitch':36}]
         t['performance']={'notes':{'n1':{'velocity':40,'gate':1},'n2':{'velocity':127,'gate':1},'n3':{'velocity':127,'gate':1}}}
         a['tracks']=[t];a.pop('harmony',None);r=review(a,work/'review_slid_accents')
-        said=[x for x in r['prompts'] if 'glide in' in x]
-        assert len(said)==1 and '(n2)' in said[0] and 'n3' not in said[0],said
+        said=[x for x in r['prompts'] if 'in from a note still sounding' in x]
+        assert len(said)==1 and '1 note glides in' in said[0] and '(n2)' in said[0] and 'n3' not in said[0],said
+        # A note begun while a long note from before still sounds glides in too, though the note just before it has
+        # ended: only that neighbour was looked at (GPT's second re-review of 0.5, R06).
+        t['notes']=[{'id':'long','on':0,'duration':4,'pitch':36},{'id':'short','on':1,'duration':.5,'pitch':40},{'id':'later','on':2,'duration':1,'pitch':43}]
+        t['performance']={'notes':{'long':{'velocity':40,'gate':1},'short':{'velocity':127,'gate':1},'later':{'velocity':127,'gate':1}}}
+        said=[x for x in review(a,work/'review_slid_under_a_long_note')['prompts'] if 'in from a note still sounding' in x]
+        assert len(said)==1 and '2 notes glide in' in said[0] and '(short, later)' in said[0],said
         return {'808':[p for p,_ in b808],'acid_with_slides':[p for p,s in acid if 'glide_ms' in s],'reverse':[p for p,_ in rev],'riser':[p for p,_ in rise]}
     check('surge_patch_takes_the_slide_and_accent_the_score_sets',surge_controls)
     def reverse_validation():
@@ -1618,6 +1624,15 @@ def checks(work,config=None):
         assert on(pompe)==sorted(beats+graces),on(pompe)  # before 1 and 3, across each change, not before the first beat
         vel={round(n['on'],3):n['velocity'] for n in pompe['notes']}
         assert all(vel[b]>vel[b-1] for b in range(1,16,2)) and all(vel[b-.125]<=vel[b] for b in range(2,16,2))
+        # Across a change the upstroke is of the chord it leads into, as the downstroke after it: in two bars, C6 then
+        # G6, the one before bar 2 (at 3.875) is G6's while C6 still sounds.  The times alone were checked (GPT's
+        # re-review of 0.5).
+        two=blocks.accompaniment(['C6','G6'],[4,4],seed=3,figure='pompe',complexity=0,intensity=.6,low=48,high=72,voices=4,push='none')
+        at=lambda t:sorted(n['pitch'] for n in two['notes'] if round(n['on'],3)==t);pcs=lambda t:{p%12 for p in at(t)}
+        c6,g6=(set(blocks.parse(c)['pcs']) for c in ('C6','G6'))
+        assert sorted({round(n['on'],3) for n in two['notes']}-set(range(8)))==[1.875,3.875,5.875],on(two)
+        assert all(len(at(g))==4 and at(g)==at(g+.125) for g in (1.875,3.875,5.875)),[at(g) for g in (1.875,3.875,5.875)]
+        assert pcs(1.875)==c6 and pcs(3.875)==pcs(5.875)==g6!=c6 and pcs(3.0)==c6,(pcs(1.875),pcs(3.875),pcs(5.875))
         batida=acc('batida')
         assert on(batida)==sorted(4*k+o for k in range(4) for o in (0,1,2.5)) and all(n['duration']==.5 for n in batida['notes'])
         rejects(lambda:blocks.accompaniment(chords,[6,8],seed=3,figure='batida',complexity=0,intensity=.6,low=48,high=72,voices=3,push='none'))
@@ -2645,6 +2660,36 @@ def checks(work,config=None):
         assert [x['error'] for x in held['not_removed']]==['a render is using it'] and (d/'cache'/H('4')).is_dir(),held
         # The dry run says so too: it listed the entry as one that goes (found by GPT Pro's third review of 0.4.0).
         assert [x['error'] for x in looked['not_removed']]==['a render is using it'] and not any(H('4') in x['path'] for x in looked['listed']),looked
+        # A render's unlocked_cache/ is its own, not a cache to clean: where the shared cache could not be locked the
+        # render made its parts there, under its work lock, and its record covers them.  A kept render using one of its
+        # keys made it a cache: its other parts were listed and removed by their names under an entry lock no render
+        # holds there, while the render worked, or from a render of another piece, and a part changed since went too
+        # (GPT's second re-review of 0.5, R01).  It goes with the render's folder, by the render's record.
+        def private(folder,title,keys):
+            made(folder,title,keys,recorded=False);own=[folder/n for n in ('render_input.json','project.json','stem_receipts.json','master.wav')]
+            for k in keys:entry(folder/'unlocked_cache',k);own+=[folder/'unlocked_cache'/k/'receipt.json',folder/'unlocked_cache'/k/'raw.wav']
+            record.register(folder,own);return folder
+        v_=work2/'song_v';made(v_/'final','Song V',[H('1'),H('2')])
+        for k in '126':entry(v_/'cache',H(k))
+        working=private(v_/'working','Song V',[H('1'),H('3')]);other=private(v_/'other','Another song',[H('1'),H('4')])
+        changed=private(v_/'changed','Song V',[H('1'),H('5')]);(changed/'unlocked_cache'/H('5')/'raw.wav').write_bytes(bytes(2001))
+        older=private(v_/'older','Song V',[H('1'),H('3')])
+        for k in '17':entry(v_/'loose'/'unlocked_cache',H(k))  # in a folder clean cannot read as a render: it stays too
+        code=('import sys;sys.path.insert(0,sys.argv[1]);from musiclib import files\n'
+              'with files.working(sys.argv[2]) as held:\n    print(held,flush=True);sys.stdin.readline()')
+        holder=subprocess.Popen([sys.executable,'-c',code,str(Path(__file__).resolve().parent),str(working)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+        try:
+            assert holder.stdout.readline().strip()=='True'
+            looked=clean(v_,[v_/'final']);r=clean(v_,[v_/'final'],remove=True)
+        finally:
+            holder.stdin.write('\n');holder.stdin.close();holder.wait(timeout=60);holder.stdout.close()
+        for x in (looked,r):
+            assert [Path(e['path']).as_posix() for e in x['listed'] if e['kind']=='cache entry']==['cache/'+H('6')],x['listed']
+            assert {Path(e['path']).as_posix() for e in x['left_alone']}=={'working','other'},x['left_alone']
+        parts=lambda f,keys:all(sorted(p.name for p in (f/'unlocked_cache'/k).iterdir())==['raw.wav','receipt.json'] for k in keys)
+        assert parts(working,[H('1'),H('3')]) and parts(other,[H('1'),H('4')]) and (changed/'unlocked_cache'/H('5')/'raw.wav').stat().st_size==2001
+        assert not older.exists() and not (v_/'cache'/H('6')).exists() and (v_/'cache'/H('1')/'raw.wav').is_file() and (v_/'cache'/H('2')/'raw.wav').is_file()
+        assert parts(v_/'loose',[H('1'),H('7')])
         # An entry's lock file goes only where no render can hold another by its name: a render that makes and holds
         # a new lock there the moment clean lets the entry go keeps it (on POSIX clean removed the name under the lock,
         # then again after letting go, which took the render's new lock away).  (Found by a review of 0.4.0.)
@@ -2771,10 +2816,41 @@ def checks(work,config=None):
         finally:Path.unlink=real_unlink
         assert all((stopped/n).is_file() for n in ('render_input.json','project.json')) and any(x['path']=='stopped' for x in r['not_removed']),(sorted(x.name for x in stopped.iterdir()),r['not_removed'])
         r=clean(s_,[s_/'final'],remove=True);assert not stopped.exists() and (s_/'final'/'master.wav').is_file(),r
-        return {'records_by_name_alone_kept':True,'journal_proved_marker_last':True,'link_not_followed':linked,'linked_record_kept':symlinked,'other_piece_left_alone':True,'renamed_piece_cleaned':True,'unrecorded_files_kept':True,'held_entry_kept':True,'emptied_review_removed':True,'files_named_as_records_kept':True,
+        # The marker itself may be the file that cannot be removed, the record and the journal gone before it: a new
+        # record of it alone is written, so the next clean knows it for the tools' and takes the folder.  Nothing had
+        # proved it, and every later clean left the folder, naming the marker as a file of the user's (GPT's re-review
+        # of 0.5, RR02).  A files.json someone puts there meanwhile is never written over: the folder then stays.
+        def marker_held(folder,meanwhile=None):
+            def held(self,*a,**k):
+                if self==folder/'render_input.json':
+                    if meanwhile:meanwhile()
+                    raise PermissionError(13,'held open by another program',str(self))
+                return real_unlink(self,*a,**k)
+            Path.unlink=held
+            try:return clean(folder.parent,[folder.parent/'final'],remove=True)
+            finally:Path.unlink=real_unlink
+        for proof in ('journal','record'):
+            t_=work2/f'song_t_{proof}';made(t_/'final','Song T');stopped=t_/'stopped'
+            if proof=='record':  # as a render of 0.5 leaves it: the marker names the piece
+                made(stopped,'Song T');save_json(stopped/'render_input.json',{'project_sha256':H('a'),'renderer_sha256':H('b'),'title':'Song T'})
+                record.register(stopped,[stopped/'render_input.json'])
+            else:
+                stopped.mkdir(parents=True)
+                with record.journaled(stopped):
+                    save_json(stopped/'render_input.json',{'project_sha256':H('a'),'renderer_sha256':H('b'),'title':'Song T'})
+                    save_json(stopped/'project.json',{'title':'Song T','tracks':[]})
+            was=record.stamp(stopped/'render_input.json');r=marker_held(stopped)
+            assert any(x['path']=='stopped' for x in r['not_removed']) and sorted(x.name for x in stopped.iterdir())==['files.json','render_input.json'],(proof,sorted(x.name for x in stopped.iterdir()),r['not_removed'])
+            assert record.recorded(stopped)=={'render_input.json':was},(proof,record.recorded(stopped))
+            r=clean(t_,[t_/'final'],remove=True);assert not stopped.exists() and (t_/'final'/'master.wav').is_file(),(proof,r)
+        u_=work2/'song_u';made(u_/'final','Song U');theirs=made(u_/'stopped','Song U')
+        r=marker_held(theirs,lambda:(theirs/'files.json').write_text('mine',encoding='utf-8'))
+        assert (theirs/'files.json').read_text(encoding='utf-8')=='mine' and (theirs/'render_input.json').is_file() and any(x['path']=='stopped' for x in r['not_removed']),r['not_removed']
+        r=clean(u_,[u_/'final'],remove=True);assert (theirs/'files.json').read_text(encoding='utf-8')=='mine' and (theirs/'render_input.json').is_file(),r
+        return {'records_by_name_alone_kept':True,'journal_proved_marker_last':True,'held_marker_recorded_anew':True,'link_not_followed':linked,'linked_record_kept':symlinked,'other_piece_left_alone':True,'renamed_piece_cleaned':True,'unrecorded_files_kept':True,'held_entry_kept':True,'emptied_review_removed':True,'files_named_as_records_kept':True,
                 'deep_folder_kept_its_piece':True,'audition_cache_file_named':True,'record_changed_meanwhile_kept':True,'holding_folder_held':True,
                 'junction_not_walked':junction,'open_entry_named':True,'nested_record_changed_kept':True,'late_file_kept_with_records':True,
-                'dry_run_lets_entry_locks_go':True,'nested_26_units_s':round(nested_s,2),'kept_receipts_bounded':True}
+                'dry_run_lets_entry_locks_go':True,'nested_26_units_s':round(nested_s,2),'kept_receipts_bounded':True,'unlocked_cache_is_the_renders':True}
     check('clean_removes_only_what_the_tools_made',clean_only_what_the_tools_made)
     def cache_entries_by_their_record():
         # A cache entry renders of 0.5 write keeps its own record (files.json) and, while one works in it, a journal:
@@ -2987,16 +3063,35 @@ def checks(work,config=None):
         assert not fs.proven(d,d/'.e.json.000000000000.part') and fs.strays(d,fs.adopt(d))
         # A name alone proves nothing: the line goes before the file is made, which may then fail on a file someone else
         # has there, and a run stopped before noting the file made leaves the name alone.  Such a file stays, and is
-        # named (GPT's review of 0.5, C01).  A file noted made is the run's even when the program writing into it makes
-        # it anew under another file number, as FluidSynth's output did on Windows.
+        # named (GPT's review of 0.5, C01).
         d=base/'named_only';d.mkdir()
         with fs.journaled(d) as j:j.append({'t':'notes.txt'})
         (d/'notes.txt').write_text('mine',encoding='utf-8')
         keep=fs.adopt(d);assert not fs.proven(d,d/'notes.txt') and (d/'notes.txt').is_file() and fs.strays(d,keep)==[d/'notes.txt']
-        d=base/'made_then_remade';d.mkdir()
+        # Nor does a name noted made prove the file there now: the proof is of the file the run made, by its number.
+        # Written into, as a program writes its output or Python's open does, it is the same file and the run's.  A file
+        # put under the name since (a copy of it even, or the file moved away and another made there) is not: it stays,
+        # named, through adopt and remove_own, and so does a file under a made line that carries no number.  (GPT's
+        # re-review of 0.5, RR01: the name alone had proved whatever file was there.)
+        d=base/'made_then_written';d.mkdir()
         with fs.journaled(d):x=fs.stage_name(d/'f.wav','.wav')
-        assert fs.proven(d,x);shutil.copy(x,d/'f.copy');os.replace(d/'f.copy',x)
+        assert fs.proven(d,x)
+        with open(x,'wb') as f:f.write(bytes(1000))
         assert fs.proven(d,x) and not fs.strays(d,fs.adopt(d)) and not x.exists()
+        d=base/'made_then_replaced';d.mkdir()
+        with fs.journaled(d):x=fs.stage_name(d/'f.wav','.wav')
+        shutil.copy2(x,d/'f.copy');os.replace(d/'f.copy',x)
+        keep=fs.adopt(d);assert not fs.proven(d,x) and x.is_file() and fs.strays(d,keep)==[x]
+        assert not fs.remove_own(d) and x.is_file() and (d/fs.JOURNAL).is_file()
+        d=base/'made_then_moved';d.mkdir()
+        with fs.journaled(d):x=fs.stage_name(d/'f.wav','.wav')
+        os.replace(x,base/'moved_away.wav');x.write_text('mine',encoding='utf-8')
+        keep=fs.adopt(d);assert not fs.proven(d,x) and x.read_text(encoding='utf-8')=='mine' and fs.strays(d,keep)==[x]
+        assert not fs.remove_own(d) and x.read_text(encoding='utf-8')=='mine' and (base/'moved_away.wav').is_file()
+        d=base/'made_without_number';d.mkdir();x=d/'.k.wav.000000000000.wav'
+        with fs.journaled(d) as j:j.append({'t':x.name});j.append({'c':x.name});j.append({'c':x.name,'i':True})
+        x.write_bytes(b'x')
+        assert fs.proofs(d)[0]=={x.name:frozenset()} and not fs.proven(d,x) and fs.strays(d,fs.adopt(d))==[x] and x.is_file()
         # A made file the run then replaces whole under its own name (write_wav swaps a finished file into a stage_name
         # file) is the run's by the stamp the journal noted as it took the name (a first fix took only the number).
         d=base/'made_then_rewritten';d.mkdir()
@@ -3016,6 +3111,20 @@ def checks(work,config=None):
         (d/fs.JOURNAL).write_bytes((d/fs.JOURNAL).read_bytes()+b'{"f":"cut')
         with fs.journaled(d):y=fs.stage_name(d/'h.wav','.wav')
         assert fs.proven(d,y) and fs.proven(d,d/'g.json')
+        # A write that fails part way closes the journal, so the next line opens it anew, on a line of its own: written
+        # on after the cut one it ran into it, and the file it announced went unproven (GPT's second re-review of 0.5,
+        # R03: a render writes its report and its record after a failure, the journal still open).
+        d=base/'failed_write';d.mkdir();fail=[False]
+        def failing(fd,data):
+            if fail[0]:fail[0]=False;real(fd,bytes(data)[:max(1,len(data)//2)]);raise OSError(5,'Input/output error')
+            return real(fd,data)
+        with fs.journaled(d):
+            x=fs.stage_name(d/'k.wav','.wav');fs.os.write=failing;fail[0]=True
+            try:rejects_with(OSError,lambda:fs.stage_name(d/'l.wav','.wav'))
+            finally:fs.os.write=real
+            y=fs.stage_name(d/'m.wav','.wav')
+        cut=[z for z in (d/fs.JOURNAL).read_text(encoding='utf-8').splitlines() if not z.endswith('}')]
+        assert len(cut)==1 and '.l.wav.' in cut[0] and fs.proven(d,x) and fs.proven(d,y) and sorted(p.name for p in d.iterdir())==sorted([fs.JOURNAL,x.name,y.name]),cut
         # A block journaling a folder inside another on the same folder leaves the outer journaling (GPT's review of
         # 0.5, C05), and a line nested too deeply to read is passed over, not a crash (C06).
         d=base/'nested';d.mkdir()
@@ -3026,8 +3135,15 @@ def checks(work,config=None):
         assert fs.proven(d,d/'i.json') and fs.proven(d,d/'j.json')
         (d/fs.JOURNAL).write_bytes((d/fs.JOURNAL).read_bytes()+b'['*100000+b'\n')
         assert fs.proven(d,d/'j.json')
+        # So is a whole line, its brackets closed, nested past MAX_DEPTH: the limit is this skill's, not the parser's
+        # (the open brackets above stop any parser).  The lines after it are read.
+        deep=b'{"f":"j.json","s":'+b'['*(fs.MAX_DEPTH+1)+b']'*(fs.MAX_DEPTH+1)+b'}\n'
+        (d/fs.JOURNAL).write_bytes((d/fs.JOURNAL).read_bytes()+deep)
+        with fs.journaled(d):y=fs.stage_name(d/'n.wav','.wav')
+        assert json.loads(deep) and rejects(lambda:fs.loads(deep.decode())) and fs.proven(d,d/'j.json') and fs.proven(d,y)
         return {'stops':len(stops),'every_stop_left_only_its_own':True,'half_written_removed':True,'copy_and_note_not_taken':True,
-                'a_name_alone_proves_nothing':True,'short_writes_finished':True,'nested_journal_kept':True}
+                'a_name_alone_proves_nothing':True,'a_made_name_proves_only_the_file_made':True,'short_writes_finished':True,
+                'nested_journal_kept':True}
     check('journal_proves_a_stopped_run',journal_proves_a_stopped_run)
     def writers_leave_whole_files_when_a_write_fails():
         # A write that fails part way, as on a full disk, leaves the file that was there whole and no temporary file:
@@ -3796,8 +3912,9 @@ def checks(work,config=None):
             assert first['stems_reused']==parallel['stems_reused']==0 and repeat['stems_reused']==len(p['tracks'])
             assert stems('render_first')==stems('render_repeat')==stems('render_parallel')
             # Where the drive cannot lock a cache entry, each part is made in the render's own folder and the shared
-            # cache is neither read nor written: unlocked, a render had dropped the journal another wrote there (GPT's
-            # review of 0.5, C04).  The master is the same.
+            # cache's files are neither read nor written (trying for the lock makes the entry's folder and entry.lock,
+            # nothing else): unlocked, a render had dropped the journal another wrote there (GPT's review of 0.5, C04).
+            # The master is the same.
             from musiclib import files as fs
             real_lock=fs.lock;fs.lock=lambda fd,wait:None
             try:unlocked=render(work/'example.json',work/'render_unlocked',config,work/'cache_unlocked')
@@ -3809,6 +3926,43 @@ def checks(work,config=None):
             assert not [x for x in fs.tree(work/'render_unlocked') if x.name==fs.JOURNAL],'every journal dropped once recorded'
             assert all(fs.unchanged(x,fs.recorded(work/'render_unlocked').get(fs.relative(work/'render_unlocked',x),(-1,-1)))
                        for x in fs.tree(work/'render_unlocked') if x.name!=fs.RECORD and not fs.is_lock_file(x))
+            # Those parts look like cache entries (a key's folder, raw.wav, a receipt naming the key), and clean takes
+            # none of them for one, though a kept render uses one of their keys: it listed the others to remove (GPT's
+            # second re-review of 0.5, R01; a dry run here, the cases that remove are with clean's).
+            from musiclib.clean import clean,entry_record
+            assert len(receipts)>1 and all(entry_record(work/'render_unlocked'/'unlocked_cache'/x['cache_key']) for x in receipts)
+            kept=work/'kept_one_part';kept.mkdir();save_json(kept/'render_input.json',{'project_sha256':'a'*64,'renderer_sha256':'b'*64})
+            save_json(kept/'project.json',{'title':'Kept one part','tracks':[]});save_json(kept/'stem_receipts.json',[{'track':'t','cache_key':receipts[0]['cache_key']}])
+            looked=clean(work,[kept])
+            assert not [x for x in looked['listed']+looked['not_removed'] if 'unlocked_cache' in Path(x['path']).parts],looked['listed']
+            # The same where an entry's folder cannot be made for want of permission (a cache this user may not write,
+            # a read-only drive): that failure had stopped the render (GPT's re-review of 0.5, RR03).  Nothing is made
+            # in the cache.  Any other failure to make the folder is raised as it was: a file where the entry should
+            # be, a full drive.
+            import errno
+            from musiclib.render import entry_lock
+            real_mkdir=Path.mkdir;denied_root=(work/'cache_denied').resolve();refusal=[PermissionError(errno.EACCES,'Permission denied')]
+            def refused(self,*a,**k):
+                if self.resolve().parent==denied_root:raise refusal[0]
+                return real_mkdir(self,*a,**k)
+            Path.mkdir=refused
+            try:
+                private=render(work/'example.json',work/'render_denied',config,work/'cache_denied')
+                refusal[0]=OSError(errno.EROFS,'Read-only file system')
+                with entry_lock(work/'cache_denied'/'read_only') as held:assert held is False
+                refusal[0]=OSError(errno.ENOSPC,'No space left on device')
+                try:
+                    with entry_lock(work/'cache_denied'/'full'):raise AssertionError('a full drive taken for a cache that cannot be locked')
+                except OSError as e:assert e.errno==errno.ENOSPC,e
+            finally:Path.mkdir=real_mkdir
+            receipts=json.loads((work/'render_denied'/'stem_receipts.json').read_text(encoding='utf-8'))
+            assert private['master']['sha256']==first['master']['sha256'] and all(x.get('unlocked_cache') for x in receipts),receipts[0]
+            assert (work/'cache_denied').is_dir() and not list((work/'cache_denied').iterdir()),'something was made in the cache'
+            in_the_way=work/'entry_is_a_file';in_the_way.write_text('mine',encoding='utf-8')
+            try:
+                with entry_lock(in_the_way):raise AssertionError('a file taken for a cache entry')
+            except FileExistsError:pass
+            assert in_the_way.read_text(encoding='utf-8')=='mine'
             # A draft is the same audio without what only delivery needs.
             draft=render(work/'example.json',work/'render_draft',config,cache,draft=True)
             assert draft['status']=='DRAFT_PASS' and draft['draft'] and draft['master']['sha256']==first['master']['sha256'],draft['status']
@@ -3969,18 +4123,42 @@ def checks(work,config=None):
                 if not fs.occupied(piece/'stopped'):break
                 time.sleep(1)
             assert not fs.occupied(piece/'stopped') and (piece/'kept'/'master.wav').is_file(),done
-            # Killed in the instant between making a new file and noting it made (about one hard kill in twenty on
-            # Windows), a render leaves that file unproven: --resume stops, naming it as a file the render named and
-            # never noted made; removed by the user, the resume goes on (GPT's review of 0.5, C01).
+            # Killed in the instant between making a new file and noting it made (8 of 212 hard kills on Windows,
+            # measured), a render leaves that file unproven: --resume stops, naming it as a file under a name the
+            # render gave a new file, which it cannot prove it made; removed by the user, the resume goes on (GPT's
+            # review of 0.5, C01).  The same for a file put in the place of one the render had noted made: it is
+            # another file, kept as it is, and clean leaves it with the folder's records (the re-review, RR01).
             w=work/'resume_unmade';r=kill('line',60,w,work/'cache_resume_unmade');assert r.returncode==9
             with fs.journaled(w) as j:j.append({'t':'logs/.mix.process.json.0123456789ab.part'})
             unmade=w/'logs'/'.mix.process.json.0123456789ab.part';unmade.write_text('{}',encoding='utf-8')
             try:render(work/'example.json',w,config,work/'cache_resume_unmade',resume=True);raise AssertionError('the unproven file went unnoticed')
-            except ValueError as e:assert 'stopped before noting' in str(e) and 'logs/.mix.process.json.0123456789ab.part' in str(e),str(e)
+            except ValueError as e:assert 'cannot prove it made' in str(e) and 'logs/.mix.process.json.0123456789ab.part' in str(e),str(e)
             assert unmade.is_file();unmade.unlink()
+            with fs.journaled(w):replaced=fs.stage_name(w/'logs'/'mix.process.json','.part')
+            (w/'theirs.tmp').write_text('theirs',encoding='utf-8');os.replace(w/'theirs.tmp',replaced)
+            try:render(work/'example.json',w,config,work/'cache_resume_unmade',resume=True);raise AssertionError('the replaced file went unnoticed')
+            except ValueError as e:assert 'cannot prove it made' in str(e) and fs.relative(w,replaced) in str(e),str(e)
+            assert replaced.read_text(encoding='utf-8')=='theirs'
+            twin=work/'clean_replaced';shutil.copytree(work/'render_first',twin/'kept')
+            fs.register_tree(twin/'kept',keep={x:fs.stamp(twin/'kept'/x) for x in fs.recorded(work/'render_first') if (twin/'kept'/x).is_file()})
+            r=kill('line',60,twin/'stopped',work/'cache_resume_unmade');assert r.returncode==9
+            with fs.journaled(twin/'stopped'):theirs=fs.stage_name(twin/'stopped'/'logs'/'mix.process.json','.part')
+            (twin/'theirs.tmp').write_text('theirs',encoding='utf-8');os.replace(twin/'theirs.tmp',theirs)
+            def left():return {fs.relative(twin/'stopped',x) for x in fs.tree(twin/'stopped')}-{fs.RECORD,fs.JOURNAL,fs.WORK_LOCK}
+            # The file left, and the files naming the folder a render's and its piece, which stay with a folder that stays.
+            only={fs.relative(twin/'stopped',theirs)}|{n for n in ('render_input.json','project.json') if (twin/'stopped'/n).is_file()}
+            assert 'render_input.json' in only,only
+            for _ in range(60):  # a program the killed render had started may hold its new file a while (above)
+                clean(twin,[twin/'kept'],remove=True)
+                if left()==only:break
+                time.sleep(1)
+            assert theirs.read_text(encoding='utf-8')=='theirs' and left()==only,left()
+            assert (twin/'stopped'/fs.JOURNAL).is_file() and (twin/'kept'/'master.wav').is_file(),'the journal naming the file left went'
+            replaced.unlink()
             again=render(work/'example.json',w,config,work/'cache_resume_unmade',resume=True)
             assert again['master']['sha256']==reference,again['master']['sha256']
-            return {'resumed_after':resumed,'same_master':True,'stopped_render_cleaned_whole':True,'unmade_file_named':True}
+            return {'resumed_after':resumed,'same_master':True,'stopped_render_cleaned_whole':True,'unmade_file_named':True,
+                    'replaced_file_named_and_kept':True}
         check('a_killed_render_resumes',killed_render_resumes)
         def local_edit():
             q=copy.deepcopy(p);q['tracks'][0]['notes'][0]['pitch']+=2;save_json(work/'edited.json',q)

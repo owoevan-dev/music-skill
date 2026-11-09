@@ -3945,14 +3945,16 @@ def checks(work,config=None):
             # The decodes the MP3 and Ogg checks make (a bus chain, a loop) are scratch files the journal names: a render
             # killed while one exists, just after FFmpeg's log for it took its name, is taken up too.  (Found by the
             # random-kill stress test of 0.5: preview_decoded.wav was written under its own name outside the journal, so
-            # a render killed while it existed could not be resumed.)
+            # a render killed while it existed could not be resumed.)  The Ogg copy needs FFmpeg's libvorbis encoder, which
+            # Homebrew's FFmpeg lacks: there the render makes no Ogg decode to be stopped at, only the MP3's (macOS in CI).
+            from musiclib import loop as loop_files
             q=copy.deepcopy(p);q['mix']['chain']='bus';q['loop']={'start_bar':0};save_json(work/'killed_bus_loop.json',q)
             named=('import os,sys;sys.path.insert(0,sys.argv[1]);from musiclib import files;from musiclib.render import render\n'
                    'swap=files._swap\n'
                    'def s(x,y):\n    swap(x,y)\n    if os.path.basename(y)==sys.argv[6]:os._exit(9)\n'
                    'files._swap=s;render(*sys.argv[2:6],jobs=1)')
             unbroken=render(work/'killed_bus_loop.json',work/'killed_bus_loop_unbroken',config,work/'cache_killed_bus_loop')
-            for label in ('decode_mp3.log','loop_ogg_decode.log'):
+            for label in ('decode_mp3.log',)+(('loop_ogg_decode.log',) if loop_files.has_vorbis(audio.load_config(config)) else ()):
                 out=work/f'killed_after_{label}'
                 r=subprocess.run([sys.executable,'-c',named,str(Path(__file__).resolve().parent),str(work/'killed_bus_loop.json'),str(out),str(config),str(work/'cache_killed_bus_loop'),label],capture_output=True,text=True)
                 assert r.returncode==9,(label,r.stderr[-800:])

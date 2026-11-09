@@ -157,12 +157,16 @@ PERSONAL = [re.compile(p) for p in (
 
 def repository_files():
     """The repository's own files: git's list in a checkout (a local .venv or render is not part of it), every file in
-    an unpacked archive."""
+    an unpacked archive, and in a tree git lists nothing of (an export not staged yet, whose files the tests checked
+    none of: an empty out.wav reached the export so)."""
     try:
         listed = subprocess.run(['git', 'ls-files', '-z'], cwd=ROOT, capture_output=True, check=True).stdout.decode('utf-8')
-        return [ROOT / f for f in listed.split('\0') if f]
+        files = [ROOT / f for f in listed.split('\0') if f]
+        if files:
+            return files
     except (OSError, subprocess.CalledProcessError):
-        return [p for p in ROOT.rglob('*') if p.is_file()]
+        pass
+    return [p for p in ROOT.rglob('*') if p.is_file() and not {'.git', '__pycache__', '.pytest_cache'} & set(p.relative_to(ROOT).parts)]
 
 
 def test_no_personal_data():
@@ -288,4 +292,4 @@ def test_selfcheck(tmp_path):
     assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-3000:]
     report = load(work / 'selfcheck_report.json')
     assert report['status'] == 'PASS' and all(c['passed'] for c in report['checks'])
-    assert len(report['checks']) == (136 if CONFIG else 109), [c['name'] for c in report['checks']]
+    assert len(report['checks']) == (148 if CONFIG else 119), [c['name'] for c in report['checks']]

@@ -53,6 +53,15 @@ def review(r, folder):
     lines = [f'Review of {r["title"]}: {count(len(r["tracks"]), "part")}, {count(len(r["sections"]), "section")}, '
              f'{count(len(r["prompts"]), "question")}.']
     lines += [f'{k}. {q}' for k, q in enumerate(r['prompts'], 1)] or ['No questions.']
+    st, lim = r.get('style'), r.get('limits') or {}
+    if st:
+        lent = ', '.join(f'{a} from {e}' for a, e in st['borrow'].items())
+        lines.append(f'Style: {st["primary"]}' + (f', borrowing {lent}' if lent else '') + '.')
+    if lim.get('ours'):
+        set_by = sorted({row['set_by'] for row in lim['checks'].values() if row['set_by']})
+        lines.append(f'Limits: {len(lim["ours"])} of the {len(lim["checks"])} checks use a number this project set itself, '
+                     f'not one from a source ({", ".join(lim["ours"])}); review.json lists each limit and its origin'
+                     + (f'; set by the style map: {", ".join(set_by)}' if set_by else '') + '.')
     where = []
 
     def notes(x):
@@ -97,9 +106,14 @@ def render(report, folder):
     stages = ', '.join(f'{k} {v:.1f}' for k, v in (report.get('stage_seconds') or {}).items() if v >= 1)
     lines = [f'Render{" (draft)" if report.get("draft") else ""} of {report["title"]}: {report["status"]} in '
              f'{report["runtime_seconds"]:.1f} s' + (f' ({stages})' if stages else '') + '.']
-    target = mastering.get('target_lufs')
+    target, ceiling = mastering.get('target_lufs'), mastering.get('true_peak_ceiling_dbtp')
     lines.append(f'Master: {m["integrated_lufs"]:g} LUFS' + (f' (target {target:g})' if target is not None else '') +
-                 f', true peak {m["true_peak_dbtp"]:g} dBTP, loudness range {m["lra_lu"]:g} LU.')
+                 f', true peak {m["true_peak_dbtp"]:g} dBTP' + (f' (ceiling {ceiling:g})' if ceiling is not None else '') +
+                 f', loudness range {m["lra_lu"]:g} LU.')
+    mp3 = report.get('mp3') or {}
+    if mp3.get('over_full_scale'):
+        lines.append(f'The MP3 decodes to a true peak of {mp3["mp3_true_peak_dbtp"]:+g} dBTP, above full scale: it can clip '
+                     'where it is decoded to fixed point. A lower target_lufs leaves the encoder room.')
     limiting = mastering.get('limiting_db') or {}
     if limiting:
         lines.append('Delivery limiting by section (dB): ' + ', '.join(f'{k} {max(v, 0.0) + 0.0:.1f}' for k, v in limiting.items()) + '.')
@@ -187,8 +201,16 @@ def compare(r, path):
         lines.append(s['note'])
     if 'clip' in r:
         c = r['clip']
-        lines.append('Clip: ' + ('not made, the masters do not differ' if c is None else
-                                 f'not made: {c["error"]}' if c.get('error') else f'{_rel(c["file"])}, old then new'))
+        if c is None:
+            # No passage to play: the masters are identical, or differ only by one gain (a level-only change was said
+            # to leave the masters alike: GPT Pro's eighth review of 0.4.0, Y04).
+            m = (r.get('files', {}).get('master') or {}).get('master') or {}
+            why = ('the masters are identical' if m.get('identical') else
+                   f'no passage differs once the levels are matched (the master moved {m["level_db"]:+.2f} dB as a whole)'
+                   if m.get('level_db') is not None else 'no passage of the masters differs')
+            lines.append(f'Clip: not made, {why}')
+        else:
+            lines.append('Clip: ' + (f'not made: {c["error"]}' if c.get('error') else f'{_rel(c["file"])}, old then new'))
     lines += [f'Warning: {w}' for w in r.get('warnings') or []]
     lines.append(f'Full figures: {_rel(path)}: files.<stems|buses|returns|premix|master>.<name> (passages with seconds and '
                  'bar:beat, level_db, difference_db), project_changes, synthesis.')

@@ -30,10 +30,10 @@ its `analysis.json`).
 | `draft`, `left_out` | whether it is a draft, and what a draft leaves out (master.flac, the MP3 check, a loop's Ogg copies and layers) |
 | `checks` | every delivery check, true or false: finite audio, no clipping, the true-peak ceiling, the exact length, 48 kHz 24-bit stereo, a quiet tail, the MIDI note count, the MP3's loudness, the buses and returns adding up to the premix, the loop's points and cues |
 | `master`, `premaster` | the delivered master and the mix before mastering: `integrated_lufs`, `true_peak_dbtp`, `lra_lu` (loudness range, EBU Tech 3342), `sample_peak_dbfs`, `clipped_samples`, `frames`, `seconds`, `sha256` |
-| `mastering` | the bus chain's record: `target_lufs`, `mixed` (after the master chain), `passes` (each delivery pass: gain, limiter ceiling, loudness, true peak), `limiting_db` (level the clipper and limiter took per section), `limiter_dbfs`; with `dynamics: "wide"` also `peak_held_db`, `lra_lu` and `range` |
+| `mastering` | the bus chain's record: `target_lufs`, `mixed` (after the master chain), `passes` (each delivery pass: gain, limiter ceiling, loudness, true peak), `limiting_db` (level the clipper and limiter took per section), `true_peak_ceiling_dbtp` (−1, or −2 above −14 LUFS), `limiter_dbfs`; with `dynamics: "wide"` also `peak_held_db`, `lra_lu` and `range` |
 | `buses` | `assignment` (part to bus), `spaces` (part to reverb), `returns` (the files in `returns/`), `level_change_db` (each bus against the sum of its stems, also in bus_level_change_db.json), `sum_minus_premix_peak_dbfs` |
 | `sections` | per section: `start_seconds`, `end_seconds`, `rms_dbfs`, `side_mid_db`, `active_tracks` |
-| `mp3` | `mp3_lufs`, `mp3_true_peak_dbtp`, `matches` (within 0.2 LU of the master); none in a draft |
+| `mp3` | `mp3_lufs`, `mp3_true_peak_dbtp`, `matches` (within 0.2 LU of the master), `over_full_scale` (the decoded MP3's true peak above 0 dBTP, named in the summary); none in a draft |
 | `loop` | a game loop: `start_sample`, `end_sample`, `length_samples`, `bpm`, `bar_beats` and `beat_count` (null where the tempo changes), `sections` (cue points), `files`, `gain_db`, `seam` (meter, timbre, pitch, abruptness and volume across the loop point), `layers` |
 | `cache_hits`, `stems_reused`, `stem_count` | parts whose raw synthesis, and whose processed stem, came from the cache |
 | `stage_seconds`, `process_seconds`, `runtime_seconds` | seconds per stage (they add up to the runtime) and in FFmpeg by kind |
@@ -46,8 +46,10 @@ One entry per part: `track`, `cache_key` (its cache entry), `cache_hit` (raw syn
 (the FFmpeg processing), `raw_sha256`, `stem_sha256`, `same_pitch_retrigger_trims`, and where they apply `soundfont`,
 `expressive` (crossfaded dynamics), `surge` (`rendered_with`, the fallback and why), `automation_points` (the
 automation, applied after the chain), `nearly_silent` (an audition's context part kept at its own level), `stage`
-(depth and early reflections), `production` (what each production tool did) and `seconds`: `waiting` (for another
-render's hold on the same cache entry, or for memory while other parts held it), `synthesis` and `processing`.
+(depth and early reflections), `production` (what each production tool did), `unlocked_cache` (the cache's drive could
+not lock the entry, so the part was made in the render's own `unlocked_cache/` folder and nothing was cached) and
+`seconds`: `waiting` (for another render's hold on the same cache entry, or for memory while other parts held it),
+`synthesis` and `processing`.
 
 ## score_review.json (review)
 
@@ -98,12 +100,14 @@ the A/B clip. `before`, `after` and the clip's `file` are relative to the report
 
 ## audition.json (audition)
 
-`versions` in playing order: `sound`, `engine`, `master_lufs`, `part_rms_dbfs`, `part_brightness` (`centroid_hz`,
+`versions` in playing order: `sound`, `engine`, `master_lufs` (the version's render, its ring-out included),
+`cut_lufs` (the cut the MP3 plays, before the versions are matched), `part_rms_dbfs`, `part_brightness` (`centroid_hz`,
 `above_2k_pct`, `above_5k_pct`), and where they apply `surge_character`, `surge_controls` (what the mod wheel and
 macros move), `rendered_with`, `fallback` and `reason`, `performance_left_out` (what the sound cannot take, and with
 `--solo` a duck on a part left out). Also `kind`, `title`, `project` (relative to the audition's folder), `track`,
 `bars`, `solo`, `status` (`RUNNING` from the start, then `PASS`, or `FAIL` with `failed`: the `version` that stopped it
-and its `error`), `each_seconds`, `gap_seconds`, `loudness_lufs` and `fallbacks`. Each version's render is in its
+and its `error`), `each_seconds`, `gap_seconds`, `loudness_lufs` (the level every cut plays at: the quietest cut's,
+lower where the peak guard turned them all down) and `fallbacks`. Each version's render and its `cut.wav` are in its
 numbered folder.
 
 ## clean (its report)
@@ -114,7 +118,7 @@ numbered folder.
 since, and the folders inside it that stay, ending in `/`),
 `bytes`, `kept` and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
 files.json (made before 0.4.0), a render, round or audition at work, or inside one, cache entries holding files renders
-do not write: `kind`, `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the
+did not write there or that changed since: `kind`, `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the
 `error`).  A render, round or audition holds its folder's lock file `work.lock` while it runs and removes it when it
 ends, `analyze` and `compare` hold the renders they read, and clean takes the same lock before it looks inside a
 folder, keeping it, and those of the tool folders holding it, until it is done there; its dry run looks at each lock
@@ -129,6 +133,21 @@ names (Ninja manual); a file put in such a folder, or changed since, stays, and 
 even one that keeps its size and time. A folder copied elsewhere, rather than moved, is so not the tools' any more:
 `clean` leaves it and `--resume` refuses it. Installed banks and tools keep one in the runtime folder: an installer
 replaces only what it recorded there and sets anything else aside as `<name>.replaced-<time>`.
+
+While a render works, its folder and each cache entry it writes also hold `files.journal`, appended line by line:
+each new file's name before the file is made and again once it is made (the render writes every file under a
+new name of its own and gives it its name when it is whole), and each file's size, time and number before it takes
+its name, as a database logs a change before it makes it (PostgreSQL documentation, Write-Ahead Logging). A killed
+render so leaves only files its record or its journal proves: `--resume` removes those half written and takes up the
+rest, and `clean` removes them with the recorded files. A name alone proves nothing, so a render killed in the
+instant between making a new file and noting it made leaves that file unproven: `--resume` names it and stops,
+and `clean` leaves it. A program the killed render had started (FluidSynth, FFmpeg, the
+Surge host) can run on to its end and hold its new file meanwhile, which Windows will not let go: that file stays,
+the journal naming it, until the next render or `clean` removes it. The journal goes when the render ends and its
+record lists everything. A cache entry keeps a `files.json` of its own, of what renders wrote in it, and `clean`
+removes an entry by it; an entry of 0.4.0, which has none, goes by the names renders gave their files, its key and
+its receipt, as before. A render killed before its first file, `render_input.json` (which names the piece too),
+leaves a folder `clean` cannot tell for a render's: it stays, and `--resume` takes it up.
 
 ## What stays local
 

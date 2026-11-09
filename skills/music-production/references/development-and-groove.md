@@ -65,7 +65,9 @@ edge change something:
 
 `review` asks when a pitched part repeats a 1-, 2- or 4-bar pattern unchanged for 24 bars or more, a percussion part for
 33 or more, or the whole texture for 16. A heartbeat in a horror cue or a techno kick under moving layers is fine; the
-question is whether anything else moves.
+question is whether anything else moves. The three counts are this project's own, set on its early pieces, not taken
+from a source; a style's map entry may give its own ([style-maps.md](style-maps.md)), and review's record lists every
+limit with its origin.
 
 ## Groove (steps 3 and 4)
 
@@ -96,7 +98,8 @@ question is whether anything else moves.
   than when some enter on other beats (Senior 2020). `review`
   asks about chord parts (three or more pitch classes; power chords are left out) whose chords are at least 90% struck
   and released as one block when they are held (half notes or longer) or all one length; syncopated stabs and comping
-  of varied lengths are a rhythm and are not asked about.
+  of varied lengths are a rhythm and are not asked about. The 90% and the eight chords are this project's own numbers,
+  not a source's.
 
 ## Voicings that move: `musiclib.voicing`
 

@@ -48,6 +48,7 @@ def main():
     aud.add_argument('--bars',required=True,metavar='FIRST-LAST',help='the passage, 1-based, at most 16 bars')
     aud.add_argument('--output',type=Path,required=True);aud.add_argument('--config',type=Path,required=True);aud.add_argument('--cache',type=Path)
     aud.add_argument('--solo',action='store_true',help='the part alone instead of in its passage with the others')
+    aud.add_argument('--jobs',type=int,help='parts rendered at once in each version (as render --jobs)')
     aud.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
     snd=sub.add_parser('sounds',help='Search the Surge XT catalog: every factory and third-party patch, by role, measured character, name and source, for a shortlist to audition')
     snd.add_argument('--role',help='lead, brass, pad, chords, keys, pluck, bass, sequence, fx or percussion')
@@ -55,6 +56,7 @@ def main():
     snd.add_argument('--name',help='text in the patch name or category');snd.add_argument('--source',help='"factory" or a designer')
     snd.add_argument('--limit',type=int,default=25);snd.add_argument('--all',action='store_true',help='also patches flagged silent, MPE, microtonal or off pitch')
     snd.add_argument('--id',help='one catalog patch in full: its measurement and what its mod wheel and macros move')
+    snd.add_argument('--seed',type=int,help="the piece's seed (musiclib.blocks.seed(title)): which patch each band of the spread shows, so two pieces see different ones")
     prof=sub.add_parser('profile',help='Describe the written score per part and section: density, register, intervals, rhythm, repetition')
     prof.add_argument('project',type=Path);prof.add_argument('--output',type=Path,help='full JSON (without it, the full profile is printed)')
     rnd=sub.add_parser('round',help='One revision round: validate, review, a draft render, analyze it and compare it with the previous round, each with a short summary')
@@ -190,7 +192,7 @@ def main():
         print(json.dumps(shared,ensure_ascii=True) if args.json else summary.compare(r,out));return
     if args.command=='sounds':
         from musiclib.sounds import describe,search
-        print(json.dumps(describe(args.id) if args.id else search(args.role,[w for w in args.character.split(',') if w.strip()],args.name,args.source,args.limit,args.all),ensure_ascii=True,indent=1));return
+        print(json.dumps(describe(args.id) if args.id else search(args.role,[w for w in args.character.split(',') if w.strip()],args.name,args.source,args.limit,args.all,args.seed),ensure_ascii=True,indent=1));return
     p=load_project(args.project)
     if args.command=='validate':print(json.dumps(validate(p)));return
     if args.command=='profile':
@@ -212,7 +214,8 @@ def main():
         from musiclib.audition import audition,parse_sound
         bars=args.bars.split('-')
         if len(bars)!=2 or not all(b.isdigit() for b in bars):raise ValueError('--bars is FIRST-LAST, for example 21-24')
-        r=audition(args.project,args.track,[parse_sound(x) for x in args.sounds.split(',') if x.strip()],int(bars[0]),int(bars[1]),args.output,args.config,args.cache,args.solo)
+        if args.jobs is not None and args.jobs<1:raise ValueError('--jobs is 1 or more')
+        r=audition(args.project,args.track,[parse_sound(x) for x in args.sounds.split(',') if x.strip()],int(bars[0]),int(bars[1]),args.output,args.config,args.cache,args.solo,args.jobs)
         print(json.dumps(r,ensure_ascii=True) if args.json else summary.audition(r,args.output));return
     if args.command=='render':
         from musiclib.render import render

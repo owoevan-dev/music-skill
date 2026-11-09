@@ -1,0 +1,1052 @@
+{
+ "note": "The machine-readable side of the style maps (style-maps.md): the axes a style is described on, the limits review uses for each of its checks with where each comes from, and the map entries a project's `style` may name. An entry's checks override the defaults for the checks on the axes it governs. 'ours' marks a number this project set itself (on its early agent pieces), not a number from a source; per the project's rule a limit is never set on agent pieces again, only from the literature or measured on professional work. A family's or entry's `published_mix` is the published long-term spectrum measurement `analyze` sets the master beside (Pestana et al. 2013's slope over 100 Hz-10 kHz); an entry's replaces its family's, and `borrowed` or `why_none` says why one is lent or absent. An entry's `tempo_bpm` is the tempo range its source gives (its map's tempo cell); `review` asks about a piece whose main tempo lies outside it, a half- or double-time reading counting as inside.",
+ "axes": [
+  "tempo",
+  "harmony",
+  "melody",
+  "rhythm",
+  "timbre",
+  "form",
+  "mix"
+ ],
+ "checks": {
+  "vertical": {
+   "axis": "harmony",
+   "params": {
+    "sustain_beats": 0.75,
+    "overlap_beats": 0.5
+   },
+   "origin": "ours",
+   "what": "minor seconds and ninths between a sustained note and another part's note"
+  },
+  "outside_chord": {
+   "axis": "harmony",
+   "params": {},
+   "origin": "source",
+   "source": "Open Music Theory, Embellishing Tones (the kinds); Longuet-Higgins and Lee 1984 (strong positions); Temperley 2007 (rock melodies leave them unresolved)",
+   "what": "notes on strong positions outside the written chord, not resolved by step"
+  },
+  "parallels": {
+   "axis": "harmony",
+   "params": {
+    "window": 8,
+    "doubled_share": 0.75
+   },
+   "ask": true,
+   "origin": "source",
+   "source": "Open Music Theory, First-Species Counterpoint (the rule, for independent voices); the window and the doubled share are ours",
+   "what": "parallel fifths and octaves between lines moving the same way"
+  },
+  "low_intervals": {
+   "axis": "harmony",
+   "params": {},
+   "origin": "source",
+   "source": "Hoffmann's low interval limits (arrangement.md, Spacing)",
+   "what": "close intervals under their low limit"
+  },
+  "static_texture": {
+   "axis": "form",
+   "params": {
+    "static_bars": 16,
+    "processes_vary": false
+   },
+   "origin": "ours",
+   "what": "every part repeating the same block of 1, 2, 4 or 8 bars note for note; with processes_vary, only the runs of the span in which no filter sweep, gain automation or controller curve moves the sound"
+  },
+  "repetition": {
+   "axis": "form",
+   "params": {
+    "pitched_loop_bars": 24,
+    "percussion_loop_bars": 33
+   },
+   "origin": "ours",
+   "what": "a part repeating a 1-, 2- or 4-bar cycle unchanged"
+  },
+  "literal_returns": {
+   "axis": "form",
+   "params": {},
+   "origin": "ours",
+   "what": "a section repeating an earlier one note for note in every part"
+  },
+  "arrivals_thinner": {
+   "axis": "form",
+   "params": {
+    "lower_measures": 2
+   },
+   "origin": "ours",
+   "what": "an arrival section thinner than the one before it in notes per bar, parts or velocity"
+  },
+  "sections_alike": {
+   "axis": "form",
+   "params": {
+    "density_share": 0.1,
+    "velocity": 3
+   },
+   "origin": "ours",
+   "what": "neighbouring sections with the same parts and nearly the same density and dynamics"
+  },
+  "stiffness": {
+   "axis": "harmony",
+   "params": {
+    "block_share": 0.9,
+    "min_chords": 8
+   },
+   "origin": "ours",
+   "what": "chord parts struck and released as one block"
+  },
+  "pushes": {
+   "axis": "rhythm",
+   "params": {},
+   "ask": true,
+   "origin": "source",
+   "source": "Tan, Lustig and Temperley 2019 (rock and pop melodies anticipate strong beats); Witek et al. 2014 (moderate syncopation)",
+   "what": "no melody or accompaniment attack anticipating a downbeat or half-bar"
+  },
+  "restatement": {
+   "axis": "melody",
+   "params": {
+    "min_bars": 8
+   },
+   "origin": "source",
+   "source": "Summach 2011 (pop sections state and restate an idea); Caplin 1998 (the sentence); the 8 bars are ours",
+   "what": "a section whose melody bars restate no earlier bar's rhythm and shape"
+  },
+  "melody_durations": {
+   "axis": "melody",
+   "params": {
+    "min_categories": 3
+   },
+   "origin": "ours",
+   "what": "a melody of few duration values"
+  },
+  "melody_velocities": {
+   "axis": "melody",
+   "params": {
+    "min_values": 4
+   },
+   "origin": "ours",
+   "what": "a melody of nearly flat velocity"
+  },
+  "transposed_samples": {
+   "axis": null,
+   "params": {
+    "limit_semitones": 4
+   },
+   "origin": "ours",
+   "what": "notes playing a sample transposed far from its root"
+  },
+  "highpass": {
+   "axis": null,
+   "params": {
+    "loss_db": 1.5
+   },
+   "origin": "ours",
+   "what": "a part's high-pass taking from the fundamental of its lowest note"
+  },
+  "widespread_lowpass": {
+   "axis": "mix",
+   "params": {
+    "below_hz": 12000,
+    "share": 0.5,
+    "min_parts": 3
+   },
+   "origin": "source",
+   "source": "Senior 2012 (Sound On Sound, Q&A): widespread low-pass filtering seldom helps a mix and easily dulls it; the 12 kHz (the lower edge of air in the mixing books listed by Moffat, De Man and Reiss 2022), the half and the three parts are ours",
+   "what": "most parts other than the bass low-passed at or under 12 kHz"
+  },
+  "tempo_range": {
+   "axis": "tempo",
+   "params": {},
+   "origin": "source",
+   "source": "the tempo ranges the entries' sources give (their maps' tempo cells, `tempo_bpm`); reading half and double time as inside is ours",
+   "what": "the piece's main tempo outside the range its style entry's source gives"
+  }
+ },
+ "families": {
+  "orchestral": {
+   "map": "style-map-orchestral.md",
+   "checks": {
+    "pushes": {
+     "ask": false,
+     "origin": "source",
+     "source": "Tan, Lustig and Temperley 2019 measured pushes in rock melodies; none of the family's sources describes anticipatory pushes (style-map-orchestral.md)"
+    }
+   }
+  },
+  "horror": {
+   "map": "style-map-horror.md",
+   "checks": {
+    "vertical": {
+     "ask": false,
+     "origin": "source",
+     "source": "Ireland 2023 (The Conversation): dissonant harmonies that do not readily resolve; Trevor et al. 2020: rough, scream-like music"
+    },
+    "outside_chord": {
+     "ask": false,
+     "origin": "source",
+     "source": "Ireland 2023 (The Conversation): dissonant harmonies that do not readily resolve"
+    },
+    "low_intervals": {
+     "ask": false,
+     "origin": "source",
+     "source": "Ireland 2023 (The Conversation): low drones and rumbling; film-score.md: low clusters for dread"
+    },
+    "pushes": {
+     "ask": false,
+     "origin": "source",
+     "source": "Tan, Lustig and Temperley 2019 measured pushes in rock melodies; none of the family's sources describes them (style-map-horror.md)"
+    }
+   }
+  },
+  "electronic": {
+   "map": "style-map-electronic.md",
+   "checks": {
+    "pushes": {
+     "ask": false,
+     "origin": "source",
+     "source": "Tan, Lustig and Temperley 2019 measured pushes in rock melodies; the family's sources describe syncopation in the drums, not anticipations in melody (style-map-electronic.md)"
+    }
+   },
+   "published_mix": {
+    "genre": "electronic",
+    "slope": -0.746,
+    "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged electronic"
+   }
+  },
+  "jpop": {
+   "map": "style-map-jpop.md",
+   "published_mix": {
+    "genre": "pop",
+    "slope": -0.943,
+    "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged pop",
+    "borrowed": "no spectrum of J-pop read; the nearest published measurement"
+   }
+  },
+  "pop": {
+   "map": "style-map-pop.md",
+   "published_mix": {
+    "genre": "pop",
+    "slope": -0.943,
+    "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged pop"
+   }
+  },
+  "rock": {
+   "map": "style-map-rock.md",
+   "checks": {
+    "parallels": {
+     "ask": false,
+     "origin": "source",
+     "source": "Herbst 2019 and Lilja 2015: distorted guitars play power chords, which move in parallel fifths; Wikipedia, Doom metal: guitars and bass on the same riff, \"the usual heavy metal compositional technique\" (read 9 November 2026)"
+    }
+   },
+   "published_mix": {
+    "genre": "rock",
+    "slope": -0.979,
+    "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged rock"
+   }
+  },
+  "beats": {
+   "map": "style-map-beats.md",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Chapman 2003, quoted by Christodoulou 2020 (Dancecult): in hip-hop, sampled breakbeat grooves are looped; Schloss 2002, quoted there: cyclic motion, repetition and variation"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Schloss 2002, quoted by Christodoulou 2020 (Dancecult): repetition balanced by variation; the 16 bars are ours"
+    },
+    "pushes": {
+     "ask": false,
+     "origin": "source",
+     "source": "Tan, Lustig and Temperley 2019 measured pushes in rock melodies; the family's sources describe syncopation and swing in the drums, not anticipations in melody (style-map-beats.md)"
+    }
+   },
+   "published_mix": {
+    "genre": "hip-hop",
+    "slope": -0.814,
+    "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged hip-hop"
+   }
+  },
+  "jazz": {
+   "map": "style-map-jazz.md",
+   "published_mix": {
+    "genre": "jazz",
+    "slope": -1.293,
+    "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged jazz"
+   }
+  },
+  "latin": {
+   "map": "style-map-latin.md"
+  },
+  "chinese": {
+   "map": "style-map-chinese.md"
+  },
+  "folk": {
+   "map": "style-map-folk.md",
+   "published_mix": {
+    "genre": "folk",
+    "slope": -1.182,
+    "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged folk"
+   }
+  },
+  "game": {
+   "map": "style-map-game.md",
+   "published_mix": {
+    "slope": null,
+    "why_none": "a place takes its sound and mix from the game's own style, the entry it borrows form and harmony into (style-map-game.md); no spectrum of game music was read"
+   }
+  }
+ },
+ "styles": {
+  "orchestral/baroque": {
+   "family": "orchestral",
+   "map": "style-map-orchestral.md#baroque"
+  },
+  "orchestral/classical-era": {
+   "family": "orchestral",
+   "map": "style-map-orchestral.md#classical-era"
+  },
+  "orchestral/romantic": {
+   "family": "orchestral",
+   "map": "style-map-orchestral.md#romantic"
+  },
+  "orchestral/impressionist": {
+   "family": "orchestral",
+   "map": "style-map-orchestral.md#impressionist",
+   "checks": {
+    "parallels": {
+     "ask": false,
+     "origin": "source",
+     "source": "Hutchinson, MT21C 32.1: planing moves whole voicings in parallel, against the prohibition of parallel fifths and octaves"
+    }
+   }
+  },
+  "orchestral/post-tonal": {
+   "family": "orchestral",
+   "map": "style-map-orchestral.md#post-tonal",
+   "checks": {
+    "parallels": {
+     "ask": false,
+     "origin": "source",
+     "source": "Clark et al. 2016, Understanding Music 7.3.2: new systems of organisation in place of the rules of tonal harmony; the parallels rule is tonal voice leading (OMT, First-Species Counterpoint)"
+    },
+    "restatement": {
+     "ask": false,
+     "origin": "source",
+     "source": "Clark et al. 2016, Understanding Music 7.7: twelve-tone music avoided repetition"
+    }
+   }
+  },
+  "orchestral/neoclassical": {
+   "family": "orchestral",
+   "map": "style-map-orchestral.md#neoclassical"
+  },
+  "orchestral/minimalist": {
+   "family": "orchestral",
+   "map": "style-map-orchestral.md#minimalist",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Clark et al. 2016, Understanding Music 7.7: repetition the very focus; Hutchinson, MT21C 35.2: patterns repeated incessantly"
+    },
+    "static_texture": {
+     "ask": false,
+     "origin": "source",
+     "source": "Clark et al. 2016, Understanding Music 7.7: repetition the very focus"
+    },
+    "sections_alike": {
+     "ask": false,
+     "origin": "source",
+     "source": "Clark et al. 2016, Understanding Music 7.7: change only in very slow variations of rhythmic density, texture and range"
+    }
+   }
+  },
+  "orchestral/cinematic": {
+   "family": "orchestral",
+   "map": "style-map-orchestral.md#cinematic-orchestral"
+  },
+  "horror/shrieking-strings": {
+   "family": "horror",
+   "map": "style-map-horror.md#shrieking-strings"
+  },
+  "horror/drone-dread": {
+   "family": "horror",
+   "map": "style-map-horror.md#drone-dread",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Ireland 2023 (The Conversation): drones, sustained notes or repeated figures"
+    },
+    "static_texture": {
+     "ask": false,
+     "origin": "source",
+     "source": "Ireland 2023 (The Conversation): unease when an expected development does not come"
+    }
+   }
+  },
+  "horror/ostinato-pulse": {
+   "family": "horror",
+   "map": "style-map-horror.md#ostinato-pulse",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Ireland 2023 (The Conversation): repeated short melodies convey tension"
+    },
+    "static_texture": {
+     "ask": false,
+     "origin": "source",
+     "source": "Ireland 2023 (The Conversation): unease when an expected development does not come"
+    },
+    "stiffness": {
+     "ask": false,
+     "origin": "source",
+     "source": "Ireland 2023 (The Conversation): building, dissonant string stabs"
+    }
+   }
+  },
+  "horror/corrupted-innocence": {
+   "family": "horror",
+   "map": "style-map-horror.md#corrupted-innocence"
+  },
+  "electronic/house": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#house",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    }
+   },
+   "tempo_bpm": {
+    "range": [
+     115,
+     130
+    ],
+    "source": "Ableton Learning Music (typically 115-130), which WP House music cites"
+   }
+  },
+  "electronic/techno": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#techno",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    }
+   },
+   "tempo_bpm": {
+    "range": [
+     120,
+     140
+    ],
+    "source": "Ableton Learning Music: techno and trance typically 120-140; WP Techno's 120-150 cites no source"
+   }
+  },
+  "electronic/trance": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#trance",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    }
+   },
+   "tempo_bpm": {
+    "range": [
+     120,
+     150
+    ],
+    "source": "WP Trance music, after Snoman 2009 (The Dance Music Manual); Ableton Learning Music gives 120-140 for techno and trance"
+   }
+  },
+  "electronic/festival-edm": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#festival-edm",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    }
+   },
+   "tempo_bpm": {
+    "range": [
+     126,
+     132
+    ],
+    "source": "WP Big room house, which cites no source for it"
+   }
+  },
+  "electronic/hard-dance": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#hard-dance",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    }
+   },
+   "tempo_bpm": {
+    "range": [
+     140,
+     null
+    ],
+    "source": "WP Hardstyle (140-160, no source cited), WP Hardcore (160-200 or more, after a webzine) and WP Gabber (140-190, after Balli in Dancecult)"
+   }
+  },
+  "electronic/drum-and-bass": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#drum-and-bass",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    }
+   },
+   "tempo_bpm": {
+    "range": [
+     160,
+     180
+    ],
+    "source": "Ableton Learning Music and WP Drum and bass: usually 160-180; at about 140 the same elements make a breakbeat track (Christodoulou 2020)"
+   }
+  },
+  "electronic/uk-garage": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#uk-garage",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    },
+    "pushes": {
+     "ask": true,
+     "origin": "source",
+     "source": "Wikipedia, 2-step garage: syncopated basslines; UK garage: shuffled, syncopated rhythms (read 9 November 2026)"
+    }
+   }
+  },
+  "electronic/dubstep": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#dubstep",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    },
+    "pushes": {
+     "ask": true,
+     "origin": "source",
+     "source": "Wikipedia, Dubstep: rhythms usually syncopated, often shuffled or in tuplets (read 9 November 2026)"
+    }
+   },
+   "tempo_bpm": {
+    "range": [
+     135,
+     145
+    ],
+    "source": "Ableton Learning Music: typically 135-145; WP Dubstep: mostly 140 (after McKinnon 2007, CBC)"
+   }
+  },
+  "electronic/future-bass": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#future-bass",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    }
+   },
+   "tempo_bpm": {
+    "range": [
+     130,
+     175
+    ],
+    "source": "WP Future bass, after a music blog"
+   }
+  },
+  "electronic/edm-trap": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#edm-trap",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    }
+   }
+  },
+  "electronic/electro": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#electro",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Garcia 2005 (MTO): the loop, a riff of modular length one strongly expects to repeat, is the fundamental unit of EDM (after Butler 2006); Smith 2021 (MTO): EDM rhythms repeat in short loops"
+    },
+    "static_texture": {
+     "params": {
+      "processes_vary": true
+     },
+     "origin": "source",
+     "source": "Smith 2021 (MTO): continuous processes, filter sweeps, crescendos, fades, give variety to the repetitious loops of EDM; Garcia 2005 (MTO): looping as adding and subtracting loops; the 16 bars are ours"
+    }
+   }
+  },
+  "electronic/eurobeat": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#eurobeat"
+  },
+  "electronic/synthwave": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#synthwave",
+   "tempo_bpm": {
+    "range": [
+     80,
+     140
+    ],
+    "source": "WP Synthwave, after a production article (ModeAudio): 80-118 BPM, upbeat tracks 128-140"
+   }
+  },
+  "electronic/chiptune": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#chiptune"
+  },
+  "electronic/ambient": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#ambient",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Wikipedia, Ambient music: sustained or repeated notes, as in drone music; repetitive patterns or pulses shared with minimalism (read 9 November 2026)"
+    },
+    "static_texture": {
+     "ask": false,
+     "origin": "source",
+     "source": "Wikipedia, Ambient music: tone and atmosphere over traditional musical structure; textural layers (read 9 November 2026)"
+    },
+    "sections_alike": {
+     "ask": false,
+     "origin": "source",
+     "source": "Wikipedia, Ambient music: tone and atmosphere over traditional musical structure (read 9 November 2026)"
+    },
+    "restatement": {
+     "ask": false,
+     "origin": "source",
+     "source": "Wikipedia, Ambient music: often without structured melody (read 9 November 2026)"
+    }
+   },
+   "published_mix": {
+    "slope": null,
+    "why_none": "often without beat (WP Ambient music), and percussion raises the top (Elowsson and Friberg 2017): the chart electronic Pestana et al. measured is no reference"
+   }
+  },
+  "electronic/idm": {
+   "family": "electronic",
+   "map": "style-map-electronic.md#idm"
+  },
+  "jpop/anime-opening": {
+   "family": "jpop",
+   "map": "style-map-jpop.md#anime-opening"
+  },
+  "jpop/fast-electro": {
+   "family": "jpop",
+   "map": "style-map-jpop.md#fast-electro-j-pop"
+  },
+  "jpop/idol-pop": {
+   "family": "jpop",
+   "map": "style-map-jpop.md#idol-pop"
+  },
+  "jpop/city-pop": {
+   "family": "jpop",
+   "map": "style-map-jpop.md#city-pop"
+  },
+  "jpop/enka": {
+   "family": "jpop",
+   "map": "style-map-jpop.md#enka"
+  },
+  "pop/uptempo": {
+   "family": "pop",
+   "map": "style-map-pop.md#up-tempo-pop"
+  },
+  "pop/ballad": {
+   "family": "pop",
+   "map": "style-map-pop.md#ballad"
+  },
+  "pop/disco": {
+   "family": "pop",
+   "map": "style-map-pop.md#disco",
+   "published_mix": {
+    "genre": "disco",
+    "slope": -0.804,
+    "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged disco"
+   }
+  },
+  "pop/synth-pop": {
+   "family": "pop",
+   "map": "style-map-pop.md#synth-pop"
+  },
+  "pop/hyperpop": {
+   "family": "pop",
+   "map": "style-map-pop.md#hyperpop"
+  },
+  "rock/classic-hard": {
+   "family": "rock",
+   "map": "style-map-rock.md#classic-and-hard-rock"
+  },
+  "rock/punk": {
+   "family": "rock",
+   "map": "style-map-rock.md#punk"
+  },
+  "rock/alternative": {
+   "family": "rock",
+   "map": "style-map-rock.md#alternative-and-indie"
+  },
+  "rock/shoegaze": {
+   "family": "rock",
+   "map": "style-map-rock.md#shoegaze"
+  },
+  "rock/post-rock": {
+   "family": "rock",
+   "map": "style-map-rock.md#post-rock",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Osborn 2011 (MTO): post-rock pieces often unified by one motive, a relentless two-chord progression in one example"
+    },
+    "static_texture": {
+     "ask": false,
+     "origin": "source",
+     "source": "Osborn 2011 (MTO): one motive developed by texture, timbre and dynamics, a structural crescendo"
+    }
+   }
+  },
+  "rock/progressive": {
+   "family": "rock",
+   "map": "style-map-rock.md#progressive-rock"
+  },
+  "rock/surf": {
+   "family": "rock",
+   "map": "style-map-rock.md#surf"
+  },
+  "rock/heavy-metal": {
+   "family": "rock",
+   "map": "style-map-rock.md#heavy-metal"
+  },
+  "rock/thrash": {
+   "family": "rock",
+   "map": "style-map-rock.md#thrash"
+  },
+  "rock/power-metal": {
+   "family": "rock",
+   "map": "style-map-rock.md#power-metal"
+  },
+  "rock/extreme-metal": {
+   "family": "rock",
+   "map": "style-map-rock.md#extreme-metal"
+  },
+  "rock/doom": {
+   "family": "rock",
+   "map": "style-map-rock.md#doom",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Wikipedia, Doom metal: repetitive rhythms with little regard to harmonic progression and musical structure (read 9 November 2026)"
+    }
+   }
+  },
+  "rock/metalcore": {
+   "family": "rock",
+   "map": "style-map-rock.md#metalcore"
+  },
+  "rock/nu-metal": {
+   "family": "rock",
+   "map": "style-map-rock.md#nu-metal"
+  },
+  "beats/lo-fi": {
+   "family": "beats",
+   "map": "style-map-beats.md#lo-fi",
+   "published_mix": {
+    "slope": null,
+    "why_none": "a deliberately unpolished mix (WP Lofi hip-hop), not the chart hip-hop Pestana et al. measured"
+   },
+   "checks": {
+    "widespread_lowpass": {
+     "ask": false,
+     "origin": "source",
+     "source": "WP Lofi hip-hop: a deliberately unpolished mix with audio imperfections and the samplers' lo-fi effect (style-map-beats.md); the worn sound's muffled highs (beats.md)"
+    }
+   }
+  },
+  "beats/boom-bap": {
+   "family": "beats",
+   "map": "style-map-beats.md#boom-bap"
+  },
+  "beats/trap": {
+   "family": "beats",
+   "map": "style-map-beats.md#trap",
+   "tempo_bpm": {
+    "range": [
+     100,
+     176
+    ],
+    "source": "WP Trap music, after a nightclub blog: 100 to 176 in use"
+   }
+  },
+  "beats/drill": {
+   "family": "beats",
+   "map": "style-map-beats.md#drill"
+  },
+  "beats/phonk": {
+   "family": "beats",
+   "map": "style-map-beats.md#phonk"
+  },
+  "beats/trip-hop": {
+   "family": "beats",
+   "map": "style-map-beats.md#trip-hop"
+  },
+  "beats/g-funk": {
+   "family": "beats",
+   "map": "style-map-beats.md#g-funk",
+   "tempo_bpm": {
+    "range": [
+     90,
+     100
+    ],
+    "source": "WP G-funk, after a fan site"
+   }
+  },
+  "jazz/swing": {
+   "family": "jazz",
+   "map": "style-map-jazz.md#swing-and-big-band"
+  },
+  "jazz/modern-combo": {
+   "family": "jazz",
+   "map": "style-map-jazz.md#modern-jazz-combo"
+  },
+  "jazz/modal": {
+   "family": "jazz",
+   "map": "style-map-jazz.md#modal-jazz"
+  },
+  "jazz/fusion": {
+   "family": "jazz",
+   "map": "style-map-jazz.md#jazz-fusion"
+  },
+  "jazz/smooth": {
+   "family": "jazz",
+   "map": "style-map-jazz.md#smooth-jazz",
+   "tempo_bpm": {
+    "range": [
+     90,
+     105
+    ],
+    "source": "WP Smooth jazz, which cites no source: the most widely played tracks"
+   }
+  },
+  "jazz/gypsy": {
+   "family": "jazz",
+   "map": "style-map-jazz.md#gypsy-jazz"
+  },
+  "jazz/blues": {
+   "family": "jazz",
+   "map": "style-map-jazz.md#blues"
+  },
+  "jazz/funk": {
+   "family": "jazz",
+   "map": "style-map-jazz.md#funk",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Danielsen 2006 (p. 164), quoted by Christodoulou 2020 (Dancecult): one repeats an internal difference, each part answering the others, every time the same; Wikipedia, Funk: interlocking grooves (read 9 November 2026)"
+    }
+   }
+  },
+  "jazz/soul": {
+   "family": "jazz",
+   "map": "style-map-jazz.md#soul",
+   "published_mix": {
+    "genre": "soul",
+    "slope": -1.03,
+    "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged soul"
+   }
+  },
+  "latin/bossa-nova": {
+   "family": "latin",
+   "map": "style-map-latin.md#bossa-nova"
+  },
+  "latin/samba": {
+   "family": "latin",
+   "map": "style-map-latin.md#samba"
+  },
+  "latin/salsa": {
+   "family": "latin",
+   "map": "style-map-latin.md#salsa"
+  },
+  "latin/reggae": {
+   "family": "latin",
+   "map": "style-map-latin.md#reggae"
+  },
+  "latin/reggaeton": {
+   "family": "latin",
+   "map": "style-map-latin.md#reggaeton"
+  },
+  "latin/tango": {
+   "family": "latin",
+   "map": "style-map-latin.md#tango"
+  },
+  "latin/cumbia": {
+   "family": "latin",
+   "map": "style-map-latin.md#cumbia"
+  },
+  "latin/flamenco": {
+   "family": "latin",
+   "map": "style-map-latin.md#flamenco"
+  },
+  "chinese/sizhu": {
+   "family": "chinese",
+   "map": "style-map-chinese.md#silk-and-bamboo"
+  },
+  "chinese/gufeng": {
+   "family": "chinese",
+   "map": "style-map-chinese.md#ancient-style-music"
+  },
+  "chinese/shidaiqu": {
+   "family": "chinese",
+   "map": "style-map-chinese.md#shanghai-popular-song"
+  },
+  "folk/celtic": {
+   "family": "folk",
+   "map": "style-map-folk.md#celtic"
+  },
+  "folk/klezmer": {
+   "family": "folk",
+   "map": "style-map-folk.md#klezmer"
+  },
+  "folk/bluegrass": {
+   "family": "folk",
+   "map": "style-map-folk.md#bluegrass"
+  },
+  "folk/country": {
+   "family": "folk",
+   "map": "style-map-folk.md#country"
+  },
+  "latin/calypso-soca": {
+   "family": "latin",
+   "map": "style-map-latin.md#calypso-and-soca"
+  },
+  "game/town": {
+   "family": "game",
+   "map": "style-map-game.md#town"
+  },
+  "game/overworld": {
+   "family": "game",
+   "map": "style-map-game.md#overworld"
+  },
+  "game/dungeon": {
+   "family": "game",
+   "map": "style-map-game.md#dungeon",
+   "checks": {
+    "repetition": {
+     "ask": false,
+     "origin": "source",
+     "source": "Elkins 2020 (NACVGM abstract): dungeon themes' significant amount of internal repetition"
+    }
+   }
+  },
+  "game/battle": {
+   "family": "game",
+   "map": "style-map-game.md#battle"
+  }
+ }
+}

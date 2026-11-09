@@ -4,6 +4,8 @@ Read this when choosing the patch or instrument for a part, above all a synth pa
 
 Contents: [The part's job](#the-parts-job) · [What puts a sound in front or behind](#what-puts-a-sound-in-front-or-behind) · [By element](#by-element) · [Across a piece](#across-a-piece) · [With the tools](#with-the-tools) · [Sampled instruments and drums](#sampled-instruments-and-drums) · [Sources](#sources)
 
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
+
 A sound that impresses on its own is not thereby right for the piece. Flint (2007) explains that a synth patch which impresses without accompaniment was probably programmed to stand out that way, and that this does not make it suit a composition. White (2009) warns that shaping parts while they play solo tends to leave many big, bright sounds competing for the front of the mix. Senior (2024) sees little point in detailed mixing before sounds can be judged in their final context. So a sound is chosen for its job in this piece, and judged on the part's own notes with the other parts playing.
 
 ## The part's job
@@ -120,7 +122,8 @@ Before searching, write down for the part:
 
 ## With the tools
 
-1. **Shortlist.** `studio.py sounds --role pad --character warm,slow` lists catalog patches of a role and character, darkest first.
+1. **Shortlist.** `studio.py sounds --role pad --character warm,slow --seed <the piece's seed>` lists catalog patches of a role and character, dark to bright.
+   - **A spread, not the first few.** When more patches match than `--limit` shows (25), the list takes one from each stretch of the range and prefers designers not yet shown. The piece's seed (`musiclib.blocks.seed(title)`) picks within each stretch, so two pieces asking the same question see different patches. In 0.4.0 the list showed the darkest 25, the same for every agent: the agent pieces took 71% of their Surge parts from the fifty curated patches, and five patches recurred across pieces. A tool's shared starting point makes work alike (Doshi and Hauser 2024, in [building-blocks.md](building-blocks.md)).
    - **Roles:** the patch's category in the Surge library: lead, pad, chords, keys, pluck, bass, brass, sequence, fx, percussion, other.
    - **Left out:** patches that were silent on a plain note, built for MPE controllers, microtonal, or off their written pitch.
    - **Character words:** the catalog's own bins of its measurements, not a standard vocabulary:
@@ -143,6 +146,15 @@ Before searching, write down for the part:
 
 [soundbanks.md](soundbanks.md) lists the sampled pianos, guitars, basses, orchestra, kits and other recordings, [soundbank-presets.md](soundbank-presets.md) their presets and [soundbank-measurements.md](soundbank-measurements.md) what each was measured to do. Electric pianos also include the sampled TX81Z FM pianos ([beats.md](beats.md)). `studio.py audition` takes `soundfont:<bank>:<bank number>:<program>` to compare them on the part.
 
+**Notes far from a sample's pitch.** A sampled note played away from the pitch it was recorded at changes its tone, and a vibrato or other movement in it speeds up as it goes higher; a multisample gives each source sample a range of three or four semitones (Howell 2006), and one sample played across an octave sounds "very obviously less natural a few semitones in either direction from the root note" (Walden 2023). With `--config`, `review` names notes played more than 4 semitones from their sample, a limit this skill set ([outputs.md](outputs.md), `transposed_samples`).
+
+**Electric pianos** are there whenever a part wants one; none is a sampled Rhodes or Wurlitzer:
+- Surge XT's electric pianos, found by name: `studio.py sounds --role keys --name ep` (or `rhodes`, `wurli`, `suitcase`) with the piece's `--seed` ([electronic-sounds.md](electronic-sounds.md));
+- the sampled TX81Z FM pianos (`vcsl_keys` 0:4, 1:4) and its clavinet-like Clavisynth (`vcsl_keys` 0:7);
+- the built-in `fm_epiano`, two-operator FM.
+
+The style maps name them where a style's sources do: the Rhodes, Wurlitzer and Clavinet in disco (`pop/disco`), electric pianos in jazz fusion (`jazz/fusion`). Lo-fi, boom bap, funk, city pop, soul and smooth jazz use them as this skill's options ([beats.md](beats.md), [jazz-and-funk.md](jazz-and-funk.md)). The catalog measures each patch on one note at one velocity; the electric pianos were also measured on one C4 at velocities 30, 60, 90 and 120 ([surge-roles.json](surge-roles.json), `ep_velocity`): `factory/keys/dx_ep`, `factory/keys/ep_1`, `factory/keys/ep_2`, `bluelight/keys/treated_rhodes`, `vospi/keys/ep_forest` and `vospi/keys/ep_middle` grow brighter and louder with velocity; `cybersoda/keys/wurli`, `cybersoda/keys/vintage_ep` and `kinsey_dulcet/keys/japanese_suitcase` brighter at about the same level; `emu/keys/light_ep`, `emu/keys/trashion_ep` and `factory/keys/soft_suitcase` louder with the tone about the same; two irregular. Give the part a range of velocities and read `audition`'s level and brightness for each candidate.
+
 ## Sources
 
 - Bürgel, M., Mares, D. and Siedenburg, K. (2024). Enhanced salience of edge frequencies in auditory pattern recognition. *Attention, Perception, & Psychophysics* 86(8), 2811–2820. doi:10.3758/s13414-024-02971-x
@@ -150,6 +162,7 @@ Before searching, write down for the part:
 - Flint, T. (2005). [Q. Should I always pan my vocals to the centre of the mix?](https://www.soundonsound.com/sound-advice/q-should-always-pan-my-vocals-centre-mix) *Sound On Sound*, February 2005. Lead vocal and bass centred as standard practice; why.
 - Flint, T. (2007). [Q. How can I get more effective synth bass in my mixes?](https://www.soundonsound.com/sound-advice/q-how-can-get-more-effective-synth-bass-my-mixes) *Sound On Sound*, January 2007. Choosing and adapting a synth bass patch: range, brightness, detuning, mono.
 - Hove, M. J., Marie, C., Bruce, I. C. and Trainor, L. J. (2014). [Superior time perception for lower musical pitch explains why bass-ranged instruments lay down musical rhythms](https://doi.org/10.1073/pnas.1402039111). *Proceedings of the National Academy of Sciences* 111(28), 10383–10388.
+- Howell, S. (2006). [The Lost Art of Sampling: Part 6](https://www.soundonsound.com/techniques/lost-art-sampling-part-6). *Sound On Sound*, January 2006: keygroups, one sample over three or four semitones, a sample's movement speeding up as it is transposed.
 - Marie, C. and Trainor, L. J. (2014). Early development of polyphonic sound encoding and the high voice superiority effect. *Neuropsychologia* 57, 50–58. doi:10.1016/j.neuropsychologia.2014.02.023
 - McAdams, S., Goodchild, M. and Soden, K. (2022). [A Taxonomy of Orchestral Grouping Effects Derived from Principles of Auditory Perception](https://doi.org/10.30535/mto.28.3.6). *Music Theory Online* 28(3). Summarized in the [Timbre and Orchestration Resource](https://timbreandorchestration.org/tor/modules/taxonomy/orchestral-grouping-effects/introduction): blend, stratification, timbral contrasts, orchestral gestures.
 - McAdams, S., Winsberg, S., Donnadieu, S., De Soete, G. and Krimphoff, J. (1995). [Perceptual scaling of synthesized musical timbres: common dimensions, specificities, and latent subject classes](https://doi.org/10.1007/BF00419633). *Psychological Research* 58, 177–192.
@@ -158,4 +171,5 @@ Before searching, write down for the part:
 - Senior, M. (2018). [Q. How can I locate the masking problems in my mix?](https://www.soundonsound.com/sound-advice/q-how-can-locate-masking-problems-my-mix) *Sound On Sound*, March 2018.
 - Senior, M. (2020). [Mix Rescue: Rearranging](https://www.soundonsound.com/techniques/mix-rescue-rearranging). *Sound On Sound*, March 2020. A sub-bass patch under the bass synth; static pads; preset snippets with movement.
 - Senior, M. (2024). [Mix Rescue: Strong Arrangements](https://www.soundonsound.com/techniques/mix-rescue-strong-arrangements). *Sound On Sound*, May 2024.
+- Walden, J. (2023). [Cubase 12: Sampler Track, audio examples](https://www.soundonsound.com/techniques/cubase-12-sampler-track-audio-examples). *Sound On Sound*, January 2023: one sample over an octave, obviously less natural a few semitones from its root.
 - White, P. (2009). [Creating A Sense Of Depth In Your Mix](https://www.soundonsound.com/techniques/creating-sense-depth-your-mix). *Sound On Sound*, February 2009. Front and back by brightness, reverb and chorus; choosing sounds for the mix plan.

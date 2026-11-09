@@ -59,12 +59,12 @@ def number(value, lo, hi, name, integer=False):
 # can go on sections and notes, which are not checked.
 KNOWN = {
     'project': {'schema', 'title', 'version', 'clock', 'sections', 'tracks', 'mix', 'harmony', 'loop', 'brief', 'decisions',
-                'authorship', 'revision_history', 'description', 'comment'},
+                'authorship', 'revision_history', 'description', 'comment', 'style'},
     'clock': {'bars', 'meter', 'tempo', 'tail_seconds', 'rubato'},
     'mix': {'chain', 'dynamics', 'loudness', 'target_lufs', 'peak_ceiling_db', 'max_limit_db', 'room_seconds', 'range_lu',
             'mono_below_hz', 'wow_flutter'},
     'track': {'id', 'engine', 'notes', 'performance', 'mix', 'program', 'bank', 'drums', 'range', 'soundfont', 'patch', 'key_map',
-              'instrument', 'synth', 'surge', 'kit', 'role', 'name', 'description', 'comment'},
+              'instrument', 'synth', 'surge', 'kit', 'role', 'name', 'description', 'comment', 'reverse'},
     'performance': {'notes', 'cc', 'cc_mode', 'offset_ms', 'bend', 'bend_range', 'legato', 'bow_change_s', 'bow_ms', 'round_robin',
                     'swing', 'dynamics', 'dynamics_mode'},
     'played note': {'velocity', 'timing_ms', 'gate'},
@@ -211,6 +211,10 @@ def _validate(p):
     # The text the review reads (schema.md): a brief, decisions as a list of text.  Another type passed and stopped
     # review (found by GPT Pro's third review of 0.4.0).
     if 'brief' in p:text(p['brief'],'brief')
+    # The style on the style maps: an entry, or a primary entry with entries borrowed for some axes (styles.py).
+    if 'style' in p:
+        from .styles import parse
+        parse(p['style'])
     if 'decisions' in p:
         if not isinstance(p['decisions'],list):raise ValueError('decisions is a list of text')
         for d in p['decisions']:text(d,'each decision')
@@ -352,6 +356,13 @@ def _track(p,t,c,total,clock,warnings):
     if 'synth' in t and t['engine']!='synth':raise ValueError(f'{t["id"]}: "synth" belongs to engine "synth"')
     if 'surge' in t and t['engine']!='surge':raise ValueError(f'{t["id"]}: "surge" belongs to engine "surge"')
     if not isinstance(t.get('drums',False),bool):raise ValueError('drums must be boolean')
+    if 'reverse' in t:
+        # A sampled part whose notes play backwards (render.reversed_notes): one plain render per note, so not with the
+        # layered dynamics or crossfade legato, which render the part another way.
+        if t['reverse'] is not True or t['engine']!='soundfont':raise ValueError(f'{t["id"]}: reverse is true, on a soundfont part')
+        if 'dynamics' in t['performance'] or (t['performance'].get('legato') or {}).get('mode')=='crossfade':
+            raise ValueError(f'{t["id"]}: a reverse part takes neither performance.dynamics nor crossfade legato')
+        if len(t['notes'])>64:raise ValueError(f'{t["id"]}: a reverse part renders each note on its own; at most 64 notes')
     # Render-side sound selection; the score/MIDI export keeps program, bank and authored pitches.
     if 'soundfont' in t and (t['engine']!='soundfont' or not isinstance(t['soundfont'],str) or not re.fullmatch(r'[a-z][a-z0-9_]{0,47}',t['soundfont'])):
         raise ValueError(f'{t["id"]}: soundfont must name a configured SoundFont (soundfont engine only)')

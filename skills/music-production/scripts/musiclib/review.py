@@ -20,6 +20,28 @@ def highpass_floor(f0):
     low = max(15.0, f0 / 2)
     return low, 10 * math.log10(1 + (low / f0) ** 4)
 
+def low_passes(p,below_hz=12000,share=.5,min_parts=3):
+    """Parts other than the bass whose `mix.lowpass` sits at or under `below_hz`, and whether they are most of the mix.
+    Widespread low-pass filtering seldom helps a mix, because most instruments' harmonics and noise reach up the
+    spectrum, and it easily dulls one; a low-pass suits a part case by case, such as an amplified guitar's noise in the
+    top two octaves (Senior 2012).  Most mixing books put "air" at 10-20 or 12-20 kHz (Moffat, De Man and Reiss 2022):
+    a two-pole low-pass at 12 kHz takes 8 dB at 15 kHz and 15 dB at 18 kHz.  Bass parts are left out: their top is
+    seldom what a mix lacks.  The 12 kHz, the half and the three parts are this project's choice."""
+    parts=[t for t in p['tracks'] if t.get('role')!='bass']
+    under={t['id']:(t.get('mix') or {}).get('lowpass') for t in parts if (t.get('mix') or {}).get('lowpass',18000)<=below_hz}
+    return {'below_hz':below_hz,'parts':len(parts),'under':under,'most':len(under)>=min_parts and len(under)>=share*len(parts)}
+
+def tempo_range(p,entry,spec):
+    """The piece's main tempo against the range its style entry's source gives (`tempo_bpm` in style-maps.json): the
+    written tempo most notes start under, as a synced part follows it (surge.part_tempo).  In a closed range a half- or
+    double-time reading inside it counts as inside (this project's reading: trap is programmed in half time, WP Trap
+    music); a range open at one end is read as written, as doubling would always reach it."""
+    from .surge import part_tempo
+    bpm=part_tempo(p,{'notes':[n for t in p['tracks'] for n in t['notes']]})
+    lo,hi=spec['range'];inside=lambda x:(lo is None or x>=lo) and (hi is None or x<=hi)
+    readings=(bpm,bpm*2,bpm/2) if lo is not None and hi is not None else (bpm,)
+    return {'entry':entry,'bpm':bpm,'range':[lo,hi],'source':spec['source'],'inside':any(inside(x) for x in readings)}
+
 def highpass_cut(t):
     """dB a part's high-pass takes from the fundamental of its lowest note, with that note and its frequency.  FFmpeg's
     two-pole Butterworth passes r^4/(1+r^4) of the power at r times its cutoff: 3 dB is lost at the cutoff, 1.5 dB a
@@ -43,9 +65,10 @@ def unpitched(t):
         return bool(oscillators) and all(o.get('wave')=='noise' for o in oscillators)
     return False
 
-def vertical(p,clock,limit=40):
+def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5):
     """Minor seconds/ninths between a sustained note (>=0.75 beat) and any note of another pitched
-    part (or inside one part's chord) overlapping >=0.5 beat.  Major sevenths are not flagged.  Unpitched parts
+    part (or inside one part's chord) overlapping >=0.5 beat (both numbers ours: style-maps.json).  Major sevenths are
+    not flagged.  Unpitched parts
     (unpitched()) are left out.  The notes are indexed by pitch and onset, so only notes 1, 13, 25... semitones away
     that overlap in time are looked at: the work follows the collisions there are, not the square of the notes, and the
     first `limit` examples by beat are kept while the rest are counted."""
@@ -60,7 +83,7 @@ def vertical(p,clock,limit=40):
         lst.sort();starts[q]=[x[0] for x in lst];longest[q]=max(x[1]-x[0] for x in lst)
     count=fg=seq=0;pairs=Counter();kept=[]
     for a in items:
-        if a[1]-a[0]<.75:continue
+        if a[1]-a[0]<sustain_beats:continue
         for q in [a[2]+d*s for d in range(1,128,12) for s in (1,-1)]:
             lst=by_pitch.get(q)
             if not lst:continue
@@ -68,7 +91,7 @@ def vertical(p,clock,limit=40):
             for b in lst[bisect.bisect_left(starts[q],a[0]-longest[q]):bisect.bisect_left(starts[q],a[1])]:
                 ov=min(a[1],b[1])-max(a[0],b[0])
                 # A pair of two sustained notes is found from both; it counts once, from the earlier one.
-                if ov<.5 or (b[1]-b[0]>=.75 and b<a):continue
+                if ov<overlap_beats or (b[1]-b[0]>=sustain_beats and b<a):continue
                 count+=1;fg+=a[4] or b[4];pairs[' / '.join(sorted({a[3],b[3]}))]+=1;seq+=1
                 beat=max(a[0],b[0])
                 heapq.heappush(kept,(-beat,-seq,(a,b,ov)))
@@ -301,15 +324,53 @@ def _energy(p,clock):
         rows.append({'section':s['id'],'bars':s['bars'],'notes_per_bar':round(count/max(s['bars'],1),2),'parts':parts,'mean_velocity':round(statistics.mean(vel),1) if vel else 0})
     return rows
 
-def repetition(p,clock,static_bars=16,pitched_loop_bars=24,percussion_loop_bars=33):
+def _curve_value(points,beat,step):
+    """A [beat, value] curve at `beat`, as the render plays it: linear between points, the later of two points on one
+    beat winning (model.curve_at), or, in step mode, each value held until the next point; the first value before the
+    first point, the last after the last."""
+    i=bisect.bisect_right([b for b,_ in points],beat)
+    if i==0:return points[0][1]
+    if step or i==len(points):return points[i-1][1]
+    (b0,v0),(b1,v1)=points[i-1],points[i]
+    return v0 if b1==b0 else v0+(v1-v0)*(beat-b0)/(b1-b0)
+
+def _curve_moves(points,lo,hi,step=False):
+    """Whether a [beat, value] curve changes in the span [lo, hi) of beats: at its start, or anywhere inside it.  The
+    curve is read just before the span, just after its start, either side of every point inside it and just before
+    its end: piecewise linear (or held), it is constant over the span exactly when all those agree."""
+    if len(points)<2:return False
+    pts=sorted(points,key=lambda x:x[0]);e=1e-6
+    probes=[lo-e,lo+e,hi-e]+[b+d for b,_ in pts if lo<b<hi for d in (-e,e)]
+    return len({round(_curve_value(pts,x,step),6) for x in probes})>1
+
+def processes(p,lo,hi):
+    """What moves a part's sound in the span [lo, hi) of beats while its notes may repeat: a filter sweep, the gain
+    automation, a continuous controller's curve (the mod wheel opening a Surge patch's filter, expression, brightness;
+    the switch controllers 64-69, the pedals, and the bank and mode controllers left out).  The continuous processes of
+    dance music are pitch slides, crescendos, fades, filter sweeps and timbre changes (Smith 2021)."""
+    out=[]
+    for t in p['tracks']:
+        mix=t.get('mix') or {};perf=t.get('performance') or {}
+        if _curve_moves((mix.get('filter_sweep') or {}).get('points') or [],lo,hi):out.append(f'{t["id"]}: filter sweep')
+        if _curve_moves(mix.get('automation') or [],lo,hi):out.append(f'{t["id"]}: automation')
+        step=perf.get('cc_mode','linear' if t['engine']=='additive' else 'step')=='step';by=defaultdict(list)
+        for b,c,v in perf.get('cc',[]):
+            if not (64<=c<=69 or c in (0,32) or c>=120):by[c].append((b,v))
+        out+=[f'{t["id"]}: CC{c}' for c in sorted(by) if _curve_moves(by[c],lo,hi,step)]
+    return out
+
+def repetition(p,clock,static_bars=16,pitched_loop_bars=24,percussion_loop_bars=33,lower_measures=2,density_share=.1,velocity=3,processes_vary=False):
     """Where nothing changes: (1) spans of at least `static_bars` bars in which every part repeats the same block of
-    1, 2, 4 or 8 bars note for note; (2) parts that repeat a 1-, 2- or 4-bar cycle unchanged for at least
+    1, 2, 4 or 8 bars note for note; with `processes_vary` (the dance styles' map entries: loops change by process,
+    Smith 2021, Garcia 2005), each span also records what moves its sound (`processes`) and the runs of at least
+    `static_bars` bars inside it in which nothing does (`still`); (2) parts that repeat a 1-, 2- or 4-bar cycle unchanged for at least
     `pitched_loop_bars` bars (a pitched part) or `percussion_loop_bars` (a percussion part): dance music is phrased in
     multiples of two bars at several levels, new sounds entering at the downbeats of those phrases (Smith 2021, after
     Snoman 2019), so a loop held past one or two 16-bar phrases is a question; (3) sections that return note for note in every part; (4) arrival sections (named chorus,
     hook, drop, climax, peak, summit, final or refrain, a pre-chorus not counted) thinner than the section before them in at least two of notes
     per bar, parts and velocity; (5) neighbouring sections with the same parts, notes per bar within 10% and velocity
-    within 3.  Moderate novelty is liked best (Chmiel and Schubert 2017): questions, not faults."""
+    within 3.  Moderate novelty is liked best (Chmiel and Schubert 2017): questions, not faults.  The numbers are ours,
+    set on the project's early pieces (style-maps.json); a style's map entry may give its own."""
     bpb=clock.beats_per_bar;bars=p['clock']['bars']
     contents={t['id']:_bar_contents(t,bpb) for t in p['tracks'] if t['notes']}
     found=[]
@@ -345,6 +406,15 @@ def repetition(p,clock,static_bars=16,pitched_loop_bars=24,percussion_loop_bars=
         if best:
             static.append({'from_bar':best[0]+1,'to_bar':best[1],'bars':best[1]-best[0],'block_bars':best[2]});b=best[1]
         else:b+=1
+    if processes_vary:
+        for s in static:
+            moving=[processes(p,k*bpb,(k+1)*bpb) for k in range(s['from_bar']-1,s['to_bar'])];runs=[];start=None
+            for k,m in enumerate(moving+[['end']]):
+                if not m and start is None:start=k
+                elif m and start is not None:
+                    if k-start>=static_bars:runs.append({'from_bar':s['from_bar']+start,'to_bar':s['from_bar']+k-1,'bars':k-start})
+                    start=None
+            s['processes']=sorted({x for m in moving for x in m});s['still']=runs
     returns=[]
     secs=p['sections']
     def section_notes(s):
@@ -356,9 +426,9 @@ def repetition(p,clock,static_bars=16,pitched_loop_bars=24,percussion_loop_bars=
     energy=_energy(p,clock);flat=[];weak=[]
     for a,b in zip(energy,energy[1:]):
         lower=(b['notes_per_bar']<a['notes_per_bar'])+(len(b['parts'])<len(a['parts']))+(b['mean_velocity']<a['mean_velocity'])
-        if _arrival(b['section']) and not _arrival(a['section']) and lower>=2:
+        if _arrival(b['section']) and not _arrival(a['section']) and lower>=lower_measures:
             weak.append({'section':b['section'],'after':a['section'],'notes_per_bar':[a['notes_per_bar'],b['notes_per_bar']],'parts':[len(a['parts']),len(b['parts'])],'mean_velocity':[a['mean_velocity'],b['mean_velocity']]})
-        if a['notes_per_bar'] and set(a['parts'])==set(b['parts']) and abs(b['notes_per_bar']/a['notes_per_bar']-1)<.1 and abs(b['mean_velocity']-a['mean_velocity'])<3:
+        if a['notes_per_bar'] and set(a['parts'])==set(b['parts']) and abs(b['notes_per_bar']/a['notes_per_bar']-1)<density_share and abs(b['mean_velocity']-a['mean_velocity'])<velocity:
             flat.append({'sections':[a['section'],b['section']],'notes_per_bar':[a['notes_per_bar'],b['notes_per_bar']],'mean_velocity':[a['mean_velocity'],b['mean_velocity']]})
     return {'static_spans':static,'part_loops':part_loops,'literal_returns':returns,'arrivals_thinner_than_before':weak,'sections_alike':flat,'energy':energy}
 
@@ -463,6 +533,11 @@ def stretched(p,clock,maps,limit=4,examples=40):
 def review(p,out,config=None):
     out=Path(out);out.mkdir(parents=True,exist_ok=True);clock=Clock(p)
     summary={'validation':validate(p),'title':p['title'],'tracks':[],'sections':[],'prompts':[],'not_a_perceptual_quality_score':True}
+    # Each check's limits come from the style maps: the entry governing the check's axis, else the default, which is
+    # marked 'ours' where the project set the number itself (styles.py; style-maps.json).
+    from . import styles
+    lims=styles.limits(p);L=lambda c:lims[c]['params'];ask=lambda c:lims[c]['ask']
+    summary['style']=styles.parse(p.get('style'));summary['limits']=styles.summary(lims)
     csv_rows=[]
     for t in p['tracks']:
         notes=sorted(t['notes'],key=lambda n:n['on']);actual=performed(t,clock)
@@ -475,13 +550,13 @@ def review(p,out,config=None):
         info={'id':t['id'],'role':t.get('role'),'engine':t['engine'],'notes':len(notes),'pitch_range':[min((n['pitch'] for n in notes),default=None),max((n['pitch'] for n in notes),default=None)],'duration_values':dict(hist),'velocity_range':[min(vel,default=None),max(vel,default=None)],'median_performed_key_gap_ms':round(statistics.median(gaps),2) if gaps else None,'step_or_repeat_fraction':round(sum(x<=2 for x in interval)/len(interval),3) if interval else None,'phrase_labels':dict(phrases),'same_key_retrigger_trims':sum(n.get('retrigger_trimmed',False) for n in actual)}
         summary['tracks'].append(info)
         if t.get('role') in ('melody','countermelody') and notes:
-            if len(hist)<3:summary['prompts'].append(f'{t["id"]}: few duration categories; inspect whether the intended line has phrase direction and space.')
-            if len(set(vel))<4:summary['prompts'].append(f'{t["id"]}: nearly flat MIDI velocity; inspect instrument response before adding expression.')
+            if ask('melody_durations') and len(hist)<L('melody_durations')['min_categories']:summary['prompts'].append(f'{t["id"]}: few duration categories; inspect whether the intended line has phrase direction and space.')
+            if ask('melody_velocities') and len(set(vel))<L('melody_velocities')['min_values']:summary['prompts'].append(f'{t["id"]}: nearly flat MIDI velocity; inspect instrument response before adding expression.')
         bank=(t.get('patch') or t).get('bank',0)
         if t['engine']=='soundfont' and t.get('soundfont','default')=='default' and bank in (17,18) and not any(c==2 for _,c,_ in t['performance'].get('cc',[])):
             summary['prompts'].append(f'{t["id"]}: MuseScore "Expr." presets (bank 17/18) are near-silent until CC2 is written.')
         cut=highpass_cut(t)
-        if cut and cut[0]>1.5:
+        if cut and cut[0]>L('highpass')['loss_db'] and ask('highpass'):
             low,keeps=highpass_floor(cut[2]);where='an octave under that note' if low>15 else 'the lowest a part may have'
             summary['prompts'].append(f'{t["id"]}: its high-pass at {t["mix"].get("highpass",30):g} Hz takes {cut[0]:.1f} dB from the fundamental of its lowest note ({NAMES[cut[1]%12]}{cut[1]//12-1}, {cut[2]:.0f} Hz); at {low:.0f} Hz, {where}, it takes {keeps:.1f} dB.')
         for n in notes:
@@ -494,8 +569,8 @@ def review(p,out,config=None):
             notes=[n for n in t['notes'] if lo<=n['on']<hi]
             if notes:tracks.append(t['id']);roles[t.get('role')]+=len(notes)
         summary['sections'].append({**s,'start_seconds':round(clock.seconds(lo),3),'end_seconds':round(clock.seconds(hi),3),'active_tracks':tracks,'onsets_by_role':dict(roles)})
-    summary['vertical_minor_seconds_ninths']=v=vertical(p,clock)
-    if v['count']:
+    summary['vertical_minor_seconds_ninths']=v=vertical(p,clock,**L('vertical'))
+    if v['count'] and ask('vertical'):
         summary['prompts'].append(f'{v["count"]} sustained minor-second/ninth collisions ({v["foreground_count"]} touch the foreground); most between {next(iter(v["by_parts"]))}. Check whether each is a prepared tension or an accidental voicing.')
     oc=outside_chord(p,clock)
     if oc is not None:
@@ -504,32 +579,45 @@ def review(p,out,config=None):
             f=x['first'];return f'most in {x["most_in"]}; first {f["note"]} {"held into" if f["held_into_chord"] else "on"} {f["chord"]} at {f["at"]}'
         def notes(x,who):
             n=x['count'];return f'{n} {who} {"note" if n==1 else "notes"} on strong positions {"sits" if n==1 else "sit"} outside the written chord and {"is" if n==1 else "are"}'
+        if not ask('outside_chord'):g={}
         if 'melody' in g:summary['prompts'].append(f'{notes(g["melody"],"melody")} not resolved by step ({first(g["melody"])}). The others outside it are named in outside_chord as passing, neighbour, appoggiatura, escape, suspension, retardation, pedal or anticipation notes (Open Music Theory, Embellishing Tones). In rock, melodies leave such notes unresolved, mostly in pentatonic verses (Temperley 2007; rock-and-metal.md); elsewhere resolve each by step, change the chord under it, or write a colour tone that is meant to stay into the symbol (Cadd9, C6, Csus4).')
         if 'bass' in g:summary['prompts'].append(f'{notes(g["bass"],"bass")} neither resolved by step nor held as a pedal ({first(g["bass"])}). Where the bass is meant there, write a slash chord (C/D); otherwise move it to a chord tone.')
         if 'accompaniment' in g:summary['prompts'].append(f'{notes(g["accompaniment"],"accompaniment")} neither resolved by step nor held as a pedal ({first(g["accompaniment"])}). Write a tension that is meant into the symbol (Cmaj7, Csus4, Cadd9); many together can mean the part and the chord symbols are out of step.')
         if oc['unparsed_symbols']:summary['prompts'].append('Chord symbols not checked: '+', '.join(oc['unparsed_symbols']))
-    par=summary['parallel_fifths_octaves']=parallels(p,clock)
-    if par['count']:
+    par=summary['parallel_fifths_octaves']=parallels(p,clock,**L('parallels'))
+    if par['count'] and ask('parallels'):
         f=par['examples'][0]
         summary['prompts'].append(f'{par["count"]} {"time" if par["count"]==1 else "times"} two parts move in parallel fifths or octaves (most between {next(iter(par["by_pair"]))}; first {f["interval"]} at {f["at"]}). Where the parts are independent voices (baroque, classical, chorale and chamber writing), two perfect consonances of the same size in a row fuse the voices and are avoided (Open Music Theory, First-Species Counterpoint): move one voice the other way or to a third or sixth. Power chords and lines doubled on purpose move in parallel; octaves inside a line doubled at the octave are left out (baroque.md).')
     low=summary['low_intervals']=low_intervals(p,clock)
-    if low['count']:
+    if low['count'] and ask('low_intervals'):
         w=low['furthest_below']
         summary['prompts'].append(f'{low["count"]} close {"interval sounds under its" if low["count"]==1 else "intervals sound under their"} low interval limit, where voicings turn muddy (most between {next(iter(low["by_parts"]))}; furthest under, a {w["interval"]} {w["notes"][0]}-{w["notes"][1]} at {w["at"]}, whose limit is {w["limit"]}). Spread the voicing or move the upper note an octave up, leaving the low register to the bass. The limits are guides: soft, dark sounds bear more than loud, bright ones, and a low rumble can be meant (Hoffmann; arrangement.md, Spacing).')
-    rep=summary['repetition']=repetition(p,clock)
-    for s in rep['static_spans']:
-        summary['prompts'].append(f'Bars {s["from_bar"]}-{s["to_bar"]}: every part repeats the same {s["block_bars"]}-bar block note for note ({s["bars"]} bars). Change a layer, add a fill or a break, or vary the block (development-and-groove.md).')
-    for l in rep['part_loops']:
+    rep=summary['repetition']=repetition(p,clock,**L('static_texture'),**L('repetition'),**L('arrivals_thinner'),**L('sections_alike'))
+    for s in rep['static_spans'] if ask('static_texture') else ():
+        if 'still' not in s:
+            summary['prompts'].append(f'Bars {s["from_bar"]}-{s["to_bar"]}: every part repeats the same {s["block_bars"]}-bar block note for note ({s["bars"]} bars). Change a layer, add a fill or a break, or vary the block (development-and-groove.md).')
+        for w in s.get('still',()):
+            summary['prompts'].append(f'Bars {w["from_bar"]}-{w["to_bar"]}: every part repeats the same {s["block_bars"]}-bar block note for note ({w["bars"]} bars) and nothing moves its sound, no filter sweep, automation or controller curve. Dance music changes its loops by adding and taking away layers at phrase downbeats and by continuous processes, filter sweeps, crescendos, fades (Garcia 2005; Smith 2021): add one, or change a layer (electronic.md, Techno).')
+    for l in rep['part_loops'] if ask('repetition') else ():
         who=', '.join(l['tracks']);cyc='/'.join(map(str,l['cycle_bars']))
         summary['prompts'].append(f'Bars {l["from_bar"]}-{l["to_bar"]}: {who} {"repeat" if len(l["tracks"])>1 else "repeats"} a {cyc}-bar pattern unchanged for {l["bars"]} bars. Dance music brings new sounds in at the downbeats of its phrases (Smith 2021): at an 8- or 16-bar edge try a fill, a dropout and return, or a variation of the pattern (development-and-groove.md).')
-    for r in rep['literal_returns']:
+    for r in rep['literal_returns'] if ask('literal_returns') else ():
         summary['prompts'].append(f'{r["section"]} repeats {r["repeats"]} note for note in every part; if the return should develop, change one thing: the melody, the harmony under it, the texture or the register (development-and-groove.md).')
-    for w in rep['arrivals_thinner_than_before']:
+    for w in rep['arrivals_thinner_than_before'] if ask('arrivals_thinner') else ():
         summary['prompts'].append(f'{w["section"]} arrives thinner than {w["after"]} (notes per bar {w["notes_per_bar"][0]:g} -> {w["notes_per_bar"][1]:g}, parts {w["parts"][0]} -> {w["parts"][1]}, velocity {w["mean_velocity"][0]:g} -> {w["mean_velocity"][1]:g}); confirm the drop in energy is meant.')
-    for f in rep['sections_alike']:
+    for f in rep['sections_alike'] if ask('sections_alike') else ():
         summary['prompts'].append(f'{f["sections"][0]} and {f["sections"][1]} have the same parts and nearly the same density and dynamics; decide what changes between them.')
-    stiff=summary['stiffness']=stiffness(p,clock)
-    for b in stiff['block_chord_parts']:
+    entry=styles.governing(summary['style'],'tempo');spec=(styles.registry()['styles'].get(entry) or {}).get('tempo_bpm') if entry else None
+    if spec:
+        tr=summary['tempo_range']=tempo_range(p,entry,spec);lo,hi=tr['range']
+        span=f'{lo:g}-{hi:g} BPM' if hi is not None else f'{lo:g} BPM or more'
+        if not tr['inside'] and ask('tempo_range'):summary['prompts'].append(f'The piece runs at {tr["bpm"]:g} BPM, outside the {span} the source of {entry} gives ({tr["source"]}){", and so does its half or double time" if hi is not None else ""}. If the tempo is meant, record why in decisions; a tempo outside the range can make the music read as another style (style-maps.md).')
+    lp=summary['low_passes']=low_passes(p,**L('widespread_lowpass'))
+    if lp['most'] and ask('widespread_lowpass'):
+        named=', '.join(f'{k} {v/1000:g} kHz' for k,v in sorted(lp['under'].items(),key=lambda kv:kv[1])[:6])+(', ...' if len(lp['under'])>6 else '')
+        summary['prompts'].append(f'{len(lp["under"])} of the {lp["parts"]} parts other than the bass are low-passed at or under {lp["below_hz"]/1000:g} kHz ({named}): together they take the top octave out of the mix, where most mixing books put air (10-20 kHz; Moffat, De Man and Reiss 2022). Widespread low-pass filtering seldom helps, because the harmonics and noise of most instruments reach up the spectrum, and it easily dulls a mix (Senior 2012). Keep a low-pass where the highs of a part must go for the balance, such as the noise of an amplified guitar; for the others remove `mix.lowpass` (18 kHz by default) unless the style wants a muffled top (performance-and-mix.md, Brightness and air).')
+    stiff=summary['stiffness']=stiffness(p,clock,**L('stiffness'))
+    for b in stiff['block_chord_parts'] if ask('stiffness') else ():
         summary['prompts'].append(f'{b["track"]}: {b["block_share"]:.0%} of its {b["chords"]} chords are struck and released as one block. Hold a common tone over the change, move an inner voice, break the chord or vary its rhythm (development-and-groove.md; musiclib.voicing voices chords to move smoothly).')
     from .profile import melody_in, top_line
     line=top_line([n for t in p['tracks'] if t.get('role')=='melody' for n in t['notes']])
@@ -537,10 +625,19 @@ def review(p,out,config=None):
     for s in p['sections']:
         m=melody_in(line,s['start_bar']*clock.beats_per_bar,(s['start_bar']+s['bars'])*clock.beats_per_bar,clock)
         summary['melody_sections'].append({'section':s['id'],**(m or {})})
-        if m and m['bars_compared']>=8 and m['bars_restated']==0:
+        if m and ask('restatement') and m['bars_compared']>=L('restatement')['min_bars'] and m['bars_restated']==0:
             summary['prompts'].append(f'{s["id"]}: none of its {m["bars_compared"]} melody bars restates the rhythm and shape of an earlier one. Pop sections often state an idea and restate it before departing (Summach 2011), as a classical sentence repeats its basic idea (Caplin 1998); if this section should have such an idea, state it and restate it, varied or sequenced (climax-and-melody.md).')
-    if stiff['no_pushes_anywhere']:
+    if stiff['no_pushes_anywhere'] and ask('pushes'):
         summary['prompts'].append('No melody or accompaniment attack anticipates a downbeat or half-bar. Rock and pop melodies anticipate strong beats (Tan, Lustig and Temperley 2019), and moderate syncopation goes with the most groove (Witek et al. 2014; development-and-groove.md); if the style calls for drive, try a few pushes.')
+    # Surge XT's mono single-trigger legato keeps the velocity of the note a slide starts from: SurgeVoice::legato (Surge
+    # XT 1.3.4) does not take the new note's, so velocity_to_cutoff does not reach a note that glides in, as played (GPT's
+    # review of 0.5, SA01: an accented note's cutoff stayed where the note before it had set it).
+    for t in p['tracks']:
+        sp=t.get('surge') if t['engine']=='surge' else None
+        if sp and 'glide_ms' in sp and 'velocity_to_cutoff' in sp:
+            ns=sorted(performed(t,clock),key=lambda n:(n['start_seconds'],n['pitch']))
+            slid=[b['id'] for a,b in zip(ns,ns[1:]) if a['start_seconds']+1e-6<b['start_seconds']<a['end_seconds']-1e-6]
+            if slid:summary['prompts'].append(f'{t["id"]}: {len(slid)} notes glide in from the note before ({", ".join(slid[:3])}{", ..." if len(slid)>3 else ""}); Surge XT keeps the velocity of the note a slide starts from, so velocity_to_cutoff does not accent them. End the note before one that must be accented (it then attacks), or let it slide unaccented.')
     if config is not None:
         from . import surge
         if surge.installed(config):
@@ -548,13 +645,28 @@ def review(p,out,config=None):
             full=bool((config.get('surge') or {}).get('catalog'))
             for t in p['tracks']:
                 preset=(t.get('synth') or {}).get('preset') if t['engine']=='synth' else None
+                role=surge.BUILTIN_ROLES.get(preset) if preset else None
                 options=surge.counterparts(preset) if preset else []
                 named=surge.catalog_counterparts(preset) if preset and full and not options else []
-                if (options or named) and t['notes']:
+                if full and role and t['notes']:
+                    # With the full patch set: three of the role spread over the range and picked by the piece's seed
+                    # (sounds.spread), so two pieces are not pointed to the same patches, as the curated four were
+                    # every time: the 0.4.0 agent pieces took 71% of their Surge parts from the curated fifty.
+                    from .blocks import seed as piece_seed
+                    from .sounds import search
+                    s=piece_seed(p['title']);picks=[r['id'] for r in search(role,limit=3,seed=s)['shown']]
+                    summary['prompts'].append(f'{t["id"]}: plays the built-in {preset}; Surge XT is installed with its full patch set: studio.py sounds --role {role} --seed {s} lists patches for this role spread over the range (three for this piece: {", ".join(picks)}). Hear two to four on the part: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+x for x in picks)} --bars FIRST-LAST (sound-selection.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
+                elif full and surge.measured_counterparts(preset) and t['notes']:
+                    # The 808's slide and the acid line's accents and slides: the patches measured to play them as the
+                    # score asks, with the settings that do it (surge-roles.json), not every patch so named.
+                    measured=surge.measured_counterparts(preset)
+                    listed='; '.join(pid+(' with '+', '.join(k if v is True else f'{k} {v:g}' for k,v in s.items()) if s else '') for pid,s in measured)
+                    summary['prompts'].append(f'{t["id"]}: plays the built-in {preset}; Surge XT is installed with its full patch set, and these patches were measured to play this part as the score asks (surge-roles.json): {listed}. Hear them on the part with those settings: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+pid+"".join("+"+k if v is True else f"+{k}={v:g}" for k,v in s.items()) for pid,s in measured[:3])} --bars FIRST-LAST (electronic-sounds.md). Keep the built-in preset where none suits, where a render must repeat exactly, or where Surge XT is missing.')
+                elif (options or named) and t['notes']:
                     which=f'its patches for this role include {", ".join(options[:4])}' if options else f'its full patch set has patches named for this sound: {", ".join(named[:4])}'
                     summary['prompts'].append(f'{t["id"]}: plays the built-in {preset}; Surge XT is installed, and {which}. Hear them on the part: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+x for x in (options or named)[:3])} --bars FIRST-LAST (electronic-sounds.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
-        st=summary['transposed_samples']=stretched(p,clock,sample_maps(p,config))
-        if st['count']:
+        st=summary['transposed_samples']=stretched(p,clock,sample_maps(p,config),limit=L('transposed_samples')['limit_semitones'])
+        if st['count'] and ask('transposed_samples'):
             worst=next(iter(st['by_track']))
             summary['prompts'].append(f'{st["count"]} notes play a sample transposed more than {st["limit_semitones"]} semitones, most in {worst}; the tone and the vibrato rate change with it. Move them, give them to another instrument, or accept the change.')
         if st['outside_count']:summary['prompts'].append(f'{st["outside_count"]} notes fall outside their preset\'s keys and will not sound.')

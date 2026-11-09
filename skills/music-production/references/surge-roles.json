@@ -1,0 +1,447 @@
+{
+ "measured": "Surge XT 1.3.4 through the skill's own Surge path (musiclib.surge.render), 120 BPM, on 9 November 2026, by surge_roles.py in the development repository; no listening. Slide: C2 held 50 ms into an overlapping F2, the time from leaving C2 (30 cents up) to settling within 20 cents of F2; pitch: the median of the steady notes in cents from the written ones. Accent: the spectral centroid (Hz) of one C2 at velocities 40, 70, 100 and 127. Velocity: one C4 at velocities 30, 60, 90 and 120, centroid (Hz) and level (dBFS). Surge oscillators start at random phases, so a second run differs a little. Risers and the reverse cymbal: one C4 held 4 beats (2 s) with swell, the RMS peak against the note's end, the rise from the note's first 200 ms to its last, and the centroid at both.",
+ "808": {
+  "use": "an 808 bass: a long sine-based note whose pitch slides between overlapping notes",
+  "settings": {
+   "glide_ms": 80
+  },
+  "patches": {
+   "a_liv/basses/bonsai_808": {
+    "slide_ms": 82.5,
+    "pitch_cents": [
+     1.3,
+     0.1,
+     0.3
+    ]
+   },
+   "vospi/basses/808_builder_a": {
+    "slide_ms": 82.5,
+    "pitch_cents": [
+     0.0,
+     -0.0,
+     7.3
+    ]
+   }
+  }
+ },
+ "acid": {
+  "use": "an acid line: velocity as the accent opening the filter, slides between overlapping notes",
+  "patches": {
+   "cybersoda/basses/acid_bassline_2": {
+    "accent_centroid_hz": [
+     401,
+     454,
+     501,
+     539
+    ],
+    "no_clean_slide": "in steps",
+    "pitch_cents": [
+     0.5,
+     -13.7,
+     2.1
+    ],
+    "settings": {
+     "velocity_to_cutoff": 24
+    }
+   },
+   "factory/leads/squelch": {
+    "accent_centroid_hz": [
+     199,
+     435,
+     708,
+     764
+    ],
+    "no_clean_slide": "measured 0.0 ms",
+    "pitch_cents": [
+     3.7,
+     3.6,
+     4.4
+    ],
+    "settings": {}
+   },
+   "kinsey_dulcet/bass/acid_funk_bass": {
+    "accent_centroid_hz": [
+     176,
+     196,
+     231,
+     300
+    ],
+    "slide_ms": 60.0,
+    "pitch_cents": [
+     1.6,
+     0.9,
+     -3.0
+    ],
+    "settings": {
+     "velocity_to_cutoff": 24,
+     "glide_ms": 60
+    }
+   },
+   "kinsey_dulcet/basses/everybody_needs_a_303_really": {
+    "accent_centroid_hz": [
+     136,
+     148,
+     160,
+     171
+    ],
+    "slide_ms": 67.5,
+    "pitch_cents": [
+     1.1,
+     -0.3,
+     -1.7
+    ],
+    "settings": {
+     "velocity_to_cutoff": 24,
+     "glide_ms": 60
+    }
+   },
+   "luna/basses/acid": {
+    "accent_centroid_hz": [
+     347,
+     447,
+     540,
+     584
+    ],
+    "no_clean_slide": "measured 0.0 ms",
+    "pitch_cents": [
+     -3.7,
+     0.1,
+     -9.2
+    ],
+    "settings": {}
+   },
+   "luna/basses/basic_acid": {
+    "accent_centroid_hz": [
+     508,
+     576,
+     634,
+     677
+    ],
+    "slide_ms": 70.0,
+    "pitch_cents": [
+     -3.2,
+     -0.0,
+     -17.2
+    ],
+    "settings": {
+     "velocity_to_cutoff": 24,
+     "glide_ms": 60
+    }
+   },
+   "luna/basses/sk_acid": {
+    "accent_centroid_hz": [
+     168,
+     199,
+     268,
+     987
+    ],
+    "slide_ms": 70.0,
+    "pitch_cents": [
+     -7.0,
+     -0.0,
+     -17.5
+    ],
+    "settings": {
+     "glide_ms": 60
+    }
+   },
+   "luna/plucks/acidic_feedback_plonk": {
+    "accent_centroid_hz": [
+     99,
+     108,
+     276,
+     337
+    ],
+    "no_clean_slide": "measured 0.0 ms",
+    "pitch_cents": [
+     -2.8,
+     0.7,
+     -0.5
+    ],
+    "settings": {}
+   },
+   "tnmg/leads/acid_gizmo": {
+    "accent_centroid_hz": [
+     200,
+     212,
+     250,
+     281
+    ],
+    "no_clean_slide": "measured 27.5 ms",
+    "pitch_cents": [
+     -6.2,
+     -0.2,
+     -9.4
+    ],
+    "settings": {}
+   }
+  }
+ },
+ "ep_velocity": {
+  "use": "how each electric piano changes with velocity, the patch as designed",
+  "patches": {
+   "bluelight/keys/treated_rhodes": {
+    "centroid_hz": [
+     285,
+     364,
+     400,
+     470
+    ],
+    "level_db": [
+     -35.2,
+     -25.7,
+     -18.2,
+     -14.2
+    ],
+    "with_velocity": "brighter and louder"
+   },
+   "cybersoda/keys/vintage_ep": {
+    "centroid_hz": [
+     327,
+     543,
+     631,
+     444
+    ],
+    "level_db": [
+     -26.9,
+     -31.2,
+     -31.2,
+     -23.4
+    ],
+    "with_velocity": "brighter, level about the same"
+   },
+   "cybersoda/keys/wurli": {
+    "centroid_hz": [
+     269,
+     280,
+     338,
+     500
+    ],
+    "level_db": [
+     -19.5,
+     -15.9,
+     -16.6,
+     -19.3
+    ],
+    "with_velocity": "brighter, level about the same"
+   },
+   "emu/keys/light_ep": {
+    "centroid_hz": [
+     271,
+     281,
+     273,
+     298
+    ],
+    "level_db": [
+     -26.1,
+     -23.2,
+     -15.6,
+     -15.6
+    ],
+    "with_velocity": "louder, tone about the same"
+   },
+   "emu/keys/trashion_ep": {
+    "centroid_hz": [
+     598,
+     552,
+     587,
+     573
+    ],
+    "level_db": [
+     -34.3,
+     -29.1,
+     -25.5,
+     -19.1
+    ],
+    "with_velocity": "louder, tone about the same"
+   },
+   "factory/keys/dx_ep": {
+    "centroid_hz": [
+     280,
+     404,
+     829,
+     1235
+    ],
+    "level_db": [
+     -29.6,
+     -26.1,
+     -24.6,
+     -18.8
+    ],
+    "with_velocity": "brighter and louder"
+   },
+   "factory/keys/ep_1": {
+    "centroid_hz": [
+     267,
+     268,
+     277,
+     371
+    ],
+    "level_db": [
+     -34.1,
+     -26.7,
+     -22.4,
+     -18.9
+    ],
+    "with_velocity": "brighter and louder"
+   },
+   "factory/keys/ep_2": {
+    "centroid_hz": [
+     298,
+     327,
+     365,
+     619
+    ],
+    "level_db": [
+     -37.8,
+     -32.4,
+     -27.1,
+     -22.3
+    ],
+    "with_velocity": "brighter and louder"
+   },
+   "factory/keys/soft_suitcase": {
+    "centroid_hz": [
+     262,
+     264,
+     273,
+     283
+    ],
+    "level_db": [
+     -36.3,
+     -29.1,
+     -22.1,
+     -15.3
+    ],
+    "with_velocity": "louder, tone about the same"
+   },
+   "jacky_ligon/keys/iso_ep": {
+    "centroid_hz": [
+     441,
+     340,
+     449,
+     545
+    ],
+    "level_db": [
+     -34.9,
+     -30.4,
+     -33.5,
+     -26.2
+    ],
+    "with_velocity": "irregular"
+   },
+   "kinsey_dulcet/keys/japanese_suitcase": {
+    "centroid_hz": [
+     631,
+     902,
+     1090,
+     3157
+    ],
+    "level_db": [
+     -24.1,
+     -23.0,
+     -19.9,
+     -21.0
+    ],
+    "with_velocity": "brighter, level about the same"
+   },
+   "luna/keys/vaguely_rhodesish": {
+    "centroid_hz": [
+     324,
+     309,
+     300,
+     317
+    ],
+    "level_db": [
+     -21.6,
+     -21.0,
+     -21.0,
+     -19.4
+    ],
+    "with_velocity": "irregular"
+   },
+   "vospi/keys/ep_forest": {
+    "centroid_hz": [
+     270,
+     269,
+     301,
+     352
+    ],
+    "level_db": [
+     -32.1,
+     -21.5,
+     -12.9,
+     -10.9
+    ],
+    "with_velocity": "brighter and louder"
+   },
+   "vospi/keys/ep_middle": {
+    "centroid_hz": [
+     262,
+     266,
+     449,
+     642
+    ],
+    "level_db": [
+     -30.3,
+     -17.0,
+     -12.3,
+     -8.3
+    ],
+    "with_velocity": "brighter and louder"
+   }
+  }
+ },
+ "swell": {
+  "use": "a riser or a reverse cymbal that rises over its note and ends on the next beat: the peak within 0.1 s of the note end, a rise of 10 dB or more, and the centroid rising",
+  "settings": {
+   "swell": true
+  },
+  "patches": {
+   "nick_moritz/fx/sweep_noise_up_down": {
+    "peak_s": 1.925,
+    "note_end_s": 2.0,
+    "rise_db": 25.4,
+    "centroid_start_hz": 175,
+    "centroid_end_hz": 203
+   },
+   "damon_armani/drums/reverse_crash": {
+    "peak_s": 2.025,
+    "note_end_s": 2.0,
+    "rise_db": 61.9,
+    "centroid_start_hz": 1515,
+    "centroid_end_hz": 5929
+   }
+  },
+  "not_passed": {
+   "inigo_kennedy/fx/uplifting_noise": {
+    "peak_s": 0.425,
+    "note_end_s": 2.0,
+    "rise_db": 10.2,
+    "centroid_start_hz": 681,
+    "centroid_end_hz": 571
+   },
+   "psiome_send_sound/fx/noise_up": {
+    "peak_s": 1.675,
+    "note_end_s": 2.0,
+    "rise_db": 20.9,
+    "centroid_start_hz": 6473,
+    "centroid_end_hz": 6880
+   },
+   "kinsey_dulcet/fx/8_measure_noise_comb_sweep": {
+    "peak_s": 1.725,
+    "note_end_s": 2.0,
+    "rise_db": 16.9,
+    "centroid_start_hz": 11203,
+    "centroid_end_hz": 7238
+   },
+   "nick_moritz/fx/sweep_noise_out": {
+    "peak_s": 1.975,
+    "note_end_s": 2.0,
+    "rise_db": 41.0,
+    "centroid_start_hz": 14337,
+    "centroid_end_hz": 6891
+   }
+  }
+ }
+}

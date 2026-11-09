@@ -5,7 +5,11 @@ Read this when the request is any of these:
 - harpsichord music, a trio sonata, a concerto grosso, a fugue or a dance suite movement;
 - a period scene for a film, game or visual novel (a court, a church, a candlelit hall).
 
+The Baroque among the other periods, on the seven axes with its sources: [style-map-orchestral.md](style-map-orchestral.md).
+
 Contents: [Brief](#brief) · [The continuo](#the-continuo) · [Counterpoint](#counterpoint) · [Patterns: sequences and schemata](#patterns-sequences-and-schemata) · [Forms](#forms) · [Performance on the banks](#performance-on-the-banks) · [Symptoms and causes](#symptoms-and-causes) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 Write in the style, never a known work: no borrowed subjects, ritornellos or ground basses ([sources-and-rights.md](sources-and-rights.md)).
 
@@ -87,7 +91,7 @@ Eighteenth-century composers built phrases from stock patterns of bass and melod
     | Gigue | fast, 6/8 or 12/8 | running compound rhythm |
     | Minuet, gavotte, passepied, bourrée | galanteries between sarabande and gigue | a minuet I and II played I, II, I |
 
-- **Ritornello form.** Vivaldi's concerto fast movements set conventions later composers followed (Wikipedia, Ritornello):
+- **Ritornello form.** The Baroque concerto's fast movements often follow these conventions (Wikipedia, Ritornello):
   - tutti ritornellos alternate with solo episodes;
   - the opening ritornello is made of small units of two to four bars that can be separated and recombined;
   - later ritornellos are partial, and each confirms the key the music has reached;

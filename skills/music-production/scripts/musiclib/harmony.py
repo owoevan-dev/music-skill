@@ -24,8 +24,10 @@ def _pc(name):
 
 def parse(symbol, transpose=0):
     """'F#m7/A' -> {'root': 6, 'bass': 9, 'pcs': {...}, 'quality': 'm7'}; None when the quality is unknown.  `pcs`
-    includes a slash bass; QUALITIES[quality] gives the chord's own intervals above the root."""
-    m = re.fullmatch(r'([A-Ga-g][#b♯♭]?)([^/]*)(?:/([A-Ga-g][#b♯♭]?))?', symbol.strip().replace('Δ', 'maj'))
+    includes a slash bass; QUALITIES[quality] gives the chord's own intervals above the root.  A slash starts a bass
+    only before a note name, so the quality 6/9 keeps its slash (C6/9, C6/9/E; it was read as a bass of 9 and refused:
+    GPT Pro's eighth review of 0.4.0, Y03)."""
+    m = re.fullmatch(r'([A-Ga-g][#b♯♭]?)(.*?)(?:/([A-Ga-g][#b♯♭]?))?', symbol.strip().replace('Δ', 'maj'))
     if not m or m.group(2) not in QUALITIES:
         return None
     root = (_pc(m.group(1)) + transpose) % 12

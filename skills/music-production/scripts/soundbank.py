@@ -1240,10 +1240,15 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
                 ring_end = int(above[-1]) + int(0.05 * info['rate']) if len(above) else len(x)
             if layer.get('max_seconds') or ring_end is not None:
                 n = min(int(layer['max_seconds'] * info['rate']) if layer.get('max_seconds') else len(x), ring_end if ring_end is not None else len(x))
+                if n < 1:
+                    raise ValueError(f'{e["file"].name}: max_seconds {layer["max_seconds"]} keeps no sample at '
+                                     f'{info["rate"]} Hz; give it a positive length')
                 if len(x) > n:
                     if loop and loop[1] > n:
                         raise ValueError(f'{e["file"].name}: max_seconds would cut the recorded loop')
-                    fade = int(0.05 * info['rate'])
+                    # A cut shorter than the 50 ms fade fades over its whole length: a layer cut to 20 ms stopped on
+                    # NumPy's broadcasting (GPT Pro's eighth review of 0.4.0, Y02).  Longer cuts are as before.
+                    fade = min(int(0.05 * info['rate']), n)
                     x = x[:n].copy()
                     x[-fade:] *= np.linspace(1, 0, fade)[:, None]
             match = None

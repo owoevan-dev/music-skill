@@ -18,7 +18,7 @@ loop.json repeats them in samples, with the tempo, beats per bar and beat count 
 With `loop.layers`, every layer also goes through the same buses and spaces alone, with the master's gains and EQ but
 not its compressor and limiters, is delayed by the look-ahead of those limiters (measured on each render, about 10 ms)
 so it lines up with loop.wav, and is folded the same way (layers/<id>.wav and .ogg).  One gain, shared by all
-layers, keeps them under -1 dBTP, so their balance stays the composer's.  Played together they add up to the mix before
+layers, keeps them under the master's true-peak ceiling, so their balance stays the composer's.  Played together they add up to the mix before
 the master's dynamics: the game's music bus needs its own limiter.
 """
 import math
@@ -154,20 +154,22 @@ def has_vorbis(cfg):
 
 def ogg_check(cfg, ogg, logs):
     """Decoded length and loop comments of the Ogg file just written (its own output, never an outside file)."""
-    decoded, meta = ogg.with_name('loop_ogg_decoded.wav'), ogg.with_name('loop_ogg_tags.txt')
+    # Both are scratch files under new names of their own (files.stage_name: a render's journal names them before
+    # FFmpeg writes them), removed once read, as mixbus.mp3_check's decode is.
+    decoded = files.stage_name(ogg.with_name('loop_ogg_decoded.wav'), '.wav')
+    meta = files.stage_name(ogg.with_name('loop_ogg_tags.txt'), '.txt')
     base = [cfg['ffmpeg']['path'], '-hide_banner', '-nostdin', '-y', '-protocol_whitelist', 'file', '-f', 'ogg', '-i', ogg]
-    before = {p: files.stamp(p) for p in (decoded, meta)}
     try:
         audio.run(base + ['-c:a', 'pcm_f32le', '-f', 'wav', decoded], logs, 'loop_ogg_decode')
         audio.run(base + ['-map_metadata', '0:s:a:0', '-f', 'ffmetadata', meta], logs, 'loop_ogg_tags')
+        frames = audio.read_wav(decoded)[1]['frames']
+        tags = dict(re.findall(r'^(LOOPSTART|LOOPLENGTH)=(\d+)$', meta.read_text(encoding='utf-8', errors='replace'), re.M | re.I))
     finally:
-        for p, was in before.items():  # FFmpeg writes both there itself: files of the run once it has changed them
-            if files.stamp(p) != was:
-                files.wrote(p)
-    frames = audio.read_wav(decoded)[1]['frames']
-    tags = dict(re.findall(r'^(LOOPSTART|LOOPLENGTH)=(\d+)$', meta.read_text(encoding='utf-8', errors='replace'), re.M | re.I))
-    decoded.unlink()
-    meta.unlink()
+        for p in (decoded, meta):
+            try:
+                p.unlink()
+            except OSError:
+                pass  # held a moment: the journal names it, and the next run removes it
     return frames, {k.upper(): int(v) for k, v in tags.items()}
 
 
@@ -252,19 +254,22 @@ def deliver(p, clock, cfg, output, mastering=None, draft=False):
     cues = markers(p, clock, end_f)
     wav, ogg = output / 'loop.wav', output / 'loop.ogg'
     # The tail can add to a peak near the loop start, even past full scale: the peak is measured on a float copy,
-    # before the 24-bit file would clip it, and the whole loop comes down rather than clip.
+    # before the 24-bit file would clip it, and the whole loop comes down rather than clip.  The ceiling is the
+    # master's (mixbus.true_peak_ceiling: -1 dBTP, -2 above -14 LUFS).
+    from .mixbus import true_peak_ceiling
+    tp_max = true_peak_ceiling(p['mix'].get('target_lufs', -16))
     probe = logs / 'loop_float.wav'
     audio.write_wav(probe, folded)
     peak = audio.measure(cfg, probe, logs, 'measure_loop_float')['true_peak_dbtp']
     probe.unlink()
-    gain = -1.05 - peak if peak > -1 else 0.0
+    gain = tp_max - .05 - peak if peak > tp_max else 0.0
     if gain:
         folded = folded * 10 ** (gain / 20)
     write_wav(wav, folded, start_f, end_f, cues)
     measured = audio.measure(cfg, wav, logs, 'measure_loop')
     loops = read_smpl(wav)
     checks = {'loop_length_exact': measured['frames'] == end_f, 'loop_points_in_wav': loops == [(0, start_f, end_f - 1)],
-              'loop_true_peak_ceiling': measured['true_peak_dbtp'] <= -1, 'loop_cues_in_wav': read_cues(wav) == cues}
+              'loop_true_peak_ceiling': measured['true_peak_dbtp'] <= tp_max, 'loop_cues_in_wav': read_cues(wav) == cues}
     vorbis = not draft and has_vorbis(cfg)
     entry = {'start_bar': p['loop'].get('start_bar', 0), 'end_bar': p['clock']['bars'], 'sample_rate': audio.RATE,
              'start_sample': start_f, 'end_sample': end_f, 'length_samples': end_f - start_f,
@@ -305,8 +310,9 @@ def latency(layered, master, start, max_lag=4800):
 def layers(p, clock, cfg, output, mastering, start_f, end_f, cues, master, mix_folded, vorbis):
     """layers/<id>.wav (and .ogg): each layer mixed alone through the buses and spaces, with the master's gains and EQ but
     not its dynamics, delayed by the master's limiter latency and folded like the loop.  One gain for every layer keeps
-    them all under -1 dBTP."""
+    them all under the master's true-peak ceiling (mixbus.true_peak_ceiling)."""
     from . import mixbus
+    tp_max = mixbus.true_peak_ceiling(p['mix'].get('target_lufs', -16))
     folder, logs = output / 'layers', output / 'logs'
     folder.mkdir(exist_ok=True)
     frames = round((clock.end + clock.tail) * audio.RATE)
@@ -325,18 +331,19 @@ def layers(p, clock, cfg, output, mastering, start_f, end_f, cues, master, mix_f
         processed.unlink()
     lag = latency(sum(raw.values()), master, start_f)
     folded = {lid: fold(np.concatenate([np.zeros((lag, x.shape[1])), x[:len(x) - lag]]), start_f, end_f) for lid, x in raw.items()}
-    # The layers carry no limiter: scale them together so the loudest sample peak sits below -1 dBFS, then by true peak.
+    # The layers carry no limiter: scale them together so the loudest sample peak sits 0.4 dB under the true-peak
+    # ceiling (0.85 of full scale at -1 dBTP), then by true peak.
     peak = max(float(np.max(np.abs(x))) for x in folded.values())
-    gain = min(0.0, 20 * math.log10(0.85 / max(peak, 1e-9)))
+    gain = min(0.0, 20 * math.log10(0.85 / max(peak, 1e-9)) + tp_max + 1)
     measured = {}
     for attempt in range(2):
         for lid, x in folded.items():
             write_wav(folder / f'{lid}.wav', x * 10 ** (gain / 20), start_f, end_f, cues)
             measured[lid] = audio.measure(cfg, folder / f'{lid}.wav', logs, f'measure_layer_{lid}')
         loudest = max(m['true_peak_dbtp'] for m in measured.values())
-        if loudest <= -1:
+        if loudest <= tp_max:
             break
-        gain += -1.05 - loudest
+        gain += tp_max - .05 - loudest
     total = sum(folded.values()) * 10 ** (gain / 20)
     parts, checks = {}, {'layer_lengths_exact': True, 'layer_points_in_wav': True, 'layer_true_peak_ceiling': True,
                          'layer_cues_in_wav': True}
@@ -346,7 +353,7 @@ def layers(p, clock, cfg, output, mastering, start_f, end_f, cues, master, mix_f
                       'integrated_lufs': m['integrated_lufs'], 'true_peak_dbtp': m['true_peak_dbtp']}
         checks['layer_lengths_exact'] &= m['frames'] == end_f
         checks['layer_points_in_wav'] &= read_smpl(wav) == [(0, start_f, end_f - 1)]
-        checks['layer_true_peak_ceiling'] &= m['true_peak_dbtp'] <= -1
+        checks['layer_true_peak_ceiling'] &= m['true_peak_dbtp'] <= tp_max
         checks['layer_cues_in_wav'] &= read_cues(wav) == cues
         if vorbis:
             length_ok, tags_ok = encode_ogg(cfg, wav, folder / f'{lid}.ogg', start_f, end_f, logs, f'layer_{lid}_ogg')

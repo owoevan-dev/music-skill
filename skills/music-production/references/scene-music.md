@@ -4,6 +4,8 @@ Read this when the music sits under scenes the player reads or watches: a visual
 
 Contents: [Brief](#brief) · [Under text and voices](#under-text-and-voices) · [A set of cues and their themes](#a-set-of-cues-and-their-themes) · [Scene starting points](#scene-starting-points) · [Instruments and a scene's character](#instruments-and-a-scenes-character) · [Form for a scene cue](#form-for-a-scene-cue) · [Delivery in a visual novel engine](#delivery-in-a-visual-novel-engine) · [Instruments for scene music](#instruments-for-scene-music) · [Sources](#sources)
 
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
+
 ## Brief
 
 Settle these from the request, deciding what it leaves open and saying so:

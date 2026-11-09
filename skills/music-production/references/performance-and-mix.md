@@ -2,7 +2,9 @@
 
 Performance (touch, timing, player-like deviation) and the mix (levels by role, the bus chain). How to read what `analyze` and `compare` measure is in [measuring.md](measuring.md).
 
-Contents: [Tested baseline and its boundaries](#tested-baseline-and-its-boundaries) · [Touch and timing](#touch-and-timing) · [Player-like deviation: musiclib.expression](#player-like-deviation-musiclibexpression) · [Mix from musical roles](#mix-from-musical-roles) · [A bright pop piano](#a-bright-pop-piano) · [The bus chain (mix.chain: "bus")](#the-bus-chain-mixchain-bus) · [Sources](#sources)
+Contents: [Tested baseline and its boundaries](#tested-baseline-and-its-boundaries) · [Touch and timing](#touch-and-timing) · [Player-like deviation: musiclib.expression](#player-like-deviation-musiclibexpression) · [Mix from musical roles](#mix-from-musical-roles) · [A bright pop piano](#a-bright-pop-piano) · [Brightness and air](#brightness-and-air) · [The bus chain (mix.chain: "bus")](#the-bus-chain-mixchain-bus) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 ## Tested baseline and its boundaries
 
@@ -31,9 +33,14 @@ FluidSynth runs in MMA bank-select mode, so a project `bank` below 128 selects t
 
 ## Player-like deviation: `musiclib.expression`
 
-Human timing and loudness fluctuations are long-range correlated, and listeners prefer them to independent random "humanize" offsets (Hennig et al. 2011, PLoS ONE 6: e26457; Räsänen et al. 2015, PLoS ONE 10: e0127902). `expression.apply(project, overrides, seed)` writes deviation of that kind on top of the authored performance:
+Human timing and loudness fluctuations are long-range correlated, and listeners prefer them to independent random "humanize" offsets (Hennig et al. 2011, PLoS ONE 6: e26457; Räsänen et al. 2015, PLoS ONE 10: e0127902). `expression.apply(project, overrides, seed, drift='time')` writes deviation of that kind on top of the authored performance:
 
-- a slowly wandering 1/f timing and dynamics line per player, with a short-range correction, a few milliseconds in size (2.5 ms drums to 6 ms melody);
+- a slowly wandering 1/f timing and dynamics line per player, with a short-range correction, a few milliseconds in size (2.5 ms drums to 6 ms melody). Pass `drift='time'` for a new piece:
+  - The line wanders in time, on the sixteenth-note grid, so a note added or removed changes only itself and the onset before it, and `compare` shows the revision where it is.
+  - The default, `drift='notes'`, steps the line note by note as 0.4.0 did, so earlier scripts write the projects they wrote; with it, a part's every note moves when it gains one.
+  - Either way, a piece made longer draws its lines again.
+  - Measured here on a steady sixteenth-note hi-hat, both give the same statistics (timing deviation 2.9 ms; correlation +0.34 and +0.32 between neighbouring notes, +0.26 and +0.26 at eight notes).
+  - In a sparser part, the time-based line's correlation falls with the time between notes, not with their count.
 - a fixed feel per part, e.g. a bass a few milliseconds behind, two rhythm guitars apart;
 - phrase arches and slightly louder high notes on melodic parts (KTH rules, Friberg et al. 2006);
 - chord notes that are neither struck nor released together: the top note leads on keyboards, section players spread;
@@ -49,7 +56,7 @@ Build the balance from the most important part down. Senior (2009) starts a mix 
 
 Check the low end against the bass recording, not only the mix: when a bass sample carries little fundamental (MS Basic picked bass at D2: about 2%), EQ cannot restore it. In one test piece a near-sine additive sub (three harmonics, low-pass 120 Hz, following the bass line, folded into E1–D♯2) raised the chorus share below 60 Hz from about 1% to 12–15% of the power, where a mix-only revision had moved it by less than one point.
 
-A part's `highpass` falls 12 dB per octave: an octave under the part's lowest note keeps that note's fundamental within 0.3 dB, while a cutoff a major third under it takes 1.5 dB, and `review` names such a part. When noise or hiss is heard, find the part and what the noise is before treating it ([noise.md](noise.md)): most of it belongs to the instruments, and the banks' recordings carry little.
+A part's `highpass` falls 12 dB per octave: an octave under the part's lowest note keeps that note's fundamental within 0.3 dB, while a cutoff a major third under it takes 1.5 dB, and `review` names such a part. A high-pass that reaches into a line's fundamentals makes the balance between each note's fundamental and its harmonics vary from note to note, the more so the steeper it is: an 80 Hz fundamental can end up 24 dB or more down against the note an octave above (Senior 2020). The 1.5 dB at which `review` names a part is this skill's. When noise or hiss is heard, find the part and what the noise is before treating it ([noise.md](noise.md)): most of it belongs to the instruments, and the banks' recordings carry little.
 
 Use pan to separate parts while keeping a stable centre: the most prominent parts and the bass are conventionally centred so the core of the song survives on most systems, and other parts spread for width (Flint 2005). Wide important parts lose balance and tone in mono (Senior 2010), so check the mix in mono. Spaced-microphone samples can measure near-zero left/right correlation, so a lead built on them sits diffuse: `mix.width` around 0.3–0.5 puts it in front.
 
@@ -82,6 +89,46 @@ did.
   little here: set it for evenness, not brightness.
 - The master chain adds its own presence and air (3.2 kHz, 10 kHz shelf) to the whole mix.
 
+## Brightness and air
+
+What brightens a mix, by its sources; numbers measured here say so.
+
+- **The genre's top.** US and UK number-one singles of 1950–2010 fall about 5 dB per octave from 100 Hz to 4 kHz and
+  faster above; on the slope of their log-log spectrum over 100 Hz–10 kHz, electronic averaged −0.75, disco −0.80,
+  hip-hop −0.81, pop −0.94, rock −0.98, soul and R&B −1.03, folk −1.18 and jazz −1.29, and the top ends of the genres
+  differed by more than 10 dB (Pestana et al. 2013). The steeper the slope, the less top. `analyze` sets the master's
+  slope beside the mean of the genre that governs the piece's mix axis (`published_genre`, from style-maps.json) and
+  asks about a master more than 0.3 steeper, a margin this skill chose. Those songs carry vocals; these pieces do not.
+- **Percussion.** Tracks with more percussion have relatively more bass and treble, and percussive prominence accounts
+  for much of the difference between genres (Elowsson and Friberg 2017). Hi-hats, shakers, tambourine and cymbals
+  carry most of a mix's top, so their level and density come first; a piece without them sits steeper, as expected.
+- **Register and dynamics.** Parts written higher put more energy at the top. A louder recorded dynamic is brighter,
+  not only louder ([orchestration.md](orchestration.md), Dynamics that change the tone), and a sampled part played
+  soft stays dark whatever its EQ ([A bright pop piano](#a-bright-pop-piano)).
+- **The sound.** `studio.py sounds --character bright` lists catalog patches measured bright; parts in front stay
+  brighter and drier than those behind them (White 2009, in [sound-selection.md](sound-selection.md)).
+- **Low-passes.** Widespread low-pass filtering seldom helps a mix, because the harmonics and noise of most
+  instruments reach up the spectrum, and it easily dulls one; a low-pass suits a part case by case, such as an
+  amplified guitar's noise in the top two octaves, for the balance (Senior 2012). A two-pole low-pass at 12 kHz takes 3 dB at 12 kHz,
+  8 dB at 15 kHz and 15 dB at 18 kHz. Measured here: the sixteen 0.4.0 agent pieces low-passed 45 of their 163 parts
+  at or under 12 kHz, and eight of them every part. `review` asks when most parts other than the bass sit at or under
+  12 kHz, except in lo-fi, whose mix is unpolished on purpose.
+- **The names of the bands.** In the mixing books Moffat, De Man and Reiss (2022) list, air is 10–20 or 12–20 kHz in
+  five of the nine ranges given (11–22.5, 12–16 and 12–15 kHz in three others, 5–8 kHz in one); clarity 2.5–4 or
+  2.5–5 kHz in two of four (3–12 and 4–16 kHz in the others); presence lies within 1.5–8 kHz in four of six. In their
+  equalization data, "thin", "clean", "cut", "click" and "tin" went with
+  boosts from 5 kHz up and less low end; "warm", "bass", "boom", "box" and "vocal" with a boost near 500 Hz and the
+  top rolled off.
+- **No single right value.** When eight engineers mixed the same eight songs, the mixes' spectral centroids differed
+  strongly between engineers, and processing left every track but the bass guitar and the kick brighter than it was
+  recorded (De Man et al. 2014).
+- **Reverb.** More reverb puts a part further back (White 2009). The reverb returns here are low-passed at 13 kHz, so
+  a wetter mix has less top.
+- **The chain.** A part passes a low-pass at 18 kHz unless it sets its own (−0.6 dB at 15 kHz, −3 dB at 18 kHz), and
+  the master adds 2.5 dB above 10 kHz and 0.8 dB at 3.2 kHz (this skill's master EQ: the shelf lies in the air band the
+  mixing books name, its amounts were set in the skill's first versions and come from no source): computed from these
+  filters, a part at the defaults leaves the master 1.3–1.7 dB brighter from 10 to 15 kHz than it went in.
+
 ## The bus chain (`mix.chain: "bus"`)
 
 | Bus | Default members | Processing | Reverb send goes to |
@@ -97,9 +144,9 @@ Override with `mix.bus` and `mix.space` per track: a clean guitar comping with t
 
 `mix.depth_m` stands a part on a modelled stage (a shoebox hall 24 × 40 × 16 m heard from a main pair 4 m in front of the stage, 3.5 m up). Its pan stays on the direct sound and on time; image sources up to the second order add its early reflections from that position, each darkened a little per wall and all high-passed at 250 Hz (below that, specular images add up in phase into a boom and a comb on the direct sound); the result keeps the part's energy, and its reverb send rises by half the distance loss. For broadband noise at the centre, from the first desks to 8 m back the reflections grow from about 13 to about 6 dB under the direct sound and the send rises about 4 dB; the two capsules receive different reflections (correlation about 0.1), which widens the part. `stage` in the stem receipt reports these numbers.
 
-The premix is brought to −18 LUFS for glue compression (about 2 dB on the loudest passages), a 2.5 dB air shelf at 10 kHz and a little presence at 3.2 kHz, then one gain toward `target_lufs` feeds a −1.5 dBFS limiter. The limiter holds sample peaks, so bright transients (cymbals, mallets, distorted guitars) can still overshoot between samples. When the true peak passes −1 dBTP, the limiter's ceiling comes down by the overshoot plus a margin, and the gain restores the loudness. Up to four passes run, each listed in `report.json` under `mastering.passes`. The render fails if the true peak still exceeds −1 dBTP or the MP3 decodes to a different loudness.
+The premix is brought to −18 LUFS for glue compression (about 2 dB on the loudest passages), a 2.5 dB air shelf at 10 kHz and a little presence at 3.2 kHz, then one gain toward `target_lufs` feeds a limiter half a dB under the true-peak ceiling. The ceiling is −1 dBTP, and −2 dBTP for a master louder than −14 LUFS, as Spotify asks of the masters it encodes: louder tracks gain more distortion in lossy encoding ([Spotify for Artists: Loudness normalization](https://support.spotify.com/us/artists/article/loudness-normalization/)). Measured here, a −9 LUFS master at −1.13 dBTP decoded from its MP3 at +0.06 dBTP. The limiter holds sample peaks, so bright transients (cymbals, mallets, distorted guitars) can still overshoot between samples. When the true peak passes the ceiling, the limiter's ceiling comes down by the overshoot plus a margin, and the gain restores the loudness. Up to four passes run, each listed in `report.json` under `mastering.passes`. The render fails if the true peak still exceeds the ceiling (`mastering.true_peak_ceiling_dbtp`) or the MP3 decodes to a different loudness, and its summary names an MP3 that decodes above full scale.
 
-With `mix.dynamics: "wide"`, for orchestral and organ music ([orchestration.md](orchestration.md)), the buses pass their parts unchanged and the master keeps only its gain and EQ. One gain brings the mix to `target_lufs`; if the true peak would then pass −1.2 dBTP, the gain is held down (`mastering.peak_held_db`), and a −1 dBFS limiter only guards. `mastering.lra_lu` and `mastering.mixed.lra_lu` give the loudness range (EBU Tech 3342) of the master and of the mix.
+With `mix.dynamics: "wide"`, for orchestral and organ music ([orchestration.md](orchestration.md)), the buses pass their parts unchanged and the master keeps only its gain and EQ. One gain brings the mix to `target_lufs`; if the true peak would then pass 0.2 dB under the ceiling (−1.2 dBTP, or −2.2 above −14 LUFS), the gain is held down (`mastering.peak_held_db`), and a limiter at the ceiling only guards. `mastering.lra_lu` and `mastering.mixed.lra_lu` give the loudness range (EBU Tech 3342) of the master and of the mix.
 
 `mix.range_lu` narrows a wide master's loudness range for listening on small speakers. From the 3 s short-term loudness (every 100 ms, gated as Tech 3342 gates it), each passage under the 95th percentile rises by one share of its distance from there; a passage under the 10th percentile rises as one at it. The lift is smoothed over 1.5 s, so it follows phrases, and the share is set until the range meets the target. In a selfcheck signal with sections 14 and 8 dB under the loudest, a 14 LU range came down to 8 LU: the softest section rose 6 dB, the middle one 3.5 dB, and the loudest stayed within 0.2 dB. `mastering.range` reports the range before and after and the largest lift.
 
@@ -110,6 +157,8 @@ The room chain applies constant gain into an oversampled limiter with a bounded 
 ## Sources
 
 - Bresin, R. and Battel, G. U. (2000). Articulation strategies in expressive piano performance: analysis of legato, staccato, and repeated notes in performances of the Andante movement of Mozart's Sonata in G major (K 545). *Journal of New Music Research* 29(3), 211–224.
+- De Man, B., Leonard, B., King, R. and Reiss, J. D. (2014). [An analysis and evaluation of audio features for multitrack music mixtures](https://archives.ismir.net/ismir2014/paper/000293.pdf). *Proceedings of the 15th ISMIR Conference*, Taipei, 137–142.
+- Elowsson, A. and Friberg, A. (2017). [Long-term average spectrum in popular music and its relation to the level of the percussion](https://www.aes.org/e-lib/browse.cfm?elib=18638). AES 142nd Convention, Berlin, paper 9762. Read in its abstract.
 - Fabiani, M. and Friberg, A. (2011). Influence of pitch, loudness, and timbre on the perception of instrument dynamics. *Journal of the Acoustical Society of America* 130(4), EL193–EL199.
 - Flint, T. (2005). [Q. Should I always pan my vocals to the centre of the mix?](https://www.soundonsound.com/sound-advice/q-should-always-pan-my-vocals-centre-mix) *Sound On Sound*, February 2005.
 - Friberg, A., Bresin, R. and Sundberg, J. (2006). Overview of the KTH rule system for musical performance. *Advances in Cognitive Psychology* 2(2–3), 145–161.
@@ -117,11 +166,16 @@ The room chain applies constant gain into an oversampled limiter with a bounded 
 - Goebl, W. (2001). Melody lead in piano performance: expressive device or artifact? *Journal of the Acoustical Society of America* 110(1), 563–572.
 - Grimes, D. R. (2014). [String Theory: The Physics of String-Bending and Other Electric Guitar Techniques](https://doi.org/10.1371/journal.pone.0102088). *PLoS ONE* 9(7), e102088.
 - Hennig, H., Fleischmann, R., Fredebohm, A., Hagmayer, Y., Nagler, J., Witt, A., Theis, F. J. and Geisel, T. (2011). [The nature and perception of fluctuations in human musical rhythms](https://doi.org/10.1371/journal.pone.0026457). *PLoS ONE* 6(10), e26457.
+- Moffat, D., De Man, B. and Reiss, J. D. (2022). [Semantic music production: a meta-study](https://doi.org/10.17743/jaes.2022.0023). *Journal of the Audio Engineering Society* 70(7/8), 548–564. Its Table 2 cites Owsinski (2006), Coryat (2008), Izhaki (2008), White (1999), Katz (2002), Cousins and Hepworth-Sawyer (2013), Waddell (2013) and Huber and Runstein (2014) for the bands.
 - Perricone, J. (2000). *Melody in Songwriting*. Berklee Press. The [Chapter 1 excerpt](https://online.berklee.edu/takenote/conjunct-disjunct-melody-basic-definitions/).
+- Pestana, P. D., Ma, Z., Reiss, J. D., Barbosa, A. and Black, D. A. A. (2013). [Spectral characteristics of popular commercial recordings 1950–2010](https://www.aes.org/e-lib/browse.cfm?elib=17010). AES 135th Convention, New York, paper 8960.
 - Räsänen, E., Pulkkinen, O., Virtanen, T., Zollner, M. and Hennig, H. (2015). [Fluctuations of hi-hat timing and dynamics in a virtuoso drum track of a popular music recording](https://doi.org/10.1371/journal.pone.0127902). *PLoS ONE* 10(6), e0127902.
 - Repp, B. H. (1995). Acoustics, perception, and production of legato articulation on a digital piano. *Journal of the Acoustical Society of America* 97(6), 3862–3874.
 - Senior, M. (2009). [Q. What's the best order for mixing?](https://www.soundonsound.com/sound-advice/q-whats-best-order-mixing) *Sound On Sound*, June 2009.
 - Senior, M. (2010). [Creating & Using Synth Pad Sounds](https://www.soundonsound.com/techniques/creating-using-synth-pad-sounds). *Sound On Sound*, May 2010.
+- Senior, M. (2012). [Q. Do mixes benefit from low-pass filtering at mixdown?](https://www.soundonsound.com/sound-advice/q-do-mixes-benefit-low-pass-filtering-mixdown) *Sound On Sound*, January 2012.
 - Senior, M. (2018). [Q. How can I locate the masking problems in my mix?](https://www.soundonsound.com/sound-advice/q-how-can-locate-masking-problems-my-mix) *Sound On Sound*, March 2018.
+- Senior, M. (2020). [Q. How steep should I make a high-pass filter?](https://www.soundonsound.com/sound-advice/q-how-steep-should-make-high-pass-filter) *Sound On Sound*, June 2020: a steep high-pass varies the balance of fundamental and harmonics from note to note.
 - Senior, M. [Mix Rescue: The Mountaineering Club](https://www.soundonsound.com/techniques/mix-rescue-mountaineering-club). *Sound On Sound*. A pop production's piano: the broad cut at 255 Hz and lift at 1.6 kHz, the 200–400 Hz "danger zone", the 12 kHz boost and its hammer hardness, 4:1 compression on the hook.
+- White, P. (2009). [Creating A Sense Of Depth In Your Mix](https://www.soundonsound.com/techniques/creating-sense-depth-your-mix). *Sound On Sound*, February 2009.
 - Yamaha. [How to Use Keyboard Pedals](https://hub.yamaha.com/keyboards/k-how-to/how-to-use-keyboard-pedals/). Yamaha Hub.

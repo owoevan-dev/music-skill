@@ -2,7 +2,11 @@
 
 Read this when the request is a jazz combo or big-band-flavoured cue (swing, ballad, bossa nova, jazz waltz), blues (a 12-bar, a shuffle, a slow blues), a cafe or bar scene, funk, pop-funk or city pop, or any piece whose harmony is built from sevenths and extensions. Both styles live in the rhythm section's time: jazz in the swing of the ride cymbal and the walking bass, funk in sixteenth-note parts locked to the downbeat. For lo-fi and hip-hop beats built on the same harmony see [beats.md](beats.md).
 
+The sub-styles of jazz, blues, funk and soul are mapped in [style-map-jazz.md](style-map-jazz.md), and bossa nova with the other Latin American and Caribbean styles in [style-map-latin.md](style-map-latin.md), each on the seven axes with its sources.
+
 Contents: [Brief](#brief) · [Swing and time](#swing-and-time) · [The rhythm section](#the-rhythm-section) · [Writing the head and the solos](#writing-the-head-and-the-solos) · [Funk](#funk) · [Blues](#blues) · [Bossa nova](#bossa-nova) · [Symptoms and causes](#symptoms-and-causes) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 ## Brief
 
@@ -29,7 +33,7 @@ Friberg and Sundström (2002) measured jazz recordings and found:
 - soloists swing less than the drummer: in medium tempi they land their downbeats after the ride but meet it on the off-beats, which is how a soloist sounds behind the beat without dragging (the KTH group's ensemble-swing rule reproduces this).
 
 Put those into `performance.swing` (unit 0.5 for eighths):
-- **Drums and bass**: `ratio` = 1 − 0.1 × BPM / 60, kept between 0.5 and 0.78. That keeps the short note at 100 ms: 0.78 at 120 BPM and below, 0.67 at 200, 0.6 at 240, 0.5 at 300.
+- **Drums and bass**: `ratio` = 1 − 0.1 × BPM / 60, kept between 0.5 and 0.78. That keeps the short note at 100 ms: 0.78 at 120 BPM and below, 0.67 at 200, 0.6 at 240, 0.5 at 300. The formula is this skill's, fitted to Friberg and Sundström's short note of about 100 ms.
 - **A soloist** delayed by `d` seconds (`performance.offset_ms`, a few tens of milliseconds, your choice) meets the ride's off-beats with `ratio` = drummer's ratio − `d` / (60 / BPM). At 160 BPM with a 30 ms delay: 0.733 − 0.08 ≈ 0.65.
 - **Comping piano or guitar** between the two, or with the drummer.
 - Ballads and bossa nova keep straight eighths; give them `musiclib.expression` timing instead.
@@ -42,7 +46,7 @@ Put those into `performance.swing` (unit 0.5 for eighths):
 **Guitar comping.** `guitar_shiny` is an archtop, the jazz guitar: its pickup preset (0:26) for the warm electric sound of jazz comping and chord melodies, the microphone preset (0:25) for an acoustic tone. Comp in four-note chords on the middle strings (sevenths and ninths without the root, the bass has it), short and on the off-beats, or in quarter notes on every beat for a swing rhythm guitar.
 
 **Piano comping.** Pianists voice the left hand without the root, which the bass plays (Levine 1989): the third and seventh at the bottom with the fifth or ninth and thirteenth above, in two shapes that alternate through a progression. The A form stacks 3–5–7–9 and the B form 7–9–3–5, so a ii–V–I in C moves Dm9 F–A–C–E, G13 F–A–B–E, Cmaj9 E–G–B–D with almost no motion; keep these between about C3 and C5. The thirds and sevenths (the guide tones) move by step from chord to chord: let them, and let the top voice make a line. Comp in short, syncopated hits, on the "and" of 2 or 4 and anticipating the next bar, not on every beat; leave space when the soloist plays.
-- Instruments: the grand pianos (`vcsl` 0:0, `vcsl_keys` 0:1 Kawai at four dynamics), `piano_osiris`; an upright (`vcsl_keys` 0:3) for a bar room; the TX81Z FM pianos (`vcsl_keys` 0:4, 1:4), Surge `ep_1` or `dx_ep`, or `fm_epiano` for an electric piano; `vcsl` vibraphone (0:11) for a vibes comp or melody.
+- Instruments: the grand pianos (`vcsl` 0:0, `vcsl_keys` 0:1 Kawai at four dynamics), `piano_osiris`; an upright (`vcsl_keys` 0:3) for a bar room; the TX81Z FM pianos (`vcsl_keys` 0:4, 1:4), a Surge electric piano (`studio.py sounds --role keys --name ep`, or `rhodes`, `wurli`, `suitcase`; with the piece's `--seed`), or `fm_epiano` for an electric piano; `vcsl` vibraphone (0:11) for a vibes comp or melody.
 
 **Drums.** The ride cymbal plays the swing pattern, quarter notes with a swung eighth after 2 and 4, the skip note that leads into 3 and 1 ("ding, ding-a ding, ding-a"); the hi-hat pedal closes on 2 and 4; the bass drum stays soft, with occasional accents; the snare adds light comping figures and ghost notes. Accents and fills mark the ends of choruses and phrases. Use the `rusty` kit at low velocities (ride 51, ride bell 53, pedal hat 44); no sampled jazz kit with brushes is in the banks yet.
 
@@ -59,7 +63,7 @@ Funk grooves are built from short figures, each part repeating its own pattern w
 - **Drums**: straight or lightly swung sixteenths (`performance.swing` 0.52–0.56 on unit 0.25), a strong kick on 1, snare on 2 and 4 with ghost notes between, sixteenth hats with accents.
 - **Bass**: `bass_darkblack` or `bass_pick` (electric): the root on the One, then syncopated sixteenths, octaves, ghost notes (low velocities) and rests; leave the space just before the next One.
 - **Guitar**: a clean electric (`fsbs_clean`) playing short sixteenth-note chord stabs and single-note riffs, high on the neck, many muted or very short notes (`gate` 0.3–0.5 in `performance.notes`).
-- **Keys**: the TX81Z Clavisynth (`vcsl_keys` 0:7) for clavinet-like figures, an electric piano, Surge `organ_1` or organ-like pads (`pwm_strings`).
+- **Keys**: the TX81Z Clavisynth (`vcsl_keys` 0:7) for clavinet-like figures, an electric piano, a Surge organ (`studio.py sounds --role keys --name organ`) or organ-like pads (`pwm_strings`).
 - **Horns**: short unison or octave stabs on off-beats, a brass section hit (`vsco` 0:62 Brass Stab) on the One of a new section, falls (`vsco_colors` 1:57).
 - **Pop-funk and city pop** add major-seventh and ninth harmony, a melodic electric bass, strings or synth brass, and a clear vocal-like lead (a sax, a synth lead or the guitar).
 
@@ -103,17 +107,17 @@ The blues is built on a repeating chord progression, the twelve-bar sequence mos
   - Lead guitar: `fsbs_clean`, or `guitar_shiny` pickup 0:26 for a clean jazz-blues tone, with bends.
   - Harmonica: `vcsl_winds` Harmonica in C (0:22; vibrato 1:22). A diatonic harmonica is played in "second position", a fifth above its key, for the blues: a C harmonica plays a blues in G. Both VCSL harmonicas are sampled only on C, E and G of each octave, so every other note is one of those stretched up to two semitones, and the draw notes are blow notes moved. Keep the harmonica to short fills; lead on the guitar or a tenor sax (`vcsl_winds` 1:66, sampled every whole tone).
   - Piano: the uprights `vcsl_keys` 0:3, 1:3 for a barrelhouse.
-  - Organ: Surge `organ_1`.
+  - Organ: a Surge organ (`studio.py sounds --role keys --name organ`, with the piece's `--seed`; audition two to four).
   - Bass: `bass_sneaky` (upright) or `bass_darkblack`.
   - Drums: `rusty`.
   - Horns for jump blues: tenor sax `vcsl_winds` 0:66, `vsco` trumpet 0:56.
 
 ## Bossa nova
 
-Bossa nova is a relaxed style of samba from Rio de Janeiro in the late 1950s, played on the nylon-string classical guitar with the fingers. Its core is João Gilberto's guitar beat, the batida, which takes one layer of the samba ensemble, the tamborim, into the picking hand (Wikipedia, Bossa nova).
+Bossa nova is a relaxed style of samba from Rio de Janeiro in the late 1950s, played on the nylon-string classical guitar with the fingers. Its core is the guitar beat, the batida, which takes one layer of the samba ensemble, the tamborim, into the picking hand (Wikipedia, Bossa nova).
 
 - **The guitar** (`iowa_guitar` 0:24, the nylon-string guitar in [soundbanks.md](soundbanks.md)).
-  - The thumb keeps the bass regular: the root on beats 1 and 3, or the root and then the fifth.
+  - The thumb keeps the bass regular: the root on beats 1 and 3, or the root and then the fifth. `blocks.accompaniment` with `figure='batida'` writes the chords' beat ([building-blocks.md](building-blocks.md)).
   - The fingers pluck the chord, three or four notes, syncopated against it. Wikipedia gives the basic one-bar pattern in 2/4: the thumb on 1 and 2, the chord on both eighths of beat 1 and the second sixteenth of beat 2. Written in 4/4 at 120–140, that is chords on beats 1 and 2 and the "and" of 3, the bass on 1 and 3.
   - Vary it in two-bar patterns that push a chord ahead of the bar line by an eighth; let the pushed chord ring over the bar line rather than striking it again on 1.
   - Keep the notes short (`gate` 0.5–0.7) and the velocities soft, 50–75.

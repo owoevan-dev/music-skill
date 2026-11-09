@@ -1,5 +1,6 @@
 """Local headless processes, narrow WAV I/O, instruments and audio measurements."""
 import contextlib
+import errno
 import hashlib
 import json
 import math
@@ -140,10 +141,17 @@ def run(argv,folder,label,timeout=600,cwd=None):
     flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
     cancel=getattr(_scope,'event',None)
     check_cancel(label)  # a run already stopped starts no program (one that ended within 0.2 s ran to its end)
-    opened=False
+    temp=None;ran=False
+    # A file already at the log's name that cannot be written stays, as when the log was opened there: the run stops
+    # before its program starts (a read-only file of someone else's would otherwise be swapped out on POSIX).
+    if files.occupied(log) and (not files.regular_file(log) or not os.access(log,os.W_OK)):
+        raise PermissionError(errno.EACCES,'the log cannot be written there',str(log))
     try:
-        with log.open('wb') as out:
-            opened=True
+        # The program writes its log under a new name of its own (files.new_file, named in a journaled folder's journal
+        # before it is made), which takes the log's name once the program has ended, however it ended: a run killed
+        # while the program wrote leaves a file the journal proves the run's, never a log half written under its name.
+        fd,temp=files.new_file(log,'.log')
+        with os.fdopen(fd,'wb') as out:
             proc=subprocess.Popen([str(x) for x in argv],stdin=subprocess.DEVNULL,stdout=out,stderr=subprocess.STDOUT,creationflags=flags,cwd=cwd)
             try:
                 deadline=started+timeout
@@ -158,11 +166,16 @@ def run(argv,folder,label,timeout=600,cwd=None):
                 proc.kill()
                 with contextlib.suppress(Exception):proc.wait(timeout=10)
                 raise
+        ran=True
     finally:
-        # The program's log, written here rather than swapped in, noted once the program has finished writing it: a
-        # file of the run (files.register_tree), whatever stopped it; only once this run has opened it, so a file at
-        # that name it could not open is never taken for the run's (GPT Pro's sixth review of 0.4.0, from the code).
-        if opened:files.wrote(log)
+        # The log takes its name, noted as the run's (files.replace), whatever stopped the program: a failed program's
+        # log is read to report it.  Only this run's own new file ever takes it, so a file at that name the run did not
+        # write is never taken for the run's (GPT Pro's sixth review of 0.4.0, from the code).
+        if temp is not None:
+            try:files.replace(temp,log)
+            except OSError:
+                with contextlib.suppress(OSError):os.unlink(temp)
+                if ran:raise
     receipt={'argv':[str(x) for x in argv],'returncode':code,'seconds':round(time.monotonic()-started,3),'pid':proc.pid,'launch_mode':'CREATE_NO_WINDOW' if flags else 'no stdin; no GUI arguments','log':str(log)}
     save_json(folder/(label+'.process.json'),receipt)
     content=log.read_text(encoding='utf-8',errors='replace')

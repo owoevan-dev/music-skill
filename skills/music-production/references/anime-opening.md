@@ -2,7 +2,11 @@
 
 Read this when the request is an anime opening, a J-rock or J-pop-style band cue, an energetic theme for a game or video in that style, or an instrumental version of a song like that. A TV opening typically holds a single verse–prechorus–chorus rotation in about 90 seconds (Li 2026). Each piece of guidance below names its source; the layouts and tables are example plans built from them, not norms. Instrumental here means an instrument carries the vocal line, so the melody has to be singable and the lead part has to phrase like a singer. Rock and metal outside this form, with riffs, palm-muted guitars and breakdowns, are in [rock-and-metal.md](rock-and-metal.md).
 
+This cue and the other J-pop styles (fast electro J-pop, idol pop, city pop, enka), each on the seven axes with its sources, are in [style-map-jpop.md](style-map-jpop.md).
+
 Contents: [Brief](#brief) · [Form](#form) · [Harmony](#harmony) · [Melody for an instrumental lead](#melody-for-an-instrumental-lead) · [Rhythm and drums](#rhythm-and-drums) · [Arrangement](#arrangement) · [Performance](#performance) · [The mix](#the-mix) · [Instruments](#instruments) · [Symptoms and causes](#symptoms-and-causes) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 ## Brief
 

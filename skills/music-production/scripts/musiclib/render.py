@@ -88,6 +88,31 @@ ADDITIVE_COPIES,ADDITIVE_HELD_COPIES=1.5,5.1  # eighths; a note held through the
 SYNTH_COPIES,SYNTH_PER_HELD_SECOND=2.5,3.0e7  # eighths; each second of its longest voice adds 30 MB (trance_pad)
 PART_OVERHEAD=2.5e8  # our allowance for the rest: the interpreter's own work, the MIDI, an FFmpeg pass
 
+REVERSE_FADE_S=.02  # the reversed ring starts from its level at the note's end: a 20 ms fade-in keeps it from clicking
+
+def reversed_notes(p,t,clock,cfg,font,folder,out):
+    """A sampled part whose notes play backwards (`reverse: true`): each note rendered alone at its written time, held
+    for its written length, on the beat (no timing deviation) and at full gate, and the first `duration` of its sound,
+    attack and ring, reversed into the span the note sat in, so it swells and stops on the note's end: a crash cymbal
+    reversed into a downbeat, as tape reversal made it.  A note held longer takes more of the ring.  Swing, the part's
+    offset, bends and controllers are left out: the reversed sound fills the written span exactly."""
+    frames=round((clock.end+clock.tail)*audio.RATE);mix=np.zeros((frames,2),dtype=np.float64)
+    fade=max(1,round(REVERSE_FADE_S*audio.RATE))
+    for k,n in enumerate(sorted(t['notes'],key=lambda n:(n['on'],n['id']))):
+        played={**t['performance']['notes'][n['id']],'timing_ms':0,'gate':1.0}
+        perf={k2:v for k2,v in t['performance'].items() if k2 not in ('swing','offset_ms','bend','cc')}
+        one={**t,'notes':[n],'performance':{**perf,'notes':{n['id']:played},'cc':[]}}
+        mid,wav=folder/f'reverse_{k}.mid',folder/f'reverse_{k}.wav'
+        midi.write(p,mid,[one],single_stem=True,render=True)
+        audio.fluidsynth(cfg,font['path'],mid,wav,folder,label=f'fluidsynth_reverse_{k}')
+        x,_=audio.read_wav(wav);a=round(clock.seconds(n['on'])*audio.RATE);b=min(frames,round(clock.seconds(n['on']+n['duration'])*audio.RATE))
+        seg=np.array(x[a:b],dtype=np.float64)[::-1];del x
+        ramp=np.linspace(0,1,min(fade,len(seg)))[:,None];seg[:len(ramp)]*=ramp
+        mix[a:a+len(seg)]+=seg
+        for f in (mid,wav):f.unlink()
+    audio.write_wav(out,mix.astype(np.float32))
+
+
 def part_memory(t,clock,frames,font,surge_plays=False):
     """Bytes a part is expected to hold at its peak, its synthesis or its processing, whichever is more.  A Surge part
     (`surge_plays`: Surge XT is there to play it) renders in a process of its own; otherwise its fallback on the
@@ -193,7 +218,8 @@ def entry_lock(folder,wait=True,create=True):
     (fcntl.flock on POSIX, msvcrt.locking on Windows), which the system releases when the process ends.  Yields whether
     it is held; without `wait`, False at once when another holds it.  With `create` the entry's folder is made where it
     is missing, and a lock taken on a file that clean removed meanwhile is let go and taken afresh.  Where the drive
-    cannot lock, yields False and the render goes on: the stem it copies is still checked against its receipt."""
+    cannot lock, yields False: the render goes on, making the part in a folder of its own (unlocked_cache/ in the
+    render's folder) and leaving the shared cache alone."""
     folder=Path(folder);lock=folder/'entry.lock'
     for _ in range(10):
         if create:folder.mkdir(parents=True,exist_ok=True)
@@ -270,8 +296,9 @@ def stopped(folder):
 
 def render(project_file,output,config_file,cache=None,resume=False,jobs=None,draft=False,quiet=()):
     """Render a project into the new folder `output` (or take up an unfinished render of the same project there with
-    `resume`).  Whatever happens, what it wrote is recorded in the folder's files.json (musiclib.files), which is all
-    clean ever removes of it.  `quiet`: parts that may barely sound (the other parts of an audition's passage, where
+    `resume`, stopped at any moment, killed even).  Whatever happens, what it wrote is recorded in the folder's
+    files.json, and while it works its journal proves each file it is writing (musiclib.files): all clean ever removes of
+    it, and all a resume writes over.  `quiet`: parts that may barely sound (the other parts of an audition's passage, where
     a held note's last moment is all a part plays): they keep their own level instead of stopping the render."""
     if files.linked(Path(output)):
         # Resolving it first would follow the link (a dangling one included) and write wherever it leads.
@@ -295,6 +322,7 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
             if claim.get('folder'):
                 with contextlib.suppress(OSError):
                     files.register_tree(output,keep=claim.get('kept'))
+                    files.drop_journal(output)  # the record lists everything the journal proved
 
 def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet):
     started=time.monotonic();p=load_project(project_file);clock=Clock(p);cfg=audio.load_config(config_file)
@@ -304,9 +332,9 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
     def lap(name):
         now=time.monotonic();stages[name]=round(now-mark[0],3);mark[0]=now
         if claim.get('folder'):
-            # What the render wrote so far is recorded at the end of each stage, not only when it ends: a render whose
-            # process was killed leaves a record of all but its last stage, which clean removes and --resume names
-            # (found by GPT Pro's third review of 0.4.0).
+            # What the render wrote so far is recorded at the end of each stage, not only when it ends, and the journal
+            # proves what the stage at work writes (found by GPT Pro's third review of 0.4.0: a killed render's last stage
+            # was named by clean and refused by --resume).
             files.register_tree(output,keep=claim.get('kept'))
     output=Path(output).resolve();cache=Path(cache).resolve() if cache else output.parent/'cache'
     # Before anything is synthesized: every part's bank is configured and can play what the part asks of it.
@@ -324,8 +352,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
                            'synth-presets':file_hash(synth.PRESETS_FILE),'surge-presets':file_hash(surge.PRESETS_FILE)})
     resumed=files.occupied(output)
     if resumed:
-        if not resume or not files.regular_file(marker) or read_json(marker).get('project_sha256')!=project_key:
-            raise ValueError('Output exists; choose a fresh directory or resume the same project')
+        if not resume:raise ValueError('Output exists; choose a fresh directory or resume the same project')
         # A folder a render takes up again holds only what renders write: a link or a hard link in it would carry a
         # write out of the folder, so it is refused rather than written through.
         files.no_links(output)
@@ -334,18 +361,38 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         if odd:raise ValueError(f'{output} holds links or files with other names ({", ".join(str(x.relative_to(output)) for x in odd[:5])}); '
                                 'render into a new folder')
         # A resumed render writes over its own files only: what is there must be the earlier render's, as its record
-        # lists it, unchanged since.  A file it did not write, or one changed since, stops it before anything is written.
-        kept=files.recorded(output)
-        strays=[x for x in files.tree(output) if x.name!=files.RECORD and not (x.parent==output and files.is_lock_file(x))
-                and not files.unchanged(x,kept.get(x.relative_to(output).as_posix(),(-1,-1)))]
+        # lists it unchanged or its journal proves it, the files of the stage a kill stopped included.  A file it did
+        # not write, or one changed since, stops it before anything is written or removed.
+        found,listed=files.proofs(output),files.recorded(output)
+        own=lambda x:files.unchanged(x,listed.get(files.relative(output,x),(-1,-1))) or files.proven(output,x,found)
+        strays=[x for x in files.tree(output) if x.name not in (files.RECORD,files.JOURNAL) and not (x.parent==output and files.is_lock_file(x)) and not own(x)]
+        # A new file the journal named and never noted made: the render stopped in the instant between making it and
+        # noting it (on Windows about one hard kill in twenty, measured), or the making failed on a file already there.
+        # Said as such, so the user can tell it from a file of their own (GPT's review of 0.5, C01).
+        unmade=[x for x in strays if found[0].get(files.relative(output,x)) is False]
+        if strays and len(unmade)==len(strays):
+            raise ValueError(f'{output} holds new files the earlier render named but stopped before noting it had made '
+                             f'({", ".join(x.relative_to(output).as_posix() for x in strays[:5])}), so they cannot be proved its own; '
+                             'if you did not put them there, remove them and resume, or render into a new folder')
         if strays:raise ValueError(f'{output} holds files the earlier render did not write, or that changed since '
                                    f'({", ".join(x.relative_to(output).as_posix() for x in strays[:5])}); move them away or render into a new folder')
+        if files.regular_file(marker):
+            if read_json(marker).get('project_sha256')!=project_key:
+                raise ValueError('Output exists; choose a fresh directory or resume the same project')
+        elif [x for x in files.tree(output) if x.name not in (files.RECORD,files.JOURNAL) and not (x.parent==output and files.is_lock_file(x))
+              and files.relative(output,x) not in found[0]]:
+            # Killed before it wrote its marker, a render leaves only new files its journal names: anything else here
+            # cannot be told for the same project's.
+            raise ValueError('Output exists; choose a fresh directory or resume the same project')
     if files.linked(cache):raise ValueError(f'The cache {cache} is a link; give the folder itself')
-    claim['kept']=files.recorded(output) if resumed else {}
+    # The half-written files of a stopped stage go; what had taken its name stays the run's (files.adopt).
+    claim['kept']=files.adopt(output) if resumed else {}
     output.mkdir(parents=True,exist_ok=True)
     if not resumed:claim['hold'](files.working(output))  # a render started into the same new folder meanwhile is refused
+    claim['hold'](files.journaled(output))  # from the first file it writes, the marker
     for d in (cache,output/'logs',output/'stems',output/'midi',output/'returns'):d.mkdir(parents=True,exist_ok=True)
-    save_json(marker,{'project_sha256':project_key,'renderer_sha256':code_hash})
+    # The render's first file, which names the piece too: clean tells a render killed before its project.json for the piece's.
+    save_json(marker,{'project_sha256':project_key,'renderer_sha256':code_hash,'title':p['title']})
     claim.update(folder=True,resumed=resumed)
     save_json(output/'project.json',p)
     lap('prepare')
@@ -376,10 +423,24 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         # here for this part, then finds it in the cache.  The part's memory is taken first, before any lock, so a part
         # never waits for memory while it holds an entry another part waits on.
         asked=time.monotonic()
-        with budget.hold(part_memory(t,clock,frames,font,deps.get('surge',{}).get('plays')=='Surge XT')),_holding(lock,t['id']),entry_lock(folder):
-            waited=time.monotonic()-asked
-            audio.check_cancel(t['id'])  # stopped while it waited: nothing is synthesized
-            check_entry(folder)
+        with budget.hold(part_memory(t,clock,frames,font,deps.get('surge',{}).get('plays')=='Surge XT')),_holding(lock,t['id']),entry_lock(folder) as held,contextlib.ExitStack() as entry:
+          waited=time.monotonic()-asked
+          audio.check_cancel(t['id'])  # stopped while it waited: nothing is synthesized
+          if held:entry.enter_context(files.journaled(folder))
+          else:
+              # Where the drive cannot lock the entry (or clean took it from under the lock ten times), the part is
+              # made in a folder of this render's own, which its journal and record cover, and the shared cache is
+              # neither read nor written: unlocked, another render could drop the journal this one writes there, and
+              # each would record the other's files (GPT's review of 0.5, C04).  Nothing is cached for later renders.
+              folder=output/'unlocked_cache'/key;folder.mkdir(parents=True,exist_ok=True)
+              raw,receipt=folder/'raw.wav',folder/'receipt.json'
+          check_entry(folder)
+          # The entry keeps a record of its own (files.json), of what renders wrote in it, and a journal while one works
+          # in it, so clean removes an entry by the files a render proves it wrote, not by their names (left for 0.5 by
+          # GPT Pro's third review of 0.4.0).  A render stopped in the entry leaves only files the journal proves: the
+          # next one to hold the entry removes those half written and keeps the rest as renders' (files.adopt).
+          entry_keep=files.adopt(folder) if held else None
+          try:
             cached=False;raw_sha=None;old=read_json(receipt) if files.regular_file(raw) else {}
             if old:
                 raw_sha=audio.audio_hash(raw);cached=old.get('key')==key and raw_sha==old.get('sha256')
@@ -388,6 +449,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
                 fresh=files.stage_name(raw,'.wav')
                 try:
                     if not t['notes']:audio.write_wav(fresh,np.zeros((frames,2),dtype=np.float32))
+                    elif t['engine']=='soundfont' and t.get('reverse'):reversed_notes(p,t,clock,cfg,font,folder,fresh)
                     elif t['engine']=='soundfont' and layered.wanted(t):layered.render(p,t,clock,cfg,font,folder,fresh)
                     elif t['engine']=='soundfont':
                         # The synthesis MIDI applies the track's render patch/key map; the exported part MIDI does not.
@@ -440,7 +502,13 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
                 keep_stem(folder,stem,{'key':stem_key,'sha256':stem_sha,'track':t['id'],'processing':done})
             expressive=read_json(folder/'layered.json') if (folder/'layered.json').is_file() else None
             heard=read_json(folder/'surge.json') if t['engine']=='surge' and (folder/'surge.json').is_file() else None
+          finally:
+            if held:
+                with contextlib.suppress(OSError):
+                    files.register_tree(folder,keep=entry_keep)
+                    files.drop_journal(folder)
         receipt_data={'track':t['id'],'soundfont':font_name,'cache_key':key,'cache_hit':cached,'stem_reused':reused,'raw_sha256':raw_sha,'stem_sha256':stem_sha,'reference_level_dbfs':done['reference_level_dbfs'],'gain_db':done['gain_db'],'processed_stem':str(stem.relative_to(output)),'filter_chain':done['filter_chain'],'same_pitch_retrigger_trims':sum(n.get('retrigger_trimmed',False) for n in performed(t,clock))}
+        if not held:receipt_data['unlocked_cache']=True  # made in the render's own folder: nothing cached (C04)
         if expressive:receipt_data['expressive']=expressive
         if heard:receipt_data['surge']=heard
         if done.get('nearly_silent'):receipt_data['nearly_silent']=True
@@ -512,8 +580,10 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         lap('mix_and_master')
     master=output/'master.wav'
     if chain_name!='bus':after=audio.measure(cfg,master,output/'logs','measure_master')
-    if after['true_peak_dbtp']>-1 or after['clipped_samples'] or after['frames']!=frames:
-        raise ValueError(f'Master delivery check failed: true peak {after["true_peak_dbtp"]:g} dBTP (at most -1), '
+    from .mixbus import true_peak_ceiling  # both chains: the room chain never imports mixbus otherwise
+    tp_max=true_peak_ceiling(p['mix'].get('target_lufs',-16))
+    if after['true_peak_dbtp']>tp_max or after['clipped_samples'] or after['frames']!=frames:
+        raise ValueError(f'Master delivery check failed: true peak {after["true_peak_dbtp"]:g} dBTP (at most {tp_max:g}), '
                          f'{after["clipped_samples"]} clipped samples, {after["frames"]} of {frames} frames')
     lap('master_check')
     # The files made from the master do not depend on each other and are made at once: the MP3 (and in a full bus
@@ -560,7 +630,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         mid=(a[:,0]+a[:,1])/2;side=(a[:,0]-a[:,1])/2
         active=[t['id'] for t in p['tracks'] if any(s['start_bar']*clock.beats_per_bar<=n['on']<(s['start_bar']+s['bars'])*clock.beats_per_bar for n in t['notes'])]
         sections.append({**s,'start_seconds':round(start,3),'end_seconds':round(end,3),'rms_dbfs':round(20*math.log10(max(1e-12,audio.rms(a))),3),'side_mid_db':round(20*math.log10(max(1e-12,audio.rms(side)/max(audio.rms(mid),1e-12))),3),'active_tracks':active})
-    checks={'finite':bool(np.isfinite(data).all()),'no_clipping':after['clipped_samples']==0,'true_peak_ceiling':after['true_peak_dbtp']<=-1,'duration_exact':after['frames']==frames,'stereo_48k_24bit':after['channels']==2 and after['sample_rate']==48000 and after['bits']==24,'tail_quiet':float(np.max(np.abs(data[-2400:])))<.001,'midi_note_count':note_count==expected,'midi_no_stuck_notes':True,'dependency_hashes_verified':True}
+    checks={'finite':bool(np.isfinite(data).all()),'no_clipping':after['clipped_samples']==0,'true_peak_ceiling':after['true_peak_dbtp']<=tp_max,'duration_exact':after['frames']==frames,'stereo_48k_24bit':after['channels']==2 and after['sample_rate']==48000 and after['bits']==24,'tail_quiet':float(np.max(np.abs(data[-2400:])))<.001,'midi_note_count':note_count==expected,'midi_no_stuck_notes':True,'dependency_hashes_verified':True}
     if mp3:checks['mp3_loudness_matches_master']=mp3['matches']
     if buses:checks['buses_and_returns_add_up_to_premix']=buses['adds_up_to_premix']
     if looped:checks.update(looped.pop('checks'))
@@ -685,8 +755,12 @@ def room_mix(p,clock,cfg,output,frames,duration):
     for label,name in exports:outs+=['-map',f'[{label}]','-ar',str(audio.RATE),'-c:a','pcm_f32le',output/'returns'/name]
     audio.ffmpeg(cfg,[*args,*graph_options,*outs],output/'logs','mix')
     before=audio.measure(cfg,premaster,output/'logs','measure_premaster')
-    ceiling=p['mix'].get('peak_ceiling_db',-1.6);allowance=p['mix'].get('max_limit_db',1.5)
-    gain=min(p['mix'].get('target_lufs',-16)-before['integrated_lufs'],ceiling-before['true_peak_dbtp']+allowance)
+    # The limiter's default ceiling sits 0.6 dB under the true-peak ceiling (mixbus.true_peak_ceiling): -1.6 dBFS, or
+    # -2.6 for a master louder than -14 LUFS.
+    from .mixbus import true_peak_ceiling
+    target=p['mix'].get('target_lufs',-16);tp_max=true_peak_ceiling(target)
+    ceiling=p['mix'].get('peak_ceiling_db',tp_max-.6);allowance=p['mix'].get('max_limit_db',1.5)
+    gain=min(target-before['integrated_lufs'],ceiling-before['true_peak_dbtp']+allowance)
     chain=f'volume={gain:.9f}dB,aresample=192000,alimiter=limit={10**(ceiling/20):.9f}:attack=5:release=110:level=false:latency=true,aresample=48000,apad,atrim=end_sample={frames}'
     audio.ffmpeg(cfg,['-i',premaster,'-af',chain,'-c:a','pcm_s24le',output/'master.wav'],output/'logs','master')
-    return before,{'chain':'room','gain_db':gain,'ceiling_db':ceiling,'max_input_peak_above_ceiling_db':max(0,before['true_peak_dbtp']+gain-ceiling),'limiter_chain':chain}
+    return before,{'chain':'room','gain_db':gain,'ceiling_db':ceiling,'true_peak_ceiling_dbtp':tp_max,'max_input_peak_above_ceiling_db':max(0,before['true_peak_dbtp']+gain-ceiling),'limiter_chain':chain}

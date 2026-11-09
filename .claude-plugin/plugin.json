@@ -1,7 +1,7 @@
 {
   "name": "music-skill",
   "displayName": "Music Skill",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Write original instrumental music as editable notes: the agent composes and arranges every note, and the skill checks the score, plays it on licensed sampled instruments (pianos, guitars, basses, drums, a full orchestra, saxophones, organ and world instruments), built-in synthesizers or Surge XT presets with player-like timing and dynamics, mixes it through buses and generated reverbs, and masters it with MIDI, stems and an MP3. No audio-generation model is involved.",
   "author": {
     "name": "owoevan-dev",

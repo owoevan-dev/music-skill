@@ -2,6 +2,10 @@
 
 Read this when the request is solo piano (a ballad, a nocturne-like piece, an emotional film or game piano cue), piano with one instrument (violin, cello, flute), a piano trio or a string quartet. Small ensembles leave every part exposed: the writing has to sit well under the hands and bows, and the performance carries most of the expression, through timing, dynamics and the pedal. For orchestra see [orchestration.md](orchestration.md); for jazz piano, [jazz-and-funk.md](jazz-and-funk.md).
 
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
+
+The periods and styles this writing belongs to, each on the seven axes with its sources: [style-map-orchestral.md](style-map-orchestral.md); a mood's cues across styles in [moods.md](moods.md).
+
 ## Brief
 
 - **Instruments.** Piano: `piano_osiris` (a grand recorded with and without the pedal, [soundbank-presets.md](soundbank-presets.md)), the `vcsl_keys` Kawai grand (four dynamics), the `vcsl` Steinway (three, no pedal recording), an upright (`vcsl_keys` 0:3) for an intimate, older sound. For quiet, exposed solo piano use `piano_osiris`, or that upright: their soft takes carry the least noise under a ringing note, where the Steinway's and the Kawai's soft layers carry rumble and hiss that a pedal adds up, covered in a fuller mix ([noise.md](noise.md)). Strings: the Iowa solo violin, viola, cello and double bass (`iowa_strings`, three dynamics, looped), `cello_bigcat` (looped, four dynamics), the `vsco` solo violin. A flute, clarinet or oboe from `vsco` or `iowa_winds`.
@@ -27,7 +31,7 @@ Inside those constraints each pianist's timing was individual. Here:
 - `musiclib.expression` adds the small, player-like timing of each part; keep the parts together where they play together;
 - phrase dynamics as arches with `musiclib.phrasing` (`sing`, `ramp`, `dynamics`).
 
-Todd (1992) modelled phrases in which tempo and loudness rise and fall together, faster as louder and slower as softer, a coupling he suggests may characterise some classical and romantic styles, Chopin's for example. It is a useful default for an arching phrase, not a law: tested against real performances it explains only part of them (Windsor and Clarke 1997), and a held-back climax, loud and broad, reverses it.
+Todd (1992) modelled phrases in which tempo and loudness rise and fall together, faster as louder and slower as softer, a coupling he suggests may characterise some classical and romantic styles. It is a useful default for an arching phrase, not a law: tested against real performances it explains only part of them (Windsor and Clarke 1997), and a held-back climax, loud and broad, reverses it.
 
 ## Chamber ensembles
 

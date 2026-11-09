@@ -6,7 +6,11 @@ Read this when the music serves a picture or a story moment:
 - music timed to events on screen;
 - a tension, suspense or horror cue.
 
+Cinematic orchestral writing and the approaches of horror and suspense, each on the seven axes with its sources, are in [style-map-orchestral.md](style-map-orchestral.md) and [style-map-horror.md](style-map-horror.md).
+
 Contents: [Brief](#brief) · [Emotional underscore](#emotional-underscore) · [Scoring to picture](#scoring-to-picture) · [Suspense and horror](#suspense-and-horror) · [Symptoms and causes](#symptoms-and-causes) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 Related guides:
 - [orchestration.md](orchestration.md): the orchestra on the banks, balance, and the wide master;

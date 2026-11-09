@@ -24,7 +24,8 @@ verdict on how the music sounds.
 - The whole master: its long-term spectrum (slope over 100 Hz-4 kHz, low and top ends; `tonal_balance`), its width
   per band (`side_minus_mid_db`) and its peak-to-loudness ratio, against published measurements of commercial
   recordings and, with a reference, against that reference: a measured demo of the genre from tonal-references.json,
-  another render or a WAV file.
+  another render or a WAV file.  Pestana et al. (2013)'s slope over 100 Hz-10 kHz is set beside the mean of the
+  number ones of the genre that governs the piece's mix axis (`published_genre`, from style-maps.json).
 - Warnings from the stem receipts: parts whose dynamics sat between two recorded takes that disagree in phase, and
   Surge XT parts that played their fallback preset.
 """
@@ -120,10 +121,55 @@ def tonal_balance(master):
     low = centres < 80
     top = (centres >= 6300) & (centres <= 12500)
     return {'slope_db_per_octave_100hz_4khz': round(float(slope), 2),
+            'slope_log_log_100hz_10khz': log_log_slope(mono),
             'low_end_vs_line_db': round(float(np.mean(spectrum[low] - line[low])), 1),
             'top_end_vs_line_db': round(float(np.mean(spectrum[top] - line[top])), 1),
             'third_octaves_db': {f'{c:.0f}': round(float(v - line[np.argmin(np.abs(centres - 1000))]), 1) for c, v in zip(centres, spectrum)},
             'reference': 'popular recordings fall about 4.5-5 dB per octave over 100 Hz-4 kHz (Pestana et al. 2013; Elowsson and Friberg 2017)'}
+
+
+def log_log_slope(mono, rate=RATE, block=256):
+    """Pestana et al. (2013)'s spectral slope of a whole song: the long-term spectrum as the mean magnitude of frames of
+    about 10.8 Hz resolution (4096 samples at 44.1 kHz, 4458 at 48 kHz; no window, as their equation 1), and the slope
+    of the regression of log magnitude on log frequency over the bins from 100 Hz to 10 kHz.  US and UK number-one
+    singles measured -0.75 (electronic) to -1.29 (jazz), pop -0.94: the steeper, the less top.  Frames are summed in
+    blocks, so a long master is not held as one spectrogram."""
+    n = int(round(4096 * rate / 44100))
+    frames = len(mono) // n
+    if frames == 0:
+        return None
+    total = np.zeros(n // 2 + 1)
+    for a in range(0, frames, block):
+        b = min(frames, a + block)
+        total += np.abs(np.fft.rfft(np.asarray(mono[a * n:b * n], dtype=np.float64).reshape(b - a, n), axis=1)).sum(axis=0)
+    f = np.fft.rfftfreq(n, 1 / rate)
+    sel = (f >= 100) & (f <= 10000)
+    return round(float(np.polyfit(np.log10(f[sel]), np.log10(total[sel] / frames + 1e-20), 1)[0]), 3)
+
+
+# A master steeper than the published mean of its style's genre by more than this asks for a look: this skill's choice,
+# about half the spread between the brightest and the darkest genre means (-0.75 to -1.29), not a quality class.
+STEEPER_THAN_GENRE = 0.3
+
+
+def published_genre(p):
+    """The published spectrum measurement that governs the piece's mix axis (style-maps.json, `published_mix`): the
+    governing entry's own, else its family's.  None without a style, or where the entry or family has none (an entry
+    may set {"slope": null, "why_none": ...})."""
+    from . import styles
+    reg = styles.registry()
+    entry = styles.governing(styles.parse(p.get('style'), reg), 'mix')
+    if entry is None:
+        return None
+    spec = reg['styles'][entry]
+    if 'published_mix' in spec:
+        ref, owner = spec['published_mix'], entry
+    else:
+        family = spec.get('family') or entry.split('/')[0]
+        ref, owner = reg['families'].get(family, {}).get('published_mix'), family
+    if not ref or ref.get('slope') is None:
+        return None
+    return {**ref, 'set_by': owner}
 
 
 def stereo_width(master):
@@ -385,6 +431,19 @@ def analyze(render_dir, bar_spans=(), reference=None):
                         'than commercial recordings, which average about 4.5-5 (Pestana et al. 2013; Elowsson and Friberg '
                         '2017): check the bass and pads against the cymbals and leads, and compare with a reference of the '
                         'genre (--reference).')
+    genre = published_genre(p)
+    if genre is not None and here['tonal_balance']['slope_log_log_100hz_10khz'] is not None:
+        mine = here['tonal_balance']['slope_log_log_100hz_10khz']
+        genre = {**genre, 'master_slope': mine, 'difference': round(mine - genre['slope'], 3)}
+        if genre['difference'] < -STEEPER_THAN_GENRE:
+            lent = f' (borrowed: {genre["borrowed"]})' if genre.get('borrowed') else ''
+            warnings.append(f'the master slopes {mine:g} over 100 Hz-10 kHz on Pestana et al. (2013)\'s log-log measure, '
+                            f'{-genre["difference"]:g} steeper than the {genre["slope"]:g} of the US and UK number ones they '
+                            f'tag {genre["genre"]}{lent}: less top. Their songs carry vocals and drums; a piece with fewer '
+                            'cymbals sits steeper (more percussion, more top: Elowsson and Friberg 2017), and so does one '
+                            'whose parts are low-passed or played on dark patches or soft dynamics. If the style should '
+                            'sound bright, look there first (performance-and-mix.md, Brightness and air). The '
+                            f'{STEEPER_THAN_GENRE:g} is this skill\'s choice: a prompt to look, not a target.')
     comparison = None
     if reference is not None:
         comparison, differ = compare(here, reference[1], reference[0])
@@ -408,7 +467,7 @@ def analyze(render_dir, bar_spans=(), reference=None):
             warnings.append(f'{r["track"]}: for {share:g}% of its playing the dynamics sat between two recorded takes that '
                             'disagree in phase (the correction ran past 1.25 or under 0.8); play it in dynamics_mode "take" (the default), or keep a solo near one recorded dynamic.')
     measured = {'render': render_dir.name, 'sections': rows, 'tonal_balance': here['tonal_balance'],
-                'side_minus_mid_db': here['side_minus_mid_db'], 'reference_comparison': comparison, 'stem_levels_lufs_ungated': stems,
+                'side_minus_mid_db': here['side_minus_mid_db'], 'published_genre': genre, 'reference_comparison': comparison, 'stem_levels_lufs_ungated': stems,
                 'lead_tracks': lead_tracks, 'lead_source': 'buses' if buses is not None else 'stems',
                 'lead_presence': lead_presence(lead, accompaniment, regions) if lead is not None and accompaniment is not None else [],
                 'melody_groups': melody, 'warnings': warnings,

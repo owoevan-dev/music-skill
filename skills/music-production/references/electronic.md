@@ -2,18 +2,22 @@
 
 Read this when the request is a dance track (house, techno, trance, festival EDM), future bass, synthwave or retrowave, chiptune or NES-style game music, or any cue built from synthesizers and drum machines. These styles are made in the studio rather than played: the sound of each part, how the parts duck and echo around each other, and a loud, controlled master are as much a part of the piece as its notes. Everything here uses the `synth`, `surge` and `drum_synth` engines and the production tools in [schema.md](schema.md); for hip-hop and lo-fi beats see [beats.md](beats.md).
 
+Its sub-styles, house to IDM, each on the seven axes with its sources and what `review` asks there, are in [style-map-electronic.md](style-map-electronic.md).
+
 Contents: [Brief](#brief) · [Form: breakdown, build-up, drop](#form-breakdown-build-up-drop) · [Drums](#drums) · [Production](#production) · [Techno](#techno) · [Future bass](#future-bass) · [Synthwave](#synthwave) · [Chiptune](#chiptune) · [Symptoms and causes](#symptoms-and-causes) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 ## Brief
 
 Settle these from the request, deciding what it leaves open and saying so:
 
-- **Style and tempo.** From the Wikipedia article on each style (read 7 November 2026) and the sources named; take the brief's tempo when it gives one.
+- **Style and tempo.** From the Wikipedia article on each style (read 7 November 2026), Ableton's Learning Music lesson on tempo and genre (read 9 November 2026) and the sources named; take the brief's tempo when it gives one. The maps say what each range rests on ([style-map-electronic.md](style-map-electronic.md)).
 
   | Style | Tempo (BPM) | Pulse | Traits |
   |---|---|---|---|
   | House | 120–130 | four on the floor, off-beat hi-hats | a clap or snare on 2 and 4, synthesizer riffs, deep basslines; gospel piano riffs in garage house |
-  | Techno | 120–150 | common time, built for a continuous DJ set | repeated sequences more than harmonic motion; a loop that changes by process (Garcia 2005; Smith 2021) |
+  | Techno | 120–140 (Wikipedia's 120–150 cites no source) | common time, built for a continuous DJ set | repeated sequences more than harmonic motion; a loop that changes by process (Garcia 2005; Smith 2021) |
   | Dub techno | 110–125 | 4/4, deep repetitive basslines | sparse chords; delay and reverb on percussion and melody |
   | Trance | 120–150 | — | repeating melodic phrases; a mid-track breakdown without beats, then a build to a peak or drop |
   | Festival EDM (big room house) | 126–132 | a four-on-the-floor kick | long build-ups and an electro-style drop; simple melodies, often a supersaw |
@@ -62,7 +66,7 @@ The production tools work on a part's processed stem ([schema.md](schema.md)); `
 - **Saturation.** `mix.saturate` 0.2–0.4 adds harmonics above a bass's fundamental; a partial an octave up gives a bass more presence where the ear is more sensitive (Flint 2007).
 - **Gate.** `mix.gate` with a pattern such as `"x.x.xx.x"` in sixteenths chops a pad into a trance gate.
 - **Low end.** `mix.mono_below_hz` 100–150 keeps the bass and kick in the middle: the position of frequencies below about 100 Hz cannot be heard, and a centred mono bass is more focused (Flint 2007); centred low bass also lets a vinyl record carry more bass without the needle jumping (Flint 2005).
-- **Loudness.** `mix.loudness: "loud"` rounds peaks in an oversampled soft clipper before the limiter. A festival-house test track reached −9.1 LUFS at −1.2 dBTP this way, its drop the loudest section, with clipper and limiter taking at most 0.2 dB of level from any section (`mastering.limiting_db` in the report). Sound On Sound's guidance is 3–6 dB of gain reduction on loud peaks and rarely more than 6 (White 2003); `analyze` warns past 3 dB in a section, where transients can flatten: lower `target_lufs`, or lower that section's peaks with `mix.saturate` on its loudest parts (a supersaw lead's unison peaks, the kick). Ask the user to listen for the kick losing its click before pushing further.
+- **Loudness.** `mix.loudness: "loud"` rounds peaks in an oversampled soft clipper before the limiter, and a master louder than −14 LUFS keeps its true peak under −2 dBTP, as Spotify asks of loud masters ([performance-and-mix.md](performance-and-mix.md)). With 0.4.0's −1 dBTP ceiling a festival-house test track reached −9.1 LUFS at −1.2 dBTP this way, its drop the loudest section, with clipper and limiter taking at most 0.2 dB of level from any section (`mastering.limiting_db` in the report). Sound On Sound's guidance is 3–6 dB of gain reduction on loud peaks and rarely more than 6 (White 2003); `analyze` warns past 3 dB in a section, where transients can flatten: lower `target_lufs`, or lower that section's peaks with `mix.saturate` on its loudest parts (a supersaw lead's unison peaks, the kick). Ask the user to listen for the kick losing its click before pushing further.
 
 ## Techno
 
@@ -84,12 +88,14 @@ Techno grew in Detroit in the mid-1980s from synth-pop, electro, funk and house,
   - a second `drum_synth` part playing the kick's notes with a long `kit.decay` (2–3);
   - `lowpass` 200–300 Hz and `saturate` 0.3–0.5;
   - `duck` by the main kick (`keys` [36], `depth_db` 8–12, `release_ms` about an eighth note), so it pumps between the kicks.
-- **The acid line.** `acid_bass` is a TB-303-style line, its resonant filter swept by its envelope.
-  - Write sixteenths with rests, octave jumps and a few accents (higher velocities open the filter).
+- **The acid line.** Acid house's squelch comes from the TB-303 with its filter resonance raised and its cutoff lowered, and from programming the 303's accent, slide and octave per step (Wikipedia, Acid house); the 303 sets accent and slide for each step of its pattern (Roland 2019).
+  - Where Surge XT is installed with its full patch set, play it on a patch measured to take accents and slides as written ([surge-roles.json](surge-roles.json)): here an accent is a higher velocity, which opens the filter (by the patch's design, or with `surge.velocity_to_cutoff` 24, semitones at velocity 127), and a slide is an overlapping note (`surge.glide_ms` 60). Four patches took both (`kinsey_dulcet/basses/everybody_needs_a_303_really`, `kinsey_dulcet/bass/acid_funk_bass`, `luna/basses/basic_acid`, `luna/basses/sk_acid`; the last two measured 17 cents flat on a note alone), five accents only. Each was measured on its own notes: a note that slides in keeps the velocity of the note the slide starts from (Surge XT's legato does not take the new one), so an accent falls on a note that attacks, and `review` names slid notes it cannot accent. That an accent is a velocity opening the filter is this skill's reading, not a description of the 303's circuit.
+  - The built-in `acid_bass` (a sawtooth through a resonant 24 dB low-pass swept by its envelope, velocity opening it) is the fallback.
+  - Write sixteenths with rests, octave jumps, a few accents and slides.
   - Turn the cutoff over a section with `filter_sweep`.
 - **Chords and stabs.**
   - Dub techno sets sparse chords in heavy delay and reverb (Wikipedia, Dub techno): a chord on an off-beat with a dotted-eighth delay (`mix.delay` `beats: 0.75`, feedback 0.4–0.6, this skill's starting values).
-  - Pads on Surge `moody_pad` or `warm_pad` under breakdowns.
+  - Pads under breakdowns: a Surge pad chosen for the part (`studio.py sounds --role pad --seed <piece seed>`, then `audition`), or the built-in `warm_pad`.
 - **Polymeter.** A sequence of three or five sixteenths looped against the 4/4 bar shifts its accents bar by bar and returns after three or five bars.
 - **Arrangement.**
   - Sparse openings and closings for DJ mixing (Use, above).
@@ -101,15 +107,15 @@ Techno grew in Detroit in the mid-1980s from synth-pop, electro, funk and house,
 
 ## Future bass
 
-Future bass mixes elements of dubstep and EDM trap with warmer rhythms, in 4/4 at 130–175 BPM. Its sounds wobble under automation or an LFO on a filter's cutoff or the amplitude, and it uses risers, arpeggiated chords, vocal chops and vocoders (Wikipedia, Future bass). On the engine: chords on Surge `uni_saw` or `future_bass_chord`, ducked by the kick (Pumping, above); an LFO on pitch or cutoff for the wobble; short notes on `vocal_ah` with a dotted-eighth delay where a vocal chop would go.
+Future bass mixes elements of dubstep and EDM trap with warmer rhythms, in 4/4 at 130–175 BPM. Its sounds wobble under automation or an LFO on a filter's cutoff or the amplitude, and it uses risers, arpeggiated chords, vocal chops and vocoders (Wikipedia, Future bass). On the engine: chords on a Surge chords patch (`studio.py sounds --role chords --seed <piece seed>`) or the built-in `future_bass_chord`, ducked by the kick (Pumping, above); an LFO on pitch or cutoff for the wobble; short notes on `vocal_ah` with a dotted-eighth delay where a vocal chop would go.
 
 ## Synthwave
 
-Synthwave revives the sound of 1980s film scores and pop. Merlini (2023) traces it to the soundtracks of Tangerine Dream, John Carpenter, Giorgio Moroder and Vangelis, and names its style flags: the arpeggiated, fat bass line of early-1980s polysynths, the Linn LM-1 and TR-808 drum machines, and gated reverb snares, mixed with the thicker sound of present-day EDM. Its usual means here:
+Synthwave revives the sound of 1980s film scores and pop. Merlini (2023) traces it to the synthesizer soundtracks of late-1970s and 1980s film composers, and names its style flags: the arpeggiated, fat bass line of early-1980s polysynths, the Linn LM-1 and TR-808 drum machines, and gated reverb snares, mixed with the thicker sound of present-day EDM. Its usual means here:
 
 - 80–118 BPM, upbeat tracks 128–140 (Wikipedia, Synthwave); the snare with a gated room (`kit.gated_ms` 250–400);
-- an octave bass on `synthwave_bass` or Surge `bass_1` in driving eighths or sixteenths;
-- string-machine pads (Surge `juno_60_strings`, or `pwm_strings` with `effects` `chorus`), arpeggios on a pluck with a delay (Surge `pure_square` or `late_fall`, or `pluck`), a lead on Surge `smooth_lead` or `moogy_saw`, `supersaw_lead`, or a square with `glide_ms` and a delayed vibrato;
+- an octave bass on `synthwave_bass` or a Surge bass (`studio.py sounds --role bass`) in driving eighths or sixteenths;
+- string-machine pads (a Surge one: `sounds --role pad --name string`; or `pwm_strings` with `effects` `chorus`), arpeggios on a pluck with a delay (`sounds --role pluck`, or `pluck`), a lead from `sounds --role lead`, `supersaw_lead`, or a square with `glide_ms` and a delayed vibrato. Give each query the piece's `--seed` and audition two to four on the part ([sound-selection.md](sound-selection.md));
 - four-chord loops such as i–VI–III–VII, the singer/songwriter schema read in its relative minor (Open Music Theory, Four-Chord Schemas);
 - this skill's starting point for reverb: on the snare and the lead (`reverb_db`, the plate), less on the bass.
 
@@ -150,6 +156,7 @@ Sources for the table: Solberg (2014) for the drop, Flint (2007) and Senior (201
 - Senior, M. (2010). [Creating & Using Synth Pad Sounds](https://www.soundonsound.com/techniques/creating-using-synth-pad-sounds). *Sound On Sound*, May 2010.
 - Senior, M. (2018). [Q. How can I locate the masking problems in my mix?](https://www.soundonsound.com/sound-advice/q-how-can-locate-masking-problems-my-mix) *Sound On Sound*, March 2018.
 - White, P. (2009). [Creating A Sense Of Depth In Your Mix](https://www.soundonsound.com/techniques/creating-sense-depth-your-mix). *Sound On Sound*, February 2009.
+- Ableton. *Learning Music*, [Tempo and genre](https://learningmusic.ableton.com/make-beats/tempo-and-genre.html), read 9 November 2026: typical tempo ranges, techno and trance 120–140 among them.
 - Wikipedia, read 7 November 2026, for each style's tempo and traits and the sources they cite: [House music](https://en.wikipedia.org/wiki/House_music), [Trance music](https://en.wikipedia.org/wiki/Trance_music), [Big room house](https://en.wikipedia.org/wiki/Big_room_house), [Dub techno](https://en.wikipedia.org/wiki/Dub_techno), [Future bass](https://en.wikipedia.org/wiki/Future_bass), [Synthwave](https://en.wikipedia.org/wiki/Synthwave).
 - White, P. (2003). [Maximising The Loudness Of Your Masters](https://www.soundonsound.com/techniques/maximising-loudness-your-masters). *Sound On Sound*, March 2003; with White, P., Inglis, S. et al. (2003), [Using Your DAW's Compressors & Limiters](https://www.soundonsound.com/techniques/using-your-daws-compressors-limiters).
 - Brøvig-Hanssen, R., Sandvik, B. and Aareskjold-Drecker, J. M. (2020). [Dynamic Range Processing and Its Influence on Perceived Timing in Electronic Dance Music](https://doi.org/10.30535/mto.26.2.3). *Music Theory Online* 26(2).
@@ -163,4 +170,6 @@ Sources for the table: Solberg (2014) for the drop, Flint (2007) and Senior (201
 - Collins, K. (2007). In the Loop: Creativity and Constraint in 8-bit Video Game Audio. *Twentieth-Century Music* 4(2), 209–227.
 - Cook, K. M. (2023). [8-Bit Affordances: Jun Chikuma's Soundtrack to Faxanadu](https://mtosmt.org/issues/mto.23.29.3/mto.23.29.3.cook.php). *Music Theory Online* 29(3).
 - [NESdev wiki: APU](https://www.nesdev.org/wiki/APU), on the pulse duty cycles, the triangle's 32-step sequence and the noise channel.
+- [Acid house](https://en.wikipedia.org/wiki/Acid_house). Wikipedia, read 9 November 2026: the TB-303's squelch from raised resonance and lowered cutoff, with accent, slide and octave programmed per step.
+- Roland Corporation (2019). [Software Bass Line TB-303 Owner's Manual](https://rolandcloud.com/getmedia/b3e2da28-1951-467e-bd79-7aae34481570/TB-303-Manual-E.pdf?ext=.pdf): cutoff, resonance, envelope modulation and decay, and accent and slide set per step.
 - Hopkins, C. J. (2015). *Chiptune Music: An Exploration of Compositional Techniques in Sunsoft Games for the Nintendo Entertainment System and Famicom from 1988–1992*. PhD dissertation, Five Towns College.

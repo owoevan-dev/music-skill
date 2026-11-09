@@ -19,8 +19,13 @@ It is the one command that deletes, so it errs toward keeping (musiclib.files):
   nothing else stays in it), and a file is a record by what it holds: a file of the user's named files.json stays.
 - Only the kept renders' piece: a render, round or audition of another piece (another title, and for a round another
   project file) is left alone and listed, also inside a folder that goes; so is one whose piece cannot be read.
-- A cache entry goes only from a cache folder the kept renders use, only if it holds nothing but what renders write
-  there, and under its lock (render.entry_lock), so a render never loses an entry it is using.
+- A cache entry goes only from a cache folder the kept renders use, only if it holds nothing but what renders wrote
+  there, and under its lock (render.entry_lock), so a render never loses an entry it is using.  An entry renders of 0.5
+  wrote keeps its own record of them, and while a render works in it a journal (musiclib.files), so it goes by the
+  files they prove; an entry of 0.4.0, which keeps neither, goes by the names renders gave their files, its key and its
+  receipt, as 0.4.0's clean took it.
+- A run killed while it worked leaves a journal that proves the files it was writing: they go with the run's
+  recorded files.
 - A render, round or audition at work holds its folder's lock (files.working), and clean takes the same lock on each
   folder it would remove from before it looks inside, keeping it until that folder is done: a folder in use, or inside
   one in use, is left alone and named, and no run starts in a folder while clean removes from it.  Each file is looked
@@ -41,6 +46,7 @@ ROUND, AUDITION = 'music-production round', 'music-production audition'  # the `
 # What names a folder's tool and its piece: they go last, with files.json, once nothing else in the folder stays, so a
 # folder a clean leaves in part (a file held open, a file of the user's) is still recognised by the next.
 TOP_RECORDS = ('render_input.json', 'project.json', 'round.json', 'audition.json')
+MARKERS = ('render_input.json', 'round.json', 'audition.json')  # of those, the ones that name the tool: removed last of all
 AUDITION_KEEPS = ('audition.mp3', 'audition.json')  # what a finished audition is for: the A/B and its report
 # What renders write in a cache entry (render.make_stem, audio.fluidsynth, layered, surge), and temporary files a stopped
 # run may leave there: an entry holding anything else is left alone.
@@ -91,12 +97,39 @@ def audition_record(folder):
 
 
 def entry_record(folder):
-    """A cache entry's receipt: its folder is named by its key, receipt.json names that key, raw.wav is there."""
+    """A cache entry's receipt: its folder is named by its key, receipt.json names that key, raw.wav is there.  An entry a
+    render of 0.5 began, with its own record or journal, stopped before its receipt, is one too: {'key', 'partial'}."""
     folder = Path(folder)
-    if not HEX64.fullmatch(folder.name) or not _file(folder / 'raw.wav'):
+    if not HEX64.fullmatch(folder.name):
         return None
-    r = _record(folder / 'receipt.json')
-    return r if r and r.get('key') == folder.name else None
+    if _file(folder / 'raw.wav'):
+        r = _record(folder / 'receipt.json')
+        if r and r.get('key') == folder.name:
+            return r
+    return {'key': folder.name, 'partial': True} if recorded_entry(folder) else None
+
+
+def recorded_entry(folder):
+    """Whether a cache entry keeps the record or the journal renders of 0.5 write in it (files.json, files.journal)."""
+    return files.is_record(Path(folder) / files.RECORD) or files.is_journal(Path(folder) / files.JOURNAL)
+
+
+def _entry_own(entry):
+    """Of a cache entry's files, what renders wrote there, as it is now: {file: what proves it} for an entry with a
+    record (recorded unchanged, proven by the journal, the record, the journal, the lock's file), or by 0.4.0's names
+    for one without.  Anything else in it (a link, a folder, a file of the user's, one changed since) is left out."""
+    contents = list(Path(entry).iterdir())
+    if not recorded_entry(entry):
+        return {p: 'name' for p in contents if not linked(p) and _file(p) and ENTRY_FILES.fullmatch(p.name)}
+    listed, found, own = files.recorded(entry), files.proofs(entry), {}
+    for p in contents:
+        if linked(p) or not _file(p):
+            continue
+        if files.is_record(p) or files.is_journal(p) or files.is_lock_file(p):
+            own[p] = 'record'
+        elif files.unchanged(p, listed.get(p.name, (-1, -1))) or files.proven(entry, p, found):
+            own[p] = files.stamp(p)
+    return own
 
 
 def unit(folder):
@@ -122,7 +155,7 @@ def piece(folder, kind, record):
         held = round_record(folder.parent) if folder.name == 'render' else None
         if held is not None:
             return piece(folder.parent, 'round', held)  # a round's render is of the round's piece
-        return _title(folder / 'project.json'), None
+        return _title(folder / 'project.json') or own, None  # render_input.json names it too, from the render's first file
     if kind == 'round':
         project = record.get('project') if isinstance(record.get('project'), str) else None
         if project is not None:
@@ -162,7 +195,7 @@ def _plan(folder, kind, record, inner):
     finished = kind == 'audition' and record.get('status', 'PASS') != 'FAIL' and _file(folder / 'audition.mp3')
     seen = files.stamp  # a record as the plan found it: size, time and file number (files.unchanged)
     skip = set(inner) | ({folder / 'cache'} if kind == 'audition' else set())
-    records = {folder: files.recorded(folder)}
+    records, journals = {folder: files.recorded(folder)}, {}
     take, stay, size, holders, last = [], [], 0, [], []
     for p in files.tree(folder, skip):
         if p.parent == folder and files.is_lock_file(p):
@@ -170,15 +203,22 @@ def _plan(folder, kind, record, inner):
         # The records go last, when nothing else stays: the tools' files.json, and at the top what names the folder's
         # tool and piece as its record lists it, unchanged.  A file is no record by its name: a file of the user's so
         # named, or one changed since, stays.
-        if files.is_record(p):
+        if files.is_record(p) or files.is_journal(p):
             if p.parent != folder:
                 holders.append(p.parent)  # a sub-folder's own record (a round's review/): it goes once nothing else is there
             last.append((p, seen(p)))
             continue
-        own = records[folder].get(p.name) if p.parent == folder and p.name in TOP_RECORDS else None
-        if own is not None and files.unchanged(p, own):
-            last.append((p, seen(p)))
-            continue
+        if p.parent == folder and p.name in TOP_RECORDS:
+            # What names the folder's tool and piece goes last whether the record or the journal proves it: a render
+            # stopped before its first record is proved by its journal alone, and its marker, removed with the other
+            # files, was gone when one of them could not be removed, leaving a folder neither clean nor --resume
+            # recognised (GPT's review of 0.5, C03).
+            own = records[folder].get(p.name)
+            if folder not in journals:
+                journals[folder] = files.proofs(folder)
+            if (own is not None and files.unchanged(p, own)) or files.proven(folder, p, journals[folder]):
+                last.append((p, seen(p)))
+                continue
         if finished and p.parent == folder and p.name in AUDITION_KEEPS:
             stay.append(p)
             continue
@@ -191,8 +231,11 @@ def _plan(folder, kind, record, inner):
                 break
         listed = records.setdefault(holder, files.recorded(holder))
         entry = listed.get(p.relative_to(holder).as_posix())
-        if entry is not None and files.unchanged(p, entry):
-            take.append((p, entry))
+        if holder not in journals:
+            journals[holder] = files.proofs(holder)
+        if (entry is not None and files.unchanged(p, entry)) or files.proven(holder, p, journals[holder]):
+            # A file the record lists unchanged, or one the journal proves a stopped run was writing.
+            take.append((p, files.stamp(p)))
             size += files.lstat(p).st_size
         else:
             stay.append(p)
@@ -234,12 +277,20 @@ def _remove_entry(entry, report, rel):
         if not free:
             report['not_removed'].append({'kind': 'cache entry', 'path': rel(entry), 'error': 'a render is using it'})
             return False
-        # The receipt last and the raw synthesis before it: stopped part way by a file another program holds open,
-        # the entry keeps what a render can still use, or what it makes again, and is named; the clean goes on.
+        # The receipt last and the raw synthesis before it, then the record and the journal: stopped part way by a
+        # file another program holds open, the entry keeps what a render can still use, or what it makes again, and
+        # is named; the clean goes on.  Each file is looked at again as it goes: one changed since stays, and the entry
+        # with it.
+        own = _entry_own(entry)
+        order = lambda p: ((p.name == 'raw.wav') + 2 * (p.name == 'receipt.json') + 3 * (p.name == files.JOURNAL)
+                           + 4 * (p.name == files.RECORD))
         try:
-            for p in sorted(entry.iterdir(), key=lambda p: (p.name == 'raw.wav') + 2 * (p.name == 'receipt.json')):
-                if p.name != 'entry.lock':
-                    p.unlink()
+            for p in sorted(entry.iterdir(), key=order):
+                if p.name == 'entry.lock':
+                    continue
+                if p not in own or (own[p] not in ('name', 'record') and not files.unchanged(p, own[p])):
+                    raise OSError(f'{p.name} is not a file renders wrote there, or changed while clean ran')
+                p.unlink()
             if os.name != 'nt':
                 (entry / 'entry.lock').unlink()
         except OSError as e:
@@ -292,7 +343,7 @@ def clean(folder, keep, remove=False):
         if not ((title is not None and title in titles) or (project is not None and project in projects)):
             why = 'its piece cannot be read' if title is None and project is None else 'another piece'
             left.append({'kind': kind, 'path': rel(f), 'title': title, 'why': why})
-        elif not files.has_record(f):
+        elif not (files.has_record(f) or files.is_journal(f / files.JOURNAL)):
             left.append({'kind': kind, 'path': rel(f), 'title': title,
                          'why': 'no record of the files the tools wrote in it (made before 0.4.0, or by a run killed before it '
                                 'wrote one); remove it by hand if you want'})
@@ -348,9 +399,10 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
     cleared = set()  # the cache entries that go (or would go, in a dry run)
     for e in entries:
         contents = list(e.iterdir())
-        if any(linked(p) or not _file(p) or not ENTRY_FILES.fullmatch(p.name) for p in contents):
+        own = _entry_own(e)
+        if any(p not in own for p in contents):
             report['left_alone'].append({'kind': 'cache entry', 'path': rel(e), 'title': None,
-                                         'why': 'it holds files renders do not write there'})
+                                         'why': 'it holds files renders did not write there, or that changed since'})
             continue
         size = sum(files.lstat(p).st_size for p in contents)
         if remove and not _remove_entry(e, report, rel):
@@ -420,7 +472,9 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
                     late = [p for p in files.tree(f) if p not in planned and not (p.parent == f and files.is_lock_file(p))] + files.links_in(f)
                     if late:
                         raise OSError(f'{late[0].relative_to(f).as_posix()} appeared while clean ran; the folder stays with its records')
-                    for p, _ in plan['last']:
+                    # The file that names the folder's tool goes last of all: one of the others that cannot be removed
+                    # leaves it, so the folder is still known for what it is.
+                    for p, _ in sorted(plan['last'], key=lambda e: e[0].parent == f and e[0].name in MARKERS):
                         if files.regular_file(p):
                             p.unlink()
                     _empty_folders(f, set())

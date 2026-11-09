@@ -35,8 +35,13 @@ PDTA = {b'phdr': PHDR, b'pbag': BAG, b'pmod': MOD, b'pgen': GENREC, b'inst': INS
         b'imod': MOD, b'igen': GENREC, b'shdr': SHDR}
 MAX_RECORDS = 2_000_000
 # Modulators that replace a synthesizer default (a zone modulator with the same sources and destination overrides
-# it).  SF2 default 1: velocity to attenuation, concave, 960 cB.  Default 2: velocity to filter cutoff, -2400 cents;
-# FluidSynth applies it only from velocity 64 (a switch as second source), so both forms are listed.
+# it).  SF2 default 1: velocity to attenuation, concave, 960 cB.  Default 2: velocity to filter cutoff, -2400 cents
+# (SoundFont 2.04, 8.4.2).  FluidSynth lists default 2 with a velocity switch as second source and computes any
+# modulator of that form as 0 (fluid_mod.c, since 1.1.x), so velocity moves no filter there: measured with 2.6.1, a
+# bank without the override renders sample for sample as one with it.  Players that follow 2.04 apply it, so both forms
+# are listed: an amount of 0 keeps a bank neutral in them, and a negative amount reaches FluidSynth through the 2.04
+# form, closing the filter on a straight line in velocity (measured: -2400 took 13 dB above 12 kHz at velocity 48 and
+# nothing at 127).
 VELOCITY_TO_ATTENUATION = ((0x0502, 48, 0),)
 # FluidSynth applies a zone's initialAttenuation (generator 48) at 0.4 of its centibels, as the EMU8000 did, so a bank
 # that wants N cB heard writes N / 0.4 (measured with FluidSynth 2.6.1: 120 written, 4.8 dB heard).

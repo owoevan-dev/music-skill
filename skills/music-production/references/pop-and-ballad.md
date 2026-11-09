@@ -6,7 +6,11 @@ Read this when the request is any of these:
 - an emotional pop cue for a video or a game;
 - a song-like piece where an instrument carries the tune.
 
+Its sub-styles (up-tempo pop, the ballad, disco, synth-pop, hyperpop), each on the seven axes with its sources, are in [style-map-pop.md](style-map-pop.md).
+
 Contents: [Brief](#brief) · [Form](#form) · [Harmony](#harmony) · [Melody for the lead](#melody-for-the-lead) · [Rhythm and drums](#rhythm-and-drums) · [Arrangement](#arrangement) · [The mix](#the-mix) · [Instruments](#instruments) · [Symptoms and causes](#symptoms-and-causes) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 A J-pop or J-rock band cue in TV size is in [anime-opening.md](anime-opening.md). Electronic dance pop production (sidechain, drops) is in [electronic.md](electronic.md), its synth sounds in [electronic-sounds.md](electronic-sounds.md).
 
@@ -97,22 +101,22 @@ An example plan, built from the points above: build by addition from verse to ch
 - **The lead on top.** Read `lead_presence` in `analyze`. The finished pieces' values in [measuring.md](measuring.md) are data points, not targets.
 - **Brightness.** It comes from the percussion and the upper octaves (Elowsson and Friberg 2017). A ballad without drums is darker in `analyze`, and that is expected. Measured here, the recording and the touch change a piano's brightness more than EQ does ([performance-and-mix.md](performance-and-mix.md), A bright pop piano).
 - **Width and centre.** The lead, the bass, the kick and the snare are conventionally centred, and other parts spread for width (Flint 2005).
-- **Loudness.** Spotify plays tracks at −14 LUFS; deliver at `target_lufs` −14 with the bus chain.
+- **Loudness.** Spotify plays tracks at −14 LUFS ([Spotify for Artists](https://support.spotify.com/us/artists/article/loudness-normalization/), Loudness normalization); deliver at `target_lufs` −14 with the bus chain.
 
 ## Instruments
 
 | Role | Bank and preset |
 |---|---|
 | Piano | `piano_osiris` 1:0 (pedalled; change the pedal with the harmony), 0:0 for detached playing; `vcsl` 0:0 (Steinway); `vcsl_keys` Kawai and uprights |
-| Electric piano, keys | Surge `ep_1`, `soft_suitcase`, `dx_ep`; synth `fm_epiano`, `lofi_keys` |
-| Bass | `bass_darkblack` 0:33 (fingers, ghost notes at low velocities), `bass_pick` (brighter); Surge `sub_bass_3` or synth `sub_bass` for modern pop |
+| Electric piano, keys | a Surge electric piano (`studio.py sounds --role keys --name ep`, or `rhodes`, `wurli`, `suitcase`); synth `fm_epiano`, `lofi_keys` |
+| Bass | `bass_darkblack` 0:33 (fingers, ghost notes at low velocities), `bass_pick` (brighter); a Surge sub bass (`sounds --role bass --name sub`) or synth `sub_bass` for modern pop |
 | Drums | `rusty` (acoustic kit); `drum_synth` 808 or 909 for electronic pop |
 | Guitars | `fsbs_clean` (arpeggios and chords), `guitar_shiny` (archtop), `fsbs_dist1`/`fsbs_dist2` for a power ballad |
 | Strings | `vsco_strings` sections ([orchestration.md](orchestration.md)) |
-| Lead | `cello_bigcat` 0:42 (a tenor voice, C2–C6); `iowa_strings` violin or cello; `vsco` solo violin 0:40; `sax_bear` (tenor sax); `vsco` flute 0:73; Surge `smooth_lead` or `butter` (warm), `notched_saws` (bright); synth `supersaw_lead` or a square with `glide_ms` |
-| Pads | Surge `juno_60_strings`, `sawteeth`, `bright_pad`; synth `warm_pad`, `pwm_strings` with `effects` `chorus` |
+| Lead | `cello_bigcat` 0:42 (a tenor voice, C2–C6); `iowa_strings` violin or cello; `vsco` solo violin 0:40; `sax_bear` (tenor sax); `vsco` flute 0:73; a Surge lead, warm or bright as the part needs (`sounds --role lead --character warm`, or `bright`); synth `supersaw_lead` or a square with `glide_ms` |
+| Pads | a Surge pad (`sounds --role pad`; string machines with `--name string`); synth `warm_pad`, `pwm_strings` with `effects` `chorus` |
 
-Probe a preset before building a part on it ([soundbank-measurements.md](soundbank-measurements.md) has what each bank measured); choose synth patches by the part's job ([sound-selection.md](sound-selection.md)).
+Probe a preset before building a part on it ([soundbank-measurements.md](soundbank-measurements.md) has what each bank measured); choose synth patches by the part's job ([sound-selection.md](sound-selection.md)): give each `sounds` query the piece's `--seed` and audition two to four on the part.
 
 ## Symptoms and causes
 

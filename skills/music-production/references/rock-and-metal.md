@@ -6,7 +6,11 @@ Read this when the request is any of these:
 - a guitar-driven cue for a game, a trailer or a video;
 - an instrumental for a rock band.
 
+Its sub-styles, classic rock to nu metal, each on the seven axes with its sources and what `review` asks there, are in [style-map-rock.md](style-map-rock.md).
+
 Contents: [Brief](#brief) · [Form](#form) · [Harmony and riffs](#harmony-and-riffs) · [Rhythm and drums](#rhythm-and-drums) · [Guitars on the banks](#guitars-on-the-banks) · [Bass](#bass) · [Arrangement](#arrangement) · [The mix](#the-mix) · [Instruments](#instruments) · [Symptoms and causes](#symptoms-and-causes) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 Related guides:
 - [anime-opening.md](anime-opening.md): a J-rock or J-pop band cue in TV size;
@@ -26,7 +30,7 @@ Settle these from the request, deciding what it leaves open and saying so:
   | Classic and hard rock | backbeat; eighths on the hi-hat or ride | power chords and open chords; minor-pentatonic riffs; a lead with bends | E2 |
   | Alternative, indie | backbeat; toms in the verse | clean arpeggios in the verse, distorted chords in the chorus | E2 |
   | Punk, pop-punk | driving eighths; the snare on every beat for a lift | eighth-note power chords, downstrokes | E2 or E♭2 |
-  | Traditional heavy metal (slow in the early style, faster from the late 1970s) | a rock backbeat; eighths on the hi-hat or ride; the kick doubling the gallop; the double kick in places, not throughout | Aeolian and Phrygian riffs, palm-muted and open power chords, pedal points; the gallop; twin leads in thirds | E2 or E♭2; early Black Sabbath tuned down to C♯2 |
+  | Traditional heavy metal (slow in the early style, faster from the late 1970s) | a rock backbeat; eighths on the hi-hat or ride; the kick doubling the gallop; the double kick in places, not throughout | Aeolian and Phrygian riffs, palm-muted and open power chords, pedal points; the gallop; twin leads in thirds | E2 or E♭2; the early style tuned down as far as C♯2 |
   | Thrash metal | the thrash beat (kick and snare alternating on eighths, the ride on every eighth); bursts of double kick | fast, palm-muted riffs on the low string with quick chord changes; chromatic steps, tritones and diminished intervals | E2, or D2 in drop D |
   | Power and melodic metal | power metal: a constant stream of sixteenths on the double kick, or thrash-style bursts; melodic death metal: fast double kick and occasional blast beats | power metal: rapid streams of notes over chords that change once a bar or slower, keyboards or an orchestra, fast solos; melodic death metal: harmonised guitar riffs as the melody | E2 or lower |
   | Metalcore (breakdowns in half time) | double kick in the heavy parts; in breakdowns a half-time snare, the kick in unison with the chugs, the china | low-tuned, percussive open-string chugs; a melodic chorus; often no guitar solo | drop D down to A (the banks stop at B1) |
@@ -43,9 +47,9 @@ Settle these from the request, deciding what it leaves open and saying so:
 
 - **Verse, chorus, solo.** The usual frame is verse–chorus form. A pre-chorus builds toward the chorus (Summach 2011), and a guitar solo often takes the bridge's place, over the verse's chords or new ones.
 - **The riff.** A short figure, repeated. In an instrumental it can carry the hook; plan where it and the lead melody take turns in front.
-- **Quiet and loud.** A clean, thin verse against a distorted chorus: the "loud-quiet-loud" dynamic the Pixies were known for, which Nirvana took from them, and a staple of alternative rock since.
+- **Quiet and loud.** A clean, thin verse against a distorted chorus: the "loud-quiet-loud" dynamic, a staple of alternative rock since the late 1980s (Wikipedia, in Sources).
 - **Metal sections.** The **breakdown** is a slower or half-time passage of chugs in unison with the kick. In twenty-first-century metal, metalcore especially, it works as a section of its own, like a verse or a chorus (Gamble 2019).
-- **Odd groupings over a steady pulse.** Pieslak (2007) explains Meshuggah's rhythm through odd time signatures, mixed meter and superimposition. To write a superimposed riff, let the guitars and kick cycle in groups of 5 or 7 sixteenths while the hi-hat and snare keep 4/4, until the two meet again at a phrase end.
+- **Odd groupings over a steady pulse.** Pieslak (2007) explains one progressive-metal band's rhythm through odd time signatures, mixed meter and superimposition. To write a superimposed riff, let the guitars and kick cycle in groups of 5 or 7 sixteenths while the hi-hat and snare keep 4/4, until the two meet again at a phrase end.
 
 ## Harmony and riffs
 
@@ -82,10 +86,11 @@ Settle these from the request, deciding what it leaves open and saying so:
 - **Punk** (Wikipedia, Punk rock). Fast eighths on the hats or ride and the snare on 2 and 4, or on every beat for a lift. Punk syncopates much less than other rock; its songs are short, in verse–chorus form, with basic guitar breaks rather than long solos, and its drums sound heavy and dry.
 - **Metal figures**, each tied to its style (the Wikipedia articles in Sources):
   - **traditional heavy metal: the gallop**, an eighth and two sixteenths, in the guitars and the bass, often doubled by the kick, over a rock backbeat; the double kick in places, not throughout;
-  - **thrash: the thrash beat**, also called the skank or "Slayer" beat: a sped-up 2/4 rock or polka beat, kick and snare alternating on eighths with the ride on every eighth; bursts of double kick;
+  - **thrash: the thrash beat**, also called the skank beat: a sped-up 2/4 rock or polka beat, kick and snare alternating on eighths with the ride on every eighth; bursts of double kick;
   - **power and melodic metal: the double kick**, a constant stream of sixteenths under the snare's accents, or bursts of three to six beats in the thrash manner;
   - **metalcore: the half-time breakdown**, the snare on beat 3 of each bar, the kick in unison with the chugs, and the china or a crash on the accents;
   - **death and black metal: the blast beat**, from hardcore punk and grindcore: a very fast figure shared among kick, snare and a cymbal. The traditional blast alternates snare and kick in a single-stroke roll, the ride with the kick; the hammer blast plays kick and snare together on eighths. This guide does not cover these styles further.
+- **On the building blocks.** `blocks.drums` writes the thrash beat, the double kick and the traditional, hammer and bomb blasts from its layers, and anything else on its step grid ([building-blocks.md](building-blocks.md), Drums).
 - **Velocities.** The `rusty` kit has up to 14 velocity layers and 4 round robins. Drummers hit harder with the stronger hand, so alternate hits differ in velocity (Dow 2010):
   - alternate two values a few steps apart, for example 112 and 104;
   - accent the beat.
@@ -162,7 +167,7 @@ The table is an example plan. Build by addition toward the chorus (McAdams, Good
 | Bass | `bass_pick` (picked); `bass_darkblack` 0:33 (fingers, five strings), 1:33 staccato |
 | Rhythm guitars | `fsbs_dist1` and `fsbs_dist2` (distorted), `fsbs_clean` |
 | Lead | `fsbs_dist2` with legato and bends; for a different lead, `vsco` solo violin 0:40 or the trumpet 0:56 |
-| Keys | `vcsl` grand 0:0, `piano_osiris`; Surge XT `organ_1` (fallback `warm_pad`) for a rock organ |
+| Keys | `vcsl` grand 0:0, `piano_osiris`; a Surge organ for a rock organ (`studio.py sounds --role keys --name organ --seed <piece seed>`, then `audition`) |
 | Orchestra, choir (symphonic metal) | `vsco_strings` sections, `vsco` brass, `vocal_ah`, `vcsl` timpani 0:47 ([orchestration.md](orchestration.md)) |
 
 Probe a preset before building a part on it ([soundbank-measurements.md](soundbank-measurements.md) has what each bank measured).

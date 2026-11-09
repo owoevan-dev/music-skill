@@ -2,7 +2,11 @@
 
 Read this when the music is for a game: a loop for a place or a state, a battle, a menu, a jingle. Game music is heard while the player does something else, it is heard many times, and it meets other music at seams. Those three facts change the brief, the form and the delivery.
 
+What a cue sounds like, by style, is in the style maps ([style-maps.md](style-maps.md)), chiptune in [style-map-electronic.md](style-map-electronic.md), the form and harmony of a town, an overworld, a dungeon and a battle in [style-map-game.md](style-map-game.md); a mood's cues across styles in [moods.md](moods.md).
+
 Contents: [Brief](#brief) · [The loop point](#the-loop-point) · [Repetition](#repetition) · [Mood and scene](#mood-and-scene) · [Layers](#layers) · [Stingers, transitions and endings](#stingers-transitions-and-endings) · [Delivery](#delivery) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 ## Brief
 
@@ -52,14 +56,14 @@ Eerola, Friberg and Bresin (2013) varied six cues in a factorial design and aske
 | Peaceful | slow, soft, legato, high register, a darker timbre |
 | Scary | minor, low register, loud, a brighter timbre |
 
-A scene's music starts from the character it should convey; the cue levels follow from the table above, and the brief overrides any of them. Choose the instruments for each part's job ([sound-selection.md](sound-selection.md)) and for the character ([scene-music.md](scene-music.md), Instruments and a scene's character).
+A scene's music starts from the character it should convey, which the brief decides; the cue levels follow from the table above. In the table below, the character beside each scene is this skill's starting point, which no source read gives; the cue levels are Eerola et al.'s for that character. Choose the instruments for each part's job ([sound-selection.md](sound-selection.md)) and for the character ([scene-music.md](scene-music.md), Instruments and a scene's character).
 
 | Scene | Character | Cue levels |
 |---|---|---|
 | Town, village, shop | happy or peaceful | major and a high register; faster with staccato for happy, slow, soft and legato for peaceful |
 | Field, overworld | happy | major, fast, high register, staccato |
 | Dungeon, cave | scary | minor, low register; loud for a threat |
-| Battle, boss | scary | minor, low register, loud; a boss lower and louder still |
+| Battle, boss | scary | minor, low register, loud |
 | Sad scene | sad | minor, slow, legato, soft, a darker timbre |
 | Victory, level-up | happy | major, fast, high register; a one-shot ending on an authentic cadence |
 
@@ -108,7 +112,7 @@ A render with `loop` writes these files next to the master:
 `report.json` adds these checks:
 - `loop_length_exact`;
 - `loop_points_in_wav`;
-- `loop_true_peak_ceiling`: the tail can add to a peak near the start, and the whole loop comes down if it would pass −1 dBTP;
+- `loop_true_peak_ceiling`: the tail can add to a peak near the start, and the whole loop comes down if it would pass the master's ceiling (−1 dBTP, or −2 above −14 LUFS: [performance-and-mix.md](performance-and-mix.md));
 - `loop_ogg_length_exact`: the decoded Ogg has as many frames as the WAV;
 - `loop_ogg_tags`;
 - `loop_cues_in_wav`: the section cue points read back as written;

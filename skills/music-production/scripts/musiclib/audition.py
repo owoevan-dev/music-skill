@@ -10,8 +10,9 @@ notes.  The part plays first as written, then once per sound asked for:
 
 Each version is a passage project (excerpt.extract: held notes re-attack at the cut) rendered with the render cache, so
 the other parts are synthesized once.  The part's stem (before its bus and the shared reverbs) is measured for level,
-spectral centroid and the share of its power above 2 kHz and 5 kHz; the masters are measured by FFmpeg and brought to
-the quietest one's integrated loudness for the MP3.  The figures describe the sounds; they do not rank them."""
+spectral centroid and the share of its power above 2 kHz and 5 kHz.  Each version's cut, as the MP3 plays it (the
+passage and a second of ring-out, faded), is measured by FFmpeg and brought to the quietest cut's integrated loudness.
+The figures describe the sounds; they do not rank them."""
 import contextlib
 import copy
 import json
@@ -30,14 +31,34 @@ TAIL_S = 1.0  # of each version's ring-out kept in the MP3
 CONTROLS_FILE = Path(__file__).resolve().parents[2] / 'references' / 'surge-controls.json'
 
 
+SURGE_SETTINGS = ('glide_ms', 'velocity_to_cutoff', 'swell')
+
+
 def parse_sound(text):
-    """('surge', preset) | ('synth', preset) | ('soundfont', bank, bank number, program), checked against the lists."""
+    """('surge', preset) | ('surge', preset, settings) | ('synth', preset) | ('soundfont', bank, bank number, program),
+    checked against the lists.  A Surge patch takes the part's Surge settings after it, each after a '+':
+    `surge:a_liv/basses/bonsai_808+glide_ms=80`, `+velocity_to_cutoff=24`, `+swell`; review names patches with the
+    settings that play the part, and they are heard with them (they were not: GPT's review of 0.5, SA02)."""
     kind, _, rest = text.strip().partition(':')
     if kind == 'surge':
+        rest, *extra = rest.split('+')
         if surge.entry(rest) is None:
             raise ValueError(f'No Surge patch {rest!r}: name a curated one (references/surge-presets.json) or a catalog id '
                              '(studio.py sounds searches references/surge-catalog.json)')
-        return ('surge', rest)
+        settings = {}
+        for x in extra:
+            key, eq, value = x.partition('=')
+            try:
+                if key == 'swell' and not eq:
+                    settings['swell'] = True
+                elif key in SURGE_SETTINGS[:2] and eq:
+                    settings[key] = int(value) if value.lstrip('-').isdigit() else float(value)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise ValueError(f'A Surge setting after a patch is +glide_ms=<ms>, +velocity_to_cutoff=<semitones> or '
+                                 f'+swell, not {x!r}') from None
+        return ('surge', rest, tuple(sorted(settings.items()))) if settings else ('surge', rest)
     if kind == 'synth':
         if rest not in synth.presets():
             raise ValueError(f'No built-in synth preset {rest!r}; they are listed in references/synth-presets.json')
@@ -51,8 +72,13 @@ def parse_sound(text):
 
 
 def label(sound):
-    """A version's name, also its folder: a catalog id's slashes become dots."""
-    return 'as_written' if sound is None else '_'.join(str(x) for x in sound).replace('/', '.')
+    """A version's name, also its folder: a catalog id's slashes become dots, and a Surge patch's settings follow it."""
+    if sound is None:
+        return 'as_written'
+    if sound[0] == 'surge' and len(sound) > 2:
+        extra = '_'.join(k if v is True else f'{k}-{v:g}' for k, v in sound[2])
+        return f'surge_{sound[1]}_{extra}'.replace('/', '.')
+    return '_'.join(str(x) for x in sound).replace('/', '.')
 
 
 SOUNDFONT_ONLY = ('legato', 'dynamics', 'dynamics_mode', 'round_robin', 'bow_change_s', 'bow_ms')
@@ -66,7 +92,7 @@ def with_sound(track, sound):
         track.pop(key, None)
     if sound[0] == 'surge':
         track['engine'] = 'surge'
-        track['surge'] = {'preset': sound[1], 'fallback': surge.entry(sound[1])['fallback']}
+        track['surge'] = {'preset': sound[1], 'fallback': surge.entry(sound[1])['fallback'], **(dict(sound[2]) if len(sound) > 2 else {})}
     elif sound[0] == 'synth':
         track['engine'] = 'synth'
         track['synth'] = {'preset': sound[1]}
@@ -77,6 +103,8 @@ def with_sound(track, sound):
     left = [k for k in SOUNDFONT_ONLY if k in track['performance']] if track['engine'] != 'soundfont' else []
     for k in left:
         track['performance'].pop(k)
+    if track['engine'] != 'soundfont' and track.pop('reverse', None) is not None:
+        left.append('reverse')  # a SoundFont part's own: another engine refused it (GPT's review of 0.5, SA04)
     return left
 
 
@@ -101,10 +129,11 @@ def brightness(x, rate):
             'above_5k_pct': round(float(100 * power[(f >= 5000) & band].sum() / total), 2)}
 
 
-def audition(project_file, track_id, sounds, first_bar, last_bar, output, config_file, cache=None, solo=False):
+def audition(project_file, track_id, sounds, first_bar, last_bar, output, config_file, cache=None, solo=False, jobs=None):
     """Render each version and play them in turn (the module notes).  Every version and the banks it plays are checked
     before any is rendered; the audition's record, audition.json, is written from the start and says which version
-    stopped it, and the files it wrote are recorded for clean (musiclib.files)."""
+    stopped it, and the files it wrote are recorded for clean (musiclib.files).  `jobs` is render's: the most parts of a
+    version rendered at once (the result is the same for any number)."""
     from excerpt import extract  # the scripts folder, as studio.py runs it
     output = Path(output)
     files.fresh(output)
@@ -181,7 +210,7 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
                     try:
                         # A draft: the audition plays the master and measures the stem, which a full render would
                         # only add to.
-                        render(folder / 'song.json', folder / 'render', config_file, cache, draft=True, quiet=quiet)
+                        render(folder / 'song.json', folder / 'render', config_file, cache, draft=True, quiet=quiet, jobs=jobs)
                         break
                     except ValueError:
                         report = folder / 'render' / 'report.json'
@@ -208,8 +237,10 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
                     row['performance_left_out'] = left_out
                 if heard:
                     # What actually played: a Surge part falls back to a built-in preset where Surge or its patch is
-                    # missing.
+                    # missing; the settings the patch was played with, where any.
                     row['rendered_with'] = heard.get('rendered_with')
+                    if heard.get('played_as'):
+                        row['played_as'] = heard['played_as']
                     if heard.get('rendered_with') != 'Surge XT':
                         row['fallback'], row['reason'] = heard.get('fallback'), heard.get('reason')
                         played = None
@@ -221,25 +252,38 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
                     if described.get('character'):
                         row['surge_character'] = described['character']
                 rows.append(row)
-                cuts.append((master, lufs))
+                cuts.append((master, folder))
                 files.register_tree(output, skip={f / 'render' for f in folders} | {output / 'cache'})  # each version
             current = 'the A/B'
-            # The passage's length as played, plus a short ring-out; the quietest version's loudness for all.
+            # The passage's length as played, plus a short ring-out; the quietest cut's loudness for all.  Each cut is
+            # measured as it plays: the whole master's loudness counts a ring-out the cut leaves out, which played a
+            # long release up to 2 LU above the version it was matched to (GPT Pro's eighth review of 0.4.0, Y01).
             clock = Clock(passage)
             n = int((clock.end + TAIL_S) * audio.RATE)
-            target = min(l for _, l in cuts)
-            pieces = []
             fade = int(.03 * audio.RATE)
-            for master, lufs in cuts:
+            played = []
+            for (master, folder), row in zip(cuts, rows):
                 cut = np.zeros((n, master.shape[1]))
                 part = np.asarray(master[:n], dtype=np.float64)
                 cut[:len(part)] = part
                 cut[n - fade:] *= np.linspace(1, 0, fade)[:, None]
+                audio.write_wav(folder / 'cut.wav', cut.astype(np.float32))
+                try:
+                    lufs = audio.measure(cfg, folder / 'cut.wav', folder, 'measure_cut')['integrated_lufs']
+                except ValueError as e:  # a silent cut has no loudness to match
+                    raise ValueError(f'{row["sound"]}: nothing audible in the passage ({e}); check the part\'s notes '
+                                     'and level') from e
+                row['cut_lufs'] = round(lufs, 2)
+                played.append((cut, lufs))
+            target = min(l for _, l in played)
+            pieces = []
+            for cut, lufs in played:
                 pieces += [cut * 10 ** ((target - lufs) / 20), np.zeros((int(GAP_S * audio.RATE), cut.shape[1]))]
             both = np.concatenate(pieces[:-1])
             peak = float(np.max(np.abs(both)))
             if peak > .89:
                 both *= .89 / peak
+                target += 20 * math.log10(.89 / peak)  # the level every version now plays at
             audio.write_wav(output / 'audition.wav', both.astype(np.float32))
             audio.ffmpeg(cfg, ['-i', output / 'audition.wav', '-c:a', 'libmp3lame', '-b:a', '256k',
                                output / 'audition.mp3'], output, 'audition_mp3')

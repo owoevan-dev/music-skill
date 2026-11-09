@@ -5,7 +5,11 @@ Read this when the request is any of these:
 - a boom-bap or trap instrumental;
 - a background beat for a stream or a video.
 
+Its sub-styles (lo-fi, boom bap, trap, drill, phonk, trip hop, G-funk), each on the seven axes with its sources and what `review` asks there, are in [style-map-beats.md](style-map-beats.md).
+
 Contents: [Brief](#brief) · [Groove](#groove) · [Lo-fi and chillhop](#lo-fi-and-chillhop) · [Boom bap](#boom-bap) · [Trap](#trap) · [The worn sound](#the-worn-sound) · [Symptoms and causes](#symptoms-and-causes) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 These are loops first: a two-, four- or eight-bar figure of drums, bass and chords that has to feel good on its hundredth repeat, with a few changes over the top. Much of each style's character is in the groove (where each hit falls) and in the sound of the machines and media it grew up on. For dance music and synth styles see [electronic.md](electronic.md); for jazz harmony and voicings, [jazz-and-funk.md](jazz-and-funk.md).
 
@@ -48,13 +52,13 @@ Settle these from the request, deciding what it leaves open and saying so:
 ## Lo-fi and chillhop
 
 - **Drums.** An example plan: a soft kick, a snare or side-stick (37) on 2 and 4, and swung hats. Use the sampled `rusty` kit through the worn sound below, or `drum_synth` `"808"` with `decay` 0.6–0.8 for a softer machine.
-- **Bass.** `bass_sneaky` (upright bass, finger and pluck layers, round robins, ghost notes) on roots and fifths with approach notes ([jazz-and-funk.md](jazz-and-funk.md)), or Surge `sub_bass_3` (or `sub_bass`) for a synth bottom.
+- **Bass.** `bass_sneaky` (upright bass, finger and pluck layers, round robins, ghost notes) on roots and fifths with approach notes ([jazz-and-funk.md](jazz-and-funk.md)), or a Surge sub bass (`studio.py sounds --role bass --name sub --seed <piece seed>`; or the built-in `sub_bass`) for a synth bottom.
 - **Harmony.** Lo-fi has jazz roots (Wikipedia, Lofi hip hop): seventh and extended chords, ii–V–I ([jazz-and-funk.md](jazz-and-funk.md)) and I–vi–ii–V, the doo-wop schema with ii for IV (Open Music Theory, Four-Chord Schemas).
 
   Voice them as a pianist would ([jazz-and-funk.md](jazz-and-funk.md)): rootless, in the middle register, with the bass taking the root.
 - **Keys.**
   - The upright pianos of `vcsl_keys` (0:3, 1:3) for a worn piano.
-  - The dark Surge electric pianos `ep_1` and `soft_suitcase`, `fm_epiano`, or the TX81Z FM pianos (`vcsl_keys` 0:4, 1:4) for an electric piano.
+  - For an electric piano: a Surge one (`studio.py sounds --role keys --name ep`, or `rhodes`, `wurli`, `suitcase`; with the piece's `--seed`), `fm_epiano`, or the TX81Z FM pianos (`vcsl_keys` 0:4, 1:4). Audition two to four on the part.
   - `lofi_keys` for a soft synth.
 - **Guitar.** `guitar_shiny`, an archtop with four dynamics: pickup 0:26 for a warm jazz tone, microphone 0:25 for an acoustic one.
 - **Lead.** `sax_bear`, a flute (`iowa_winds`), `vocal_ah` for a wordless voice, or the keys alone. Lo-fi beats are made to relax or study to (Winston and Saywood 2019): short phrases with long rests stay out of the way.
@@ -78,7 +82,7 @@ The name imitates the kick ("boom") and the snare ("bap"). The style's drum loop
 - **Chops.** A chopped loop plays pieces of the sample out of order as short stabs: a chord on 1, the "and" of 2 and 4, each cut off by a short `gate`, with the bass and kick holding the bar together.
 - **Bass.** A short figure doubling the kick's rhythm, or the loop's own bass line.
   - `bass_darkblack` 0:33 with `lowpass` 1.5–2.5 kHz for an electric bass, or `bass_sneaky` for an upright.
-  - Surge `sub_bass_3` or a filtered `sub_bass` for a modern bottom.
+  - A Surge sub bass (`studio.py sounds --role bass --name sub`) or a filtered `sub_bass` for a modern bottom.
 - **Changes.** Change something at phrase edges ([development-and-groove.md](development-and-groove.md), Loops), for example every 4 or 8 bars:
   - drop the drums or the bass for a bar;
   - filter the loop down and open it again;
@@ -93,8 +97,9 @@ The name imitates the kick ("boom") and the snare ("bap"). The style's drum loop
   - rolls of sixteenth triplets or thirty-seconds before phrase ends, their velocities rising as a drummer's do toward a bar's end (Dow 2010).
 
   A closed hat that changes speed is the style's trademark: keep the base at quarters or eighths and shift to triplets or dotted notes near the end of a bar (Computer Music 2016). Vary the rolls every bar or two; the same roll in every bar sounds programmed.
-- **The 808.** `bass_808` is a long sine with a pitch punch on each attack.
-  - Write it mono and let notes overlap where it should slide. In a `mono` patch, an overlapping note glides from the previous pitch over `glide_ms` (60 by default) instead of attacking again.
+- **The 808.** The TR-808's bass drum is a sine through a low-pass filter and an amplifier, with a decay control that lengthens it and low frequencies that sag a little in pitch as it rings (Wikipedia, Roland TR-808); trap tunes it with a long decay as the bass line (Wikipedia, Trap music) and UK drill slides it (Wikipedia, UK drill).
+  - Where Surge XT is installed with its full patch set, play it on a Surge 808 patch measured to slide as written ([surge-roles.json](surge-roles.json): `a_liv/basses/bonsai_808`, `vospi/basses/808_builder_a`, with `surge.glide_ms` 80, the slide measured at 82 ms and the notes within 8 cents), and hear both on the part. The built-in `bass_808` (a long sine with a pitch punch on each attack, `mono`, `glide_ms` 60) is the fallback and the choice where a render must repeat exactly.
+  - Write it mono and let notes overlap where it should slide: an overlapping note glides from the previous pitch instead of attacking again, on Surge with `glide_ms` and on the built-in synth alike; notes that do not overlap start at their own pitch. `blocks.slides(notes, share, seed)` holds a share of a line's notes into the next ([building-blocks.md](building-blocks.md)).
   - Follow the kick's rhythm, and keep the 808 and the kick from hitting different notes at once.
 - **The 808's register.** Deruty (2024) analysed 808 bass-drum samples. Their median fundamental was 49.5 Hz, about G1.
   - Tuning one down a fourth, to D1 (37 Hz), cost about 6 dB through typical loudspeakers, and about as much again in the ear's sensitivity at moderate levels.
@@ -107,8 +112,8 @@ The name imitates the kick ("boom") and the snare ("bap"). The style's drum loop
   - The snare (38 or 40) and a bright clap (39) layered on beat 3, with extra hits as fills. A second, thinner clap on 2 and 4 can mark the full tempo against the half-time snare (Computer Music 2016).
   - Trap producers also pitch repeated snares up or down into a roll; `drum_synth` tunes only the whole kit, so do that with the snare's velocity and density instead.
   - A rim (37) or percussion as a counter-rhythm.
-- **Melody and colour.** Trap uses synthesized strings, brass, woodwinds and keyboards for a cinematic sound, which Lex Luger's productions popularised (Wikipedia, Trap music):
-  - bells (Surge `music_box` or `fantasy_bell`; `fm_bell` is brighter), plucks, dark pads (Surge `moody_pad`, `warm_pad`), a flute (`vsco` 0:73) or `vocal_ah`, and orchestral brass, strings and woodwinds.
+- **Melody and colour.** Trap uses synthesized strings, brass, woodwinds and keyboards for a cinematic sound (Wikipedia, Trap music):
+  - bells (`studio.py sounds --name bell`; the built-in `fm_bell` is brighter than most), plucks, dark pads (`sounds --role pad --character dark`, or `warm_pad`), a flute (`vsco` 0:73) or `vocal_ah`, and orchestral brass, strings and woodwinds.
 - **Arrangement**, an example plan:
   - an intro of 4–8 bars: the melody alone, filtered;
   - the drums and the 808 entering together;
@@ -155,3 +160,4 @@ Lo-fi hip-hop is distributed almost entirely online and plays with nostalgia for
 - Danielsen, A., Johansson, M., Brøvig, R., Sandvik, B. and Bøhler, K. K. (2023). [Shaping rhythm: timing and sound in five groove-based genres](https://doi.org/10.1017/S0261143023000041). *Popular Music* 42(1).
 - Friberg, A. and Sundström, A. (2002). Swing ratios and ensemble timing in jazz performance: evidence for a common rhythmic pattern. *Music Perception* 19(3), 333–349.
 - [E-mu SP-1200](https://en.wikipedia.org/wiki/E-mu_SP-1200). Wikipedia, on its 12-bit, 26.04 kHz sampling.
+- Wikipedia, read 9 November 2026: [Roland TR-808](https://en.wikipedia.org/wiki/Roland_TR-808) (the bass drum's circuit and decay) and [UK drill](https://en.wikipedia.org/wiki/UK_drill) (the sliding 808).

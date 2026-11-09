@@ -7,6 +7,15 @@
 - A folder a tool makes keeps a record of the files the tools wrote in it, `files.json`: each file's size and
   modification time when it was written.  Only what a record lists, and what is unchanged since, is ever removed, as a
   build tool's clean removes only the outputs its build log lists (Ninja manual, the clean tool).
+- While a run writes a folder (journaled), the folder keeps a journal of the run's writes, `files.journal`, appended
+  line by line, each line written whole: each new file's name before the file is made and again once it is made,
+  and each finished file's size, modification time and file number before it takes its name.  A run stopped at any
+  moment, killed even, then leaves only files the record or the journal proves the run's own, so a render takes the
+  folder up again (--resume) and clean removes it, as a database logs a change before it makes it and recovers from the
+  log after a crash (PostgreSQL documentation, Write-Ahead Logging).  One exception is kept on purpose: stopped in the
+  instant between making a new file and noting it made, a run leaves that file unproven, as a name noted before it is
+  made proves nothing (GPT's review of 0.5, C01); --resume names it and stops, and clean leaves it.  The journal goes once the
+  record lists everything.
 - Links are never followed: a symbolic link, or a reparse point whose tag has the name-surrogate bit, which Microsoft
   defines for tags that stand for another named entity, as a junction's (mount point's) and a symbolic link's do
   (Reparse Point Tags, IsReparseTagNameSurrogate).  Tested with os.lstat, on every Python the skill runs on
@@ -15,6 +24,7 @@ import contextlib
 import errno
 import json
 import os
+import secrets
 import shutil
 import stat
 import sys
@@ -26,6 +36,8 @@ from pathlib import Path
 NAME_SURROGATE = 0x20000000
 RECORD = 'files.json'
 KIND = 'music-production files'
+JOURNAL = 'files.journal'  # a folder's journal of the writes of the run at work in it (journaled)
+JOURNAL_KIND = 'music-production journal'
 MAX_RECORD = 64_000_000  # the largest record, report or receipt read
 # The largest project read: one of validate's 500,000 notes as save_json writes it, 205 bytes a note measured (102 MB
 # for 499,200 notes in the stress test of 0.4.0, which 64 MB had refused), with room for its CC and automation.
@@ -84,11 +96,228 @@ def written_here(path):
     return want is not None and _stamp(path) == want
 
 
+# The folders this process journals, {_key(folder): _Journal}, while a run writes them (journaled).
+_JOURNALS, _JOURNALS_LOCK = {}, threading.Lock()
+
+
+class _Journal:
+    """The journal of one folder: opened at the first write, each line appended whole, from every thread of the run."""
+
+    def __init__(self, root):
+        self.root, self.fd, self.lock = Path(root), None, threading.Lock()
+
+    def append(self, entry):
+        line = (json.dumps(entry, ensure_ascii=False, separators=(',', ':')) + '\n').encode('utf-8')
+        with self.lock:
+            if self.fd is None:
+                self.fd = _open_journal(self.root / JOURNAL)
+            _write_all(self.fd, line)
+
+    def close(self):
+        with self.lock:
+            if self.fd is not None:
+                os.close(self.fd)
+                self.fd = None
+
+
+def _write_all(fd, data):
+    """Write all of `data`: os.write may take fewer bytes than it is given (POSIX write(2)), and the rest would be lost
+    with the proof the line carries.  A write that takes nothing, or fails, raises, so the file a line announces never
+    takes its name without it (GPT's review of 0.5, C02)."""
+    view = memoryview(data)
+    while view:
+        n = os.write(fd, view)
+        if not n:
+            raise OSError(errno.EIO, 'a write to the journal took nothing')
+        view = view[n:]
+
+
+def _open_journal(path):
+    """The journal at `path`, opened to append: a new one starts with its kind, and one there already is taken up only
+    when the tools wrote it (a file of that name that is not one is set aside first, kept).  One whose last line a stop
+    cut off gets a line break first, so the next line is read on its own rather than lost with the cut one (GPT's review
+    of 0.5, C02)."""
+    if occupied(path) and not is_journal(path):
+        aside(path)
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NOFOLLOW', 0),
+                 0o666)
+    try:
+        size = os.fstat(fd).st_size
+        if size == 0:
+            _write_all(fd, (json.dumps({'kind': JOURNAL_KIND}) + '\n').encode('utf-8'))
+        else:
+            with open(path, 'rb') as f:
+                f.seek(size - 1)
+                if f.read(1) != b'\n':
+                    _write_all(fd, b'\n')
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+
+def is_journal(path):
+    """Whether `path` is a journal the tools wrote: a regular file named files.journal whose first line names its kind."""
+    if Path(path).name != JOURNAL or not regular_file(path) or lstat(path).st_size > MAX_RECORD:
+        return False
+    try:
+        with open(path, 'rb') as f:
+            first = f.readline(200)
+        return json.loads(first.decode('utf-8')) == {'kind': JOURNAL_KIND}
+    except (OSError, ValueError):
+        return False
+
+
+@contextlib.contextmanager
+def journaled(folder):
+    """Journal what this process writes in `folder`, and in the folders under it, while the block runs: each new file
+    (staged, stage_name, a program's log) is named in the journal before it is made and noted once it is made, and
+    each takes its name only after the journal holds its size, time and number (replace, publish_new).  Yields
+    the journal.  A block inside another on the same folder shares the outer one's journal and leaves it to the outer
+    to close: it had closed it, and the outer's later files went unjournaled (GPT's review of 0.5, C05)."""
+    folder = Path(os.path.abspath(folder))
+    candidate = _Journal(folder)  # opens nothing until its first line
+    with _JOURNALS_LOCK:
+        journal = _JOURNALS.setdefault(_key(folder), candidate)
+        mine = journal is candidate
+    try:
+        yield journal
+    finally:
+        if mine:
+            with _JOURNALS_LOCK:
+                if _JOURNALS.get(_key(folder)) is journal:
+                    del _JOURNALS[_key(folder)]
+            journal.close()
+
+
+def _journal_for(path):
+    """The journal of the deepest journaled folder holding `path`, or None."""
+    key = _key(path)
+    with _JOURNALS_LOCK:
+        held = [(k, j) for k, j in _JOURNALS.items() if key.startswith(k.rstrip(os.sep) + os.sep)]
+    return max(held, key=lambda kj: len(kj[0]))[1] if held else None
+
+
+def _rel(folder, path):
+    return os.path.relpath(os.path.abspath(path), os.path.abspath(folder)).replace(os.sep, '/')
+
+
+relative = _rel  # the posix path of `path` relative to `folder`, as the record and the journal name a file
+
+
+def _coming(src, dst):
+    """Before `src` takes the name `dst` in a journaled folder: the journal notes the size, time and number `dst` is
+    about to hold (a rename keeps all three), so a run stopped between the rename and its record still proves it."""
+    journal = _journal_for(dst)
+    if journal is not None:
+        s = stamp(src)
+        if s is not None:
+            journal.append({'f': _rel(journal.root, dst), 's': s})
+
+
+def proofs(folder):
+    """What the journal in `folder` proves: ({name: made} of the new files it named before they were made, made true
+    where it noted the file made, {name: [stamps]} of the files it noted as they took their names), by posix path
+    relative to the folder; nothing without a journal of the tools.  A cut last line (the run stopped as it wrote it),
+    or one nested too deeply to read, is passed over."""
+    path = Path(folder) / JOURNAL
+    named, made, gone, stamps = set(), set(), set(), {}
+    if not is_journal(path):
+        return {}, stamps
+    with open(path, 'rb') as f:
+        lines = f.read(MAX_RECORD).split(b'\n')[1:]
+    number = lambda x: isinstance(x, int) and not isinstance(x, bool)
+    good = lambda v: isinstance(v, list) and len(v) == 3 and all(number(x) for x in v)
+    for line in lines:
+        try:
+            entry = loads(line.decode('utf-8'))  # the depth limit every record has (GPT's review of 0.5, C06)
+        except ValueError:
+            continue
+        if not isinstance(entry, dict):
+            continue
+        if isinstance(entry.get('t'), str):
+            named.add(entry['t'])
+        elif isinstance(entry.get('c'), str):
+            made.add(entry['c'])  # made: the name was the run's
+        elif isinstance(entry.get('x'), str):
+            gone.add(entry['x'])  # a name found taken when it was to be made: someone else's, never the run's
+        elif isinstance(entry.get('f'), str) and good(entry.get('s')):
+            stamps.setdefault(entry['f'], []).append(entry['s'])
+    return {n: n in made for n in named - gone}, stamps
+
+
+def proven(folder, path, found=None):
+    """Whether the file at `path`, in `folder`, is one the folder's journal proves a run's own: a new file whose name it
+    held before the file was made exclusively and noted made once it was, or a file it noted as it took its name,
+    unchanged since.  A name noted before the file is made proves nothing alone: making it may then fail on a file
+    someone else has there (GPT's review of 0.5, C01).  A made file's number is not held to: the program writing into
+    it may make the file anew (FluidSynth's output did on Windows), and the name was the run's.  `found` is
+    proofs(folder), read once by a caller looking at many files."""
+    named, stamps = found if found is not None else proofs(folder)
+    rel = _rel(folder, path)
+    if named.get(rel) and regular_file(path):
+        return True
+    now = stamp(path)
+    return now is not None and now in stamps.get(rel, [])
+
+
+def adopt(folder):
+    """Take up a folder an earlier run of the tools wrote, before writing in it again: the new files its journal names
+    that a stopped run left (half written, or never swapped in) are removed, and what the record lists unchanged or the
+    journal proves is returned, {posix path: stamp}, for register_tree's `keep`.  Anything else is the caller's to
+    refuse (strays)."""
+    folder = Path(folder)
+    found = proofs(folder)
+    named, _ = found
+    keep = {k: v for k, v in recorded(folder).items()}
+    for p in tree(folder):
+        rel = _rel(folder, p)
+        if rel in named:
+            # Removed only where the journal noted it made (or its stamp as it took the name); a run stopped in the
+            # instant between making it and noting it leaves one it cannot prove, which stays for strays to name.
+            if proven(folder, p, found):
+                with contextlib.suppress(OSError):
+                    p.unlink()
+        elif not unchanged(p, keep.get(rel, (-1, -1))) and proven(folder, p, found):
+            # The run's, written since the record (a recorded file the run replaced counts too, by what it is now).
+            keep[rel] = stamp(p)
+    return keep
+
+
+def strays(folder, keep):
+    """The files under `folder` neither the run's records nor its journal account for: not the record, the journal or
+    the folder's lock, and not in `keep` (adopt) unchanged."""
+    folder = Path(folder)
+    return [p for p in tree(folder) if p.name not in (RECORD, JOURNAL) and not (p.parent == folder and is_lock_file(p))
+            and not unchanged(p, keep.get(_rel(folder, p), (-1, -1)))]
+
+
+def drop_journal(folder):
+    """Remove the journal of `folder` once the record lists what it proved: closed first where this process has it
+    open, and only while no new file it names is left (a stopped write's)."""
+    folder = Path(folder)
+    journal = _JOURNALS.get(_key(os.path.abspath(folder)))
+    if journal is not None:
+        journal.close()
+    path = folder / JOURNAL
+    if not is_journal(path):
+        return False
+    named, _ = proofs(folder)
+    if any(regular_file(folder / n) for n in named):
+        return False
+    with contextlib.suppress(OSError):
+        path.unlink()
+        return True
+    return False
+
+
 def replace(src, dst):
     """os.replace, tried again for up to a second where Windows refuses it with PermissionError: a virus scanner or the
     search indexer may hold a file just written for a moment.  pip replaces its own files so (its utils.filesystem
     replace: for up to a second, every quarter), and graceful-fs, npm's file layer, retries a rename on Windows for up
-    to a second for the same reason.  `dst` is noted as a file this process wrote (wrote)."""
+    to a second for the same reason.  `dst` is noted as a file this process wrote (wrote), and in a journaled folder
+    the journal holds what it is about to be first (_coming)."""
+    _coming(src, dst)
     _swap(src, dst)
     wrote(dst)
 
@@ -115,6 +344,7 @@ def publish_new(src, dst):
 
 
 def _publish(src, dst):
+    _coming(src, dst)
     if os.name == 'nt':
         for attempt in range(5):
             try:
@@ -354,13 +584,44 @@ def _opened(fd):
     return fd
 
 
-def stage_name(dest, suffix='.part'):
-    """A new, empty file beside `dest`, created exclusively under a name no other run uses, for a program that writes
-    a path itself (FFmpeg, a bank build); the caller swaps it in with os.replace or removes it."""
+def new_file(dest, suffix='.part'):
+    """A new, empty file beside `dest`, opened for writing: (descriptor, path).  It is created exclusively under a name
+    no other run uses, as tempfile.mkstemp makes one (a random part, O_EXCL, retried when taken), and in a journaled
+    folder the journal holds its name before it is made and again once it is made: a run stopped at any moment leaves
+    no file of its own that the journal cannot name, and only one it noted made counts as the run's (proven).  Stopped
+    in the instant between making the file and noting it, the run leaves that one file unproven.  A name found taken is
+    noted as not the run's."""
     dest = Path(dest)
-    fd, name = tempfile.mkstemp(dir=dest.parent, prefix=f'.{dest.name}.', suffix=suffix)
-    os.close(_opened(fd))
-    return Path(name)
+    journal = _journal_for(dest)
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NOFOLLOW', 0)
+    for _ in range(100):
+        name = dest.parent / f'.{dest.name}.{secrets.token_hex(6)}{suffix}'
+        if journal is not None:
+            journal.append({'t': _rel(journal.root, name)})
+        try:
+            fd = os.open(name, flags, 0o600)
+        except FileExistsError:
+            if journal is not None:
+                journal.append({'x': _rel(journal.root, name)})
+            continue
+        try:
+            if journal is not None:
+                journal.append({'c': _rel(journal.root, name)})
+        except BaseException:
+            os.close(fd)
+            with contextlib.suppress(OSError):
+                os.unlink(name)  # made here and not yet noted: this run's to remove
+            raise
+        return _opened(fd), name
+    raise FileExistsError(f'No free name for a new file beside {dest}')
+
+
+def stage_name(dest, suffix='.part'):
+    """A new, empty file beside `dest` (new_file), for a program that writes a path itself (FFmpeg, a bank build); the
+    caller swaps it in with replace or removes it."""
+    fd, name = new_file(dest, suffix)
+    os.close(fd)
+    return name
 
 
 @contextlib.contextmanager
@@ -369,10 +630,9 @@ def staged(dest, mode='wb', encoding=None, newline=None, new=False):
     destination's place (os.replace swaps the name, so a hard link at the destination is never written through), on
     any failure it is removed.  With `new`, the destination must still be free when the file is done (publish_new): an
     output a command found free is never put in the place of one that took its name meanwhile."""
-    dest = Path(dest)
-    fd, name = tempfile.mkstemp(dir=dest.parent, prefix=f'.{dest.name}.', suffix='.part')
+    fd, name = new_file(dest, '.part')
     try:
-        with os.fdopen(_opened(fd), mode, encoding=encoding, newline=newline) as f:
+        with os.fdopen(fd, mode, encoding=encoding, newline=newline) as f:
             yield f
         (publish_new if new else replace)(name, dest)
     except BaseException:
@@ -572,8 +832,8 @@ def register_tree(folder, skip=(), keep=None):
     folder = Path(folder)
     paths = []
     for p in tree(folder, skip):
-        if p.name == RECORD or (p.parent == folder and is_lock_file(p)):
-            continue  # the record itself, and the run's lock, which goes with the run
+        if p.name == RECORD or (p.parent == folder and (is_lock_file(p) or is_journal(p))):
+            continue  # the record itself, the journal, and the run's lock, which goes with the run
         if not written_here(p):
             entry = (keep or {}).get(p.relative_to(folder).as_posix())
             if entry is None or not unchanged(p, entry):
@@ -596,19 +856,20 @@ def remove_own(folder):
     if state == 'busy':
         return False
     try:  # 'unlockable': a drive that cannot lock files, or a work.lock that is no lock file (it stays, as others do)
-        records = {p: stamp(p) for p in tree(folder) if is_record(p)}  # as found: one written since stays, with the folder
-        listed = recorded(folder)
+        # The records and the journal as found: one written since stays, with the folder.
+        records = {p: stamp(p) for p in tree(folder) if is_record(p) or is_journal(p)}
+        listed, found = recorded(folder), proofs(folder)
         for p in tree(folder):
-            if p.name == RECORD or (p.parent == folder and is_lock_file(p)):
+            if p.name in (RECORD, JOURNAL) or (p.parent == folder and is_lock_file(p)):
                 continue
             entry = listed.get(p.relative_to(folder).as_posix())
-            if entry is not None and unchanged(p, entry):
+            if (entry is not None and unchanged(p, entry)) or proven(folder, p, found):
                 with contextlib.suppress(FileNotFoundError):
                     p.unlink()
-        if [p for p in tree(folder) if not is_record(p) and not (p.parent == folder and is_lock_file(p))] + links_in(folder):
+        if [p for p in tree(folder) if not (is_record(p) or is_journal(p)) and not (p.parent == folder and is_lock_file(p))] + links_in(folder):
             return False
         for p in tree(folder):  # the records as found; and the lock's file where none is held (the lock held goes on release)
-            if (is_record(p) and stamp(p) == records.get(p)) or (fd is None and p.parent == folder and is_lock_file(p)):
+            if ((is_record(p) or is_journal(p)) and stamp(p) == records.get(p)) or (fd is None and p.parent == folder and is_lock_file(p)):
                 with contextlib.suppress(OSError):
                     p.unlink()
     finally:

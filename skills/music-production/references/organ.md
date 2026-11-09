@@ -2,6 +2,8 @@
 
 Read this when a part is for pipe organ: a chorale or hymn, a prelude, a solemn scene, organ with orchestra. It covers what the bank's organ can do, how organ parts are written for hands and feet, how an organ phrases without dynamics, and the church it is heard in. For baroque counterpoint, continuo and forms, see [baroque.md](baroque.md).
 
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
+
 ## The instrument in the bank
 
 `organ_vcsl` ([soundbank-presets.md](soundbank-presets.md)) holds three registrations of one pipe organ, each a preset of its own:

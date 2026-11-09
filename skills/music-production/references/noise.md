@@ -69,7 +69,7 @@ their own noise run up the whole spectrum (Senior, Sound On Sound Q&A).
 - `mix.highpass` is FFmpeg's two-pole Butterworth, 12 dB per octave: at r times the cutoff it passes r⁴/(1 + r⁴) of the
   power. An octave under a part's lowest note keeps that note's fundamental within 0.3 dB; a major third above the
   cutoff it loses 1.5 dB, at the cutoff 3 dB. `review` names a part whose high-pass takes more than 1.5 dB from the
-  fundamental of its lowest note.
+  fundamental of its lowest note (the limit is this project's own choice: style-maps.json).
 - So, an octave under the lowest note: a bass reaching E1 (41 Hz) takes 20 Hz, cellos down to C2 (65 Hz) 33 Hz, violas
   to C3 (131 Hz) 65 Hz, violins to G3 (196 Hz) 98 Hz. Under B0 it stops at 15 Hz, the lowest a part's `highpass` may
   be, which still keeps a piano's A0 (27.5 Hz) within 0.4 dB. A piano's left hand reaching D1 (37 Hz) loses 5 dB of that

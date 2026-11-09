@@ -6,7 +6,12 @@ listeners prefer them to white-noise "humanize" (Hennig et al. 2011, PLoS ONE 6:
 swing and funk performances as grooving equally quantized or with the players' own timing, worse exaggerated (Senn et
 al. 2016), so deviations stay small and structured.  Sizes and weights below are this module's starting values:
 
-- a slowly wandering 1/f component per player plus a short-range correction (anticorrelated, lag-1 -0.5);
+- a slowly wandering 1/f component per player plus a short-range correction (anticorrelated, lag-1 -0.5).  With
+  `drift='time'` the slow component wanders in time over the piece, on the sixteenth-note grid, and the correction is
+  drawn per onset from the part, the seed and the onset's place, so a note added or removed changes only itself and
+  the onset before it (with the default `drift='notes'`, 0.4.0's, every value steps note by note, and a part's whole
+  performance moves when it gains a note: the 0.4.0 Haiku pieces).  Either way a piece made longer draws its slow
+  components again, and the default keeps earlier scripts writing the projects they wrote;
 - a fixed feel per part (laid-back bass, the two rhythm guitars apart);
 - phrase arches and high-loud on melodic parts (KTH rules, Friberg et al. 2006);
 - chords that are not perfectly together: the top note leads in keyboards, section players spread;
@@ -43,6 +48,7 @@ ROLE_DEFAULTS = {
 BASE = {'timing_sd': 0, 'short_sd': 0, 'feel': 0, 'vel_pct': 0, 'high_loud': 0, 'arch': 0, 'spread': 0, 'lead': 0,
         'gate_sd': 0, 'contrast': 0, 'cymbal_cycle': 0, 'swell': 0, 'strum': 0, 'strum_grid': .5, 'beta': .8}
 UPSTROKE_SPEED, UPSTROKE_VELOCITY = .8, .92
+GRID = 4  # slots per quarter note: the sixteenth-note grid the slow components wander on
 
 
 def strum_offsets(onset, group, prof, rng):
@@ -126,7 +132,10 @@ def profile_for(track, overrides):
     return {**BASE, **(role or {}), **(overrides.get(track['id']) or {})}
 
 
-def apply(project, overrides=None, seed=1):
+def apply(project, overrides=None, seed=1, drift='notes'):
+    if drift not in ('notes', 'time'):
+        raise ValueError("drift is 'time' (the player's drift in time: an added note changes only itself and the onset "
+                         "before it) or 'notes' (0.4.0's, note by note)")
     overrides = overrides or {}
     report = {}
     for t in project['tracks']:
@@ -136,15 +145,34 @@ def apply(project, overrides=None, seed=1):
         perf = t['performance']['notes']
         notes = sorted(t['notes'], key=lambda n: (n['on'], n['pitch']))
         onsets = sorted({round(n['on'], 6) for n in notes})
-        index = {o: k for k, o in enumerate(onsets)}
         rng = rng_for(seed, t['id'])
-        slow_t = lrc(len(onsets), rng, prof['beta'])
-        fast_t = short_range(len(onsets), rng)
-        slow_v = lrc(len(onsets), rng, prof['beta'])
-        gates = lrc(len(onsets), rng, prof['beta'])
-        cycle = rng.uniform(-1, 1, 16)
-        melodic = t.get('role') in ('melody', 'countermelody')
         meter = project['clock']['meter']
+        if drift == 'time':
+            # The slow components span the piece on the sixteenth-note grid (lrc: 1/f from the piece's length down,
+            # unit deviation over it), so their values depend on the piece's length, not on how many notes it has.  A
+            # note in the last half of the score's last sixteenth rounds into the slot past it, which had grown the
+            # grid by one and redrawn every note (GPT's review of 0.5, E04): the grid takes the slot a note starts in,
+            # and the note the nearest slot inside the grid.
+            span = max(1, int(round(project['clock']['bars'] * meter[0] * 4 / meter[1] * GRID)),
+                       int(math.floor(onsets[-1] * GRID + 1e-9)) + 1)
+            slow_t, slow_v, gates = (lrc(span, rng, prof['beta']) for _ in range(3))
+            cycle = rng.uniform(-1, 1, 16)
+            slot = {o: min(span - 1, max(0, int(round(o * GRID)))) for o in onsets}
+            # The short-range correction, differenced white noise between successive onsets (lag-1 autocorrelation
+            # -0.5), each onset's draw keyed by its slot, so only the onset before an added or removed note changes.
+            draw = lambda key: float(rng_for(seed, f'{t["id"]}:short:{key}').standard_normal())
+            w = [draw(slot[o]) for o in onsets] + [draw('end')]
+            fast_t = {o: (w[k + 1] - w[k]) / math.sqrt(2) for k, o in enumerate(onsets)}
+        else:
+            # 0.4.0: one value per onset in order, drawn in this order.
+            slot = {o: k for k, o in enumerate(onsets)}
+            slow_t = lrc(len(onsets), rng, prof['beta'])
+            fast = short_range(len(onsets), rng)
+            fast_t = {o: fast[k] for k, o in enumerate(onsets)}
+            slow_v = lrc(len(onsets), rng, prof['beta'])
+            gates = lrc(len(onsets), rng, prof['beta'])
+            cycle = rng.uniform(-1, 1, 16)
+        melodic = t.get('role') in ('melody', 'countermelody')
         pos = phrase_positions(t, project['sections'], melodic, meter[0] * 4 / meter[1]) if prof['arch'] else {}
         mean_pitch = sum(n['pitch'] for n in notes) / len(notes)
         by_onset = {}
@@ -155,8 +183,8 @@ def apply(project, overrides=None, seed=1):
                  + 1.15 * prof['strum'] * (widest - 1))
         moved, strokes = [], {'down': 0, 'up': 0}
         for o, group in by_onset.items():
-            k = index[o]
-            shared = prof['feel'] + prof['timing_sd'] * slow_t[k] + prof['short_sd'] * fast_t[k]
+            k = slot[o]
+            shared = prof['feel'] + prof['timing_sd'] * slow_t[k] + prof['short_sd'] * fast_t[o]
             group = sorted(group, key=lambda n: n['pitch'])
             strummed = {}
             if prof['strum'] and len(group) > 1:

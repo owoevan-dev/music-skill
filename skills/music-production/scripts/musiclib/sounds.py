@@ -4,7 +4,18 @@ hear on the part itself (studio.py audition).
 
 A patch the measurement flagged is left out unless asked for: silent on a plain note (it waits for aftertouch, MPE or
 the wheel), did not render, built for MPE, microtonal, or off its written pitch; for a pitched role, also one with no
-clear pitch.  The figures describe the probe note, not the music: the shortlist is where listening starts."""
+clear pitch.  The figures describe the probe note, not the music: the shortlist is where listening starts.
+
+When more patches match than the shortlist holds, it is a spread rather than the first ones dark to bright: the
+matches, ordered dark to bright, are cut into as many bands as the shortlist has places, and each band gives one
+patch, a designer not yet shown first.  The piece's seed (`seed`) picks within each band, so two pieces asking the
+same question see different patches.  Showing every agent the same first few is the shared starting point that
+makes work alike (Doshi and Hauser 2024): the 0.4.0 agent pieces took 71% of their Surge parts from the fifty curated
+patches, and five patches recurred across pieces."""
+from collections import Counter
+
+import numpy as np
+
 from . import surge
 
 HIDDEN = {'silent on a plain note', 'did not render', 'MPE', 'microtonal', 'off its written pitch'}
@@ -19,7 +30,23 @@ def describe(key):
     return {'id': key, **{k: v for k, v in e.items() if k not in ('sha256', 'bytes')}}
 
 
-def search(role=None, character=(), name=None, source=None, limit=25, everything=False):
+def spread(rows, limit, seed=None):
+    """`limit` of the rows (ordered dark to bright), one from each of `limit` bands of the order, a source not yet
+    shown preferred; the seed picks within a band, else the band's middle."""
+    if len(rows) <= limit:
+        return rows
+    rng = np.random.default_rng(seed) if seed is not None else None
+    shown, used = [], Counter()
+    for band in np.array_split(np.arange(len(rows)), limit):
+        fewest = min(used[rows[i]['source']] for i in band)
+        pool = [rows[i] for i in band if used[rows[i]['source']] == fewest]
+        pick = pool[int(rng.integers(len(pool)))] if rng is not None else pool[len(pool) // 2]
+        used[pick['source']] += 1
+        shown.append(pick)
+    return shown
+
+
+def search(role=None, character=(), name=None, source=None, limit=25, everything=False, seed=None):
     rows = []
     for key, e in surge.catalog().items():
         if role and e['role'] != role:
@@ -42,6 +69,11 @@ def search(role=None, character=(), name=None, source=None, limit=25, everything
                      'wheel': e.get('wheel', [])[:2],
                      'labelled_macros': {k: v['label'] for k, v in e.get('macros', {}).items() if v.get('label')}})
     rows.sort(key=lambda r: (r['centroid_hz'] is None, r['centroid_hz'] or 0, r['id']))
-    return {'count': len(rows), 'shown': rows[:limit],
-            'note': 'Ordered dark to bright by the probe note. Play two to four on the part with studio.py audition; '
-                    'the figures describe one note, not how a patch sits in the music.'}
+    shown = spread(rows, limit, seed)
+    note = ('Ordered dark to bright by the probe note. Play two to four on the part with studio.py audition; the '
+            'figures describe one note, not how a patch sits in the music.')
+    if len(rows) > len(shown):
+        note += (f' {len(shown)} of {len(rows)} matches, spread over the range and the designers'
+                 + (" and picked by this piece's seed" if seed is not None else '; pass the piece\'s --seed for its '
+                    'own picks') + '; --limit shows more.')
+    return {'count': len(rows), 'shown': shown, 'note': note}

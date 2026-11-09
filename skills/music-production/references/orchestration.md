@@ -2,7 +2,11 @@
 
 Read this when the music is for orchestra: a symphonic piece or cue, a film or game score, a chamber ensemble. The banks hold most of a classical or romantic orchestra; this guide maps what an orchestrator writes onto them, then covers balance, chords, dynamics and the mix. Pipe organ is in [organ.md](organ.md).
 
+The periods and orchestral styles, Baroque to cinematic, each on the seven axes with its sources, are in [style-map-orchestral.md](style-map-orchestral.md).
+
 Contents: [The orchestra in the banks](#the-orchestra-in-the-banks) · [Balance](#balance) · [Chords and doubling](#chords-and-doubling) · [Dynamics and the master](#dynamics-and-the-master) · [Expression on the sampled orchestra](#expression-on-the-sampled-orchestra) · [Writing for the sampled orchestra](#writing-for-the-sampled-orchestra) · [Sources](#sources)
+
+**Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
 ## The orchestra in the banks
 
@@ -70,7 +74,7 @@ Rimsky-Korsakov's rules for distributing a chord follow the harmonic series:
 
 ## Dynamics and the master
 
-An orchestral piece lives on contrast between *pp* and *ff*. The default bus chain glues the mix with compression, which narrows that contrast. Set `mix.dynamics: "wide"` ([schema.md](schema.md)): no bus compresses or saturates, the master keeps only its EQ, and one gain brings the mix to `target_lufs`. If the true peak would then pass −1.2 dBTP, the render holds the gain down instead of limiting, and reports how far as `mastering.peak_held_db`. The loudest passage then sets the level, so expect a quieter result than a pop master where the music has strong peaks: the skill's orchestral reference measured −17 LUFS ([measuring.md](measuring.md)), and EBU R 128 normalises broadcast programmes to −23 LUFS.
+An orchestral piece lives on contrast between *pp* and *ff*. The default bus chain glues the mix with compression, which narrows that contrast. Set `mix.dynamics: "wide"` ([schema.md](schema.md)): no bus compresses or saturates, the master keeps only its EQ, and one gain brings the mix to `target_lufs`. If the true peak would then pass −1.2 dBTP (−2.2 for a master louder than −14 LUFS), the render holds the gain down instead of limiting, and reports how far as `mastering.peak_held_db`. The loudest passage then sets the level, so expect a quieter result than a pop master where the music has strong peaks: the skill's orchestral reference measured −17 LUFS ([measuring.md](measuring.md)), and EBU R 128 normalises broadcast programmes to −23 LUFS.
 
 The report also gives the loudness range (LRA, EBU Tech 3342), the spread of loudness across the piece in LU; compare it with the premix's to see what the master kept.
 

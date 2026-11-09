@@ -82,8 +82,9 @@ def validate(track):
     from .model import number
     from . import synth
     spec = track.get('surge')
-    if not isinstance(spec, dict) or set(spec) - {'preset', 'macros', 'fallback'}:
-        raise ValueError(f'{track["id"]}: a surge part needs a "surge" object: preset, and optionally macros and fallback')
+    if not isinstance(spec, dict) or set(spec) - {'preset', 'macros', 'fallback', 'glide_ms', 'velocity_to_cutoff', 'swell'}:
+        raise ValueError(f'{track["id"]}: a surge part needs a "surge" object: preset, and optionally macros, fallback, '
+                         'glide_ms, velocity_to_cutoff and swell')
     if entry(spec.get('preset')) is None:
         raise ValueError(f'{track["id"]}: surge preset must be a curated patch (references/surge-presets.json) or a '
                          'catalog id (references/surge-catalog.json; studio.py sounds searches it)')
@@ -94,6 +95,12 @@ def validate(track):
         number(v, 0, 1, 'surge macro')
     if 'fallback' in spec and spec['fallback'] not in synth.presets():
         raise ValueError(f'{track["id"]}: surge fallback must name a built-in synth preset')
+    if 'glide_ms' in spec:
+        number(spec['glide_ms'], 4, 4000, 'surge glide_ms')  # Surge's portamento runs from 2^-8 s (off) to 4 s
+    if 'velocity_to_cutoff' in spec:
+        number(spec['velocity_to_cutoff'], -60, 60, 'surge velocity_to_cutoff')
+    if 'swell' in spec and spec['swell'] is not True:
+        raise ValueError(f'{track["id"]}: surge swell is true or left out')
 
 
 def installed(cfg):
@@ -117,6 +124,35 @@ CATALOG_NAMES = {'bass_808': ('bass', ('808',)), 'acid_bass': ('bass', ('acid', 
                  'wobble_bass': ('bass', ('wobble', 'dubstep')), 'noise_riser': ('fx', ('uplift', 'riser')),
                  'reverse_cymbal': ('percussion', ('reverse',)),
                  **{name: ('lead', ('chip', 'gameboy')) for name in ('chip_square', 'chip_pulse12', 'chip_pulse25', 'chip_arp')}}
+
+
+ROLES_FILE = Path(__file__).resolve().parents[2] / 'references' / 'surge-roles.json'
+MEASURED_FOR = {'bass_808': '808', 'acid_bass': 'acid', 'noise_riser': 'swell', 'reverse_cymbal': 'swell'}
+_roles = None
+
+
+def roles():
+    """The Surge patches measured to play a built-in preset's job as the score asks (references/surge-roles.json):
+    the 808's slide, the acid line's accents and slides, and the electric pianos' response to velocity."""
+    global _roles
+    if _roles is None:
+        _roles = json.loads(ROLES_FILE.read_text(encoding='utf-8')) if ROLES_FILE.is_file() else {}
+    return _roles
+
+
+def measured_counterparts(builtin):
+    """[(catalog id, the surge settings that play the job)] for a built-in preset whose job the roles file measured;
+    [] for any other preset."""
+    group = MEASURED_FOR.get(builtin)
+    if group is None:
+        return []
+    table = roles().get(group) or {}
+    base = table.get('settings', {})
+    rows = (table.get('patches') or {}).items()
+    if group == 'swell':  # risers and reverse cymbals share the measure; each keeps the catalog role of its sound
+        role = CATALOG_NAMES[builtin][0]
+        rows = [(pid, row) for pid, row in rows if (catalog().get(pid) or {}).get('role') == role]
+    return [(pid, {**base, **row.get('settings', {})}) for pid, row in rows]
 
 
 def catalog_counterparts(builtin):
@@ -144,7 +180,10 @@ def fallback_track(track):
     spec = track['surge']
     name = spec.get('fallback') or entry(spec['preset'])['fallback']
     t = {k: v for k, v in track.items() if k != 'surge'}
-    return {**t, 'engine': 'synth', 'synth': {'preset': name}}
+    patch = {'preset': name}
+    if 'glide_ms' in spec:  # the slide survives on the built-in synth: one line, gliding between overlapping notes
+        patch.update(mono=True, glide_ms=min(2000, spec['glide_ms']))
+    return {**t, 'engine': 'synth', 'synth': patch}
 
 
 def dependencies(cfg, track):
@@ -246,6 +285,87 @@ def at_tempo(fxp, bpm):
     return fxp[:56] + struct.pack('>I', len(chunk)) + chunk + fxp[60 + size:], changed
 
 
+# What the score controls on a Surge patch, from Surge XT 1.3.4's sources (SurgeStorage.h, ModulationSource.h,
+# Parameter.cpp, SurgeVoice.cpp): play mode 4 is pm_mono_st_fp, one voice whose envelopes do not retrigger on an
+# overlapping note and whose portamento acts only between overlapping notes, as the TR-808's slides in trap and the
+# TB-303's slides are played; portamento is stored as log2 of seconds and is off at its minimum, -8; modulation source
+# 1 is velocity, whose output is velocity / 127, and a routing adds depth times that output to its parameter in the
+# parameter's own units, semitones for a filter cutoff.
+MONO_SINGLE_TRIGGER_FINGERED = 4
+MS_VELOCITY = 1
+
+
+def _element(xml, name):
+    m = re.search(r'<%s\b([^>]*?)(/?)>' % re.escape(name), xml)
+    return m
+
+
+def played_as(fxp, spec, swell_seconds=None):
+    """The .fxp with what the part's `surge` object asks the score to control, on both scenes, and what was set.
+
+    `glide_ms`: each scene becomes one voice that glides only between overlapping notes, its envelopes not retriggered
+    there, the glide taking that many milliseconds.  `velocity_to_cutoff`: velocity moves filter 1's cutoff by that many
+    semitones at velocity 127 and in proportion below, in place of any velocity routing the patch had on it.  `swell`:
+    the attacks of the amplitude and filter envelopes (Surge's envelopes 1 and 2) take `swell_seconds`, the length of the
+    part's notes, so a riser rises over the whole note (Surge's attack runs from 2^-8 to 2^5 seconds).  A patch without
+    any of these comes back unchanged, byte for byte."""
+    glide, cutoff, swell = spec.get('glide_ms'), spec.get('velocity_to_cutoff'), spec.get('swell')
+    if glide is None and cutoff is None and not swell:
+        return fxp, {}
+    size = struct.unpack('>I', fxp[56:60])[0]
+    chunk = fxp[60:60 + size]
+    if fxp[:4] != b'CcnK' or chunk[:4] != b'sub3':
+        raise ValueError('not a Surge patch')
+    xml_size = struct.unpack('<I', chunk[4:8])[0]
+    xml = chunk[32:32 + xml_size].decode('latin-1')
+    done = {}
+
+    def set_value(xml, name, value):
+        # A time set in milliseconds is free-running: a temposync flag the patch had is turned off, as at_tempo does,
+        # or Surge would read the value against the tempo it is given (none here: 120 BPM).
+        m = _element(xml, name)
+        if m is None:
+            raise ValueError(f'the patch has no {name}')
+        attrs = re.sub(r'\bvalue="[^"]*"', f'value="{value}"', m.group(1), count=1).replace('temposync="1"', 'temposync="0"')
+        return xml[:m.start()] + f'<{name}{attrs}{m.group(2)}>' + xml[m.end():]
+
+    if glide is not None:
+        for scene in 'ab':
+            xml = set_value(xml, f'{scene}_polymode', MONO_SINGLE_TRIGGER_FINGERED)
+            xml = set_value(xml, f'{scene}_portamento', f'{math.log2(glide / 1000):.6f}')
+        done['glide_ms'] = glide
+    if swell:
+        if not swell_seconds:
+            raise ValueError("swell needs the length of the part's notes")
+        given = min(5.0, max(-8.0, math.log2(swell_seconds)))
+        attack = f'{given:.6f}'
+        for scene in 'ab':
+            for env in (1, 2):
+                xml = set_value(xml, f'{scene}_env{env}_attack', attack)
+        # What the patch got: Surge's attack stops at 2^5 = 32 s, and a 40 s note's swell was recorded as 40 s (GPT's
+        # review of 0.5, SA03); what was asked is kept beside it where the range cut it.
+        done['swell_seconds'] = round(2 ** given, 6)
+        if abs(2 ** given - swell_seconds) > 1e-6:
+            done['swell_asked_seconds'] = round(swell_seconds, 6)
+    if cutoff is not None:
+        route = f'<modrouting source="{MS_VELOCITY}" depth="{cutoff:.6f}" muted="0" source_index="0" />'
+        for scene in 'ab':
+            name = f'{scene}_filter1_cutoff'
+            m = _element(xml, name)
+            if m is None:
+                raise ValueError(f'the patch has no {name}')
+            if m.group(2):
+                xml = xml[:m.start()] + f'<{name}{m.group(1).rstrip()}>{route}</{name}>' + xml[m.end():]
+            else:
+                end = xml.index(f'</{name}>', m.end())
+                inner = re.sub(r'<modrouting\b[^>]*\bsource="%d"[^>]*/>' % MS_VELOCITY, '', xml[m.end():end])
+                xml = xml[:m.end()] + inner + route + xml[end:]
+        done['velocity_to_cutoff'] = cutoff
+    new = xml.encode('latin-1')
+    chunk = chunk[:4] + struct.pack('<I', len(new)) + chunk[8:32] + new + chunk[32 + xml_size:]
+    return fxp[:56] + struct.pack('>I', len(chunk)) + chunk + fxp[60 + size:], done
+
+
 VERIFIED_BOARD = {}  # pedalboard folder -> (size, mtime) of its RECORD when its files last matched it in this process
 
 
@@ -327,16 +447,32 @@ def part_tempo(project, track):
     return max(tempos, key=counts.__getitem__)
 
 
+def swell_length(project, track):
+    """The one length in seconds a swell part's notes share, at the written tempo (a riser rises over its note); a part
+    whose notes differ by more than 5 ms is refused, as one patch takes one attack: split it into parts."""
+    from .model import Clock
+    clock = Clock(project)
+    lengths = [clock.seconds(n['on'] + n['duration']) - clock.seconds(n['on']) for n in track['notes']]
+    if not lengths:
+        return None
+    if max(lengths) - min(lengths) > .005:
+        raise ValueError(f'{track["id"]}: a surge swell part plays one length of note (it sets the attack of the patch to it); '
+                         f'these run from {min(lengths):.2f} to {max(lengths):.2f} s: put each length in a part of its own')
+    return lengths[0]
+
+
 def render(project, track, raw, folder, cfg):
     """Play a Surge part into `raw`: its MIDI is written by the renderer's writer, then a separate process loads the
     plugin, sets the patch and macros and renders.  Raises Unavailable when Surge cannot play here."""
-    from . import midi
+    from . import files, midi
     plugin, pylib, patch = locate(cfg, track)
     bpm = part_tempo(project, track)
     fxp, synced = at_tempo(patch.read_bytes(), bpm)
-    if synced:
+    fxp, controls = played_as(fxp, track['surge'], swell_length(project, track) if track['surge'].get('swell') else None)
+    if synced or controls:
         patch = Path(folder) / 'patch_at_tempo.fxp'
-        patch.write_bytes(fxp)
+        with files.staged(patch) as f:  # written whole, noted as the render's (musiclib.files)
+            f.write(fxp)
     part_midi, job = Path(folder) / 'surge.mid', Path(folder) / 'surge_job.json'
     # A patch built to sound an octave below the key it is played on plays an octave up, so the written pitch sounds.
     shift = entry(track['surge']['preset']).get('transpose', 0)
@@ -353,10 +489,11 @@ def render(project, track, raw, folder, cfg):
     from .model import Clock
     clock, last = Clock(project), max((t for _, t in events), default=LEAD_S)
     duration = max(last + TAIL_S, min(LEAD_S + clock.end + clock.tail, last + clock.tail))
-    job.write_text(json.dumps({'plugin': str(plugin), 'pylib': str(pylib), 'patch': str(patch), 'out': str(raw), 'rate': RATE,
-                               'events': events, 'duration': duration,
-                               'trim': int(round(LEAD_S * RATE)), 'macros': track['surge'].get('macros', {}),
-                               'bend_range': track['performance'].get('bend_range', 2)}), encoding='utf-8')
+    with files.staged(job, 'w', encoding='utf-8') as f:
+        f.write(json.dumps({'plugin': str(plugin), 'pylib': str(pylib), 'patch': str(patch), 'out': str(raw), 'rate': RATE,
+                            'events': events, 'duration': duration,
+                            'trim': int(round(LEAD_S * RATE)), 'macros': track['surge'].get('macros', {}),
+                            'bend_range': track['performance'].get('bend_range', 2)}))
     # The host runs as every program of a render does (audio.run): it stops when the render is stopped (another part
     # failed, Ctrl+C), which subprocess.run could not see (found by GPT Pro's fifth review of 0.4.0), and its output
     # goes to surge.log in the cache entry.  A stop is not a failed host: it is raised, never answered with the fallback.
@@ -367,7 +504,8 @@ def render(project, track, raw, folder, cfg):
         raise Unavailable(f'Surge XT failed to render ({str(e)[:160]}; see surge.log in the cache entry {Path(folder).name[:12]})') from None
     if not Path(raw).is_file() or Path(raw).stat().st_size <= 44:
         raise Unavailable(f'Surge XT wrote no audio (see surge.log in the cache entry {Path(folder).name[:12]})')
-    return {'tempo_synced': {'bpm': round(bpm, 3), 'parameters': synced}} if synced else {}
+    out = {'tempo_synced': {'bpm': round(bpm, 3), 'parameters': synced}} if synced else {}
+    return {**out, 'played_as': controls} if controls else out
 
 
 def _seconds(tick, tempos, division):

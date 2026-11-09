@@ -27,16 +27,18 @@ stems/ are each part before its bus and without the shared spaces.  A project's 
 act on a copy the master reads (master_input.wav), so premix.wav stays the sum.
 
 Master.  The premix is brought to -18 LUFS for glue compression (about 2 dB on the loudest passages), an air shelf, a
-little presence and a -1 dBFS limiter.  One gain toward mix.target_lufs then feeds a -1.5 dBFS sample-peak limiter;
-if limiting costs loudness the gain is corrected (at most three passes).  With mix.loudness "loud" the gained mix first
+little presence and a -1 dBFS limiter.  One gain toward mix.target_lufs then feeds a sample-peak limiter half a dB
+under the true-peak ceiling (true_peak_ceiling: -1 dBTP, -2 above -14 LUFS, so -1.5 or -2.5 dBFS); if limiting costs
+loudness the gain is corrected, and if the true peak passes the ceiling the limiter comes down (at most four passes).  With mix.loudness "loud" the gained mix first
 passes a soft clipper computed in NumPy at four times the sample rate (FFmpeg's oversampled asoftclip would cost the
 flat 5.8 dB above): linear up to three quarters of the limiter's ceiling and rounding toward the ceiling above, so the
 limiter only catches what is left.  mastering.limiting_db reports, per section, how much level clipper and limiter
 together took.  With mix.dynamics "wide" (orchestral and
 organ music), no bus compresses or saturates and the master keeps only its EQ: one gain brings the mix to the target
-unless its true peak would pass -1.2 dBTP, in which case the music stays quieter instead of being limited; with
-mix.range_lu it first lifts the quieter passages until the loudness range is that many LU.  The
-render checks the true peak (at most -1 dBTP) and that the MP3 decodes to the same loudness.
+unless its true peak would pass 0.2 dB under the ceiling, in which case the music stays quieter instead of being
+limited; with mix.range_lu it first lifts the quieter passages until the loudness range is that many LU.  The render
+checks the true peak against the ceiling, and that the MP3 decodes to the same loudness; it names an MP3 whose true
+peak passes full scale.
 """
 import math
 
@@ -75,6 +77,14 @@ MASTER = ('acompressor=threshold={thr:.6f}:ratio=2:attack=30:release=200:knee=4:
           + MASTER_EQ + ',alimiter=limit=0.891:attack=5:release=60:level=disabled')
 MIX_LUFS = -18
 LIMIT_DBFS = -1.5
+
+
+def true_peak_ceiling(target_lufs):
+    """The master's true-peak ceiling (dBTP): -1, and -2 for a master louder than -14 LUFS.  Spotify asks for both of
+    masters it encodes, as louder tracks gain more distortion in lossy encoding (Spotify for Artists, Loudness
+    normalization: "keep True Peak below -2dB" above -14 LUFS).  Measured here (the 0.4.0 Haiku pieces): a -9 LUFS
+    master at -1.13 dBTP decoded from its 256 kbps MP3 at +0.06 dBTP."""
+    return -2.0 if target_lufs > -14 else -1.0
 DELAY_BAND = (500, 4000)  # a delay send's high- and low-pass (Hz), on both chains
 RETURN_LOWPASS = 13000    # each space's return low-pass (Hz); its high-pass is SPACES[name][5]
 
@@ -320,7 +330,9 @@ def master(p, cfg, output):
         if ranged:
             delivered['range'] = ranged
         return before, delivered, measured
-    delivery, passes, ceiling = target - source['integrated_lufs'], [], LIMIT_DBFS
+    tp_max = true_peak_ceiling(target)
+    # The sample-peak limiter starts as far under the true-peak ceiling as at -1 dBTP (half a dB).
+    delivery, passes, ceiling = target - source['integrated_lufs'], [], LIMIT_DBFS + tp_max + 1
     loud = p['mix'].get('loudness') == 'loud'
     clipped = output / 'clipped.wav'
     for k in range(4):
@@ -338,13 +350,13 @@ def master(p, cfg, output):
         m = audio.measure(cfg, output / 'master.wav', logs, f'measure_delivery_{k}')
         passes.append({'gain_db': round(delivery, 3), 'limit_dbfs': round(ceiling, 3), 'lufs': m['integrated_lufs'],
                        'true_peak_dbtp': m['true_peak_dbtp']})
-        close, peak = abs(m['integrated_lufs'] - target) <= .3, m['true_peak_dbtp'] <= -1
+        close, peak = abs(m['integrated_lufs'] - target) <= .3, m['true_peak_dbtp'] <= tp_max
         if close and peak:
             break
         if not peak:
             # The limiter holds sample peaks; bright transients (cymbals, mallets) can still overshoot between samples.
             # Lower its ceiling by the overshoot and a margin, and let the gain restore the loudness.
-            ceiling -= m['true_peak_dbtp'] + 1 + .2
+            ceiling -= m['true_peak_dbtp'] - tp_max + .2
         delivery += target - m['integrated_lufs']
     applied = passes[-1]['gain_db']
     if loud:
@@ -352,7 +364,8 @@ def master(p, cfg, output):
         limiter = f'volume={applied:.6f}dB, soft clip to {10 ** (ceiling / 20):.4f} above {.75 * 10 ** (ceiling / 20):.4f} at 4x (NumPy), ' + limiter
     return before, {'chain': 'bus', 'mix_gain_db': round(gain, 6), 'master_chain': chain,
                     'mixed': {k: source[k] for k in ('integrated_lufs', 'true_peak_dbtp', 'lra_lu')},
-                    'target_lufs': target, 'limiter_dbfs': round(ceiling, 3), 'delivery_chain': limiter, 'passes': passes,
+                    'target_lufs': target, 'true_peak_ceiling_dbtp': tp_max, 'limiter_dbfs': round(ceiling, 3),
+                    'delivery_chain': limiter, 'passes': passes,
                     'limiting_db': section_limiting(p, mixed, output / 'master.wav', applied)}, m
 
 
@@ -375,19 +388,21 @@ def section_limiting(p, mixed, master, gain_db):
 
 
 def wide_delivery(cfg, output, mixed, source, target, gain, chain):
-    """One gain to the target loudness, held down when the true peak would pass -1.2 dBTP, so the music comes out
-    quieter rather than limited; a -1 dBFS limiter stays only as a guard and is reported if it acted."""
+    """One gain to the target loudness, held down when the true peak would pass 0.2 dB under its ceiling
+    (true_peak_ceiling: -1.2 dBTP, or -2.2 above -14 LUFS), so the music comes out quieter rather than limited; a
+    sample-peak limiter at the ceiling stays only as a guard and is reported if it acted."""
     logs = output / 'logs'
+    tp_max = true_peak_ceiling(target)
     wanted = target - source['integrated_lufs']
-    delivery = min(wanted, -1.2 - source['true_peak_dbtp'])
-    guard = f'volume={delivery:.6f}dB,alimiter=limit={10 ** (-1 / 20):.6f}:attack=5:release=60:level=disabled'
+    delivery = min(wanted, tp_max - .2 - source['true_peak_dbtp'])
+    guard = f'volume={delivery:.6f}dB,alimiter=limit={10 ** (tp_max / 20):.6f}:attack=5:release=60:level=disabled'
     audio.ffmpeg(cfg, ['-i', mixed, '-af', guard, '-ar', str(RATE), '-c:a', 'pcm_s24le', output / 'master.wav'], logs, 'deliver_wide')
     m = audio.measure(cfg, output / 'master.wav', logs, 'measure_delivery_wide')
-    passes = [{'gain_db': round(delivery, 3), 'limit_dbfs': -1.0, 'lufs': m['integrated_lufs'], 'true_peak_dbtp': m['true_peak_dbtp']}]
+    passes = [{'gain_db': round(delivery, 3), 'limit_dbfs': tp_max, 'lufs': m['integrated_lufs'], 'true_peak_dbtp': m['true_peak_dbtp']}]
     return {'chain': 'bus', 'dynamics': 'wide', 'mix_gain_db': round(gain, 6), 'master_chain': chain,
             'mixed': {k: source[k] for k in ('integrated_lufs', 'true_peak_dbtp', 'lra_lu')}, 'target_lufs': target,
             'peak_held_db': round(max(0.0, wanted - delivery), 2), 'lra_lu': m['lra_lu'],
-            'limiter_dbfs': -1.0, 'delivery_chain': guard, 'passes': passes}, m
+            'true_peak_ceiling_dbtp': tp_max, 'limiter_dbfs': tp_max, 'delivery_chain': guard, 'passes': passes}, m
 
 
 def short_term(x):
@@ -446,18 +461,22 @@ def linear_master(mastering):
 
 
 def mp3_check(cfg, output, master_lufs):
-    """Decode preview.mp3 again and compare its loudness with the master's (the MP3 must not change it)."""
-    decoded = output / 'logs' / 'preview_decoded.wav'
-    before = files.stamp(decoded)
+    """Decode preview.mp3 again and compare its loudness with the master's (the MP3 must not change it).  The decoded
+    copy is a scratch file under a new name of its own (files.stage_name, which a render's journal names before FFmpeg
+    writes it), removed once measured: a render killed meanwhile leaves only a file its journal proves, and a file of
+    someone else's at the old name preview_decoded.wav is never touched.  (It was written under that name, outside the
+    journal, so a render killed while it existed could not be taken up: found by the random-kill stress test of 0.5.)"""
+    decoded = files.stage_name(output / 'logs' / 'preview_decoded.wav', '.wav')
     try:
         audio.run([cfg['ffmpeg']['path'], '-hide_banner', '-nostdin', '-y', '-i', output / 'preview.mp3', '-ar', str(RATE),
                    '-c:a', 'pcm_f32le', decoded], output / 'logs', 'decode_mp3')
+        d = audio.measure(cfg, decoded, output / 'logs', 'measure_mp3')
     finally:
-        # FFmpeg writes it there itself: a file of the run, should a failure leave it, once FFmpeg has changed what was
-        # at that name (a file there that it never wrote is not the run's; GPT Pro's sixth review, from the code).
-        if files.stamp(decoded) != before:
-            files.wrote(decoded)
-    d = audio.measure(cfg, decoded, output / 'logs', 'measure_mp3')
-    decoded.unlink()
+        try:
+            decoded.unlink()
+        except OSError:
+            pass  # held by another program a moment: the journal names it, and the next run removes it
+    # Encoding raises the peaks between samples (the ceiling's reason: true_peak_ceiling); an MP3 above full scale can
+    # clip where it is decoded to fixed point, so the summary names it.
     return {'mp3_lufs': d['integrated_lufs'], 'mp3_true_peak_dbtp': d['true_peak_dbtp'],
-            'matches': abs(d['integrated_lufs'] - master_lufs) <= .2}
+            'matches': abs(d['integrated_lufs'] - master_lufs) <= .2, 'over_full_scale': d['true_peak_dbtp'] > 0}

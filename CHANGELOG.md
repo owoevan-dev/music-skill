@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+The mix decides from the music what the mixing literature gives a rule for.
+
+### Added
+
+- **The mix's rules of version 2** (`mix.rules: 2` on the bus chain; [performance-and-mix.md](skills/music-production/references/performance-and-mix.md#the-rules-of-version-2-mixrules-2)). A project without the key stays on version 1 and renders as it did.
+  - Each bus's compressor takes its attack and release from the bus's own crest factor, and every bus is brought back to the loudness its parts had together (Ma et al. 2015). Under version 1 the bus processing moved the lead between 4.8 dB down and 2.8 dB up against its parts across 27 test projects; under version 2 none is more than 0.4 dB away and nine in ten are within 0.1 dB, so `level_dbfs` is the balance the mix has.
+  - The reverb's amount: the spaces' returns move together, by one gain of at most 6 dB, toward the relative reverb loudness measured in engineers' mixes (De Man, McNally and Reiss 2017). `mix.reverb_range_lu` names another range, or `null` leaves the sends as written.
+  - One limiter on true peaks in the master (`musiclib/limiter.py`, after Hämäläinen 2002), with no delay. Pushed 6 dB into limiting it leaves a 50 Hz tone's harmonics 115 dB down where FFmpeg's limiter as version 1 sets it leaves them 37 dB down, and it reaches the true-peak ceiling in one pass.
+  - The drum, bass and rhythm buses saturate at four times the sample rate, so the curve's harmonics no longer fold back into the band.
+- **How near an orchestra is heard** (`mix.c80_db`, with `mix.rules: 2`; [orchestration.md](skills/music-production/references/orchestration.md#how-near-the-orchestra-is-heard)). The skill's orchestral pieces were heard from among the players: their mixes, taken as a room, have a clarity (C80) of about +17 dB, where a seat in a concert hall has −2 to +2 dB (Barron 2013). A piece now asks for a clarity and the hall's return moves to give it; the guide says which way to lean by the piece and where it is heard, since listeners themselves divide between an intimate sound and an enveloping one (Lokki et al. 2012). `analyze` reports the mix's C80 beside the hall's range.
+- **A sound chosen by number.** `studio.py sounds --centroid 600-900 --attack 0.1-0.3` takes ranges of a patch's measured brightness and attack. The Surge XT catalog now measures every patch three times and keeps the medians, and calls a patch steady or moving by how far its brightness differed between the playings (1,144 of 2,997 moved by more than 10%). Each patch keeps the octave it is played at.
+- **`analyze` measures the reverb and the lead against published figures**: `reverb` (the returns' loudness against the dry buses and the early decay time) and `lead_against_mix`, each with the study it is read against ([measuring.md](skills/music-production/references/measuring.md)).
+
+### Security
+
+- The CI names its two actions by commit, so a tag moved later cannot change what runs (the audit of 0.5). Still open from that audit, and not in this version: operations bound to a directory handle for folders another account can write, work budgets for a spec's regular expressions and an audition's versions, one behaviour for a cached download that does not match, and the CI's test packages pinned by hash. SECURITY.md's limits stand as they were.
+
 ## [0.5.0] - 2026-11-10
 
 Styles described by their traits, and work that survives a stop. 0.5.0 maps twelve families of styles in 88 entries, each trait with its source, and `review` takes its limits from the entry that governs each question; building blocks write drums from professional drummers' statistics and bass and accompaniment from named figures; `analyze` sets a master's spectral slope beside published genre means; Surge XT parts slide, take velocity on the filter and swell as the score asks; and every write is journaled, so a killed render is taken up by `--resume` and `clean` removes only what a record or the journal proves.

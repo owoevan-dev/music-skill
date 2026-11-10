@@ -5,7 +5,7 @@ license: "MIT; scripts/surge_host.py is GPL-3.0-or-later (LICENSES/GPL-3.0-or-la
 compatibility: "Python 3.10+ with NumPy. FluidSynth 2.x and FFmpeg 6 or newer: pinned portable builds on Windows x64, the system packages on Linux and macOS. Sound banks are downloaded once from this project's GitHub release (twenty-five built here, five repacked unchanged from FreePats), each checked against a pinned SHA-256, with each publisher's own download as the fallback. No GPU and no audio model."
 metadata:
   author: "owoevan-dev"
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # Music production
@@ -43,10 +43,11 @@ python <skill>/scripts/studio.py review   <project>/song.json --output <project>
 python <skill>/scripts/studio.py analyze  <project>/r2 --span chorus:17-24 --reference synthwave --output <project>/r2/synthwave.json
 python <skill>/scripts/studio.py compare  <project>/r6 <project>/final --clip <project>/r6_final.mp3 --config <config.json>
 python <skill>/scripts/studio.py profile  <project>/song.json --output <project>/profile_r1.json
-python <skill>/scripts/studio.py sounds   --role pad --character warm,slow --seed <piece seed>   # --id <id>: one patch's controls
+python <skill>/scripts/studio.py sounds   --role pad --character warm,slow --seed <piece seed>   # --centroid 600-900 --attack 0.1-0.3: by measured range; --id <id>: one patch's controls
 python <skill>/scripts/studio.py audition <project>/song.json --track lead --sounds surge:smooth_lead,synth:supersaw_lead --bars 21-24 --output <project>/audition_lead --config <config.json>
 python <skill>/scripts/studio.py revise   <project>/song.json --track piano --note piano_b004_n003 --pitch 74 --output <project>/song_r2.json
 python <skill>/scripts/studio.py export-midi <project>/song.json --output <project>/song.mid
+python <skill>/scripts/studio.py inspect-midi <file>.mid   # a MIDI file's division, tracks, notes, and notes left open or closed twice
 python <skill>/scripts/excerpt.py <project>/song.json --first-bar 17 --bars 8 --output <project>/passage.json
 python <skill>/scripts/selfcheck.py --work <new empty folder> --config <config.json>
 ```
@@ -62,7 +63,7 @@ A render writes `master.wav` (24-bit), `master.flac` (not in a draft), `preview.
 - The JSON is the source of truth. For anything longer than a few bars, write a Python script in the project folder that builds it: helpers for voicings, the bass line and drum patterns keep decisions readable and revisable. Keep note ids stable when a musical event survives a revision.
 - Score and performance are separate: `notes` hold the written pitch and duration, `performance.notes` hold velocity, timing offset and gate. Pedal, sample release and note overlap mean different things.
 - Choose recordings per part and probe a bank before writing a part around it: range, velocity response, attack. Write for the recording: slow string attacks need `offset_ms`, single-layer basses repeat one sample, kits without a hi-hat choke ring.
-- Synth parts default to Surge XT where it is installed: `engine: "surge"` with a patch chosen for the part's need from its catalog of 3,008 measured patches: `studio.py sounds` with the piece's `--seed` gives a shortlist spread over the range, of its own for each piece ([sound-selection.md](references/sound-selection.md), [electronic-sounds.md](references/electronic-sounds.md)). Where Surge is missing, the part plays its patch's built-in fallback by itself. Write a built-in preset only for what no curated patch plays (the 808's glide, the 303's sweep, chip waves, noise transitions) or where a render must repeat exactly; with the full patch set installed, `review --config` names the catalog patches whose designers named them for those sounds, to hear against the built-in. `studio.py audition` plays one part's passage on several sounds in turn, in the mix and at one loudness, so the choice is made by ear on the music itself.
+- Synth parts default to Surge XT where it is installed: `engine: "surge"` with a patch chosen for the part's need from its catalog of 3,008 measured patches: `studio.py sounds` with the piece's `--seed` gives a shortlist spread over the range, of its own for each piece, and takes ranges of measured brightness and attack (`--centroid 600-900 --attack 0.1-0.3`) and `--character steady` for a patch whose brightness holds still: a sound is designed by choosing it, since a patch's own controls rarely reach a target ([sound-selection.md](references/sound-selection.md), [electronic-sounds.md](references/electronic-sounds.md)). Where Surge is missing, the part plays its patch's built-in fallback by itself. Write a built-in preset only for what no curated patch plays (the 808's glide, the 303's sweep, chip waves, noise transitions) or where a render must repeat exactly; with the full patch set installed, `review --config` names the catalog patches whose designers named them for those sounds, to hear against the built-in. `studio.py audition` plays one part's passage on several sounds in turn, in the mix and at one loudness, so the choice is made by ear on the music itself.
 - Voice each part against what already sounds. Correct chords in two parts can still form minor ninths, and an anticipated melody note can rub against the old chord. `review` lists both.
 - `musiclib.voicing.voice_lead(symbols, voices, low, high)` voices a chord progression so its voices move as little as possible (common tones held), spaced as arrangers space chords; it chooses pitches, and the part keeps its own rhythm ([development-and-groove.md](references/development-and-groove.md)).
 - `musiclib.blocks` writes a drum groove, a bass line or an accompaniment as notes to start from. It takes the piece's own settings, none with a default, and the piece's seed (`blocks.seed(title)`), so two pieces do not start from the same part. The drums follow what professional drummers played in the chosen feel; the comping answers the piece's melody and bass; the bass takes a rhythm of the piece's own, pushes and fills. `blocks.candidates` gives several parts to choose between. Edit what it writes ([building-blocks.md](references/building-blocks.md)).
@@ -75,7 +76,7 @@ Sampled leads need connection: `performance.legato` slurs connected notes on one
 
 ## Mixing
 
-Set `"chain": "bus"` in the project's `mix` for a finished piece. Parts are grouped by role into drums, bass, rhythm, ensemble, lead and fx buses, each with its own processing, and their reverb sends go to a generated room, plate, hall or church. A master chain and a delivery limiter bring it to `target_lufs` (Spotify plays tracks at -14 LUFS and asks for a true peak below -1 dBTP, and below -2 dBTP for a louder master) with the true peak under that ceiling. `"room"`, the default, keeps the older single-room chain. Set each part's `level_dbfs` from the most important part down ([performance-and-mix.md](references/performance-and-mix.md), Mix from musical roles). For orchestral and organ music, `"dynamics": "wide"` leaves out the compressors, so pp and ff keep their distance. Electronic styles add production tools on each part (ducking, delay, sweeps, saturation, gates) and `"loudness": "loud"` for a club master ([electronic.md](references/electronic.md)).
+Set `"chain": "bus"` and `"rules": 2` in the project's `mix` for a finished piece. Parts are grouped by role into drums, bass, rhythm, ensemble, lead and fx buses, each with its own processing, and their reverb sends go to a generated room, plate, hall or church. With `rules` 2 every bus comes back at the loudness its parts had, so the levels you write are the balance of the mix; the compressors' times follow each bus's own signal; and the reverb as a whole is brought toward the amount measured in engineers' mixes (set `reverb_range_lu` lower, or to `null`, for a style that is dry on purpose). A project without `rules` renders as before 0.6. A master chain and a delivery limiter bring it to `target_lufs` (Spotify plays tracks at -14 LUFS and asks for a true peak below -1 dBTP, and below -2 dBTP for a louder master) with the true peak under that ceiling. `"room"`, the default, keeps the older single-room chain. Set each part's `level_dbfs` from the most important part down ([performance-and-mix.md](references/performance-and-mix.md), Mix from musical roles). For orchestral and organ music, `"dynamics": "wide"` leaves out the compressors, so pp and ff keep their distance, and `"c80_db"` says how near the players are heard, from among them to a seat in the hall: choose it by the piece and where it will be heard ([orchestration.md](references/orchestration.md#how-near-the-orchestra-is-heard)). Electronic styles add production tools on each part (ducking, delay, sweeps, saturation, gates) and `"loudness": "loud"` for a club master ([electronic.md](references/electronic.md)).
 
 `analyze` measures what the mix did: level, spectrum share and stereo correlation per section, every stem's level, how far the melody sits above the accompaniment, and the whole master's tonal balance, width and peak-to-loudness ratio. `--reference` compares the master with a measured demo of its genre (`jazz`, `synthwave`, `house`, `lofi`, `future_bass`, `chiptune`, `orchestral`), another render or a WAV file; with a `style`, it also sets the master's spectral slope beside the published mean of that genre's commercial recordings, and a style that should sound bright starts from [performance-and-mix.md](references/performance-and-mix.md#brightness-and-air) (percussion, register, dynamics, sounds, few low-passes). Use it to find causes, not to chase numbers. The bus chain is in [performance-and-mix.md](references/performance-and-mix.md); the analysis fields and the values finished pieces measured, in [measuring.md](references/measuring.md).
 
@@ -96,39 +97,68 @@ Original code and guidance here are MIT; the executables, sample banks and refer
 
 ## Reference map
 
+Read a guide when its row describes the task at hand; none needs reading in advance. Each opens with what it covers and a list of its sections.
+
+### Composing and arranging
+
 | File | Read when |
 |---|---|
 | [arrangement.md](references/arrangement.md) | composing, or diagnosing why a piece sounds stiff, busy or aimless |
 | [development-and-groove.md](references/development-and-groove.md) | a piece that feels dull or stiff: the energy plan, variation that keeps identity, loops that move, syncopation and pushes, accompaniment that moves, `musiclib.voicing` |
+| [harmony.md](references/harmony.md) | choosing chords for a phrase: cadences and predominants, tonicization and mixture, sequences, changing key, reharmonizing a return, developing a motive |
+| [climax-and-melody.md](references/climax-and-melody.md) | planning a high point, writing a melody that sounds composed (the hook, phrasing, restatement), making parts blend or stand out; what research links to strong responses |
+| [building-blocks.md](references/building-blocks.md) | a drum groove, bass line or accompaniment written from the piece's settings: `musiclib.blocks`, the drummers' feels, candidates, settings without defaults |
+
+### Style, mood and the words of a brief
+
+| File | Read when |
+|---|---|
 | [style-maps.md](references/style-maps.md) | what a style sounds like on seven axes: the families and their entries, combining entries in one piece, the project's `style` and review's limits by style |
 | [moods.md](references/moods.md) | a mood across styles: the measured cues of happy, sad, calm and frightening music, unease, elation, nostalgia |
 | [character-words.md](references/character-words.md) | a quality the brief names (bright, warm, thick, spacious, bouncy, rousing, epic): how research groups words for sound, motion and feeling, and the cues measured with each |
-| [building-blocks.md](references/building-blocks.md) | a drum groove, bass line or accompaniment written from the piece's settings: `musiclib.blocks`, the drummers' feels, candidates, settings without defaults |
+
+### By kind of music
+
+| File | Read when |
+|---|---|
 | [game-music.md](references/game-music.md) | music for a game: loops and their seams, repetition, mood and scene, layers, stingers and endings, loop delivery |
-| [anime-opening.md](references/anime-opening.md) | an anime opening or a J-rock or J-pop band cue: TV-size form, the build to the chorus, harmony, an instrumental lead, drums, arrangement, the mix |
 | [scene-music.md](references/scene-music.md) | scene music for a visual novel or an RPG: music under text and voices, a set of cues and their themes, scene starting points, Ren'Py delivery |
-| [harmony.md](references/harmony.md) | choosing chords for a phrase: cadences and predominants, tonicization and mixture, sequences, changing key, reharmonizing a return, developing a motive |
-| [climax-and-melody.md](references/climax-and-melody.md) | planning a high point, writing a melody that sounds composed (the hook, phrasing, restatement), making parts blend or stand out; what research links to strong responses |
+| [film-score.md](references/film-score.md) | film and media underscore: emotional cues for piano and strings, scoring to picture and hit points, suspense and horror |
+| [anime-opening.md](references/anime-opening.md) | an anime opening or a J-rock or J-pop band cue: TV-size form, the build to the chorus, harmony, an instrumental lead, drums, arrangement, the mix |
+| [pop-and-ballad.md](references/pop-and-ballad.md) | instrumental pop and ballads: the form and the chorus lift, loops and the key change, a lead that sings, the power-ballad arrival |
+| [rock-and-metal.md](references/rock-and-metal.md) | rock and metal: riffs, power chords under distortion, double-tracked and palm-muted guitars, gallops, double kick and breakdowns, the mix |
 | [electronic.md](references/electronic.md) | EDM, house, techno, trance, future bass, synthwave, chiptune: the break routine, drum machines, the rumble, sidechain and delay, a loud master |
-| [electronic-sounds.md](references/electronic-sounds.md) | a synth sound for a part in any style: the sounds by role on Surge XT and the built-in synth, the fifty curated Surge patches and their controls |
 | [beats.md](references/beats.md) | lo-fi, chillhop, boom bap and trap instrumentals: swing, the 808 and its register, hi-hat rolls, chops, tape wobble and vinyl |
 | [jazz-and-funk.md](references/jazz-and-funk.md) | jazz combos, swing ratios by tempo, walking bass, rootless voicings, written solos; the 12-bar blues, blue notes and the shuffle; bossa nova's guitar beat and clave; funk and city pop grooves |
 | [baroque.md](references/baroque.md) | baroque music: the continuo and the rule of the octave, counterpoint and suspensions, sequences and schemata, dances, ritornello, fugue, ornaments on the banks |
-| [pop-and-ballad.md](references/pop-and-ballad.md) | instrumental pop and ballads: the form and the chorus lift, loops and the key change, a lead that sings, the power-ballad arrival |
-| [film-score.md](references/film-score.md) | film and media underscore: emotional cues for piano and strings, scoring to picture and hit points, suspense and horror |
-| [rock-and-metal.md](references/rock-and-metal.md) | rock and metal: riffs, power chords under distortion, double-tracked and palm-muted guitars, gallops, double kick and breakdowns, the mix |
 | [piano-and-chamber.md](references/piano-and-chamber.md) | solo piano and small ensembles: writing for the hands, the pedal, phrase timing, chamber roles and balance |
-| [orchestration.md](references/orchestration.md) | music for orchestra: the instruments in the banks, balance between sections, chords and doubling, soft solos, dynamics and the wide master |
+| [orchestration.md](references/orchestration.md) | music for orchestra: the instruments in the banks, balance between sections, chords and doubling, soft solos, dynamics and the wide master, how near the orchestra is heard (`mix.c80_db`) |
 | [organ.md](references/organ.md) | music for pipe organ: the registrations in the bank, hands and pedal, phrasing without dynamics, the church |
-| [sound-selection.md](references/sound-selection.md) | choosing the patch or instrument for a part: the job, the measured character it needs, a shortlist from the Surge catalog, hearing it in context, shaping it |
-| [schema.md](references/schema.md) | writing or editing a project file |
-| [outputs.md](references/outputs.md) | a figure a command's summary points to: the keys of round.json, report.json, the stem receipts, the review, the analysis, compare and audition |
-| [performance-and-mix.md](references/performance-and-mix.md) | shaping performance, balancing, a bright mix, choosing the mix chain |
-| [measuring.md](references/measuring.md) | reading `analyze` and `compare`: each field, the values finished pieces measured, tonal balance against references |
-| [noise.md](references/noise.md) | noise or hiss heard in a render: where it comes from, finding the part, treatments that leave the instrument intact, what the banks carry |
+
+### Sounds and instruments
+
+| File | Read when |
+|---|---|
+| [sound-selection.md](references/sound-selection.md) | choosing the patch or instrument for a part: the job, the measured character it needs, a shortlist from the Surge catalog by role, words or measured range, hearing it in context, shaping it |
+| [electronic-sounds.md](references/electronic-sounds.md) | a synth sound for a part in any style: the sounds by role on Surge XT and the built-in synth, the fifty curated Surge patches and their controls |
 | [soundbanks.md](references/soundbanks.md) | choosing instruments beyond the default General MIDI bank: the banks, their licences and sizes, configuring |
 | [soundbank-presets.md](references/soundbank-presets.md) | a bank's presets: programs, ranges, recorded dynamics, dynamic layers and legato, the percussion kits' keys |
 | [soundbank-measurements.md](references/soundbank-measurements.md) | before writing a part on a bank: its measured attacks, levels, lengths and quirks |
-| [soundbank-building.md](references/soundbank-building.md) | building a bank from a sample set |
+| [noise.md](references/noise.md) | noise or hiss heard in a render: where it comes from, finding the part, treatments that leave the instrument intact, what the banks carry |
+
+### The project file, the mix and the reports
+
+| File | Read when |
+|---|---|
+| [schema.md](references/schema.md) | writing or editing a project file |
+| [performance-and-mix.md](references/performance-and-mix.md) | shaping performance, balancing, a bright mix, choosing the mix chain, the mix's rules of version 2 (what `mix.rules: 2` sets, and from which sources) |
+| [measuring.md](references/measuring.md) | reading `analyze` and `compare`: each field, the values finished pieces measured, tonal balance against references, the reverb's amount and the mix's clarity against published ranges |
+| [outputs.md](references/outputs.md) | a figure a command's summary points to: the keys of round.json, report.json, the stem receipts, the review, the analysis, compare and audition |
+
+### Setup, building a bank, and rights
+
+| File | Read when |
+|---|---|
 | [setup.md](references/setup.md) | installing the tools, banks and configuration |
+| [soundbank-building.md](references/soundbank-building.md) | building a bank from a sample set |
 | [sources-and-rights.md](references/sources-and-rights.md) | using any outside score, MIDI, recording or sample |

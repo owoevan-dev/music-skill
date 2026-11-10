@@ -449,8 +449,11 @@ def checks(work,config=None):
             pad=part('pad','harmony',[(b*4,x,4) for b in range(8) for x in (48,55,60)]);pad.update(engine='synth',synth={'preset':'warm_pad'})
             q=song([pad]);q['title']=title
             asked=[x for x in run_review(q,work/f'review_full_{len(picked)}',full)['prompts'] if 'plays the built-in warm_pad' in x]
-            assert len(asked)==1 and 'with its full patch set' in asked[0] and 'bell_pad' not in asked[0],asked
-            picked.append(asked[0].split('three for this piece: ')[1].split(')')[0])
+            # The three are catalog patches (ids with their designer and category), none of them the curated bell_pad:
+            # compared as ids, since a catalog patch may carry those letters in its own name (one does).
+            names=asked[0].split('three for this piece: ')[1].split(')')[0]
+            assert len(asked)==1 and 'with its full patch set' in asked[0] and all(x.count('/')==2 for x in names.split(', ')) and 'bell_pad' not in names.split(', '),asked
+            picked.append(names)
         assert picked[0]!=picked[1],picked
         # The 808 and the acid line name the patches measured to play them as the score asks, with the settings
         # (surge-roles.json); a sound without measurements keeps the patches named for it; one with neither is not asked.
@@ -516,6 +519,15 @@ def checks(work,config=None):
         assert len({r['source'] for r in few})==8 and '8 of' in search('pad',limit=8)['note']
         one,two=search('pad',limit=8,seed=1)['shown'],search('pad',limit=8,seed=2)['shown']
         assert one==search('pad',limit=8,seed=1)['shown'] and {r['id'] for r in one}!={r['id'] for r in two}
+        # A sound is designed by choosing it (0.6): a range of the probe's centroid and of its attack, either end
+        # open, and whether its brightness held still over the three playings the catalog takes the median of.
+        ranged=search('pad',limit=100000,centroid=(600,900),attack=(.1,.3))['shown']
+        assert 0<len(ranged)<len(every) and all(600<=r['centroid_hz']<=900 and .1<=r['attack_s']<=.3 for r in ranged),len(ranged)
+        low=search('bass',limit=100000,centroid=(None,120))['shown'];high=search('bass',limit=100000,centroid=(120.5,None))['shown']
+        assert low and high and max(r['centroid_hz'] for r in low)<=120<min(r['centroid_hz'] for r in high) and len(low)+len(high)==search('bass',limit=100000)['count']
+        steady=search('pad',['steady'],limit=100000)['shown'];moving=search('pad',['moving'],limit=100000)['shown']
+        assert steady and moving and len(steady)+len(moving)==len(every) and all(r['centroid_spread_pct']<=10 for r in steady) and all(r['centroid_spread_pct']>10 for r in moving)
+        assert all(('steady' in v['character'])==(v['measured']['centroid_spread_pct']<=10) for v in cat.values() if 'measured' in v)
         key=rows[0]['id'];found=surge.entry(key)
         assert found['folder']=='catalog' and found['fallback']=='warm_pad' and describe(key)['measured']['centroid_hz']==rows[0]['centroid_hz']
         dark=next(k for k,v in cat.items() if v['role']=='bass' and v.get('measured',{}).get('centroid_hz',999)<120)
@@ -824,6 +836,119 @@ def checks(work,config=None):
         assert abs(calibrated+3.01)<.05 and abs(k_level(x)-in_time)<.05,(calibrated,k_level(x),in_time)
         return {'sine_997hz_0dbfs_lufs':round(calibrated,3),'frequency_vs_time_domain_db':round(float(k_level(x)-in_time),4)}
     check('k_weighting_matches_bs1770',k_weighting)
+    def loudness_measures():
+        # The measures the mix's rules of version 2 and analyze read (0.6): momentary and gated loudness by BS.1770,
+        # the relative loudness of two signals, the crest factor and the time constants it gives.
+        from musiclib import measure
+        from musiclib.mixbus import time_constants
+        R=audio.RATE;t=np.arange(10*R)/R;rng=np.random.default_rng(11)
+        sine=np.zeros((len(t),2));sine[:,0]=np.sin(2*np.pi*997*t)
+        m=measure.momentary(sine)  # a 0 dBFS 997 Hz sine in one channel reads -3.01 in every window, and over the whole
+        assert len(m)==97 and float(np.abs(m+3.01).max())<.02 and abs(measure.integrated(sine)+3.01)<.02,(len(m),m[:3])
+        # The block-wise filter against the two biquads run sample by sample, an oracle of another construction, over
+        # more than one block; and against the whole-signal filter once that one's start is past (its transform lets
+        # the end of a signal with no silence after it run round into the first milliseconds).
+        x=rng.standard_normal((R+70000,2))*.1;blocks=measure.k_power(x)
+        def biquad(signal,b,a):
+            out=[0.0]*len(signal);x1=x2=y1=y2=0.0
+            for i,v in enumerate(signal):
+                y=b[0]*v+b[1]*x1+b[2]*x2-a[1]*y1-a[2]*y2;x2,x1,y2,y1=x1,v,y1,y;out[i]=y
+            return out
+        in_time=sum(np.square(biquad(biquad(x[:,c].tolist(),*measure.SHELF),*measure.RLB)) for c in range(2))
+        whole=(measure.k_filter(x)**2).sum(axis=1)
+        assert float(np.abs(blocks-in_time).max())<1e-5*float(in_time.max()),float(np.abs(blocks-in_time).max()/in_time.max())
+        assert float(np.abs(blocks-whole)[4096:].max())<1e-5*float(whole.max()),float(np.abs(blocks-whole)[4096:].max()/whole.max())
+        assert measure.k_power(x[:,0]).shape==(len(x),) and measure.integrated(np.zeros((R,2))) is None
+        # Gating: 2 s of noise and 8 s of the same noise 30 dB lower.  The ungated mean falls with the quiet part; BS.1770's
+        # relative gate (10 LU under the mean) leaves the quiet blocks out.  What passes is the 17 blocks inside the
+        # loud part and the three that straddle its end, three quarters, a half and a quarter loud: 18.5 blocks' worth
+        # of the loud power over 20 blocks, 0.34 LU under the loud part measured alone.
+        loud=rng.standard_normal((2*R,2))*.2;quiet=rng.standard_normal((8*R,2))*.2*10**(-30/20)
+        both=np.concatenate([loud,quiet]);alone=measure.integrated(loud);gated=measure.integrated(both);ungated=measure.k_level(both)
+        assert abs(gated-alone-10*np.log10(18.5/20))<.05 and gated-ungated>6,(alone,gated,ungated)
+        # The relative loudness of a copy 20 dB down is -20, with silence round the two or without.
+        pad=np.zeros((R,2));dry=np.concatenate([pad,loud,pad])
+        assert abs(measure.relative_loudness(dry*.1,dry)+20)<1e-6 and abs(measure.relative_loudness(loud*.1,loud)+20)<1e-6
+        assert measure.relative_loudness(pad,pad) is None
+        assert abs(measure.windows_difference(measure.momentary(dry*.1),measure.momentary(dry))+20)<1e-6
+        # The crest factor squared: 2 for a sine, in double or single precision; a click per window, the window's length.
+        tone=np.sin(2*np.pi*440*t);clicks=np.zeros(4*R);clicks[::R//2]=1
+        c=measure.crest_squared(tone);c32=measure.crest_squared(tone.astype(np.float32))
+        assert abs(c-2)<.01 and abs(c32-2)<.01 and measure.crest_squared(clicks)>1000 and measure.crest_squared(np.zeros(R)) is None,(c,c32)
+        # Ma et al. (2015): twice the maximum over the squared crest factor, never above the maximum (80 ms, 1 s).
+        assert time_constants(2)==(80.0,1000.0) and time_constants(20)==(8.0,100.0) and time_constants(None)==(80.0,1000.0) and time_constants(.5)==(80.0,1000.0)
+        # How near a mix is heard, as one room (0.6): C80 from the dry signal's energy and each return's, spread as its
+        # space's response is.  A response with a tenth of its energy in its first 80 ms, returned 10 dB under the dry
+        # signal: early 1 + 0.01, late 0.09.  The gain that gives a C80 gives it back; a space whose response is nearly
+        # all early cannot bring the mix under its own clarity however loud; a clearer target turns the returns down.
+        response=np.zeros((R,2));response[:int(.08*R)]=np.sqrt(.1/(2*int(.08*R)));response[int(.08*R):]=np.sqrt(.9/(2*(R-int(.08*R))))
+        share=measure.early_share(response)
+        assert abs(share-.1)<1e-9 and abs(measure.early_share(response[:,0])-.1)<1e-9 and measure.early_share(np.zeros((10,2)))==0
+        c80=measure.clarity_c80(1.0,[(.1,share)])
+        assert abs(c80-10*np.log10(1.01/.09))<1e-9 and measure.clarity_c80(1.0,[]) is None and measure.clarity_c80(1.0,[(.1,1.0)]) is None
+        for target in (8,2,0,-2,15):
+            g=measure.returns_gain_for_c80(1.0,[(.1,share),(.05,.3)],target)
+            assert abs(measure.clarity_c80(1.0,[(e*10**(g/10),f) for e,f in [(.1,share),(.05,.3)]])-target)<1e-9,(target,g)
+        assert measure.returns_gain_for_c80(1.0,[(.1,share)],15)<0<measure.returns_gain_for_c80(1.0,[(.1,share)],2)
+        assert measure.returns_gain_for_c80(1.0,[(.1,.96)],2) is None and measure.HALL_C80_DB==(-2.0,2.0)
+        # The project's keys: rules 1 or 2, version 2 only on the bus chain; a reverb range only with it, inside -40 to -9.
+        q=example();q['mix'].update(chain='bus',rules=2,reverb_range_lu=[-20,-12]);validate(q)
+        q['mix']['reverb_range_lu']=None;validate(q)
+        q=example();q['mix'].update(chain='bus',rules=2,c80_db=6);validate(q)
+        for mix in ({'chain':'bus','c80_db':6},{'chain':'bus','rules':2,'c80_db':6,'reverb_range_lu':[-20,-12]},{'chain':'bus','rules':2,'c80_db':26},
+                    {'chain':'bus','rules':2,'c80_db':-6},{'chain':'bus','rules':2,'c80_db':'6'},{'chain':'bus','rules':2,'c80_db':None}):
+            q=example();q['mix'].update(mix);rejects(lambda:validate(q))
+        for mix in ({'rules':3},{'rules':'2'},{'chain':'room','rules':2},{'chain':'bus','reverb_range_lu':[-20,-12]},
+                    {'chain':'bus','rules':2,'reverb_range_lu':[-12,-20]},{'chain':'bus','rules':2,'reverb_range_lu':[-20,-5]},
+                    {'chain':'bus','rules':2,'reverb_range_lu':[-50,-12]},{'chain':'bus','rules':2,'reverb_range_lu':-14}):
+            q=example();q['mix'].update(mix);rejects(lambda:validate(q))
+        return {'sine_integrated_lufs':round(measure.integrated(sine),3),'gated_minus_ungated_lu':round(gated-ungated,2),
+                'crest_squared_sine':round(c,4)}
+    check('loudness_measures_gate_and_compare',loudness_measures)
+    def true_peak_limiter():
+        # musiclib/limiter.py, the master's limiter under the mix's rules of version 2.
+        from musiclib import limiter
+        R=audio.RATE;rng=np.random.default_rng(12);t=np.arange(2*R)/R
+        # The running minimum against the plain loop, at widths under, at and over the signal's length.
+        a=rng.standard_normal(700)
+        for w in (1,2,7,64,145,699,700,1100):
+            assert np.array_equal(limiter.running_min(a,w),np.array([a[i:i+w].min() for i in range(len(a))])),w
+        # The true peak between samples: a sine at a quarter of the rate, sampled 45 degrees from its crests, has sample
+        # peaks of 0.707 and a true peak of 1; one faded in reads 1 too, and silence reads 0.
+        fade=np.minimum(1,np.minimum(np.arange(len(t)),len(t)-1-np.arange(len(t)))/(R/20))
+        quarter=np.sin(2*np.pi*(R/4)*t+np.pi/4)*fade;q2=np.stack([quarter,quarter],axis=1)
+        tp=limiter.true_peak(q2)
+        assert abs(float(np.abs(q2).max())-.7071)<1e-3 and abs(float(tp.max())-1)<1e-3 and float(limiter.true_peak(np.zeros((1000,2))).max())==0,float(tp.max())
+        # Against one interpolation of the whole signal with silence round it: block edges change nothing.
+        x=rng.standard_normal((70000,2))*.3;z=np.concatenate([np.zeros((4096,2)),x,np.zeros((4096,2))])
+        up=np.abs(np.fft.irfft(np.fft.rfft(z,axis=0),n=len(z)*4,axis=0)*4).max(axis=1)
+        whole=np.array([up[4*i-3:4*i+4].max() for i in range(4096,4096+len(x))])
+        assert float(np.abs(limiter.true_peak(x)-whole).max())<.02*float(whole.max()),float(np.abs(limiter.true_peak(x)-whole).max())
+        # The guarantee: whatever the signal, the gain is at most what each sample needs, so no true peak this module
+        # reads is over the ceiling before the gain is applied; after it, bursts of noise 20 dB over stay within 0.1 dB.
+        bursts=rng.standard_normal((2*R,2))*np.repeat(rng.random(40)*3,R//20)[:,None];peak=limiter.true_peak(bursts)
+        for release,lookahead,hold in ((.05,.003,None),(.2,.0015,None),(.1,.005,0)):
+            g=limiter.gain_db(peak,.5,release,lookahead,hold);need=np.minimum(0,20*np.log10(.5/np.maximum(peak.astype(np.float64),1e-12)))
+            assert float((g-need).max())<=1e-9 and float(g.max())<=0,(release,lookahead,float((g-need).max()))
+            after=float(limiter.true_peak(bursts*(10**(g/20))[:,None]).max())
+            assert after<.5*10**(.1/20),(release,lookahead,after)
+        # The release against the plain recursion rel(n) = min(held(n), rel(n-1) * r), with no look-ahead and no hold.
+        need=-np.abs(rng.standard_normal(4000))*(rng.random(4000)>.97);r=np.exp(-1/(.01*R));want=np.empty(4000);prev=0.0
+        for i,h in enumerate(need):
+            prev=min(min(h,-1e-9),prev*r);want[i]=prev
+        got=limiter.gain_db(10**(-need/20),1.0,.01,0,0)
+        assert float(np.abs(got-want).max())<1e-9,float(np.abs(got-want).max())
+        # A low note meets one steady gain: 30 Hz, 6 dB over, moves the gain by under a thousandth of a decibel once it
+        # has settled (its crests are 16.7 ms apart, inside the hold); without the hold the gain rides the waveform.
+        low=np.stack([np.sin(2*np.pi*30*t)]*2,axis=1);_,g=limiter.limit(low,.5,.1);_,bare=limiter.limit(low,.5,.1,hold=0)
+        steady=float(np.ptp(g[R//2:-R//10]));riding=float(np.ptp(bare[R//2:-R//10]))
+        assert steady<1e-3 and riding>.5 and abs(float(g[R])+6.02)<.01,(steady,riding,float(g[R]))
+        # No delay: a burst comes out where it went in, held to the ceiling, and the tone round it is untouched before
+        # the look-ahead and back within 1 dB half a second later.
+        tone=.05*np.sin(2*np.pi*1000*t);burst=tone.copy();burst[R:R+960]*=40;y,g=limiter.limit(np.stack([burst,burst],axis=1),.5,.1)
+        assert abs(float(np.abs(y[R:R+960]).max())-.5)<.005 and float(g[:R-200].min())>-1e-6 and float(g[R+R//2])>-1 and float(g[R+100])<-11,(float(g[R+100]),float(g[R+R//2]))
+        return {'steady_gain_ripple_db_30hz':round(steady,6),'riding_without_hold_db':round(riding,3),'quarter_rate_true_peak':round(float(tp.max()),4)}
+    check('true_peak_limiter_holds_the_ceiling',true_peak_limiter)
     def loop_parts():
         from musiclib import loop
         # A 4-frame loop [4, 8) under a 6-frame tail: the tail wraps round it once and a half.
@@ -4745,6 +4870,80 @@ def checks(work,config=None):
             return {'gain_db':lp['layers']['gain_db'],'sum_minus_loop_db':lp['layers']['sum_minus_loop_db'],'correlation_with_loop':round(corr,4),
                     'mono_low_side_db':round(float(side_db),1)}
         check('loop_layers_render_and_add_up_to_the_mix',layer_render)
+        def rules_2_render():
+            # The mix's rules of version 2 (0.6): every bus back at its stems' loudness, the compressors' times from the
+            # signal, the reverb's amount inside its range or a step toward it, and a master with one true-peak limiter
+            # and no delay.  The same project under version 1 stays as it was (render_bus above: checked there).
+            from musiclib import loop,mixbus,measure
+            from musiclib import summary as said
+            q=copy.deepcopy(p);q['mix'].update(chain='bus',rules=2);save_json(work/'rules2.json',q)
+            r=render(work/'rules2.json',work/'render_rules2',config,cache);out=work/'render_rules2';ms=r['mastering'];st=r['buses']['rules']
+            one=json.loads((work/'render_bus'/'report.json').read_text(encoding='utf-8'))
+            assert all(r['checks'].values()) and ms['rules']==2 and st['rules']==2,r['checks']
+            assert abs(r['master']['integrated_lufs']-q['mix']['target_lufs'])<=.3 and r['master']['true_peak_dbtp']<=ms['true_peak_ceiling_dbtp'],r['master']
+            # One limiter, and it is not FFmpeg's: neither chain names alimiter, and the record says what limited.
+            assert 'alimiter' not in ms['master_chain']+ms['delivery_chain'] and 'true-peak limiter' in ms['delivery_chain'],ms['delivery_chain']
+            assert ms['limiter']['lookahead_ms']==3 and 0<ms['limiter']['release_ms']<=1000 and len(ms['passes'])>=1 and not (out/'limited.wav').exists(),ms['limiter']
+            # Every bus sits where its stems did (version 1 moved them: its lead's make-up, its drums' parallel copy).
+            change=r['buses']['level_change_db'];old=one['buses']['level_change_db']
+            assert all(abs(v)<=.15 for v in change.values()) and max(abs(v) for v in old.values())>max(abs(v) for v in change.values()),(change,old)
+            # The times follow the crest factor: twice the maxima over its square, and the graph holds them.
+            graph=(out/'mix.filtergraph.txt').read_text(encoding='utf-8')
+            for b,c in st['compressors'].items():
+                attack,release=mixbus.time_constants(10**(c['crest_db']/10))
+                assert abs(c['attack_ms']-attack)<.05*attack and abs(c['release_ms']-release)<.05*release and f'attack={c["attack_ms"]:.4f}:release={c["release_ms"]:.4f}' in graph,(b,c)
+            # The saturating buses pass the curve at four times the rate, between two resamplers, and come out as long
+            # as the mix (the checks above read every bus beside its stems); version 1's graph has no resampler.
+            assert graph.count('aresample=192000')==len([b for b in mixbus.SATURATING if b in change])>0 and 'aresample' not in (work/'render_bus'/'mix.filtergraph.txt').read_text(encoding='utf-8'),graph.count('aresample=192000')
+            assert all(audio.read_wav(out/'returns'/f'bus_{b}.wav')[1]['frames']==r['master']['frames'] for b in change),r['master']['frames']
+            # The reverb: measured as written, moved by one gain of at most 6 dB to the nearest end of the range, and
+            # the returns on disk carry it (measured again from the files).
+            rv=st['reverb'];lo,hi=rv['range_lu']
+            dry=sum(np.asarray(audio.read_wav(f)[0],dtype=np.float64) for f in sorted((out/'returns').glob('bus_*.wav')))
+            wet=sum(np.asarray(audio.read_wav(out/'returns'/n)[0],dtype=np.float64) for n in r['buses']['returns'] if n!='delay_return.wav')
+            again=measure.relative_loudness(wet,dry)
+            assert abs(rv['gain_db'])<=6 and abs(again-rv['relative_loudness_lu'])<.05 and (lo<=again+.05 and again-.05<=hi or abs(abs(rv['gain_db'])-6)<1e-6),(rv,again)
+            assert (rv['gain_db']>0)==(rv['relative_loudness_written_lu']<lo) and r['checks']['buses_and_returns_add_up_to_premix'],rv
+            assert json.loads((out/'returns'/mixbus.RULES_FILE).read_text(encoding='utf-8'))==st and 'Mix rules 2' in said.render(r,out)
+            # A range of the project's own is the one used; none leaves the sends as written.
+            own=copy.deepcopy(q);own['mix']['reverb_range_lu']=[rv['relative_loudness_written_lu']-9,rv['relative_loudness_written_lu']-7]
+            save_json(work/'rules2_own.json',own);ro=render(work/'rules2_own.json',work/'render_rules2_own',config,cache,draft=True)['buses']['rules']['reverb']
+            asis=copy.deepcopy(q);asis['mix']['reverb_range_lu']=None
+            save_json(work/'rules2_asis.json',asis);ra=render(work/'rules2_asis.json',work/'render_rules2_asis',config,cache,draft=True)['buses']['rules']['reverb']
+            assert abs(ro['gain_db']+6)<1e-6 and ra['gain_db']==0 and ra['range_lu'] is None,(ro,ra)
+            # A piece that names how near it is heard (mix.c80_db): the returns move by the one gain that gives the mix
+            # that clarity, further than the 6 dB a range allows, and the clarity measured again from the files, by
+            # analyze, is the one asked; analyze does not read such a piece against the range measured on songs.
+            from musiclib.analysis import analyze as analysed
+            near=copy.deepcopy(q);near['mix']['c80_db']=6;save_json(work/'rules2_c80.json',near)
+            rn=render(work/'rules2_c80.json',work/'render_rules2_c80',config,cache,draft=True);hn=rn['buses']['rules']['reverb']
+            an=analysed(work/'render_rules2_c80')
+            assert all(rn['checks'].values()) and hn['c80_asked_db']==6 and hn['c80_reached'] and abs(hn['c80_db']-6)<.05 and hn['gain_db']>6 and hn['range_lu'] is None,hn
+            assert abs(an['reverb']['clarity_c80_db']-6)<=.1 and an['reverb']['c80_asked_db']==6 and an['reverb']['hall_c80_db']==[-2.0,2.0] and not any('reverb returns' in w for w in an['warnings']),(an['reverb'],an['warnings'])
+            plain=analysed(out)
+            assert plain['reverb']['clarity_c80_db']>an['reverb']['clarity_c80_db']+5 and 'c80_asked_db' not in plain['reverb'] and 'clarity C80' in said.analysis(plain,out/'analysis.json'),plain['reverb']
+            # The same render twice: the same master.
+            again2=render(work/'rules2.json',work/'render_rules2_again',config,cache,draft=True)
+            assert file_hash(work/'render_rules2_again'/'master.wav')==file_hash(out/'master.wav') and again2['buses']['rules']==st
+            # A loud master under version 2: the soft clipper, then the limiter, under -2 dBTP.
+            hot=copy.deepcopy(q);hot['mix'].update(loudness='loud',target_lufs=-10);save_json(work/'rules2_loud.json',hot)
+            h=render(work/'rules2_loud.json',work/'render_rules2_loud',config,cache)
+            assert all(h['checks'].values()) and h['master']['true_peak_dbtp']<=-2 and 'soft clip' in h['mastering']['delivery_chain'] and abs(h['master']['integrated_lufs']+10)<=.3,(h['master'],h['mastering']['passes'])
+            # A wide master under version 2: one gain, no guard limiter, nothing set on the buses.
+            wide=copy.deepcopy(q);wide['mix'].update(dynamics='wide',target_lufs=-18);save_json(work/'rules2_wide.json',wide)
+            w=render(work/'rules2_wide.json',work/'render_rules2_wide',config,cache,draft=True)
+            assert all(w['checks'].values()) and 'alimiter' not in w['mastering']['delivery_chain'] and w['mastering']['rules']==2 and not w['buses']['rules']['compressors'] and not any(w['buses']['rules']['bus_gain_db'].values()),w['mastering']
+            # Layers of a loop under version 2 read what the full mix set, add up to the loop, and need no delay: the
+            # master has no look-ahead to trail by (under version 1 the master trails its layers by some 10 ms).
+            ids=[t['id'] for t in q['tracks']];lq=copy.deepcopy(q);lq['loop']={'start_bar':0,'layers':{'base':ids[:2]+ids[4:],'top':ids[2:4]}}
+            save_json(work/'rules2_layers.json',lq);lr=render(work/'rules2_layers.json',work/'render_rules2_layers',config,cache);lo_=work/'render_rules2_layers';lp=lr['loop']
+            parts=[np.asarray(audio.read_wav(lo_/'layers'/f'{lid}.wav')[0],dtype=np.float64) for lid in ('base','top')]
+            mix=np.asarray(audio.read_wav(lo_/'loop.wav')[0],dtype=np.float64);both=parts[0]+parts[1]
+            corr=float(np.sum(both*mix)/np.sqrt(np.sum(both**2)*np.sum(mix**2)))
+            assert all(lr['checks'].values()) and corr>.98 and abs(lp['layers']['sum_minus_loop_db'])<3 and lp['layers']['aligned_frames']==0,(corr,lp['layers'])
+            return {'level_change_db':change,'level_change_db_rules_1':old,'compressors':st['compressors'],'reverb':rv,'limiter':ms['limiter'],
+                    'passes':len(ms['passes']),'layers_correlation_with_loop':round(corr,4)}
+        check('mix_rules_2_render_sets_buses_reverb_and_limiter',rules_2_render)
         def wide_render():
             # Four soft bars and four loud ones.  The wide master is one gain and an EQ, so it keeps the mix's contrast
             # between the sections, and it holds the gain down rather than limit when the target would push the true

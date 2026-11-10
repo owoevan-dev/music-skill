@@ -28,6 +28,10 @@ verdict on how the music sounds.
   number ones of the genre that governs the piece's mix axis (`published_genre`, from style-maps.json).
 - Warnings from the stem receipts: parts whose dynamics sat between two recorded takes that disagree in phase, and
   Surge XT parts that played their fallback preset.
+- In a bus-chain render, how much reverb the mix carries (`reverb`): the relative reverb loudness of De Man, McNally
+  and Reiss (2017), the momentary loudness of the spaces' returns minus that of the buses, and the early decay time
+  of the spaces as the mix weights them; and how loud the lead bus is against the mix (`lead_against_mix`), beside
+  the range De Man, Leonard, King and Reiss (2014) measured for lead vocals in engineers' mixes.
 """
 import json
 import math
@@ -37,11 +41,17 @@ import tempfile
 import numpy as np
 
 from . import audio, files
-from .measure import k_filter, level, release
+from .measure import (HALL_C80_DB, REVERB_RANGE_LU, REVERB_TOO_MUCH_LU, clarity_c80, early_share, k_filter, level,
+                      momentary, relative_loudness, release)
 from .model import Clock, load_project
 
 RATE = audio.RATE
 BANDS = [(20, 60), (60, 250), (250, 800), (800, 2500), (2500, 6000), (6000, 16000)]
+# Lead vocals in eight songs each mixed by eight engineers sat at -2.7 LU against the mix's loudness, in "a relative
+# narrow range" (the paper's bracket reads -2.7 and 1.6 LU), "suggesting an agreement on a 'target loudness' of about
+# -3 LU relative to the overall mix loudness" (De Man, Leonard, King and Reiss 2014, ISMIR).  A voice, not an
+# instrument: beside a lead instrument it is a point of comparison, no target.
+LEAD_VOCAL_AGAINST_MIX_LU = (-2.7, 1.6)
 NPERSEG, HOP = 4096, 1024
 REFERENCES = Path(__file__).resolve().parents[2] / 'references' / 'tonal-references.json'
 OCTAVE_NAMES = {-5: '31', -4: '63', -3: '125', -2: '250', -1: '500', 0: '1k', 1: '2k', 2: '4k', 3: '8k', 4: '16k'}
@@ -315,6 +325,73 @@ def lead_presence(lead, accompaniment, spans):
     return rows
 
 
+def early_decay_time(responses):
+    """The early decay time (s) of impulse responses heard together, `responses` being (frames x channels, energy
+    weight) pairs: six times the time their summed backward-integrated energy decay takes to fall 10 dB (the
+    definition De Man et al. (2017) use, after ISO 3382).  Each response's decay curve is weighted by the energy its
+    return has in the mix.  The paper derives one equivalent response from the mix's dry and wet signals; here the
+    responses themselves are known, so their curves are combined: an estimate of the same thing, not the paper's
+    procedure."""
+    total, longest = None, max((len(x) for x, _ in responses), default=0)
+    for x, weight in responses:
+        e = (np.asarray(x, dtype=np.float64) ** 2).sum(axis=1)
+        curve = np.cumsum(e[::-1])[::-1]
+        if curve[0] <= 0 or weight <= 0:
+            continue
+        curve = np.pad(curve / curve[0] * weight, (0, longest - len(curve)))
+        total = curve if total is None else total + curve
+    if total is None:
+        return None
+    below = np.flatnonzero(total <= total[0] * .1)
+    return round(6 * float(below[0]) / RATE, 3) if len(below) else None
+
+
+def mix_measures(render_dir, report):
+    """What a bus-chain render's own parts say of its reverb and its lead: {'reverb': ..., 'lead_against_mix': ...},
+    each None where the render lacks the files (another chain, or no part sends to a space).  The buses are the dry
+    signal and the spaces' returns the wet one; the delay's return counts on neither side.  Read from returns/ and
+    premix.wav, before the master: the master's compression raises a quiet tail a little, so against mixes measured
+    after it these figures are, if anything, low."""
+    returns = render_dir / 'returns'
+    mix = report.get('buses') or {}
+    spaces = [n[:-len('_return.wav')] for n in mix.get('returns') or [] if n.endswith('_return.wav') and n != 'delay_return.wav']
+    buses = sorted({b for b in (mix.get('assignment') or {}).values()})
+    if report.get('chain') != 'bus' or not buses or any(not (returns / f'bus_{b}.wav').is_file() for b in buses):
+        return {'reverb': None, 'lead_against_mix': None}
+
+    def read(path):
+        return np.asarray(audio.read_wav(path)[0], dtype=np.float64)
+    dry = sum(read(returns / f'bus_{b}.wav') for b in buses)
+    out = {'reverb': None, 'lead_against_mix': None}
+    if spaces and all((returns / f'{s}_return.wav').is_file() and (returns / f'{s}_ir.wav').is_file() for s in spaces):
+        wet, weighted = None, []
+        for s in spaces:
+            y = read(returns / f'{s}_return.wav')
+            wet = y if wet is None else wet + y
+            weighted.append((read(returns / f'{s}_ir.wav'), float((y ** 2).sum())))
+        rrl = relative_loudness(wet, dry)
+        if rrl is not None:
+            lo, hi = REVERB_RANGE_LU
+            c80 = clarity_c80(float((dry ** 2).sum()), [(energy, early_share(response)) for response, energy in weighted])
+            out['reverb'] = {'relative_loudness_lu': round(rrl, 1), 'early_decay_time_s': early_decay_time(weighted),
+                             'clarity_c80_db': None if c80 is None else round(c80, 1), 'hall_c80_db': list(HALL_C80_DB),
+                             'spaces': spaces, 'published_range_lu': [lo, hi], 'too_much_from_lu': REVERB_TOO_MUCH_LU,
+                             # What every reverb send would change by to reach the nearest end of the range.
+                             'to_range_db': round(lo - rrl if rrl < lo else hi - rrl if rrl > hi else 0.0, 1)}
+    if 'lead' in buses and (render_dir / 'premix.wav').is_file():
+        lead, premix = read(returns / 'bus_lead.wav'), read(render_dir / 'premix.wav')
+        n = min(len(lead), len(premix))
+        ll, lm = momentary(lead[:n]), momentary(premix[:n])
+        # While the lead sounds: within 30 LU of its own loudest window.
+        use = ll > ll.max() - 30
+        if use.any() and ll.max() > -70:
+            power = lambda v: 10 * math.log10(float(np.mean(10 ** (v / 10))))  # noqa: E731
+            mean, spread = LEAD_VOCAL_AGAINST_MIX_LU
+            out['lead_against_mix'] = {'lead_minus_mix_lu': round(power(ll[use]) - power(lm[use]), 1),
+                                       'published_vocal_lu': {'mean': mean, 'spread': spread}}
+    return out
+
+
 def doublings(p, lo, hi, share=.6):
     """The melody parts sounding in beats [lo, hi) and the parts that double them: at least `share` of a part's onsets
     there fall on a melody onset of the same pitch class."""
@@ -465,6 +542,25 @@ def analyze(render_dir, bar_spans=(), reference=None):
                         'gain reduction on loud peaks and rarely more than 6 (White 2003), and heavier limiting can flatten '
                         'transients; have it heard, lower target_lufs, or lower that section\'s peaks '
                         '(mix.saturate on its loudest parts, ducking, less level on what it adds).')
+    mixed = mix_measures(render_dir, report)
+    if mixed['reverb'] is not None:
+        r = mixed['reverb']
+        if p['mix'].get('c80_db') is not None:
+            # The piece names how near it is heard: the range measured on mixes of songs is not its measure, and a
+            # hall's amount of reverb is not too much of it.
+            r['c80_asked_db'] = p['mix']['c80_db']
+        elif r['relative_loudness_lu'] >= REVERB_TOO_MUCH_LU:
+            warnings.append(f'the reverb returns are {r["relative_loudness_lu"]:g} LU against the buses: in De Man, McNally '
+                            f'and Reiss (2017) every mix at {REVERB_TOO_MUCH_LU:g} LU or more was judged too reverberant by '
+                            f'skilled listeners. Lowering every reverb send by {-r["to_range_db"]:g} dB reaches '
+                            f'{REVERB_RANGE_LU[1]:g} LU.')
+        elif r['to_range_db'] > 0:
+            warnings.append(f'the reverb returns are {r["relative_loudness_lu"]:g} LU against the buses, drier than the '
+                            f'{REVERB_RANGE_LU[0]:g} to {REVERB_RANGE_LU[1]:g} LU around the -14 LU that De Man, McNally '
+                            f'and Reiss (2017) found the more desirable in engineers\' mixes of songs. Raising every reverb '
+                            f'send by {r["to_range_db"]:g} dB reaches it. Their songs had vocals, and a recorded bank may '
+                            'carry a room of its own that this measure counts as dry: a style that is dry on purpose, or '
+                            'parts recorded in a hall, need no more.')
     receipts_file = render_dir / 'stem_receipts.json'
     for r in files.read_json(receipts_file) if receipts_file.is_file() else []:
         played = r.get('surge') or {}
@@ -479,7 +575,8 @@ def analyze(render_dir, bar_spans=(), reference=None):
                 'side_minus_mid_db': here['side_minus_mid_db'], 'published_genre': genre, 'reference_comparison': comparison, 'stem_levels_lufs_ungated': stems,
                 'lead_tracks': lead_tracks, 'lead_source': 'buses' if buses is not None else 'stems',
                 'lead_presence': lead_presence(lead, accompaniment, regions) if lead is not None and accompaniment is not None else [],
-                'melody_groups': melody, 'warnings': warnings,
+                'melody_groups': melody, 'reverb': mixed['reverb'], 'lead_against_mix': mixed['lead_against_mix'],
+                'warnings': warnings,
                 'master': here['loudness'],
                 'note': 'Measurements only; they do not establish how the music sounds.'}
     release()

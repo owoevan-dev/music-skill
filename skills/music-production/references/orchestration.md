@@ -82,6 +82,29 @@ Shape crescendos with `performance.dynamics` on parts whose preset has dynamic l
 
 If the piece must also carry on small speakers, `mix.range_lu` brings the master's loudness range down to that many LU by lifting the quieter passages, slowly and in proportion, while the loudest keep their level ([performance-and-mix.md](performance-and-mix.md)). EBU R 128 sets no ceiling on loudness range and leaves it to the programme and where it will be heard.
 
+## How near the orchestra is heard
+
+The sends in this guide (−14 dB each with `depth_m`) put the reverb about 16 LU under the dry sound. Taken as a room, that mix has a clarity (C80, the energy within 80 ms of the direct sound over the energy after it) of about +17 dB. A seat in a concert hall has −2 to +2 dB, with a reverberation time of 1.8 to 2.2 s (Barron 2013, his recommended ranges at mid frequencies); recordings sit between, with a direct-to-reverberant ratio from +25 down to −3 dB (Griesinger). So a piece mixed as this guide starts it is heard from among the players, not from the hall: clear, and small.
+
+With `mix.rules: 2`, `mix.c80_db` asks for a clarity and the render moves the hall's return to give it ([schema.md](schema.md#the-mix)). `analyze` reports the mix's `clarity_c80_db` beside the hall's range either way. For the generated hall, measured:
+
+| Heard from | `c80_db` | The hall's return against the dry sound |
+|---|---|---|
+| among the players (this guide's starting sends) | about +17 | −16 LU |
+| the conductor's place, or a close recording | +8 to +5 | −6 to −3 LU |
+| a seat in the hall | +2 to −2 | +1 to +9 LU: the hall as loud as the players, or louder |
+
+No value is the right one. Listeners divide: in one study of nine halls, one group of assessors "preferred concert halls with relatively intimate sound, in which it is quite easy to hear individual instruments and melody lines", the other "a louder and more reverberant sound with good envelopment and strong bass" (Lokki, Pätynen, Kuusinen and Tervo 2012); Barron names three such groups. The seat and the music change the judgement too (the same authors 2016). Choose by the piece and say so in `decisions`:
+
+| The piece, or where it is heard | Lean |
+|---|---|
+| counterpoint, fast figures, a small ensemble, anything whose lines must be followed | nearer: a higher `c80_db` |
+| long notes, broad tuttis, a slow tempo, music that is to sound large | further: a lower one |
+| mostly heard on a phone or a laptop | nearer: reverberant sound is the first thing small speakers lose the detail of |
+| the brief names it (intimate, close, chamber; vast, cathedral, distant) | as it says |
+
+Three limits, so the number is not taken for more than it is. The middle row of the first table has no source for its values: it lies between the two that have. The clarity is worked out from energies, counting the generated hall's own first 80 ms as early sound; a real hall's early sound is mostly strong reflections, which the generated one has few of, so the hall row may sound more washed than a hall does: start from the middle row and move by ear. And the samples keep the distance they were recorded at: the Iowa recordings are anechoic ([soundbanks.md](soundbanks.md)), and what room the other banks carry was not measured. Reverb covers a close recording; it does not undo it.
+
 ## Expression on the sampled orchestra
 
 A recording holds one note at one dynamic, so a sampled orchestra loses three things a real one has: a crescendo that changes the tone, notes joined without a new attack, and players who stand at different distances in one room. The renderer puts them back.
@@ -103,7 +126,7 @@ A recording holds one note at one dynamic, so a sampled orchestra loses three th
 | Trumpets, trombones, tuba | 8–9 |
 | Timpani and percussion | 9–10 |
 
-  With `depth_m` on every part, give all of them one reverb send (−14 dB, a starting value) and let the depth set the rest.
+  With `depth_m` on every part, give all of them one reverb send (−14 dB, a starting value) and let the depth set the rest; how much of the hall is heard in all is then one decision, `mix.c80_db` ([above](#how-near-the-orchestra-is-heard)).
 
 ## Writing for the sampled orchestra
 
@@ -119,6 +142,7 @@ A recording holds one note at one dynamic, so a sampled orchestra loses three th
 ## Sources
 
 - Rimsky-Korsakov, N. (1922). [Principles of Orchestration](https://www.gutenberg.org/ebooks/33900), ed. M. Steinberg, trans. E. Agate. Project Gutenberg #33900, public domain in the USA. Chapters II and III: the relative strength of the groups, the distribution of chords, the natural order of the woodwinds, strings doubling in octaves, combinations of timbres.
+- Barron, M. (2013). Objective assessment of concert hall acoustics using Temporal Energy Analysis. *Applied Acoustics* 74, 936–944; read in the copy at [akutek.info](https://www.akutek.info/Papers/MB_Objective_Assessment_2013.pdf). Table 1, recommended ranges for concert halls, and the groups of listeners.
 - Beranek, L. L. (2004). *Concert Halls and Opera Houses: Music, Acoustics, and Architecture*, 2nd ed. Springer. See also Beranek, L. L. (2008). Concert Hall Acoustics—2008. *Journal of the Audio Engineering Society* 56(7/8), 532–544.
 - EBU (2023). [Tech 3342: Loudness range: A measure to supplement EBU R 128 loudness normalisation](https://tech.ebu.ch/publications/tech3342). First published 2010. See also EBU (2023), R 128: Loudness normalisation and permitted maximum level of audio signals.
 - Fabiani, M. (2009). [A method for the modification of acoustic instrument tone dynamics](https://www.dafx.de/paper-archive/2009/papers/paper_75.pdf). *Proceedings of the 12th International Conference on Digital Audio Effects (DAFx-09)*, Como.
@@ -128,6 +152,8 @@ A recording holds one note at one dynamic, so a sampled orchestra loses three th
 - Zahorik, P. (2002). Assessing auditory distance perception using virtual acoustics. *Journal of the Acoustical Society of America* 111(4), 1832–1846. doi:10.1121/1.1458027
 - Bronkhorst, A. W. and Houtgast, T. (1999). Auditory distance perception in rooms. *Nature* 397, 517–520. doi:10.1038/17374
 - Pätynen, J., Tervo, S. and Lokki, T. (2008). [A loudspeaker orchestra for concert hall studies](https://mediatech.aalto.fi/~ktlokki/Publs/08_J_Patyen.pdf). *Proceedings of the Institute of Acoustics* 30(3), 45–52.
+- Griesinger, D. Phase coherence as a measure of acoustic quality, part two: perceiving engagement; read at [akutek.info](https://www.akutek.info/Papers/DG_Perceiving_Engagement.pdf). The direct-to-reverberant ratios typical of recordings.
+- Lokki, T., Pätynen, J., Kuusinen, A. and Tervo, S. (2012). [Disentangling preference ratings of concert hall acoustics using subjective sensory profiles](https://doi.org/10.1121/1.4756826). *Journal of the Acoustical Society of America* 132(5), 3148–3161; read in the first author's copy. The same authors (2016). [Concert hall acoustics: repertoire, listening position, and individual taste of the listeners influence the qualitative attributes and preferences](https://users.aalto.fi/~ktlokki/Publs/JASMAN_vol_140_iss_1_551_1.pdf). *Journal of the Acoustical Society of America* 140(1), 551.
 - Meyer, J. (2009). *Acoustics and the Performance of Music: Manual for Acousticians, Audio Engineers, Musicians, Architects and Musical Instrument Makers*, 5th ed. Springer. The directivity of the horns and the other instruments.
 - [Orchestra](https://en.wikipedia.org/wiki/Orchestra). Wikipedia, read 7 November 2026: layouts vary; one popular arrangement places firsts, seconds, violas and cellos from left to right.
 - Friberg, A. and Sundberg, J. (1999). Does music performance allude to locomotion? A model of final ritardandi derived from measurements of stopping runners. *Journal of the Acoustical Society of America* 105(3), 1469–1484.

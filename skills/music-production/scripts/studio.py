@@ -52,7 +52,9 @@ def main():
     aud.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
     snd=sub.add_parser('sounds',help='Search the Surge XT catalog: every factory and third-party patch, by role, measured character, name and source, for a shortlist to audition')
     snd.add_argument('--role',help='lead, brass, pad, chords, keys, pluck, bass, sequence, fx or percussion')
-    snd.add_argument('--character',default='',help='comma-separated words the measured character must contain: dark, warm, mid, bright; fast, soft, slow; dry, short, long; mono, narrow, wide')
+    snd.add_argument('--character',default='',help='comma-separated words the measured character must contain: dark, warm, mid, bright; fast, soft, slow; dry, short, long; mono, narrow, wide; steady, moving')
+    snd.add_argument('--centroid',help='a range of the probe note\'s spectral centroid in Hz, LOW-HIGH with either end open: 600-900, 1500-, -400')
+    snd.add_argument('--attack',help='a range of its attack in seconds (the time to half its peak level), LOW-HIGH with either end open: 0.1-0.3, -0.03')
     snd.add_argument('--name',help='text in the patch name or category');snd.add_argument('--source',help='"factory" or a designer')
     snd.add_argument('--limit',type=int,default=25);snd.add_argument('--all',action='store_true',help='also patches flagged silent, MPE, microtonal or off pitch')
     snd.add_argument('--id',help='one catalog patch in full: its measurement and what its mod wheel and macros move')
@@ -192,7 +194,17 @@ def main():
         print(json.dumps(shared,ensure_ascii=True) if args.json else summary.compare(r,out));return
     if args.command=='sounds':
         from musiclib.sounds import describe,search
-        print(json.dumps(describe(args.id) if args.id else search(args.role,[w for w in args.character.split(',') if w.strip()],args.name,args.source,args.limit,args.all,args.seed),ensure_ascii=True,indent=1));return
+        def span(text,what):
+            if text is None:return None
+            lo,sep,hi=text.partition('-')
+            try:
+                if not sep or (not lo and not hi):raise ValueError
+                got=(float(lo) if lo else None,float(hi) if hi else None)
+            except ValueError:
+                raise ValueError(f'{what} is a range LOW-HIGH with either end open (600-900, 1500-, -400), not {text!r}') from None
+            if got[0] is not None and got[1] is not None and got[0]>got[1]:raise ValueError(f'{what}: the lowest is over the highest in {text!r}')
+            return got
+        print(json.dumps(describe(args.id) if args.id else search(args.role,[w for w in args.character.split(',') if w.strip()],args.name,args.source,args.limit,args.all,args.seed,span(args.centroid,'--centroid'),span(args.attack,'--attack')),ensure_ascii=True,indent=1));return
     p=load_project(args.project)
     if args.command=='validate':print(json.dumps(validate(p)));return
     if args.command=='profile':

@@ -165,7 +165,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 | 合成器 | 內建的合成器與鼓機；Surge XT 和它的 3,008 個原廠與第三方音色（其中五十個精選），選用、預設安裝 | 內建：MIT；Surge XT：GPL-3.0，由獨立的 GPL 程式執行 |
 | 其他樂器 | MuseScore MS Basic | MIT |
 
-錄音音色庫都是 CC0、可自由用於任何用途而沒有限制（愛荷華大學的錄音），或已捐贈給公有領域（鋼鼓），用它們做的音樂不需要署名。Surge XT 採用 GPL-3.0，只在本專案一個獨立的 GPL 程式（`surge_host.py`）裡執行；GPL 規範的是程式本身，不是它們演奏出來的音樂。MS Basic 是其他聲部退而使用的 General MIDI 音色庫，採用 MIT，它的聲明要求在任何衍生作品中保留致謝。我們的解讀是這指音色庫本身的複製和改作，而不是用它演奏的音樂，但這只是我們的解讀：如果你發表的作品有聲部用到 MS Basic，保險起見請署名（範例曲都沒有用到）。來源列在 [THIRD_PARTY.md](THIRD_PARTY.md)。
+錄音音色庫都是 CC0、可自由用於任何用途而沒有限制（愛荷華大學的錄音），或已捐贈給公有領域（鋼鼓），用它們做的音樂不需要署名。Surge XT 採用 GPL-3.0，只在本專案一個獨立的 GPL 程式（`surge_host.py`）裡執行；GPL 規範的是程式本身，不是它們演奏出來的音樂。MS Basic 是其他聲部退而使用的 General MIDI 音色庫，採用 MIT：它的聲明隨音色庫本身的複製和改作保留，用它演奏的音樂同樣不需要署名。來源和我們對各項授權的解讀列在 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
 ## 效果如何
 
@@ -175,7 +175,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 ## 常見問題
 
-**做出來的音樂可以用在影片、遊戲或商業作品嗎？** 工具本身沒有任何限制。選用音色庫都是 CC0 或可自由使用，不需要署名（MS Basic 見上文）；GPL 授權的程式（FFmpeg、Surge XT）規範的是程式本身，不是經過它們處理的音樂。至於你對 agent 幫你寫的音樂是否享有著作權，取決於你所在地的法律，以及你參與塑造了多少。
+**做出來的音樂可以用在影片、遊戲或商業作品嗎？** 工具本身沒有任何限制。音色庫都不需要署名：選用音色庫是 CC0 或可自由使用，MS Basic 的 MIT 授權對用它演奏的音樂沒有任何要求。GPL 授權的程式（FFmpeg、Surge XT）規範的是程式本身，不是經過它們處理的音樂。至於你對 agent 幫你寫的音樂是否享有著作權，取決於你所在地的法律，以及你參與塑造了多少。
 
 **哪些 agent 可以用？** 任何能載入 Agent Skills 並執行 Python 的 agent：Claude Code（以外掛安裝）、Codex，以及透過 `npx skills` 安裝的其他 agent。
 

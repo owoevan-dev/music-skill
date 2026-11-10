@@ -165,7 +165,7 @@ Ask your agent in plain words:
 | Synthesizers | Built-in synthesizers and drum machines; Surge XT with its 3,008 factory and third-party patches, fifty of them curated, optional and installed by default | built in: MIT; Surge XT: GPL-3.0, run by a separate GPL program |
 | Everything else | MuseScore MS Basic | MIT |
 
-Every recorded bank is CC0, free for any use without restrictions (the Iowa recordings) or dedicated to the public domain (the steel pan), so what you make with them needs no credit. Surge XT is GPL-3.0 and runs only inside a separate GPL program of this project (`surge_host.py`); the GPL covers the programs, not the music they play. MS Basic, the General MIDI bank that other parts fall back to, is MIT, and its notice asks for its acknowledgements in any derivative work. We read that as copies and adaptations of the bank, not music played on it, but that is our reading: if a piece you publish has parts on MS Basic, credit it to be safe (the examples have none). [THIRD_PARTY.md](THIRD_PARTY.md) lists the sources.
+Every recorded bank is CC0, free for any use without restrictions (the Iowa recordings) or dedicated to the public domain (the steel pan), so what you make with them needs no credit. Surge XT is GPL-3.0 and runs only inside a separate GPL program of this project (`surge_host.py`); the GPL covers the programs, not the music they play. MS Basic, the General MIDI bank that other parts fall back to, is MIT: its notices go with copies and adaptations of the bank, and music played on it needs no credit either. [THIRD_PARTY.md](THIRD_PARTY.md) lists the sources and how we read each licence.
 
 ## How well it works
 
@@ -175,7 +175,7 @@ Whether the music is good is another matter, and only listening can tell. The pi
 
 ## Questions
 
-**Can I use the music in a video, a game or a commercial release?** Nothing in the toolchain stands in the way. The optional sound banks are CC0 or free for any use and need no credit (for MS Basic, see above), and the GPL programs (FFmpeg, Surge XT) cover the programs, not the music that passes through them. Whether you hold a copyright in music an agent wrote for you depends on your country's law and on how much of it you shaped.
+**Can I use the music in a video, a game or a commercial release?** Nothing in the toolchain stands in the way. No sound bank asks for a credit: the optional ones are CC0 or free for any use, and MS Basic's MIT licence asks nothing of music played on it. The GPL programs (FFmpeg, Surge XT) cover the programs, not the music that passes through them. Whether you hold a copyright in music an agent wrote for you depends on your country's law and on how much of it you shaped.
 
 **Which agents can use it?** Any agent that loads Agent Skills and can run Python: Claude Code as a plugin, Codex, and others through `npx skills`.
 

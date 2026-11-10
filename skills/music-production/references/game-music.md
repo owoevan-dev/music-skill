@@ -121,7 +121,7 @@ A render with `loop` writes these files next to the master:
 In the reply, give:
 - the loop points in seconds and samples;
 - which file suits which engine;
-- whether anyone has listened across the seam. If nobody has, say so plainly.
+- what the checks above found at the seam; a check is not listening across it.
 
 ## Sources
 

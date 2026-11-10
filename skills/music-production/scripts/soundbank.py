@@ -1158,9 +1158,12 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
         # their manifest with files.read_json, stopped every such build; found by GPT Pro's fourth review of 0.4.0.)
         def take_of(mic):
             name = f.name.replace(*mic['name']) if mic.get('name') else f.name
-            if '/' in name or '\\' in name or name in ('.', '..'):
+            there = under(mic['dir'], 'microphone dir')
+            # One name in that folder: a separator, "..", or on Windows a drive ("D:take.wav", which a path joined to
+            # it starts from) names another place (the re-review of GPT's security audit, N4).
+            if '/' in name or '\\' in name or name in ('.', '..') or (there / name).parent != there or (there / name).name != name:
                 raise ValueError(f'{name!r}: a microphone\'s `name` changes a take\'s file name, not its folder')
-            return under(mic['dir'], 'microphone dir') / name
+            return there / name
         takes = [f] + [take_of(mic) for mic in (mics or [])[1:]]
         for other in takes[1:]:
             if not other.is_file():

@@ -459,6 +459,9 @@ def main():
                     help='after every requested bank is verified, delete the downloads they were made from')
     args = ap.parse_args()
     files.check_config_path(args.output, '--output')
+    # The downloads' folder given as a link is refused before it is resolved, as a render's cache is (N1).
+    if args.archive_cache and files.linked(args.archive_cache):
+        raise ValueError(f'--archive-cache {args.archive_cache} is a link; give the folder itself')
     lock = json.loads((SKILL / 'references' / 'soundbank-lock.json').read_text(encoding='utf-8'))
     only = requested(lock, args.only)
     prebuilt = {} if args.from_source else lock.get('prebuilt', {}).get('assets', {})
@@ -473,7 +476,9 @@ def main():
     runtime.mkdir(parents=True, exist_ok=True)
     # One setup at a time in a runtime, and none through a link in it (musiclib.files; GPT's security audit of 0.5,
     # S05 and S03).
-    with files.installing(runtime):
+    with files.installing(runtime) as held:
+        if not held:  # the setup goes on without the lock, as a render does on a drive that cannot lock, and says so (N2)
+            print('NOTE runtime | its lock cannot be taken (the drive cannot lock files, or work.lock there is no lock file): make sure no other setup is installing into it', flush=True)
         files.real_runtime(runtime)
         _install(args, lock, only, prebuilt, config, runtime)
 

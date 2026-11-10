@@ -37,7 +37,7 @@ So:
 - the record names a choice that is the style's most common form, as Anderson et al. (2024) suggest that users told
   what a tool tends to suggest might resist it.
 
-Nothing here has been heard: whether a block suits a piece is a listening question.
+Whether a block suits a piece is a listening question.
 """
 import hashlib
 import json
@@ -574,7 +574,7 @@ def drums(bars, meter, *, seed=None, feel=None, backbeat=None, kick=None, pulse=
         'grooves': len(grooves), 'typical': sorted(typical), 'kick_steps': kick_steps,
         'backbeat_steps': first['snare'], 'kick_syncopation': round(syncopation(kick_steps, weights), 3),
         'source': 'Groove MIDI Dataset (Gillick et al. 2019), Google LLC, CC BY 4.0: aggregate statistics',
-        'note': 'A starting point: change what the brief asks for. Nothing here has been heard.'}}
+        'note': 'A starting point: change what the brief asks for.'}}
 
 
 # --- candidates ------------------------------------------------------------------------------------------------------
@@ -898,7 +898,7 @@ def bass(chords, meter, *, seed=None, figure=None, complexity=None, intensity=No
                           'velocity': int(np.clip(v, 1, 127))})
     return {'notes': _unique(notes), 'record': {
         'block': 'bass', 'seed': seed, 'figure': figure, 'chords': len(changes), 'push': push, 'fills': fills,
-        'note': 'A starting point: change what the brief asks for. Nothing here has been heard.'}}
+        'note': 'A starting point: change what the brief asks for.'}}
 
 
 # --- accompaniment ---------------------------------------------------------------------------------------------------
@@ -1094,7 +1094,7 @@ def accompaniment(chords, meter, *, seed=None, figure=None, complexity=None, int
     return {'notes': _unique(notes), 'record': {
         'block': 'accompaniment', 'seed': seed, 'figure': figure, 'chords': len(changes), 'voicings': voicings,
         'push': push, 'answer': answer,
-        'note': 'A starting point: change what the brief asks for. Nothing here has been heard.'}}
+        'note': 'A starting point: change what the brief asks for.'}}
 
 
 def slides(notes, share, seed, overlap=.125):

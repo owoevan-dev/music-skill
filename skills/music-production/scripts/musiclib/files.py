@@ -62,8 +62,10 @@ def one_line(text):
     line and paragraph separators too): text a summary takes from a project, a record or a file's name stays on the line
     that prints it, where it cannot pass for a line of the tool's own or drive a terminal (CWE-150, Improper
     Neutralization of Escape, Meta, or Control Sequences; a title's line break began a line of review's summary: GPT's
-    security audit of 0.5, L05)."""
-    return ''.join(c.encode('unicode_escape').decode('ascii') if unicodedata.category(c) in ('Cc', 'Zl', 'Zp') else c for c in text)
+    security audit of 0.5, L05).  A tab stays a tab: it ends no line, and text copied from a table holds them (the
+    audit's re-review, N3)."""
+    return ''.join(c.encode('unicode_escape').decode('ascii') if c != '\t' and unicodedata.category(c) in ('Cc', 'Zl', 'Zp') else c
+                   for c in text)
 
 
 def joined(rows):
@@ -587,6 +589,18 @@ def working(folder):
     finally:
         if fd is not None:
             release(folder, fd)
+
+
+def cache_file(cache, *parts):
+    """The path of a file a setup keeps under its download cache (`cache`, as the setup resolved it), its folder made:
+    refused when a folder on the way down from `cache` is a link.  The patches' folders were made, and the downloads
+    written, wherever a link inside a cache from elsewhere led, before any check of the install's own (the re-review
+    of GPT's security audit of 0.5, N1).  Folders above the cache are the user's own path and may be links."""
+    cache = Path(cache)
+    dest = cache.joinpath(*parts)
+    no_links(dest.parent, below=cache)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    return dest
 
 
 def real_runtime(runtime):

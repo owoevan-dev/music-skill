@@ -259,7 +259,7 @@ def _install_surge(lock,runtime,cache,args,system,config):
     src=presets['source'];patches=runtime/'surge_patches';staging=files.staging_folder(patches)
     try:
         for name,p in presets['presets'].items():
-            local=cache/'surge_patches'/p['patch'];local.parent.mkdir(parents=True,exist_ok=True)
+            local=files.cache_file(cache,'surge_patches',*PurePosixPath(p['patch']).parts)
             url=f'https://raw.githubusercontent.com/surge-synthesizer/surge/{src["commit"]}/{src["path"]}/'+urllib.parse.quote(p['patch'])
             download({'url':url,'bytes':p['bytes'],'sha256':p['sha256']},local,args.offline)
             if local.stat().st_size!=p['bytes'] or file_hash(local)!=p['sha256']:raise ValueError('Patch integrity failed: '+name)
@@ -278,7 +278,7 @@ def install_catalog(runtime,cache,args,config):
     doc=json.loads((Path(__file__).resolve().parents[1]/'references'/'surge-catalog.json').read_text(encoding='utf-8'))
     origin=doc['origin'];target=runtime/'surge_patches_all';staging=files.staging_folder(target)
     def one(e):
-        local=cache/'surge_patches_all'/e['path'];local.parent.mkdir(parents=True,exist_ok=True)
+        local=files.cache_file(cache,'surge_patches_all',*PurePosixPath(e['path']).parts)
         url=f'https://raw.githubusercontent.com/surge-synthesizer/surge/{origin["commit"]}/{origin["path"]}/'+urllib.parse.quote(e['path'])
         download({'url':url,'bytes':e['bytes'],'sha256':e['sha256']},local,args.offline)  # tried again there
         if local.stat().st_size!=e['bytes'] or file_hash(local)!=e['sha256']:raise ValueError('Patch integrity failed: '+e['path'])
@@ -303,12 +303,16 @@ def main():
     args=ap.parse_args()
     system=args.system or os.name!='nt'
     files.check_config_path(args.config,'--config')
+    # The downloads' folder given as a link is refused before it is resolved, as a render's cache is (N1).
+    if args.archive_cache and files.linked(args.archive_cache):raise ValueError(f'--archive-cache {args.archive_cache} is a link; give the folder itself')
     if os.path.normcase(str(args.config.resolve()))==os.path.normcase(str((args.runtime/'dependency_receipts.json').resolve())):
         raise ValueError("--config names the runtime folder's dependency_receipts.json; choose another path for the configuration")
     runtime=args.runtime.resolve();runtime.mkdir(parents=True,exist_ok=True)
     # One setup at a time in a runtime, and none through a link in it (musiclib.files; GPT's security audit of 0.5,
     # S05 and S03).
-    with files.installing(runtime):
+    with files.installing(runtime) as held:
+        # Without the lock the setup goes on, as a render does on a drive that cannot lock, and says so (N2).
+        if not held:print('NOTE runtime | its lock cannot be taken (the drive cannot lock files, or work.lock there is no lock file): make sure no other setup is installing into it',flush=True)
         files.real_runtime(runtime);_install(args,system,runtime)
 
 def _install(args,system,runtime):

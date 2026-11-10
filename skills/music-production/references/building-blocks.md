@@ -2,7 +2,7 @@
 
 Read this when a part needs a groove, a bass line or a comping figure that the piece's own decisions can describe.
 `musiclib.blocks` writes the notes as a starting point, and the composition script puts them in the part and edits
-them. Nothing a block writes has been heard. Whether it suits the piece is a listening question, as for every note.
+them. Whether a block suits the piece is a listening question, as for every note.
 
 Contents: [Settings, not defaults](#settings-not-defaults) · [Drums](#drums) · [The drummers' feels](#the-drummers-feels) ·
 [Candidates](#candidates) · [Bass](#bass) · [Accompaniment](#accompaniment) · [Into a part](#into-a-part) ·

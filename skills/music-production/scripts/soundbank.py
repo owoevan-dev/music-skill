@@ -33,7 +33,7 @@ import tempfile
 from pathlib import Path, PurePosixPath
 import numpy as np
 from musiclib import files, sf2, wavfile
-from musiclib.model import file_hash, save_json
+from musiclib.model import RESERVED, file_hash, save_json
 
 PCS = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
 
@@ -103,7 +103,10 @@ def _ext80(b):
     """An IEEE 754 80-bit extended float (AIFF's sample rate)."""
     exponent = int.from_bytes(b[:2], 'big') & 0x7FFF
     mantissa = int.from_bytes(b[2:10], 'big')
-    return mantissa * 2.0 ** (exponent - 16383 - 63) if exponent else 0.0
+    try:
+        return mantissa * 2.0 ** (exponent - 16383 - 63) if exponent else 0.0
+    except OverflowError:  # an exponent no double holds (the format's infinity among them): no rate a recording has
+        return float('inf')
 
 def read_aiff(path):
     """Uncompressed AIFF or AIFC (big-endian PCM, or 'sowt' little-endian) as float frames, with read_audio's info."""
@@ -123,8 +126,12 @@ def read_aiff(path):
     channels, frames, bits = int.from_bytes(comm[:2], 'big'), int.from_bytes(comm[2:6], 'big'), int.from_bytes(comm[6:8], 'big')
     rate = _ext80(comm[8:18])
     kind = comm[18:22] if data[8:12] == b'AIFC' else b'NONE'
-    if kind not in (b'NONE', b'twos', b'sowt') or bits not in (8, 16, 24, 32) or not 1 <= channels <= 8 or rate <= 0:
-        raise ValueError(f'{Path(path).name}: unsupported AIFF ({kind!r}, {bits} bits)')
+    # The rate within the range a WAV's is held to (wavfile.info: 8 to 192 kHz).  The header's number sized working
+    # arrays whatever it claimed: a build's ring measure makes one of a twentieth of a second, and a rate of a million
+    # million asked for 400 GB (GPT's security audit of 0.5, S06).
+    if (kind not in (b'NONE', b'twos', b'sowt') or bits not in (8, 16, 24, 32) or not 1 <= channels <= 8
+            or not 8000 <= rate <= 192000):
+        raise ValueError(f'{Path(path).name}: unsupported AIFF ({kind!r}, {bits} bits, {rate:g} Hz)')
     offset = int.from_bytes(ssnd[:4], 'big')
     width = bits // 8
     raw = ssnd[8 + offset:8 + offset + frames * channels * width]
@@ -420,6 +427,21 @@ def contained(root, rel, what):
         raise ValueError(f'{what} {rel!r} leads out of its folder')
     return path
 
+# The characters a label that becomes part of a file's name may hold: POSIX's portable filename character set, which
+# leaves out every character a system reads as a folder, a drive or a stream, and no hyphen first (IEEE Std 1003.1,
+# Base Definitions 3.282 "Portable Filename Character Set" and 4.8 "File Portability").
+LABEL = re.compile(r'[A-Za-z0-9._][A-Za-z0-9._-]{0,63}')
+
+def label(text, what):
+    """`text` as a label a note file is named by (a split group's name, a dynamic, an `out` name): one name of
+    portable characters, not "." or "..", nor a name Windows keeps for a device.  A label holding a path separator
+    or ".." named the note's file outside the output folder, over a file that was there (GPT's security audit of
+    0.5, S02)."""
+    if (not isinstance(text, str) or not LABEL.fullmatch(text) or text.strip('.') == '' or text.endswith('.')
+            or text.split('.')[0].lower() in RESERVED):
+        raise ValueError(f'{what} {text!r}: a name of letters, digits, "_", "." and "-" (at most 64, no path)')
+    return text
+
 def _cut_note(x, start, end, fade, rate, path):
     """Write samples start..end of `x` as a float WAV, the last `fade` samples faded out; returns the file's SHA-256."""
     y = np.array(x[start:end], dtype=np.float32)
@@ -516,12 +538,16 @@ def split_sources(split, src_root, out_root):
     src_root, out_root = Path(src_root), Path(out_root)
     manifest = {'groups': [], 'notes': [], 'sources': []}
     for group in split['groups']:
+        label(group.get('name'), 'group name')
         opts = {k: group[k] for k in ('quiet_db', 'edge_db', 'min_note', 'partial') if k in group}
         fmin, fmax = group.get('fmin', 25.0), group.get('fmax', 4200.0)
         tolerance = group.get('tolerance_cents', 80)
         candidates = {}
         for entry in group['files']:
             path = contained(src_root, entry['file'], 'source')
+            label(entry.get('dyn'), f'{entry["file"]}: dyn')
+            if entry.get('out'):
+                label(entry['out'], f'{entry["file"]}: out')
             x, info = read_audio(path)
             rate = info['rate']
             x = np.asarray(x, dtype=np.float32)
@@ -604,7 +630,13 @@ def split_sources(split, src_root, out_root):
                 pick = cands[0]
             fade = 0 if pick['entry'].get('whole') else min((pick['end'] - pick['start']) // 4, int(.02 * pick['rate']))
             name = f'{group["name"]}_{dyn}_{which if isinstance(which, str) else note_name(which)}.wav'
-            digest = _cut_note(pick['x'], pick['start'], pick['end'], fade, pick['rate'], folder / name)
+            # The whole path is checked, as cut_sources checks a manifest's, and a name another note took is refused:
+            # the output is new, so a file there is this run's own (two groups of one name, or of names that differ
+            # by case on a drive that does not tell them apart), never written over.
+            dest = contained(out_root, f'{group["name"]}/{name}', 'note file')
+            if files.occupied(dest):
+                raise ValueError(f'{group["name"]}/{name}: two notes would take this name')
+            digest = _cut_note(pick['x'], pick['start'], pick['end'], fade, pick['rate'], dest)
             written += 1
             n = pick['note']
             manifest['notes'].append({'file': f'{group["name"]}/{name}', 'source': pick['entry']['file'],
@@ -1091,7 +1123,10 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
     # pedal note that defeats a short YIN excerpt is still tuned.
     split_cents = _split_pitches(root) if layer.get('pitch_source') == 'split' else None
     mics = layer.get('mics')
-    folder = root / (mics[0]['dir'] if mics else layer['dir'])
+    # A layer's folders are under the root ("." is the root itself): a spec from elsewhere named recordings anywhere,
+    # which the build then put in the bank (GPT's security audit of 0.5, L01).
+    under = lambda rel, what: Path(root) if rel == '.' else contained(root, rel, what)
+    folder = under(mics[0]['dir'] if mics else layer['dir'], 'layer dir')
     entries = []
     for f in audio_files(folder):
         m = rx.fullmatch(f.name)
@@ -1121,7 +1156,12 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
         # microphone's own tag (`name`: [text in the first microphone's file name, text in this one's]).
         # (Named takes, not files: a local `files` hid the module, and the denoise of notes cut by split, which reads
         # their manifest with files.read_json, stopped every such build; found by GPT Pro's fourth review of 0.4.0.)
-        takes = [f] + [root / mic['dir'] / (f.name.replace(*mic['name']) if mic.get('name') else f.name) for mic in (mics or [])[1:]]
+        def take_of(mic):
+            name = f.name.replace(*mic['name']) if mic.get('name') else f.name
+            if '/' in name or '\\' in name or name in ('.', '..'):
+                raise ValueError(f'{name!r}: a microphone\'s `name` changes a take\'s file name, not its folder')
+            return under(mic['dir'], 'microphone dir') / name
+        takes = [f] + [take_of(mic) for mic in (mics or [])[1:]]
         for other in takes[1:]:
             if not other.is_file():
                 raise ValueError(f'{other.relative_to(root)}: no take for this microphone')

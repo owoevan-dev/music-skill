@@ -75,6 +75,12 @@ def _verify(key,entry,p):
     if not p.is_file():raise ValueError(f'Missing dependency: {key}: {p}.'+again)
     if not entry.get('sha256') or file_hash(p)!=entry['sha256']:raise ValueError(f'Dependency hash mismatch: {key}: {p} changed since the configuration was written.'+again)
 
+def verify_tool(config,key):
+    """The executable a configuration names under `key` is the file its hash names, as load_config holds every one a
+    render runs: for a command that runs one tool only and reads the configuration itself (fetch_soundbanks.py, whose
+    builds ran the configured FFmpeg unverified; GPT's security audit of 0.5, S01)."""
+    _verify(key,config[key],Path(config[key]['path']))
+
 def load_config(path,all_banks=False):
     """Verify the configured executables and the default SoundFont by path and SHA-256. `soundfont` is the default
     bank; optional `soundfonts` adds named banks that tracks select with `soundfont`.  A named bank is found at load and
@@ -290,11 +296,16 @@ def read_wav(path):
             else:f.seek(size,1)
             if size%2:f.seek(1,1)
     if fmt is None or payload is None:raise ValueError('Missing WAV format/data')
+    # A format chunk holds 16 bytes at least, and a frame is its channels times its sample's bytes (the WAVE format's
+    # nBlockAlign, as wavfile.info holds it): a shorter chunk stopped the reader with struct.error, a frame size of 0
+    # with ZeroDivisionError, and another frame size than the samples have made the length limit below count other
+    # frames than the ones then read (GPT's security audit of 0.5, L04).
+    if len(fmt)<16:raise ValueError('Short WAV format chunk')
     tag,channels,rate,_,align,bits=struct.unpack_from('<HHIIHH',fmt)
     if tag==65534:
         if len(fmt)<40:raise ValueError('Short extensible WAV')
         tag=struct.unpack_from('<H',fmt,24)[0]
-    if channels not in (1,2) or rate!=RATE or payload[1]%align:raise ValueError('Unsupported WAV dimensions')
+    if channels not in (1,2) or rate!=RATE or not align or align!=channels*bits//8 or payload[1]%align:raise ValueError('Unsupported WAV dimensions')
     offset,size=payload
     if size//align>MAX_WAV_SECONDS*RATE:
         # Nothing the tools write is longer than a render, so a longer file (a reference, a render folder from

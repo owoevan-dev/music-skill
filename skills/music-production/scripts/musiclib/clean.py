@@ -289,6 +289,11 @@ def _remove_entry(entry, report, rel):
     holds open, once it is released, so a render that has opened it since keeps it.  Removing the name on POSIX after
     the release could take away a new lock a render had just made there."""
     from .render import entry_lock
+    if linked(entry / 'entry.lock'):
+        # Never opened, so never followed, and never removed: the entry stays whole (GPT's security audit of 0.5, S04:
+        # the lock was opened through the link, and on POSIX the link then removed with the entry).
+        report['not_removed'].append({'kind': 'cache entry', 'path': rel(entry), 'error': 'its entry.lock is a link'})
+        return False
     with entry_lock(entry, wait=False, create=False) as free:
         if not free:
             report['not_removed'].append({'kind': 'cache entry', 'path': rel(entry), 'error': 'a render is using it'})
@@ -552,4 +557,4 @@ def describe(report):
                      'folders inside it that stay; its records stay with them.')
     if report['dry_run'] and report['listed']:
         lines.append('Nothing was removed: check the list, then run the same command with --remove.')
-    return '\n'.join(lines)
+    return files.joined(lines)

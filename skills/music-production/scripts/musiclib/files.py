@@ -33,6 +33,7 @@ import sys
 import tempfile
 import threading
 import time
+import unicodedata
 from pathlib import Path
 
 NAME_SURROGATE = 0x20000000
@@ -54,6 +55,20 @@ LOCKS = (WORK_LOCK, 'entry.lock')  # a work lock's file, and a cache entry's (re
 # In a render's folder, the parts it made itself where the shared cache could not be locked (render.entry_lock): the
 # render's own files, under its work lock, record and journal, and no cache to clean (clean.clean).
 UNLOCKED_CACHE = 'unlocked_cache'
+
+
+def one_line(text):
+    """`text` with each control character written as its escape (a line break as \\n, ESC as \\x1b; the Unicode
+    line and paragraph separators too): text a summary takes from a project, a record or a file's name stays on the line
+    that prints it, where it cannot pass for a line of the tool's own or drive a terminal (CWE-150, Improper
+    Neutralization of Escape, Meta, or Control Sequences; a title's line break began a line of review's summary: GPT's
+    security audit of 0.5, L05)."""
+    return ''.join(c.encode('unicode_escape').decode('ascii') if unicodedata.category(c) in ('Cc', 'Zl', 'Zp') else c for c in text)
+
+
+def joined(rows):
+    """The rows of a summary, one line each (one_line)."""
+    return '\n'.join(one_line(row) for row in rows)
 
 
 def escape_unprintable():
@@ -574,6 +589,35 @@ def working(folder):
             release(folder, fd)
 
 
+def real_runtime(runtime):
+    """Refuse a runtime folder (given resolved) that holds a link directly in it: a setup makes its folders there by
+    name (the downloads, the tools, pylib, the sources and builds), and one that was a link took the downloads and the
+    installed files wherever it led; resolving a folder before the check hid the link from it (GPT's security audit
+    of 0.5, S03).  Deeper, an install places each file only through real folders (place)."""
+    runtime = Path(runtime)
+    odd = sorted(p for p in runtime.iterdir() if linked(p)) if real_folder(runtime) else []
+    if odd:
+        raise ValueError(f'{odd[0]} is a link; a setup installs only into real folders of its runtime (--archive-cache '
+                         'names another place for the downloads)')
+
+
+@contextlib.contextmanager
+def installing(folder):
+    """Hold a runtime folder while a setup installs into it (bootstrap.py, fetch_soundbanks.py), by the lock a render
+    holds on its folder (take): a second setup started meanwhile is refused at once.  Two at once each read the folder's
+    record before the other wrote it, and each set aside what it found at a name (GPT's security audit of 0.5, S05).
+    Where the drive cannot lock files the setup goes on without the lock."""
+    state, fd = take(folder)
+    if state == 'busy':
+        raise ValueError(f'{folder} is in use: another setup (bootstrap.py or fetch_soundbanks.py) is installing into '
+                         'it; run this one when that has finished')
+    try:
+        yield state == 'held'
+    finally:
+        if fd is not None:
+            release(folder, fd)
+
+
 def fresh(path, what='outputs never overwrite, so choose a new path'):
     """Refuse a path that is taken (Path.exists follows links, so a dangling link would pass it)."""
     if occupied(path):
@@ -921,9 +965,43 @@ def aside(path):
     for k in range(1000):
         other = path.with_name(f'{path.name}.replaced-{stamp}' + (f'-{k}' if k else ''))
         if not occupied(other):
-            _swap(path, other)  # not noted as the tools': it is what they set aside
+            try:
+                _move_new(path, other)  # not noted as the tools': it is what they set aside
+            except FileExistsError:
+                continue  # another setup took the name since the look: the next name
             return other
     raise ValueError(f'No free name to set {path} aside')
+
+
+def _move_new(src, dst):
+    """Rename `src` (a file, a folder or a link) to `dst`, which nothing may hold: FileExistsError where something has
+    taken the name since it was seen free.  os.replace put `src` in its place: of two setups setting a file aside in the
+    same second, the second moved the first's new file over the user's, the only copy (GPT's security audit of 0.5,
+    S05).  Windows' rename refuses an existing name.  POSIX's replaces one, so the name is reserved first, made
+    exclusively (a folder for a folder, mkdir(2); an empty file otherwise, open(2) with O_EXCL), and rename(2) then
+    puts `src` in the reservation's place; should that fail, the reservation goes while it is still this one, empty."""
+    if os.name == 'nt':
+        for attempt in range(5):
+            try:
+                return os.rename(src, dst)
+            except PermissionError:  # a virus scanner holding the file (replace()); FileExistsError is not one
+                if attempt == 4:
+                    raise
+                time.sleep(.25)
+    folder = stat.S_ISDIR(os.lstat(src).st_mode)
+    if folder:
+        os.mkdir(dst, 0o700)
+    else:
+        os.close(os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))
+    mine = os.lstat(dst)
+    try:
+        os.rename(src, dst)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            now = os.lstat(dst)
+            if (now.st_dev, now.st_ino) == (mine.st_dev, mine.st_ino):
+                (os.rmdir if folder else os.unlink)(dst)
+        raise
 
 
 def same_bytes(a, b):

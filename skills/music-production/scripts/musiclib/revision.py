@@ -22,9 +22,15 @@ KIND = 'music-production round'  # in round.json: what made the folder (clean re
 
 
 def render_folder(path):
-    """A render folder, or the render inside a round's folder."""
+    """A render folder, or the render inside a round's folder.  Neither may be a link: the commands that take one
+    hold its work lock and write their report into it, and through a link both went wherever it led, as a round from
+    elsewhere whose render/ is a link to another folder (GPT's security audit of 0.5, S03)."""
     path = Path(path)
-    return path / 'render' if (path / 'round.json').is_file() else path
+    inner = path / 'render' if (path / 'round.json').is_file() else path
+    for p in dict.fromkeys((path, inner)):
+        if files.linked(p):
+            raise ValueError(f'{p} is a link; give the folder itself (a render folder is never read or written through a link)')
+    return inner
 
 
 def revision_round(project_file, output, config_file, previous=None, cache=None, spans=(), reference=None, jobs=None,

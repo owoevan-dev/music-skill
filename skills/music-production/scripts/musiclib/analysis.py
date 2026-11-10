@@ -390,6 +390,15 @@ def analyze(render_dir, bar_spans=(), reference=None):
     report_file = render_dir / 'report.json'
     report = files.read_json(report_file) if report_file.is_file() else {}
     buses = (report.get('buses') or {}).get('assignment') if report.get('chain') == 'bus' else None
+    if buses is not None:
+        # The report is the render folder's own word, and a folder from elsewhere may say anything: each bus named
+        # becomes a file's name below (returns/bus_<name>.wav), and a name holding a path was read from wherever it
+        # led (GPT's security audit of 0.5, L01).  A render assigns each of its parts to one of the mix's buses.
+        from .model import BUSES
+        parts = {t['id'] for t in p['tracks']}
+        if not isinstance(buses, dict) or any(k not in parts or not isinstance(b, str) or b not in BUSES for k, b in buses.items()):
+            raise ValueError(f'{report_file}: its buses assign a part the project does not have, or to a bus that is none of '
+                             f'{", ".join(BUSES)}; this is not a report the render wrote')
     stems, lead, accompaniment = {}, None, None
     for t in p['tracks']:
         y, _ = audio.read_wav(render_dir / 'stems' / f'{t["id"]}.wav')

@@ -463,11 +463,23 @@ def main():
     only = requested(lock, args.only)
     prebuilt = {} if args.from_source else lock.get('prebuilt', {}).get('assets', {})
     # The configuration is read before anything is made, so one refused leaves no folder behind.
-    from musiclib.audio import absolute_paths, config_shape
+    from musiclib.audio import absolute_paths, config_shape, verify_tool
     config = config_shape(files.read_json(args.config), args.config, needs=('ffmpeg',))
     config = absolute_paths(config, args.config.resolve().parent, args.config)
+    # The FFmpeg the builds run is the file the configuration's hash names, as a render holds it (audio.load_config):
+    # it was run as found, whatever the hash beside it said (GPT's security audit of 0.5, S01).
+    verify_tool(config, 'ffmpeg')
     runtime = args.runtime.resolve()
-    cache = (args.archive_cache or runtime / 'archives').resolve()
+    runtime.mkdir(parents=True, exist_ok=True)
+    # One setup at a time in a runtime, and none through a link in it (musiclib.files; GPT's security audit of 0.5,
+    # S05 and S03).
+    with files.installing(runtime):
+        files.real_runtime(runtime)
+        _install(args, lock, only, prebuilt, config, runtime)
+
+
+def _install(args, lock, only, prebuilt, config, runtime):
+    cache = args.archive_cache.resolve() if args.archive_cache else runtime / 'archives'
     cache.mkdir(parents=True, exist_ok=True)
     fonts = config.setdefault('soundfonts', {})
     failed = {}

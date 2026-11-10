@@ -87,7 +87,8 @@ the sections, the authored decisions and the questions as a page.
 
 How to read these is in [measuring.md](measuring.md). At its peak `analyze` holds about ten float64 copies of the
 song (9.7 measured on songs of one to four minutes with 14 parts): about 0.46 GB a minute of music. `analyze` and
-`compare` read a render folder's own files only and refuse one holding links; no WAV longer than 31 minutes, the
+`compare` read a render folder's own files only and refuse one holding links, or one that is itself a link (the
+render inside a round too); a report's bus names are the mix's six or it is refused; no WAV longer than 31 minutes, the
 longest a render can be, is read, a reference included.
 
 ## `compare_<name>.json` (compare)

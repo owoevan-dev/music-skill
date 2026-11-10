@@ -9,6 +9,7 @@ documented in references/outputs.md."""
 import os
 from pathlib import Path
 
+from .files import joined
 from .review import note_name
 
 EXAMPLES = 5  # entries shown per list; the files hold all of them
@@ -97,7 +98,7 @@ def review(r, folder):
         lines += ['Where (first examples):'] + [f'- {w}' for w in where]
     lines.append(f'Full figures: {_rel(Path(folder) / "score_review.json")}: examples under the keys above, and '
                  'tracks, sections, repetition, stiffness, melody_sections, loop_seam; notes.csv lists every note.')
-    return '\n'.join(lines)
+    return joined(lines)
 
 
 def render(report, folder):
@@ -134,7 +135,7 @@ def render(report, folder):
                      + (', loop.ogg' if 'ogg' in loop['files'] else '') + (f', {len(loop["layers"]["parts"])} layers' if loop.get('layers') else '') + '.')
     lines.append(f'Full figures: {_rel(Path(folder) / "report.json")}: checks, master, mastering (passes, limiting_db), '
                  'sections, buses (level_change_db), loop, stage_seconds, process_seconds; stem_receipts.json per part.')
-    return '\n'.join(lines)
+    return joined(lines)
 
 
 def analysis(r, path, render=None):
@@ -177,7 +178,7 @@ def analysis(r, path, render=None):
     lines.append(f'Full figures: {_rel(path)}: sections (band_share_pct, peak, crest), lead_presence, melody_groups (balance), '
                  'stem_levels_lufs_ungated (each part per section), tonal_balance (third_octaves_db), reference_comparison, '
                  'side_minus_mid_db. Measurements only; they do not establish how the music sounds.')
-    return '\n'.join(lines)
+    return joined(lines)
 
 
 def compare(r, path):
@@ -214,7 +215,7 @@ def compare(r, path):
     lines += [f'Warning: {w}' for w in r.get('warnings') or []]
     lines.append(f'Full figures: {_rel(path)}: files.<stems|buses|returns|premix|master>.<name> (passages with seconds and '
                  'bar:beat, level_db, difference_db), project_changes, synthesis.')
-    return '\n'.join(lines)
+    return joined(lines)
 
 
 def audition(r, folder):
@@ -239,4 +240,4 @@ def audition(r, folder):
     lines.append(r['note'])
     lines.append(f'Full figures: {_rel(Path(folder) / "audition.json")}: versions (surge_controls, surge_character, '
                  'part_brightness); each version\'s render in its numbered folder.')
-    return '\n'.join(lines)
+    return joined(lines)

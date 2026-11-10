@@ -234,7 +234,12 @@ def entry_lock(folder,wait=True,create=True):
             except OSError as e:
                 if not (isinstance(e,PermissionError) or e.errno==errno.EROFS):raise
                 yield False;return
-        try:fd=os.open(lock,os.O_RDWR|os.O_CREAT,0o644)
+        # A link under the lock's name is refused before it is opened: opening it made a file wherever the link led,
+        # and only then did check_entry refuse the entry (GPT's security audit of 0.5, S04).  O_NOFOLLOW (POSIX)
+        # refuses one put there since the look, which then counts as an entry that cannot be locked.
+        if files.linked(lock):
+            raise ValueError(f'Cache entry {folder} holds entry.lock, a link; remove the entry and render again')
+        try:fd=os.open(lock,os.O_RDWR|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o644)
         except FileNotFoundError:
             if create:continue  # clean removed the folder between the two calls: make it again
             yield False;return
@@ -314,6 +319,10 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
     if files.linked(Path(output)):
         # Resolving it first would follow the link (a dangling one included) and write wherever it leads.
         raise ValueError(f'{output} is a link; give a new folder (a render never writes through a link)')
+    if cache is not None and files.linked(Path(cache)):
+        # Likewise the cache: it was resolved first, and the check after it then saw the folder the link led to, where
+        # the render made its entries (GPT's security audit of 0.5, S03).
+        raise ValueError(f'The cache {cache} is a link; give the folder itself')
     output=Path(output).resolve();claim={};started=time.monotonic()
     with contextlib.ExitStack() as held:  # the folder's work lock (files.working), let go after its record is written
         claim['hold']=held.enter_context

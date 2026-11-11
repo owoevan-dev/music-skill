@@ -53,7 +53,7 @@ which sets one gain on the spaces' returns from what the project writes and from
 import math
 import numpy as np
 
-from . import audio, files, layered, limiter, midi, stage, synth
+from . import audio, files, layered, limiter, midi, stage, surge, synth
 from .loop import starts_at_zero
 from .measure import clarity_c80, early_late, k_filter, k_level, returns_gain_for_c80
 from .model import BUSES, TPQ, performed, save_json
@@ -226,8 +226,8 @@ def held_spans(t, clock):
       into the next is held to the crossfade's end and a slur is one note;
     - any other sampled part, and a Surge XT part: midi.synthesis_notes, the notes of the MIDI written for the
       synthesizer, after the part's key map (a hit dropped there counts for nothing) and with a slur as the one note
-      it sounds as, its gaps filled.  A Surge part counts so wherever it is rendered, also where its fallback preset
-      plays it;
+      it sounds as, its gaps filled.  A Surge part is taken as its MIDI is written, on the keys its patch is played
+      on (surge.as_played), and counts so wherever it is rendered, also where its fallback preset plays it;
     - a built-in synth part: its voices (synth.line_voices, voice_held), so a mono line is held from its first note
       to the end of the note that owns the voice;
     - the additive instrument and the drum machines: the performed notes.
@@ -237,7 +237,9 @@ def held_spans(t, clock):
         return [(clock.seconds(n['on']), clock.seconds(n['on'] + n['duration'])) for n in t['notes']]
     if t['engine'] == 'soundfont' and layered.wanted(t):
         return ticks(layered.played(t, clock)[0])
-    if t['engine'] in ('soundfont', 'surge'):
+    if t['engine'] == 'surge':
+        return ticks(midi.synthesis_notes(surge.as_played(t), clock)[0])
+    if t['engine'] == 'soundfont':
         return ticks(midi.synthesis_notes(t, clock)[0])
     if t['engine'] == 'synth':
         groups, patch = synth.line_voices(t, clock)

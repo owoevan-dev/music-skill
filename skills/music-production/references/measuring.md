@@ -37,7 +37,7 @@ Popular commercial recordings fall about 5 dB per octave from 100 Hz to 4 kHz in
 
 `tonal_balance.slope_log_log_100hz_10khz` is Pestana et al.'s own measure, the slope of log magnitude on log frequency over 100 Hz–10 kHz of the mean magnitude spectrum (frames of about 10.8 Hz, unwindowed): pink noise reads −0.5, white noise 0. Their genre means run from −0.75 (electronic) to −1.29 (jazz), pop −0.94. With a `style`, `published_genre` gives the genre that governs the mix axis, its mean, the master's slope and the difference, and `analyze` warns when the master is more than 0.3 steeper, a margin chosen for this skill. The genre means come from songs with vocals; they place a mix, they do not say what it needs ([performance-and-mix.md](performance-and-mix.md#brightness-and-air)).
 
-For a genre, compare with a reference: `studio.py analyze <render> --reference house`. The names in [tonal-references.json](tonal-references.json) are pieces of this skill's own, measured the same way on renders of the projects in the repository's examples folder:
+For a genre, compare with a reference: `studio.py analyze <render> --reference house`. The names in [tonal-references.json](tonal-references.json) are pieces of this skill's own, measured the same way on renders of its 0.2.0 example projects:
 
 | Reference | Music | Slope | Low end | Top end | Side − mid below 120 Hz | LUFS | PLR | LRA |
 |---|---|---|---|---|---|---|---|---|

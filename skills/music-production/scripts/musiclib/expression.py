@@ -5,9 +5,9 @@ literature uses most (linear phase correction: Vorberg and Wing 1996 and Vorberg
 reviews them), the player takes back a share of the distance by the next beat and a new error comes on top, so
 successive distances from the beat are alike and the likeness dies away over a few beats.  Estimates of that share
 lie between 0.2 and 0.8, and the distances vary least when it is between 0.3 and 0.5 (van der Steen and Keller
-2013, after Repp and Keller 2008): PHASE_CORRECTION is 0.4, this module's choice inside that.  Each note then has
-its own motor delay, independent of the others, which is what makes successive intervals between notes pull against
-each other (Wing and Kristofferson 1973).  Each part keeps to the score's beat by itself: nothing in one part's
+2013, after Repp and Keller 2008): PHASE_CORRECTION is 0.4, this module's choice inside that.  Each onset then has
+its own motor delay, independent of the other onsets' (notes struck together share one), which is what makes
+successive intervals between notes pull against each other (Wing and Kristofferson 1973).  Each part keeps to the score's beat by itself: nothing in one part's
 timing is taken from another part.
 
 Loudness.  In the recorded drum part analysed for it, the loudness of the hi-hat wandered with long-range
@@ -170,8 +170,8 @@ def profile_for(track, overrides):
 
 def apply(project, overrides=None, seed=1, drift='notes'):
     if drift not in ('notes', 'time'):
-        raise ValueError("drift is 'time' (the player's distance from the beat runs in time: an added note changes only "
-                         "itself) or 'notes' (note by note)")
+        raise ValueError("drift is 'time' (the player's distance from the beat runs in time: an added note changes no "
+                         "other note's draws) or 'notes' (note by note)")
     overrides = overrides or {}
     report = {}
     for t in project['tracks']:

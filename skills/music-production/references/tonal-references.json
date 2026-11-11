@@ -1,5 +1,5 @@
 {
- "note": "Long-term measures of pieces of this skill's own, made by analysis.long_term on each master, rendered from the project files of the 0.2.0 examples, whose recordings stay in the release examples-1. They show where a mix of that genre from this engine sat: data points, not targets. Compare a render with one through studio.py analyze --reference NAME.",
+ "note": "Long-term measures of pieces of this skill's own, made by analysis.long_term on each master, rendered from the project files of the 0.2.0 examples. They show where a mix of that genre from this engine sat: data points, not targets. Compare a render with one through studio.py analyze --reference NAME.",
  "published": {
   "slope": "Popular recordings fall about 5 dB per octave over 100 Hz-4 kHz in power per hertz (Pestana et al. 2013, about 800 recordings 1950-2010); Elowsson and Friberg (2017) report about 4.5 over a similar range, measured another way.",
   "genre": "Hip-hop and electronic recordings reach further into the low end and jazz and folk fall away at the top (Pestana et al. 2013). Tracks with more percussion carry more bass and top, which accounts for much of the difference between genres (Elowsson and Friberg 2017).",
@@ -9,7 +9,6 @@
   "jazz": {
    "piece": "Late Set at the Corner",
    "music": "jazz blues for tenor saxophone and piano trio at 150 BPM",
-   "example": "https://github.com/owoevan-dev/music-skill/releases/download/examples-1/late_set.mp3",
    "measured": "2026-11-03",
    "tonal_balance": {
     "slope_db_per_octave_100hz_4khz": -2.83,
@@ -60,7 +59,6 @@
   "synthwave": {
    "piece": "Midnight Coastline",
    "music": "synthwave: gated snare, octave bass, string-machine pads, square and supersaw leads",
-   "example": "https://github.com/owoevan-dev/music-skill/releases/download/examples-1/midnight_coastline.mp3",
    "measured": "2026-11-05",
    "tonal_balance": {
     "slope_db_per_octave_100hz_4khz": -3.37,
@@ -111,7 +109,6 @@
   "house": {
    "piece": "Signal Fire",
    "music": "festival house on the drum machine and synth engine, mastered loud",
-   "example": "https://github.com/owoevan-dev/music-skill/releases/download/examples-1/signal_fire.mp3",
    "measured": "2026-11-03",
    "tonal_balance": {
     "slope_db_per_octave_100hz_4khz": -4.11,
@@ -162,7 +159,6 @@
   "lofi": {
    "piece": "Rain on the Tram Line",
    "music": "lo-fi hip-hop: worn-tape piano, upright bass, bit-reduced kit, record noise",
-   "example": "https://github.com/owoevan-dev/music-skill/releases/download/examples-1/tram_line_rain.mp3",
    "measured": "2026-11-03",
    "tonal_balance": {
     "slope_db_per_octave_100hz_4khz": -4.79,
@@ -213,7 +209,6 @@
   "future_bass": {
    "piece": "Paper Satellites",
    "music": "future bass: pumped supersaw chords, an 808, a half-time beat, a bell lead",
-   "example": "https://github.com/owoevan-dev/music-skill/releases/download/examples-1/paper_satellites.mp3",
    "measured": "2026-11-03",
    "tonal_balance": {
     "slope_db_per_octave_100hz_4khz": -2.86,
@@ -264,7 +259,6 @@
   "chiptune": {
    "piece": "Pixel Lantern",
    "music": "NES-style chiptune loop: two pulses, a triangle bass, noise drums",
-   "example": "https://github.com/owoevan-dev/music-skill/releases/download/examples-1/pixel_lantern.mp3",
    "measured": "2026-11-03",
    "tonal_balance": {
     "slope_db_per_octave_100hz_4khz": -3.97,
@@ -315,7 +309,6 @@
   "orchestral": {
    "piece": "Above the Clouds",
    "music": "orchestral overture with wide dynamics, played in a hall",
-   "example": "https://github.com/owoevan-dev/music-skill/releases/download/examples-1/above_the_clouds.mp3",
    "measured": "2026-11-03",
    "tonal_balance": {
     "slope_db_per_octave_100hz_4khz": -2.86,

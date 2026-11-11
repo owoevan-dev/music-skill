@@ -1003,7 +1003,13 @@ def checks(work,config=None):
             crossed=span_part([(0,.45,60),(.5,.45,62)]);crossed['performance'].update(legato={'mode':'crossfade','gap_ms':40,'crossfade_ms':100},offset_ms=early_);spans_[f'crossfade{early_}']=counted(crossed)
         for first_ in (4,1):
             line_=span_part([(0,first_,60),(1,.5,62)],engine='synth',synth={'mono':True});line_['performance'].pop('cc');spans_[f'mono{first_}']=counted(line_)
-        by_hand_={'mapped':.25,'alone':.25,'slur':.475,'wide_slur':.35,'crossfade0':.475,'crossfade-80':.475,'mono4':.75,'mono1':.75}
+        # - a Surge patch built an octave down is played an octave up, and a key past 127 at 127: notes of four beats
+        #   and of half a beat written on 116 and 117 both play key 127, so the first is cut one tick before the second
+        #   strikes at beat 1 (959 of the beat's 960 ticks) and the second holds 0.25 s; written on 48 and 49 they play
+        #   60 and 61 and the first holds its 2 s (a last review of 0.6.0 found the written keys counted).
+        for name_,keys_ in (('surge_top',(116,117)),('surge_mid',(48,49))):
+            bass_=span_part([(0,4,keys_[0]),(1,.5,keys_[1])],engine='surge',surge={'preset':'sub_bass_3'});bass_.pop('program');spans_[name_]=counted(bass_)
+        by_hand_={'mapped':.25,'alone':.25,'slur':.475,'wide_slur':.35,'crossfade0':.475,'crossfade-80':.475,'mono4':.75,'mono1':.75,'surge_top':959/960*.5+.25,'surge_mid':2.0}
         assert all(abs(spans_[k]-v)<1e-6 for k,v in by_hand_.items()),spans_
         # A part whose notes are gone sends nothing: no clarity can be set, and the record says not reached.
         two_['notes']=[];two_['performance']['notes']={};none_=mixbus.clarity_setting(w,Clock(w),response)

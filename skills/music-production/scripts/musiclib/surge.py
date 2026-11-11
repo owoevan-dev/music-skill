@@ -186,6 +186,15 @@ def fallback_track(track):
     return {**t, 'engine': 'synth', 'synth': patch}
 
 
+def as_played(track):
+    """The part as its MIDI is written for Surge.  A patch built to sound an octave below the key it is played on plays
+    an octave up (the catalog's `transpose`), so that the written pitch sounds; a key past the MIDI range is played at
+    its end, 0 or 127.  render writes this part's MIDI, and the mix counts the same part for the time it sounds
+    (mixbus.held_spans): two written pitches that land on one key are one key's notes in both."""
+    shift = entry(track['surge']['preset']).get('transpose', 0)
+    return {**track, 'notes': [{**n, 'pitch': max(0, min(127, n['pitch'] + shift))} for n in track['notes']]} if shift else track
+
+
 def dependencies(cfg, track):
     """What a Surge part's sound depends on, for the render cache: the plugin, pedalboard, patch and host, the fallback,
     and whether the patch plays here or why not, so that a fallback rendered before Surge XT or its full patch set was
@@ -474,10 +483,7 @@ def render(project, track, raw, folder, cfg):
         with files.staged(patch) as f:  # written whole, noted as the render's (musiclib.files)
             f.write(fxp)
     part_midi, job = Path(folder) / 'surge.mid', Path(folder) / 'surge_job.json'
-    # A patch built to sound an octave below the key it is played on plays an octave up, so the written pitch sounds.
-    shift = entry(track['surge']['preset']).get('transpose', 0)
-    played = {**track, 'notes': [{**n, 'pitch': max(0, min(127, n['pitch'] + shift))} for n in track['notes']]} if shift else track
-    midi.write(project, part_midi, [played], single_stem=True, render=True)
+    midi.write(project, part_midi, [as_played(track)], single_stem=True, render=True)
     # Notes, pitch bend, mod wheel and sustain go to the plugin, timed in seconds; the bend range goes as a setting.
     song = midi.read_own(part_midi)
     events = [[bytes([s, *a]).hex(), _seconds(tick, song['tempos'], song['division']) + LEAD_S]

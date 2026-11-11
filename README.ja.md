@@ -33,15 +33,15 @@ music-skill は、作曲家と小さなスタジオのやり方でオリジナ�
 
 ここにある曲はどれも、Claude（Opus 5.5、xhigh effort）がこのスキルのバージョン 0.3.0 で、一行の題材と[全エージェント共通のルール](examples/agent-rules.md)から、一回の実行で作りました。曲名、形式、楽器、音色を自分で決め、すべての音を書き、レビュー、レンダリング、手直しまで自分で行っています。完成品に人の手は入っていません。各サンプルフォルダには、プロンプト、エージェントのスクリプト、レンダリングしたときのプロジェクトがあります。
 
-**[『Fughetta on a Lantern Theme』](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/fughetta-on-a-lantern-theme.mp3)**（1:55）。題材は「チェンバロと弦楽のためのバロック風の小品、声部どうしで模倣対位法を」。グラーヴェの序奏のあと、ニ短調のフゲッタで主題が弦楽の 4 声部に順に現れます（[サンプル](examples/fughetta-on-a-lantern-theme)）。
+**[『Fughetta on a Lantern Theme』](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/fughetta-on-a-lantern-theme.mp3)**（1:55）。題材は「チェンバロと弦楽のためのバロック風の小品、声部どうしで模倣対位法を」。グラーヴェの序奏のあと、ニ短調のフゲッタで主題が弦楽の 4 声部に順に現れます（[サンプル](examples/fughetta-on-a-lantern-theme)）。
 
-- [『Platform in the Snowmelt』](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/platform-in-the-snowmelt.mp3)（4:37）。題材は「アニメのエンディング曲のような日本のバラード、ピアノと弦楽が中心、静かに始まり、最後のサビで最も気持ちが高まる」（[サンプル](examples/platform-in-the-snowmelt)）
-- [『Sodium Lights』](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/sodium-lights.mp3)（4:28）。題材は「日本のシティポップ、夜のドライブの都会的な雰囲気」（[サンプル](examples/sodium-lights)）
-- [『Sprinkle Satellite』](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/sprinkle-satellite.mp3)（2:30）。題材は「かわいい系のフューチャーベース、明るいコードと軽快なドロップ」（[サンプル](examples/sprinkle-satellite)）
+- [『Platform in the Snowmelt』](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/platform-in-the-snowmelt.mp3)（4:37）。題材は「アニメのエンディング曲のような日本のバラード、ピアノと弦楽が中心、静かに始まり、最後のサビで最も気持ちが高まる」（[サンプル](examples/platform-in-the-snowmelt)）
+- [『Sodium Lights』](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sodium-lights.mp3)（4:28）。題材は「日本のシティポップ、夜のドライブの都会的な雰囲気」（[サンプル](examples/sodium-lights)）
+- [『Sprinkle Satellite』](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sprinkle-satellite.mp3)（2:30）。題材は「かわいい系のフューチャーベース、明るいコードと軽快なドロップ」（[サンプル](examples/sprinkle-satellite)）
 
 [Before and after](examples/before-after) は短い曲の音を一つ変え、レンダリングの中で一緒に変わったものを `compare` ですべて示します。そのパート、そのバス、リバーブの残響、マスターです。
 
-録音は MP3 ファイルで、リリース [examples-2](https://github.com/owoevan-dev/music-skill/releases/tag/examples-2) からダウンロードできます。
+録音は MP3 ファイルで、リリース [examples-3](https://github.com/owoevan-dev/music-skill/releases/tag/examples-3) からダウンロードできます。
 
 ## クイックスタート
 
@@ -169,7 +169,7 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 
 ## どこまでできるか
 
-`selfcheck.py` には 151 項目のチェック（レンダリング用の設定がなければ 121 項目）があり、MIDI の往復変換やアーカイブの安全性から、実際のレンダリングまで含みます。たとえば、音を一つ直したときに合成し直すのはそのパートだけで、`compare` がその音から先の、影響の届いたファイルにだけ違いを見つけること、旧来の単一リバーブのミックスが以前のリリースをビット単位で再現すること、ラウドネス計測が BS.1770 の基準音を −3.01 LUFS と読むこと。CI では、Ubuntu（FluidSynth 2.3、FFmpeg 6.1）と macOS（FluidSynth 2.6、FFmpeg 9.0）で、レンダリングも含めた全チェックを実行しています。
+`selfcheck.py` には 152 項目のチェック（レンダリング用の設定がなければ 122 項目）があり、MIDI の往復変換やアーカイブの安全性から、実際のレンダリングまで含みます。たとえば、音を一つ直したときに合成し直すのはそのパートだけで、`compare` がその音から先の、影響の届いたファイルにだけ違いを見つけること、旧来の単一リバーブのミックスが以前のリリースをビット単位で再現すること、ラウドネス計測が BS.1770 の基準音を −3.01 LUFS と読むこと。CI では、Ubuntu（FluidSynth 2.3、FFmpeg 6.1）と macOS（FluidSynth 2.6、FFmpeg 9.0）で、レンダリングも含めた全チェックを実行しています。
 
 音楽として良いかどうかは別の話で、聴いてみるしかありません。上の曲が、このリポジトリで示せるいちばんの証拠です。
 

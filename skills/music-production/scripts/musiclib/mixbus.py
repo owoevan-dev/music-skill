@@ -41,23 +41,21 @@ checks the true peak against the ceiling, and that the MP3 decodes to the same l
 peak passes full scale.
 
 Rules.  All of the above is version 1 of the mix's rules (mix.rules, the default), kept as it was so that a project
-made before 0.6 renders as it did.  Version 2 keeps the chain and sets from the mix itself what the mixing literature
-gives a rule for, each with its source where it is defined below: the compressors' attack and release from each
-signal's crest factor, every bus brought back to its stems' loudness, the spaces' returns moved together toward a
-published range of reverb loudness (settle; returns/mix_rules.json records it and a loop's layers read it back), the
-saturation between two resamplers so that it folds nothing back into the band, and one true-peak limiter in the
-master (deliver_2, musiclib/limiter.py), with no delay.
+made before 0.6 renders as it did.  Version 2 keeps the chain and changes four things, none of them from a
+measurement of the piece's audio: the lead bus's compressor takes its threshold from the lead's written level, so
+the lead stays where the project writes it (lead_filter_2); the saturation runs between two resamplers so that far
+less of it folds back into the band (the measurement stands beside _saturation_2); the master ends in one true-peak
+limiter (deliver_2, musiclib/limiter.py), with no delay; and a project may ask how near it is heard (mix.c80_db),
+which sets one gain on the spaces' returns from what the project writes and from the spaces' own responses
+(clarity_setting; returns/mix_rules.json records it and a loop's layers read it back).
 """
 import math
-from concurrent.futures import ThreadPoolExecutor
-
 import numpy as np
 
 from . import audio, files, limiter, stage
 from .loop import starts_at_zero
-from .measure import (REVERB_RANGE_LU, clarity_c80, crest_squared, early_share, integrated, k_filter, k_level, momentary,
-                      returns_gain_for_c80, windows_difference)
-from .model import BUSES, save_json
+from .measure import clarity_c80, early_late, k_filter, k_level, returns_gain_for_c80
+from .model import BUSES, performed, save_json
 
 RATE = audio.RATE
 ROLE_BUS = {'drums': 'drums', 'bass': 'bass', 'rhythm': 'rhythm', 'melody': 'lead', 'effect': 'fx'}
@@ -84,24 +82,27 @@ BUS_FILTER = {
 DRUM_BUS = ['[sum_drums]asplit=2[dr_dry][dr_par]',
             '[dr_par]acompressor=threshold=0.04:ratio=6:attack=2:release=80:makeup=4,volume=-20dB[dr_comp]',
             '[dr_dry][dr_comp]amix=inputs=2:normalize=0,volume=2dB,asoftclip=type=tanh:threshold=1,volume=-2dB[bus_drums]']
-# The mix's rules of version 2 (mix.rules: 2; 0.6).  The buses' compressors keep their thresholds and ratios, which
-# are this skill's from its first versions, and take from the literature what the literature gives:
-# - their attack and release from the bus's own crest factor, 2 * 80 ms and 2 * 1000 ms over its square (Ma, De Man,
-#   Pestana, Black and Reiss 2015, J. Audio Eng. Soc. 63(6), eq. 20, with its maxima of 80 ms and 1 s): "if a signal
-#   is highly transient or percussive, shorter time constants are preferred".  The paper sets them sample by sample;
-#   FFmpeg's compressor takes one pair, so each bus gets the pair of its typical crest factor (measure.crest_squared);
-# - no make-up of their own: after its processing each bus is brought back to the loudness its stems had together
-#   (the same paper's fifth assumption, "Make-up gain should be set so that output loudness equals input loudness",
-#   its eq. 22, by the EBU loudness measure; here BS.1770's gated loudness), so the balance the project wrote is the
-#   balance the mix has;
-# - the reverb's amount by its relative loudness (De Man, McNally and Reiss 2017; measure.REVERB_RANGE_LU): the
-#   spaces' returns move together, by one gain, to the nearest end of the range, unless the project gives a range of
-#   its own (mix.reverb_range_lu) or none (null: the sends stay as written).  The gain is at most 6 dB either way,
-#   the larger of the two figures that paper cites for the just-noticeable difference of the direct-to-reverberant
-#   ratio: a mix further from the range than that was written so (a dry style, a wash), and analyze names it instead.
-#   The cap is this skill's.  A project that names how near it is to be heard instead (mix.c80_db, the clarity of
-#   measure.HALL_C80_DB's note) gets the one gain on its spaces' returns that gives the mix that C80, however far
-#   that is from what its sends were written at, up to C80_STEP_MAX_DB either way: it asked for it by name;
+# The mix's rules of version 2 (mix.rules: 2; 0.6).  The buses keep the compressors of version 1 as they are:
+# thresholds, ratios, attack, release and make-up are this skill's starting values from its first versions, and no
+# source read gives others.
+# Nothing in this version is set from a measurement of the piece's audio.  What changes:
+# - the lead bus's compressor keeps its ratio and times and takes its threshold from the project: LEAD_OVER_WRITTEN_DB
+#   over the written level of the loudest lead part (lead_filter_2).  Version 1's threshold is one figure for every
+#   piece, so a lead written loud was compressed hard and a quiet one hardly: on this skill's test projects it took
+#   1.2 to 8.9 dB from the lead bus's loudness, and with one make-up for all the lead ended 4.8 dB under to 2.8 dB
+#   over where its parts were written.  With the threshold a fixed distance over the written level the compressor
+#   works as deep on a quiet lead as on a loud one, and one make-up (LEAD_MAKEUP_DB) suits them all; the figures
+#   measured stand beside the constants.  It is the usual way of setting a compressor, the threshold moved to match
+#   the signal's level and make-up gain then putting the level right (White, Inglis et al. 2003, Sound On Sound,
+#   "Using Your DAW's Compressors & Limiters"); here the level is the one the project writes.  The distance and the
+#   make-up are this skill's, from its own measurement.  A lead whose level is written as a peak (level_mode) stands
+#   under such a threshold and is not compressed;
+# - a project that names how near it is to be heard (mix.c80_db, the clarity of measure.HALL_C80_DB's note) gets the
+#   one gain on its spaces' returns that gives it that C80, however far that is from what its sends were written at,
+#   up to C80_STEP_MAX_DB either way: it asked for it by name.  The clarity is worked out from the project file and
+#   the spaces' impulse responses (written_energies, clarity_setting).  That bound (30 dB) is this skill's, wide
+#   enough for every clarity the project file takes on sends written anywhere usual; the clarity counts as reached
+#   within 0.05 dB, which is this skill's too (the figure is reported to 0.01);
 # - the saturation is the same tanh curve at the same amounts, run at four times the sample rate between two of
 #   FFmpeg's resamplers.  At the sample rate the curve's harmonics above half the rate come back down as tones that
 #   belong to no note.  Measured on this skill's test projects against the curve at eight times the rate
@@ -110,9 +111,13 @@ DRUM_BUS = ['[sum_drums]asplit=2[dr_dry][dr_par]',
 #   was 80 dB under or lower already.  The bus comes out where it went in (no delay) at the same level; the resamplers
 #   pass everything up to 20 kHz within 0.01 dB and take 0.8 dB from 20 to 22 kHz and more above.  This is this skill's
 #   measurement; no source read sets how much aliasing may be left.
-ATTACK_MAX_MS, RELEASE_MAX_MS = 80.0, 1000.0
-REVERB_STEP_MAX_DB = 6.0
 C80_STEP_MAX_DB = 30.0
+# Measured on this skill's 27 test projects rendered under version 2: of the 21 whose lead bus compresses, the lead
+# ended within 0.4 dB of where it is written on 20 and 1.1 dB under on one, a bell line whose peaks stand far over
+# its level.  In the experiment before it (the lead stems of 17 pieces through the compressor alone) the threshold
+# 3 dB over the written level took 0.2 to 1.9 dB from the bus's loudness, and at the written level 0.9 to 3.6 dB.
+LEAD_OVER_WRITTEN_DB = 6.0
+LEAD_MAKEUP_DB = .4
 SATURATING = ('drums', 'bass', 'rhythm')  # the buses whose streams pass the resamplers: padded and cut to the mix's length after
 
 
@@ -122,27 +127,25 @@ def _saturation_2(drive_db):
 
 BUS_FILTER_2 = {
     'bass': _saturation_2(2),
-    'rhythm': 'acompressor=threshold=0.1:ratio=2:attack={attack:.4f}:release={release:.4f}:makeup=1,' + _saturation_2(1.5),
-    'ensemble': 'acompressor=threshold=0.12:ratio=1.5:attack={attack:.4f}:release={release:.4f}:makeup=1',
-    'lead': 'acompressor=threshold=0.08:ratio=3:attack={attack:.4f}:release={release:.4f}:makeup=1',
+    'rhythm': 'acompressor=threshold=0.1:ratio=2:attack=20:release=150:makeup=1,' + _saturation_2(1.5),
+    'ensemble': BUS_FILTER['ensemble'],
     'fx': 'anull',
 }
-DRUM_BUS_2 = ['[sum_drums]asplit=2[dr_dry][dr_par]',
-              '[dr_par]acompressor=threshold=0.04:ratio=6:attack={attack:.4f}:release={release:.4f}:makeup=4,volume=-20dB[dr_comp]',
-              '[dr_dry][dr_comp]amix=inputs=2:normalize=0,' + _saturation_2(2) + '[bus_drums]']
-RULES_FILE = 'mix_rules.json'  # in returns/: what version 2 measured and set, which a loop's layers read back
+DRUM_BUS_2 = [DRUM_BUS[0], DRUM_BUS[1], '[dr_dry][dr_comp]amix=inputs=2:normalize=0,' + _saturation_2(2) + '[bus_drums]']
+RULES_FILE = 'mix_rules.json'  # in returns/: what version 2 set, which a loop's layers read back
 MASTER_EQ = 'highshelf=f=10000:g=2.5:t=q:w=0.7,equalizer=f=3200:t=q:w=1.2:g=0.8'
 MASTER = ('acompressor=threshold={thr:.6f}:ratio=2:attack=30:release=200:knee=4:makeup=1,'
           + MASTER_EQ + ',alimiter=limit=0.891:attack=5:release=60:level=disabled')
 MIX_LUFS = -18
 LIMIT_DBFS = -1.5
-# The master under the rules of version 2.  Its glue compressor takes its attack and release from the mix's own crest
-# factor, as the buses' do (time_constants); its threshold, ratio and knee, and the EQ after it, are this skill's from
+# The master under the rules of version 2: the glue compressor and the EQ of version 1, which are this skill's from
 # its first versions.  No limiter stands in this chain: the delivery's (deliver_2, musiclib/limiter.py) is the only
-# one, a true-peak limiter aimed LIMITER_MARGIN_DB under the ceiling.  The margin is this skill's measurement: on the
-# seventeen limited mixes of the 0.5 projects FFmpeg's meter read the limited file between 0.04 dB under and 0.09 dB
-# over this limiter's own estimate (the two interpolate between samples differently).
-MASTER_2 = 'acompressor=threshold={thr:.6f}:ratio=2:attack={attack:.4f}:release={release:.4f}:knee=4:makeup=1,' + MASTER_EQ
+# one, a true-peak limiter aimed LIMITER_MARGIN_DB under the ceiling, with the release version 1's limiter has
+# (LIMITER_RELEASE_S; this skill's).  The margin is this skill's measurement: on the seventeen limited mixes of the
+# 0.5 projects FFmpeg's meter read the limited file between 0.04 dB under and 0.09 dB over this limiter's own
+# estimate (the two interpolate between samples differently).
+MASTER_2 = 'acompressor=threshold={thr:.6f}:ratio=2:attack=30:release=200:knee=4:makeup=1,' + MASTER_EQ
+LIMITER_RELEASE_S = .06
 LIMITER_MARGIN_DB = .1
 
 
@@ -177,119 +180,81 @@ def space_of(track):
     return track['mix'].get('space') or SEND_TO[bus_of(track)]
 
 
+def send_db(track):
+    """What a part sends to its space (dB), or None: its reverb_db, and more the deeper it is placed on the stage
+    (musiclib/stage.py)."""
+    fx = track['mix']
+    if fx.get('reverb_db') is None:
+        return None
+    return fx['reverb_db'] + (stage.send_boost_db(fx.get('pan', 0), fx['depth_m']) if fx.get('depth_m') is not None else 0)
+
+
 def rules(p):
     """The version of the mix's rules a project asks for: 1 (0.5 and before, the default) or 2."""
     return p['mix'].get('rules', 1)
 
 
-def time_constants(crest2):
-    """A compressor's attack and release (ms) for a signal whose squared crest factor is `crest2` (Ma et al. 2015, eq.
-    20): twice the maximum over the squared crest factor, never above the maximum.  A sine (2) gets the maxima."""
-    c = max(crest2 or 2.0, 1.0)
-    return min(ATTACK_MAX_MS, 2 * ATTACK_MAX_MS / c), min(RELEASE_MAX_MS, 2 * RELEASE_MAX_MS / c)
+def lead_threshold_2(p):
+    """The lead bus's compressor threshold (dBFS) under the rules of version 2: LEAD_OVER_WRITTEN_DB over the written
+    level of the loudest lead part that has notes, never over full scale; None when no lead part has notes."""
+    levels = [t['mix']['level_dbfs'] for t in p['tracks'] if bus_of(t) == 'lead' and t['notes']]
+    return min(0.0, max(levels) + LEAD_OVER_WRITTEN_DB) if levels else None
 
 
-MEASURING = 3  # measurements run side by side at most (NumPy's transforms release the interpreter's lock)
+def lead_filter_2(p):
+    """The lead bus's filter under the rules of version 2: version 1's compressor (3:1, attack 6 ms, release 120 ms)
+    at lead_threshold_2 with LEAD_MAKEUP_DB of make-up; version 1's own where no lead part has notes."""
+    threshold = lead_threshold_2(p)
+    if threshold is None:
+        return BUS_FILTER['lead']
+    return f'acompressor=threshold={10 ** (threshold / 20):.6f}:ratio=3:attack=6:release=120:makeup={10 ** (LEAD_MAKEUP_DB / 20):.6f}'
 
 
-def bus_inputs(p, output):
-    """For the rules of version 2, of each bus that the rules set (every bus with parts but fx): the integrated
-    loudness and the squared crest factor of its stems' sum, {bus: {'lufs', 'crest2'}}.  The stems are read once."""
-    def one(b):
-        total = None
-        for t in p['tracks']:
-            if bus_of(t) == b:
-                x = audio.read_wav(output / 'stems' / f'{t["id"]}.wav')[0]
-                total = np.array(x, dtype=np.float32) if total is None else total + x
-        return b, {'lufs': integrated(total), 'crest2': crest_squared(total)}
-    with ThreadPoolExecutor(max_workers=MEASURING) as pool:
-        return dict(pool.map(one, [b for b in BUSES if b != 'fx' and any(bus_of(t) == b for t in p['tracks'])]))
+def written_energies(p, clock):
+    """What the project writes of how much each part sounds, for the clarity: (dry, {space: sent}).  A part counts by
+    its written level and by the time its notes sound, 10^(level_dbfs / 10) times the seconds in which one of its
+    notes is held, and what it sends into its space is that at its send's level (send_db).  A space no part sends to
+    is left out.  Nothing is measured: a part counts as it is written, whatever its sound does within its notes (a
+    level written as a peak counts as if the part held it)."""
+    dry, sent = 0.0, {}
+    for t in p['tracks']:
+        seconds, end = 0.0, 0.0
+        for a, b in sorted((n['start_seconds'], n['end_seconds']) for n in performed(t, clock)):
+            if b > end:
+                seconds += b - max(a, end)
+                end = b
+        energy = 10 ** (t['mix']['level_dbfs'] / 10) * seconds
+        dry += energy
+        db = send_db(t)
+        if db is not None and energy > 0:
+            sent[space_of(t)] = sent.get(space_of(t), 0.0) + energy * 10 ** (db / 10)
+    return dry, sent
 
 
-def compressor_settings(inputs):
-    """For the rules of version 2: {bus: {'crest_db', 'attack_ms', 'release_ms'}} of each bus that compresses, from
-    its stems' sum (bus_inputs)."""
-    out = {}
-    for b in ('drums', 'rhythm', 'ensemble', 'lead'):
-        if b in inputs:
-            c = inputs[b]['crest2']
-            attack, release = time_constants(c)
-            out[b] = {'crest_db': None if c is None else round(10 * math.log10(c), 2), 'attack_ms': round(attack, 4),
-                      'release_ms': round(release, 4)}
-    return out
+def clarity_rooms(p, clock, responses):
+    """(dry, rooms) for measure.clarity_c80 from the project and the spaces' impulse responses (`responses`: {space:
+    samples}): each room is (what the parts send into the space as written, the response's early and late energy
+    after the return's filters)."""
+    dry, sent = written_energies(p, clock)
+    return dry, [(sent[name], early_late(responses[name], SPACES[name][5], RETURN_LOWPASS)) for name in SPACES
+                 if name in sent and name in responses]
 
 
-def settle(p, output, buses, inputs, compressors, returned, frames):
-    """The rules of version 2 after the buses and returns are made: each bus back to its stems' loudness, the spaces'
-    returns to the reverb range, and premix.wav as their sum.  The files in returns/ are written again with their gains,
-    so the buses and returns still add up to the premix; what was measured and set goes to returns/mix_rules.json and
-    is returned."""
-    returns = output / 'returns'
-    state = {'rules': 2, 'compressors': compressors, 'bus_gain_db': {}, 'reverb': None}
-    total = np.zeros((frames, 2))
-    dry = np.zeros((frames, 2))
-
-    def add(to, x):
-        to[:min(len(x), frames)] += x[:frames]
-    with ThreadPoolExecutor(max_workers=MEASURING) as pool:
-        after = dict(pool.map(lambda b: (b, integrated(audio.read_wav(returns / f'bus_{b}.wav')[0])), [b for b in buses if b in inputs]))
-    for b in buses:
-        path = returns / f'bus_{b}.wav'
-        bus = np.asarray(audio.read_wav(path)[0], dtype=np.float64)
-        gain = 0.0
-        if b in inputs and inputs[b]['lufs'] is not None and after[b] is not None:
-            gain = round(inputs[b]['lufs'] - after[b], 6)
-        if gain:
-            bus = bus * 10 ** (gain / 20)
-            audio.write_wav(path, bus.astype(np.float32))
-        state['bus_gain_db'][b] = gain
-        add(dry, bus)
-        del bus
-    add(total, dry)
-    spaces = [path for _, path in returned if path.name != 'delay_return.wav']
+def clarity_setting(p, clock, responses):
+    """For the rules of version 2: what a project that asks a clarity (mix.c80_db) gets, as the record kept in
+    returns/mix_rules.json, or None when it asks none: the one gain on its spaces' returns ('gain_db') that gives
+    the mix that C80, or as far toward it as C80_STEP_MAX_DB allows, with the clarity as written, as asked and as
+    set.  A mix whose sends are silent has no clarity to set: the gain is 0 and the record says not reached."""
     asked = p['mix'].get('c80_db')
-    wanted = None if asked is not None else p['mix'].get('reverb_range_lu', REVERB_RANGE_LU)
-    if spaces:
-        wet, shares = np.zeros((frames, 2)), []
-        for path in spaces:
-            y = np.asarray(audio.read_wav(path)[0], dtype=np.float64)
-            add(wet, y)
-            response = audio.read_wav(returns / (path.name[:-len('_return.wav')] + '_ir.wav'))[0]
-            shares.append((float((y ** 2).sum()), early_share(response)))
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            measured = windows_difference(*pool.map(momentary, (wet, dry)))
-        gain, heard = 0.0, None
-        if asked is not None:
-            # How near the piece asks to be heard: the gain that gives the mix that C80, or as far toward it as allowed.
-            energy = float((dry ** 2).sum())
-            exact = returns_gain_for_c80(energy, shares, asked)
-            gain = round(max(-C80_STEP_MAX_DB, min(C80_STEP_MAX_DB, C80_STEP_MAX_DB if exact is None else exact)), 6)
-            written, got = clarity_c80(energy, shares), clarity_c80(energy, [(e * 10 ** (gain / 10), f) for e, f in shares])
-            heard = {'c80_asked_db': asked, 'c80_written_db': None if written is None else round(written, 2),
-                     'c80_db': None if got is None else round(got, 2), 'c80_reached': got is not None and abs(got - asked) <= .05}
-        elif measured is not None and wanted is not None:
-            lo, hi = wanted
-            gain = lo - measured if measured < lo else hi - measured if measured > hi else 0.0
-            gain = round(max(-REVERB_STEP_MAX_DB, min(REVERB_STEP_MAX_DB, gain)), 6)
-        if gain:
-            wet *= 10 ** (gain / 20)
-            for path in spaces:
-                audio.write_wav(path, (np.asarray(audio.read_wav(path)[0], dtype=np.float64) * 10 ** (gain / 20)).astype(np.float32))
-        state['reverb'] = {'relative_loudness_written_lu': None if measured is None else round(measured, 2), 'gain_db': gain,
-                           'relative_loudness_lu': None if measured is None else round(measured + gain, 2),
-                           'range_lu': None if wanted is None else list(wanted), **(heard or {})}
-        add(total, wet)
-        del wet
-    del dry
-    for _, path in returned:
-        if path.name == 'delay_return.wav':
-            add(total, np.asarray(audio.read_wav(path)[0], dtype=np.float64))
-    if not starts_at_zero(p):  # the fade the graph gives the mix (afade, 5 ms, linear)
-        n = int(.005 * RATE)
-        total[:n] *= (np.arange(n) / n)[:, None]
-    audio.write_wav(output / 'premix.wav', total.astype(np.float32))
-    save_json(returns / RULES_FILE, state)
-    return state
+    if asked is None:
+        return None
+    dry, rooms = clarity_rooms(p, clock, responses)
+    exact = returns_gain_for_c80(dry, rooms, asked, C80_STEP_MAX_DB) if rooms else None
+    gain = 0.0 if exact is None else round(exact, 6)
+    written = clarity_c80(dry, rooms) if rooms else None
+    got = clarity_c80(dry, rooms, gain) if rooms else None
+    return {'gain_db': gain, 'c80_asked_db': asked, 'c80_written_db': None if written is None else round(written, 2) + 0.0,
+            'c80_db': None if got is None else round(got, 2) + 0.0, 'c80_reached': got is not None and abs(got - asked) <= .05}
 
 
 def space_ir(name, seed=20261101):
@@ -347,11 +312,13 @@ def mix(p, clock, cfg, output, frames, tracks=None, premix=None):
     ir_input = {name: len(tracks) + j for j, name in enumerate(SPACES)}
 
     second = rules(p) == 2
-    # Version 2: the full mix measures and sets (bus_inputs, settle); a layer reads what it set.  A wide mix's buses
-    # do nothing, so nothing of theirs is measured or set.
-    state = files.read_json(returns / RULES_FILE) if second and not full else None
-    inputs = bus_inputs(p, output) if second and full and p['mix'].get('dynamics') != 'wide' else {}
-    compressors = state['compressors'] if state else compressor_settings(inputs)
+    # Version 2: the full mix works out the returns' gain for a clarity the project asks (clarity_setting), from the
+    # project and the responses just written; a layer reads what the full mix set.
+    state = None
+    if second:
+        state = files.read_json(returns / RULES_FILE) if not full else {
+            'rules': 2, 'lead_threshold_dbfs': lead_threshold_2(p),
+            'reverb': clarity_setting(p, clock, {name: audio.read_wav(path)[0] for name, path in irs.items()})}
     graph, dry, sends, delays = [], {b: [] for b in BUSES}, {s: [] for s in SPACES}, []
     for k, t in enumerate(tracks):
         fx = t['mix']
@@ -360,9 +327,7 @@ def mix(p, clock, cfg, output, frames, tracks=None, premix=None):
         graph.append(f'[{k}:a]asplit={len(outs)}' + ''.join(outs))
         dry[bus_of(t)].append(f'[d{k}]')
         if fx.get('reverb_db') is not None:
-            # A part placed deeper on the stage sends more to its space (musiclib/stage.py).
-            send = fx['reverb_db'] + (stage.send_boost_db(fx.get('pan', 0), fx['depth_m']) if fx.get('depth_m') is not None else 0)
-            graph.append(f'[r{k}]volume={send:.6f}dB[rs{k}]')
+            graph.append(f'[r{k}]volume={send_db(t):.6f}dB[rs{k}]')
             sends[space_of(t)].append(f'[rs{k}]')
         if fx.get('delay_db') is not None:
             graph.append(f'[e{k}]highpass=f={DELAY_BAND[0]},lowpass=f={DELAY_BAND[1]},adelay={delay_times(clock, fx)},volume={fx["delay_db"]}dB[es{k}]')
@@ -376,12 +341,9 @@ def mix(p, clock, cfg, output, frames, tracks=None, premix=None):
         if wide:
             graph.append(f'[sum_{b}]anull[bus_{b}]')  # no bus compression or saturation: the written dynamics stay
         elif second:
-            times = {'attack': compressors[b]['attack_ms'], 'release': compressors[b]['release_ms']} if b in compressors else {}
-            made = [line.format(**times) for line in DRUM_BUS_2] if b == 'drums' else [f'[sum_{b}]{BUS_FILTER_2[b].format(**times)}[bus_{b}]']
+            made = list(DRUM_BUS_2) if b == 'drums' else [f'[sum_{b}]{lead_filter_2(p) if b == "lead" else BUS_FILTER_2[b]}[bus_{b}]']
             if b in SATURATING:  # the resamplers may hand back a few frames more or fewer
                 made[-1] = made[-1].replace(f'[bus_{b}]', f',apad,atrim=end_sample={frames}[bus_{b}]')
-            if state and state['bus_gain_db'].get(b):  # a layer: the gain the full mix gave this bus
-                made[-1] = made[-1].replace(f'[bus_{b}]', f',volume={state["bus_gain_db"][b]:.6f}dB[bus_{b}]')
             graph += made
         else:
             graph += DRUM_BUS if b == 'drums' else [f'[sum_{b}]{BUS_FILTER[b]}[bus_{b}]']
@@ -424,7 +386,8 @@ def mix(p, clock, cfg, output, frames, tracks=None, premix=None):
                                                                          if t['mix'].get('reverb_db') is not None},
             'returns': [path.name for _, path in returned]}
     if second:
-        made['rules'] = settle(p, output, [b for b in BUSES if dry[b]], inputs, compressors, returned, frames)
+        save_json(returns / RULES_FILE, state)
+        made['rules'] = state
     return made
 
 
@@ -463,22 +426,35 @@ def adds_up(total, mag, mixed, skip=0):
     return share <= 1, float(d.max()), share
 
 
-def soft_clip(x, ceiling, knee=.75, factor=4, block=1 << 16, margin=2048):
+def soft_clip(x, ceiling, knee=.75, factor=4, block=1 << 16, margin=2048, split=False):
     """Peaks rounded toward `ceiling` (linear amplitude): unchanged below `knee` times it, a tanh curve above that
     meets the line with the same slope and approaches the ceiling.  Computed at `factor` times the rate, in blocks
     whose margins are discarded, and brought back through an FFT low-pass, so the harmonics the curve adds above the
-    band do not fold back."""
+    band do not fold back.
+
+    `split`: a block of an even number of frames has one bin at half the sample rate, which stands for a positive and
+    a negative frequency; at the higher rate each gets half of it, and both come back into it (limiter.interpolate).
+    The rules of version 2 clip so.  Without it the bin goes up whole, as in 0.5.0 and before, and a part of the
+    signal at exactly half the rate meets the curve doubled; the rules of version 1 keep that, so that their masters
+    stay what they were.  A signal that the curve leaves alone comes back the same either way."""
     n, t = len(x), knee * ceiling
     out = np.empty((n, x.shape[1]), dtype=np.float32)
     for s in range(0, n, block):
         a, b = max(0, s - margin), min(n, s + block + margin)
         seg = np.asarray(x[a:b], dtype=np.float64)
         m = len(seg)
-        up = np.fft.irfft(np.fft.rfft(seg, axis=0), n=m * factor, axis=0) * factor
+        halved = split and m % 2 == 0
+        spec = np.fft.rfft(seg, axis=0)
+        if halved:
+            spec[m // 2] *= .5
+        up = np.fft.irfft(spec, n=m * factor, axis=0) * factor
         mag = np.abs(up)
         over = mag > t
         up[over] = np.sign(up[over]) * (t + (ceiling - t) * np.tanh((mag[over] - t) / (ceiling - t)))
-        down = np.fft.irfft(np.fft.rfft(up, axis=0)[:m // 2 + 1], n=m, axis=0) / factor
+        back = np.fft.rfft(up, axis=0)[:m // 2 + 1]
+        if halved:
+            back[m // 2] *= 2
+        down = np.fft.irfft(back, n=m, axis=0) / factor
         keep = min(block, n - s)
         out[s:s + keep] = down[s - a:s - a + keep]
     return out
@@ -519,8 +495,7 @@ def master(p, cfg, output):
     if wide:
         glue = MASTER_EQ
     elif second:
-        attack, release = time_constants(crest_squared(audio.read_wav(source_in)[0]))
-        glue = MASTER_2.format(thr=10 ** (-16 / 20), attack=attack, release=release)
+        glue = MASTER_2.format(thr=10 ** (-16 / 20))
     else:
         glue = MASTER.format(thr=10 ** (-16 / 20))
     chain = f'volume={gain:.6f}dB,' + glue
@@ -585,8 +560,7 @@ def deliver_2(p, cfg, output, mixed, source, target):
     gain and the true-peak limiter of musiclib/limiter.py; a loud master first passes the oversampled soft clipper, as
     under version 1.  Returns the mastering record's delivery part and the measurement of master.wav.
 
-    The limiter's release is the one the mix's crest factor gives a compressor (time_constants: Ma et al. 2015), so a
-    dense mix recovers slowly and a percussive one quickly.  What the clipper and the limiter take is put back in
+    What the clipper and the limiter take is put back in
     memory, by the mix's mean square, before a file is written; the file is then measured once by FFmpeg, the meter
     the render's checks use, and made again only if it misses the target by more than 0.3 LU or passes the ceiling
     (the limiter then aims lower by what it passed and 0.05 dB)."""
@@ -594,22 +568,25 @@ def deliver_2(p, cfg, output, mixed, source, target):
     tp_max = true_peak_ceiling(target)
     loud = p['mix'].get('loudness') == 'loud'
     x = np.asarray(audio.read_wav(mixed)[0], dtype=np.float64)
-    crest2 = crest_squared(x)
-    release = time_constants(crest2)[1] / 1000
+    release = LIMITER_RELEASE_S
     peak = None if loud else limiter.true_peak(x)  # scales with the gain; a clipped mix's peaks are found again
     wanted, margin, passes, scratch = target - source['integrated_lufs'], LIMITER_MARGIN_DB, [], output / 'limited.wav'
     for k in range(4):
         ceiling = 10 ** ((tp_max - margin) / 20)
         gain = wanted
-        for _ in range(4):
+        for attempt in range(4):
             driven = x * 10 ** (gain / 20)
             power = float(np.mean(driven ** 2))
             if loud:
-                driven = np.asarray(soft_clip(driven, ceiling), dtype=np.float64)
+                driven = np.asarray(soft_clip(driven, ceiling, split=True), dtype=np.float64)
             g = limiter.gain_db(limiter.true_peak(driven) if loud else peak * 10 ** (gain / 20), ceiling, release)
             y = driven * (10 ** (g / 20))[:, None]
             lost = 10 * math.log10(max(float(np.mean(y ** 2)), 1e-30) / max(power, 1e-30))  # at most 0
-            if abs(gain + lost - wanted) <= .03:
+            # `gain` stays the gain of the `y` that is written: after the last try it is not moved on (it was, and a
+            # mix that four tries did not settle was recorded with a gain it never had; a loop's layers and the
+            # limiting by section read that record).  0.03 dB is this skill's: a tenth of the 0.3 LU the delivery
+            # may miss its target by.
+            if attempt == 3 or abs(gain + lost - wanted) <= .03:
                 break
             gain = wanted - lost
         audio.write_wav(scratch, y.astype(np.float32))
@@ -632,7 +609,7 @@ def deliver_2(p, cfg, output, mixed, source, target):
                    f'release {release * 1000:.0f} ms; NumPy)')
     return {'mixed': {k: source[k] for k in ('integrated_lufs', 'true_peak_dbtp', 'lra_lu')}, 'target_lufs': target,
             'true_peak_ceiling_dbtp': tp_max, 'limiter_dbtp': passes[-1]['limit_dbtp'],
-            'limiter': {'crest_db': None if crest2 is None else round(10 * math.log10(crest2), 2), 'release_ms': round(release * 1000, 1),
+            'limiter': {'release_ms': round(release * 1000, 1),
                         'lookahead_ms': limiter.LOOKAHEAD * 1000, 'lowest_steady_hz': limiter.LOWEST_STEADY_HZ,
                         'share_of_time_pct': round(100 * float((g < -.01).mean()), 2), 'deepest_db': round(float(g.min()), 2)},
             'delivery_chain': described, 'passes': passes,

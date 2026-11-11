@@ -2,7 +2,7 @@
 
 Kawaii future bass: bright chords and a light, bouncy drop. Made by Claude (Opus 5.5, xhigh effort) with this skill's version 0.3.0, in one run from the prompt below.
 
-Listen: [Sprinkle Satellite](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/sprinkle-satellite.mp3) (2:30).
+Listen: [Sprinkle Satellite](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sprinkle-satellite.mp3) (2:30).
 
 ## The prompt
 

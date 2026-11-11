@@ -14,8 +14,8 @@ by author and year, in [pop-and-ballad.md](pop-and-ballad.md) unless listed belo
 
 ## Shared by the family
 
-- **The song.** Pop is made of repeated choruses and hooks in short to medium-length songs, often in verse–chorus
-  form, the chorus contrasting with the verse and built to stick by repetition (WP Pop music). The pre-chorus builds
+- **The song.** Pop is made of choruses and hooks that come round again, in songs of short to middling length,
+  often verse–chorus in form, the chorus contrasting with the verse and built to stick by repetition (WP Pop music). The pre-chorus builds
   momentum (Summach 2011); the chorus is more intense than the verse, denser or higher (Summach 2012, in OMT).
 - **Chords.** I, IV, V and vi in the four-chord schemas, doo-wop, singer/songwriter and hopscotch (OMT, Four-Chord
   Schemas); IV and ♭VII before the tonic (de Clercq and Temperley 2011). The key change near the end, the most common
@@ -39,18 +39,18 @@ The verse–chorus pop song at a dance tempo: a simple beat and melody, a chorus
 
 | Axis | Traits | From |
 |---|---|---|
-| `tempo` | rhythms or tempos that can easily be danced to | WP Pop music |
-| `harmony` | simple, with limited harmonic accompaniment; the four-chord schemas | WP Pop music; OMT |
+| `tempo` | a rhythm and a tempo easy to dance to | WP Pop music |
+| `harmony` | simple: an accompaniment of limited harmony; the four-chord schemas | WP Pop music; OMT |
 | `melody` | catchy hooks; a chorus that contrasts with the verse in melody, rhythm and harmony | WP Pop music |
 | `rhythm` | a consistent, noticeable rhythmic element; dance-oriented rhythms | WP Pop music (Warner) |
-| `timbre` | an emphasis on recording, production and technology over live performance | WP Pop music (Warner) |
+| `timbre` | recording, production and technology count for more than live performance | WP Pop music (Warner) |
 | `form` | songs of two and a half to three and a half minutes; verse–chorus or thirty-two-bar form; the chorus often after a drop, where bass and drums drop out | WP Pop music |
 | `mix` | no source read beyond this skill's delivery at −14 LUFS ([pop-and-ballad.md](pop-and-ballad.md), The mix) | |
 
 - **In this skill**: [pop-and-ballad.md](pop-and-ballad.md); the drums from `blocks.drums` in the `rock` or `soul`
   feel or the `dance` feel for dance-pop ([building-blocks.md](building-blocks.md)).
 - **Variants**: *Dance-pop*: up-tempo, for the club and the radio at once, strong beats and easy, uncomplicated
-  structures nearer pop than dance music, from disco, post-disco and synth-pop (WP Dance-pop).
+  structures nearer pop than dance music, from synth-pop, disco and post-disco (WP Dance-pop).
 - **Neighbours**: Ballad; Disco; `jpop/anime-opening`.
 
 ## Ballad
@@ -71,22 +71,22 @@ The slow, sentimental song: a lush arrangement that puts the melody and its harm
 - **Variants**:
   - *Power ballad*: love or heartache shifting into wordless intensity with heavy drums and a distorted guitar solo
     (WP Sentimental ballad).
-  - *Soft rock*: simple, melodic songs with big, lush productions, mostly ballads, from singer-songwriter and pop
+  - *Soft rock*: melodic, simple songs in large, lush productions, mostly ballads, from singer-songwriter and pop
     rock (WP Soft rock; WP Sentimental ballad).
 - **Neighbours**: Up-tempo pop; `jpop/enka`; the Romantic orchestral entry for its strings (`orchestral/romantic`).
 
 ## Disco
 
-Four-on-the-floor dance music with syncopated octave basslines, strings and horns over a pad of electric pianos and
-scratching guitars. `pop/disco`
+Four-on-the-floor dance music with syncopated octave basslines, strings and horns over a bed of electric
+pianos and scratching guitars. `pop/disco`
 
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | measured here on 14 Harmonix Set songs labelled funk/disco: a median 119 BPM, the middle 80% between 109 and 131 | Nieto et al. 2019 |
 | `harmony` | major and minor seventh chords, more often found in jazz than in pop; electric pianos and muted rhythm guitars as the pad that defines the progression | WP Disco |
-| `melody` | soaring, reverberant vocals doubled by horns; strings and horns playing linear phrases with them or fills between; less lead guitar than rock | WP Disco |
-| `rhythm` | a steady four-on-the-floor bass drum, eighth or sixteenth hi-hats with an open hat on the off-beat; a heavy, syncopated bassline in broken octaves; Latin percussion | WP Disco |
-| `timbre` | a large band: several chordal instruments, drum kit and percussion, a horn section, a string orchestra, solo flute or piccolo; the Rhodes, Wurlitzer and Clavinet; "chicken-scratch" guitar, the strings lightly muted and strummed near the bridge | WP Disco |
+| `melody` | high, reverberant vocals with horns doubling them; strings and horns in single lines along with the voice, or filling the gaps; less lead guitar than rock | WP Disco |
+| `rhythm` | the bass drum steady on all four beats (four-on-the-floor), eighth or sixteenth hi-hats, opening on the off-beat; a heavy bassline, syncopated, in broken octaves; Latin percussion | WP Disco |
+| `timbre` | a large band: several chordal instruments, drum kit and percussion, horns, an orchestra of strings, solo flute or piccolo; the Rhodes, Wurlitzer and Clavinet; "chicken-scratch" guitar, the strings lightly muted and strummed near the bridge | WP Disco |
 | `form` | on the same songs: choruses 8 bars long in 69%, verses 8 in 60%; four choruses at the median | Nieto et al. 2019 |
 | `mix` | multitrack production; loud hi-hats | WP Disco |
 
@@ -98,7 +98,7 @@ scratching guitars. `pop/disco`
 
 ## Synth-pop
 
-Pop made with synthesizers, drum machines and sequencers, synthetic textures and a robotic rigidity in place of rock's
+Pop made with sequencers, drum machines and synthesizers, synthetic textures and a robotic rigidity in place of rock's
 playing. `pop/synth-pop`
 
 | Axis | Traits | From |
@@ -113,7 +113,7 @@ playing. `pop/synth-pop`
 
 - **In this skill**: the `synth` and `surge` engines with `drum_synth` ([electronic-sounds.md](electronic-sounds.md));
   `blocks.drums` with `programmed=True`; Surge string and brass patches (`sounds --role brass`, `--name string`).
-- **Variants**: *Electropop*: a harder, more electronic sound (WP Synth-pop).
+- **Variants**: *Electropop*: harder in sound and more electronic (WP Synth-pop).
 - **Neighbours**: `electronic/synthwave`; `electronic/electro`; `jpop/fast-electro`.
 
 ## Hyperpop

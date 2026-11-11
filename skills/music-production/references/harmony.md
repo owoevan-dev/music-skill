@@ -13,7 +13,7 @@ Contents: [Function and the phrase](#function-and-the-phrase) · [Colour: tonici
 
 - **A phrase moves toward a cadence.** Open Music Theory analyses a phrase from its ending back:
   - find the phrase end and its cadence;
-  - find the strong predominant that leads to it;
+  - find the strong predominant before it;
   - then work forward from the beginning.
 
   Composing can follow the same order: decide each phrase's cadence first.
@@ -21,7 +21,7 @@ Contents: [Function and the phrase](#function-and-the-phrase) · [Colour: tonici
   - a half cadence ends the phrase on V and sounds open;
   - an authentic cadence moves V(7)–I and sounds closed. It is perfect when both chords are in root position and 1 is in the melody over the tonic; otherwise it is imperfect.
 - **Strong predominants** (Strengthening Endings with Strong Predominants):
-  - most phrase endings are strengthened by a predominant before V;
+  - a predominant before V strengthens most phrase endings;
   - in the bass this is fa–sol (4–5) at a half cadence, fa–sol–do (4–5–1) at an authentic one;
   - the fa is harmonised with ii6, the more common choice, or IV. Either predicts a dominant.
   - Parallel fifths and octaves are the common part-writing error here.
@@ -30,16 +30,16 @@ Contents: [Function and the phrase](#function-and-the-phrase) · [Colour: tonici
 
 ## Colour: tonicization and mixture
 
-- **Tonicization** makes a non-tonic chord sound briefly like a tonic (Tonicization):
+- **Tonicization** lets a chord other than the tonic be heard, for a moment, as a tonic (Tonicization):
   - it uses applied chords: a secondary dominant V(7)/x or a secondary leading-tone chord viio(7)/x;
   - an applied chord nearly always carries an accidental, usually raising a pitch;
-  - it can be read as an altered diatonic chord on the same root: ii becomes II♯, which is V/V.
+  - it can be read as an altered diatonic chord on the same root: ii with its third raised (II♯) is V/V.
 - **Modal mixture** borrows notes from the parallel key (Modal Mixture):
-  - it is more common in major keys, borrowing from the parallel minor (me, le, te: ♭3, ♭6, ♭7);
+  - major keys borrow from their parallel minor more often than the reverse (me, le, te: ♭3, ♭6, ♭7);
   - it changes a chord's quality, not its function;
   - it can colour a melody, single chords, an extended tonicization or a modulation;
   - borrowed chords on lowered roots are written with a flat (♭VI, ♭VII).
-- **In jazz** the most common mixture chords are ii∅7 for ii7 and a ♭9 added to V7, both with le (♭6) in place of la (Substitutions).
+- **In jazz** mixture most often gives ii∅7 for ii7 and a ♭9 added to V7, both with le (♭6) in place of la (Substitutions).
 - **In rock**, ♭VII is the most common root outside the major scale (de Clercq and Temperley 2011, in [rock-and-metal.md](rock-and-metal.md)).
 
 ## Sequences
@@ -52,7 +52,7 @@ Contents: [Function and the phrase](#function-and-the-phrase) · [Colour: tonici
 
 ## Changing key
 
-- **Modulation** is a longer-term change of tonic. There are two basic kinds (Extended Tonicization and Modulation to Closely Related Keys):
+- **Modulation** changes the tonic for a longer stretch, in one of two basic ways (Extended Tonicization and Modulation to Closely Related Keys):
   - **direct:** abrupt, straight into the new key;
   - **pivot chord:** subtler, through a chord the two keys share.
 

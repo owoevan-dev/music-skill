@@ -179,12 +179,12 @@
     "vertical": {
      "ask": false,
      "origin": "source",
-     "source": "Ireland 2023 (The Conversation): dissonant harmonies that do not readily resolve; Trevor et al. 2020: rough, scream-like music"
+     "source": "Lehne and Koelsch 2015: dissonance and instability carry the tension; Ireland 2023 (The Conversation): the dissonance is left standing; Trevor et al. 2020: rough, scream-like music"
     },
     "outside_chord": {
      "ask": false,
      "origin": "source",
-     "source": "Ireland 2023 (The Conversation): dissonant harmonies that do not readily resolve"
+     "source": "Lehne and Koelsch 2015: dissonance and instability carry the tension; Ireland 2023 (The Conversation): the dissonance is left standing"
     },
     "low_intervals": {
      "ask": false,
@@ -382,12 +382,12 @@
     "repetition": {
      "ask": false,
      "origin": "source",
-     "source": "Ireland 2023 (The Conversation): drones, sustained notes or repeated figures"
+     "source": "Ireland 2023 (The Conversation): drones, held notes or a figure that repeats"
     },
     "static_texture": {
      "ask": false,
      "origin": "source",
-     "source": "Ireland 2023 (The Conversation): unease when an expected development does not come"
+     "source": "Lehne and Koelsch 2015: an expectation raised and kept waiting; Ireland 2023 (The Conversation): the development one expects is held back"
     }
    }
   },
@@ -398,12 +398,12 @@
     "repetition": {
      "ask": false,
      "origin": "source",
-     "source": "Ireland 2023 (The Conversation): repeated short melodies convey tension"
+     "source": "Ireland 2023 (The Conversation): short tunes played over and over carry the tension; Lehne and Koelsch 2015: an expectation raised and kept waiting"
     },
     "static_texture": {
      "ask": false,
      "origin": "source",
-     "source": "Ireland 2023 (The Conversation): unease when an expected development does not come"
+     "source": "Lehne and Koelsch 2015: an expectation raised and kept waiting; Ireland 2023 (The Conversation): the development one expects is held back"
     },
     "stiffness": {
      "ask": false,

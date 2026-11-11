@@ -46,9 +46,9 @@ frightening ([style-map-horror.md](style-map-horror.md) has the devices that do)
 
 ## Unease and the uncanny
 
-The horror and suspense map gathers the devices of fear: ambiguity, repetition that withholds the expected
-development, the body (scream-like roughness, breath, heartbeats) and the shock
-([style-map-horror.md](style-map-horror.md), after Ireland 2023). Unease in another style borrows from it: a
+The horror and suspense map gathers the devices of fear: instability that does not settle, an expectation kept
+waiting, the signals of alarm (scream-like roughness, voices, heartbeats) and the startle
+([style-map-horror.md](style-map-horror.md), with the studies each rests on). Unease in another style borrows from it: a
 borrowed `harmony` from `horror/drone-dread` for an unresolved drone under a pop or orchestral piece, with the
 reason in `decisions`. The cue table adds: low register, minor mode and loud dynamics for the frightening end, soft
 dynamics and slow tempo held under it for dread.

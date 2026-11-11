@@ -84,15 +84,15 @@ If the piece must also carry on small speakers, `mix.range_lu` brings the master
 
 ## How near the orchestra is heard
 
-The sends in this guide (−14 dB each with `depth_m`) put the reverb about 16 LU under the dry sound. Taken as a room, that mix has a clarity (C80, the energy within 80 ms of the direct sound over the energy after it) of about +17 dB. A seat in a concert hall has −2 to +2 dB, with a reverberation time of 1.8 to 2.2 s (Barron 2013, his recommended ranges at mid frequencies); recordings sit between, with a direct-to-reverberant ratio from +25 down to −3 dB (Griesinger). So a piece mixed as this guide starts it is heard from among the players, not from the hall: clear, and small.
+With the sends in this guide (−14 dB each with `depth_m`), the response a mix gives its parts, the direct sound and the hall's answer at that level, has a clarity of about +16 dB. Clarity (C80) is the energy within 80 ms of the direct sound, the direct sound included, over the energy after it, read at mid frequencies. Barron (2013) recommends −2 to +2 dB for concert halls, beside a reverberation time of 1.8 to 2.2 s. So a piece mixed as this guide starts it stands far on the clear side of a hall: every line is easy to follow, and little of the room is in the sound. Recordings spread widely too: Griesinger gives their direct-to-reverberant ratio, a related measure, as +25 down to −3 dB.
 
-With `mix.rules: 2`, `mix.c80_db` asks for a clarity and the render moves the hall's return to give it ([schema.md](schema.md#the-mix)). `analyze` reports the mix's `clarity_c80_db` beside the hall's range either way. For the generated hall, measured:
+With `mix.rules: 2`, `mix.c80_db` asks for a clarity and the render moves the hall's return to give it ([schema.md](schema.md#the-mix)). The clarity is worked out from the project file and the hall's impulse response, not from the audio. `analyze` reports the mix's `clarity_c80_db` beside the range for halls either way. For the generated hall at this guide's sends, on this skill's fughetta example:
 
-| Heard from | `c80_db` | The hall's return against the dry sound |
+| Balance of early and late sound | `c80_db` | The hall's return, against where the sends put it |
 |---|---|---|
-| among the players (this guide's starting sends) | about +17 | −16 LU |
-| the conductor's place, or a close recording | +8 to +5 | −6 to −3 LU |
-| a seat in the hall | +2 to −2 | +1 to +9 LU: the hall as loud as the players, or louder |
+| this guide's starting sends | about +16 | as written |
+| between the two | +8 to +5 | 8 to 12 dB up |
+| inside the range recommended for concert halls | +2 to −2 | 15 to 20 dB up: the hall about as loud as the players, or louder |
 
 No value is the right one. Listeners divide: in one study of nine halls, one group of assessors "preferred concert halls with relatively intimate sound, in which it is quite easy to hear individual instruments and melody lines", the other "a louder and more reverberant sound with good envelopment and strong bass" (Lokki, Pätynen, Kuusinen and Tervo 2012); Barron names three such groups. The seat and the music change the judgement too (the same authors 2016). Choose by the piece and say so in `decisions`:
 
@@ -103,7 +103,13 @@ No value is the right one. Listeners divide: in one study of nine halls, one gro
 | mostly heard on a phone or a laptop | nearer: reverberant sound is the first thing small speakers lose the detail of |
 | the brief names it (intimate, close, chamber; vast, cathedral, distant) | as it says |
 
-Three limits, so the number is not taken for more than it is. The middle row of the first table has no source for its values: it lies between the two that have. The clarity is worked out from energies, counting the generated hall's own first 80 ms as early sound; a real hall's early sound is mostly strong reflections, which the generated one has few of, so the hall row may sound more washed than a hall does: start from the middle row and move by ear. And the samples keep the distance they were recorded at: the Iowa recordings are anechoic ([soundbanks.md](soundbanks.md)), and what room the other banks carry was not measured. Reverb covers a close recording; it does not undo it.
+Five limits, so the number is not taken for more than it is.
+
+- **It is this mix's, not a hall's.** The index is worked out as the standard defines it, from impulse responses in the octaves of 500, 1000 and 2000 Hz, which is how Barron reports it. But his range is for occupied halls, measured from the stage to a seat, and a generated space has no stage, seats or audience. The two figures compare the balance of early and late sound and nothing else about a hall: the number does not say where in a hall a listener would sit.
+- **Parts that send different amounts** each count by their energy. That weighting is this skill's way of making one number of them.
+- **The middle row of the first table has no source** for its values: it lies between the two that have.
+- **The generated hall has few strong early reflections**, which are most of a real hall's early sound, and the first reflections `depth_m` adds are in the dry sound and count as direct. So the last row may sound more washed than a hall does: start from the middle row, and let whoever listens move it.
+- **The samples keep the distance they were recorded at:** the Iowa recordings are anechoic ([soundbanks.md](soundbanks.md)), and what room the other banks carry was not measured. Reverb covers a close recording; it does not undo it.
 
 ## Expression on the sampled orchestra
 
@@ -142,7 +148,7 @@ A recording holds one note at one dynamic, so a sampled orchestra loses three th
 ## Sources
 
 - Rimsky-Korsakov, N. (1922). [Principles of Orchestration](https://www.gutenberg.org/ebooks/33900), ed. M. Steinberg, trans. E. Agate. Project Gutenberg #33900, public domain in the USA. Chapters II and III: the relative strength of the groups, the distribution of chords, the natural order of the woodwinds, strings doubling in octaves, combinations of timbres.
-- Barron, M. (2013). Objective assessment of concert hall acoustics using Temporal Energy Analysis. *Applied Acoustics* 74, 936–944; read in the copy at [akutek.info](https://www.akutek.info/Papers/MB_Objective_Assessment_2013.pdf). Table 1, recommended ranges for concert halls, and the groups of listeners.
+- Barron, M. (2013). Objective assessment of concert hall acoustics using Temporal Energy Analysis. *Applied Acoustics* 74, 936–944; read in the copy at [akutek.info](https://www.akutek.info/Papers/MB_Objective_Assessment_2013.pdf). Table 1, recommended ranges at mid frequencies (the mean of the octaves of 500, 1000 and 2000 Hz) for occupied concert halls, and the groups of listeners.
 - Beranek, L. L. (2004). *Concert Halls and Opera Houses: Music, Acoustics, and Architecture*, 2nd ed. Springer. See also Beranek, L. L. (2008). Concert Hall Acoustics—2008. *Journal of the Audio Engineering Society* 56(7/8), 532–544.
 - EBU (2023). [Tech 3342: Loudness range: A measure to supplement EBU R 128 loudness normalisation](https://tech.ebu.ch/publications/tech3342). First published 2010. See also EBU (2023), R 128: Loudness normalisation and permitted maximum level of audio signals.
 - Fabiani, M. (2009). [A method for the modification of acoustic instrument tone dynamics](https://www.dafx.de/paper-archive/2009/papers/paper_75.pdf). *Proceedings of the 12th International Conference on Digital Audio Effects (DAFx-09)*, Como.

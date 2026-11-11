@@ -41,8 +41,7 @@ import tempfile
 import numpy as np
 
 from . import audio, files
-from .measure import (HALL_C80_DB, REVERB_RANGE_LU, REVERB_TOO_MUCH_LU, clarity_c80, early_share, k_filter, level,
-                      momentary, relative_loudness, release)
+from .measure import HALL_C80_DB, clarity_c80, k_filter, level, momentary, release
 from .model import Clock, load_project
 
 RATE = audio.RATE
@@ -327,11 +326,9 @@ def lead_presence(lead, accompaniment, spans):
 
 def early_decay_time(responses):
     """The early decay time (s) of impulse responses heard together, `responses` being (frames x channels, energy
-    weight) pairs: six times the time their summed backward-integrated energy decay takes to fall 10 dB (the
-    definition De Man et al. (2017) use, after ISO 3382).  Each response's decay curve is weighted by the energy its
-    return has in the mix.  The paper derives one equivalent response from the mix's dry and wet signals; here the
-    responses themselves are known, so their curves are combined: an estimate of the same thing, not the paper's
-    procedure."""
+    weight) pairs: six times the time their summed backward-integrated energy decay takes to fall 10 dB (ISO
+    3382's definition).  Each response's decay curve is weighted by what the parts send into its space as the
+    project writes it (mixbus.written_energies); the responses themselves are known, so their curves are combined."""
     total, longest = None, max((len(x) for x, _ in responses), default=0)
     for x, weight in responses:
         e = (np.asarray(x, dtype=np.float64) ** 2).sum(axis=1)
@@ -346,38 +343,43 @@ def early_decay_time(responses):
     return round(6 * float(below[0]) / RATE, 3) if len(below) else None
 
 
-def mix_measures(render_dir, report):
-    """What a bus-chain render's own parts say of its reverb and its lead: {'reverb': ..., 'lead_against_mix': ...},
-    each None where the render lacks the files (another chain, or no part sends to a space).  The buses are the dry
-    signal and the spaces' returns the wet one; the delay's return counts on neither side.  Read from returns/ and
-    premix.wav, before the master: the master's compression raises a quiet tail a little, so against mixes measured
-    after it these figures are, if anything, low."""
+def mix_measures(render_dir, report, p=None):
+    """What a bus-chain render says of its reverb and its lead: {'reverb': ..., 'lead_against_mix': ...}, each None
+    where the render lacks what it needs (another chain; no part sends to a space; no project).
+
+    The reverb is described from the project `p` (the render's own project.json without it) and from the spaces'
+    impulse responses in returns/, never from the returns' audio: the early decay time of the responses heard
+    together and the clarity (measure.clarity_c80), each part counting as the project writes it
+    (mixbus.written_energies).  Only buses and spaces the mix knows are read, whatever names the report holds.
+    The lead is set against the mix from returns/bus_lead.wav and premix.wav, before the master."""
+    from .mixbus import clarity_rooms, written_energies
+    from .mixbus import SPACES
+    from .model import BUSES
     returns = render_dir / 'returns'
     mix = report.get('buses') or {}
-    spaces = [n[:-len('_return.wav')] for n in mix.get('returns') or [] if n.endswith('_return.wav') and n != 'delay_return.wav']
-    buses = sorted({b for b in (mix.get('assignment') or {}).values()})
+    spaces = [n[:-len('_return.wav')] for n in mix.get('returns') or [] if isinstance(n, str) and n.endswith('_return.wav')]
+    spaces = [s for s in spaces if s in SPACES]
+    buses = sorted({b for b in (mix.get('assignment') or {}).values() if b in BUSES})
     if report.get('chain') != 'bus' or not buses or any(not (returns / f'bus_{b}.wav').is_file() for b in buses):
         return {'reverb': None, 'lead_against_mix': None}
 
     def read(path):
         return np.asarray(audio.read_wav(path)[0], dtype=np.float64)
-    dry = sum(read(returns / f'bus_{b}.wav') for b in buses)
     out = {'reverb': None, 'lead_against_mix': None}
-    if spaces and all((returns / f'{s}_return.wav').is_file() and (returns / f'{s}_ir.wav').is_file() for s in spaces):
-        wet, weighted = None, []
-        for s in spaces:
-            y = read(returns / f'{s}_return.wav')
-            wet = y if wet is None else wet + y
-            weighted.append((read(returns / f'{s}_ir.wav'), float((y ** 2).sum())))
-        rrl = relative_loudness(wet, dry)
-        if rrl is not None:
-            lo, hi = REVERB_RANGE_LU
-            c80 = clarity_c80(float((dry ** 2).sum()), [(energy, early_share(response)) for response, energy in weighted])
-            out['reverb'] = {'relative_loudness_lu': round(rrl, 1), 'early_decay_time_s': early_decay_time(weighted),
-                             'clarity_c80_db': None if c80 is None else round(c80, 1), 'hall_c80_db': list(HALL_C80_DB),
-                             'spaces': spaces, 'published_range_lu': [lo, hi], 'too_much_from_lu': REVERB_TOO_MUCH_LU,
-                             # What every reverb send would change by to reach the nearest end of the range.
-                             'to_range_db': round(lo - rrl if rrl < lo else hi - rrl if rrl > hi else 0.0, 1)}
+    if p is None and (render_dir / 'project.json').is_file():
+        try:
+            p = load_project(render_dir / 'project.json')
+        except (OSError, ValueError):
+            p = None
+    if p is not None and spaces and all((returns / f'{s}_ir.wav').is_file() for s in spaces):
+        clock = Clock(p)
+        responses = {s: read(returns / f'{s}_ir.wav') for s in spaces}
+        sent = written_energies(p, clock)[1]
+        dry, rooms = clarity_rooms(p, clock, responses)
+        # The returns stand where the mix's rules of version 2 set them; their responses are as written.
+        c80 = clarity_c80(dry, rooms, float(((mix.get('rules') or {}).get('reverb') or {}).get('gain_db') or 0.0)) if rooms else None
+        out['reverb'] = {'early_decay_time_s': early_decay_time([(responses[s], sent.get(s, 0.0)) for s in spaces]),
+                         'clarity_c80_db': None if c80 is None else round(c80, 1), 'hall_c80_db': list(HALL_C80_DB), 'spaces': spaces}
     if 'lead' in buses and (render_dir / 'premix.wav').is_file():
         lead, premix = read(returns / 'bus_lead.wav'), read(render_dir / 'premix.wav')
         n = min(len(lead), len(premix))
@@ -542,25 +544,13 @@ def analyze(render_dir, bar_spans=(), reference=None):
                         'gain reduction on loud peaks and rarely more than 6 (White 2003), and heavier limiting can flatten '
                         'transients; have it heard, lower target_lufs, or lower that section\'s peaks '
                         '(mix.saturate on its loudest parts, ducking, less level on what it adds).')
-    mixed = mix_measures(render_dir, report)
+    mixed = mix_measures(render_dir, report, p)
     if mixed['reverb'] is not None:
         r = mixed['reverb']
         if p['mix'].get('c80_db') is not None:
             # The piece names how near it is heard: the range measured on mixes of songs is not its measure, and a
             # hall's amount of reverb is not too much of it.
             r['c80_asked_db'] = p['mix']['c80_db']
-        elif r['relative_loudness_lu'] >= REVERB_TOO_MUCH_LU:
-            warnings.append(f'the reverb returns are {r["relative_loudness_lu"]:g} LU against the buses: in De Man, McNally '
-                            f'and Reiss (2017) every mix at {REVERB_TOO_MUCH_LU:g} LU or more was judged too reverberant by '
-                            f'skilled listeners. Lowering every reverb send by {-r["to_range_db"]:g} dB reaches '
-                            f'{REVERB_RANGE_LU[1]:g} LU.')
-        elif r['to_range_db'] > 0:
-            warnings.append(f'the reverb returns are {r["relative_loudness_lu"]:g} LU against the buses, drier than the '
-                            f'{REVERB_RANGE_LU[0]:g} to {REVERB_RANGE_LU[1]:g} LU around the -14 LU that De Man, McNally '
-                            f'and Reiss (2017) found the more desirable in engineers\' mixes of songs. Raising every reverb '
-                            f'send by {r["to_range_db"]:g} dB reaches it. Their songs had vocals, and a recorded bank may '
-                            'carry a room of its own that this measure counts as dry: a style that is dry on purpose, or '
-                            'parts recorded in a hall, need no more.')
     receipts_file = render_dir / 'stem_receipts.json'
     for r in files.read_json(receipts_file) if receipts_file.is_file() else []:
         played = r.get('surge') or {}

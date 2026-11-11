@@ -41,16 +41,14 @@ the skill does not install it.
 
 **Words for mixes and effects.** Moffat, De Man and Reiss (2022) compared three collections of the words people give
 to the result of an effect:
-- "Warm" and "bright" were the commonest. In equalization data, warm, bass, boom, box and vocal went with a boost
-  near 500 Hz and the top rolled off; thin, clean, cut, click and tin with boosts from 5 kHz up and less low end.
-- The mixing books they list name bands: air at 10–20 kHz (Coryat 2008; Izhaki 2008) or 12–20 kHz (Coryat;
-  Cousins and Hepworth-Sawyer 2013; Waddell 2013), 12–16 kHz (Katz 2002) or 12–15 kHz (White 1999), and in Owsinski
-  (2006) 11–22.5 kHz in one place and 5–8 kHz in another; clarity 2.5–4 kHz (Waddell), 2.5–5 kHz (Huber and Runstein
-  2014), 3–12 kHz (Izhaki) and 4–16 kHz (Owsinski); presence 1.5–6 kHz (Coryat), 2–8 kHz (Katz), 2–11 kHz (Izhaki),
-  2.5–5 kHz (Huber and Runstein), 4–6 and 0.8–12 kHz (Owsinski); fat 50–250 (Izhaki), 60–250 (Owsinski), 62–125 (Katz)
-  or 200–800 Hz (Owsinski), 240 Hz (Huber and Runstein); ballsy and beefy 40–200 Hz, barrelly 200–800 Hz, articulate and
-  bathroomy 800–5,000 Hz (Owsinski); anemic, the lack of 20–110 Hz (Izhaki) or 40–200 Hz (Owsinski). These books are
-  cited through Moffat et al., whose table is an excerpt of De Man's thesis.
+- "Warm" and "bright" were the commonest. In equalization data, bass, boom, box, vocal and warm went with a boost
+  near 500 Hz and the top rolled off; clean, click, cut, thin and tin with boosts from 5 kHz up and less low end.
+- The mixing books they list name a band for such words, and the books do not agree. Three of the ten words in
+  their table, as examples: air is 10–20 kHz in two books (Coryat 2008; Izhaki 2008) and 12–16 kHz in a third (Katz
+  2002); presence runs from 1.5–6 kHz (Coryat) to 2–11 kHz (Izhaki); fat is 60–250 Hz in one place in Owsinski
+  (2006) and 200–800 Hz in another. The whole list is their Table 2, an excerpt of De Man's thesis, and is read
+  there. What it shows is the spread: the band given for one word differs from book to book, and within one
+  book. The books are cited through Moffat et al.
 - Among the commonest words for reverberation: echo, church, big, spacious, distant, hall, ring, far, room, echoing
   and large (the SocialFX collection, crowdsourced from non-experts).
 - Bright, resonant and harsh drew strong agreement between listeners in another study, open, hard and heavy weak
@@ -130,8 +128,7 @@ a version, for the user's listening.
   Vienna, 67–72.
 - Moffat, D., De Man, B. and Reiss, J. D. (2022). [Semantic music production: a
   meta-study](https://doi.org/10.17743/jaes.2022.0023). *Journal of the Audio Engineering Society* 70(7/8), 548–564.
-  The books whose bands its Table 2 lists: Owsinski (2006), Coryat (2008), Izhaki (2008), White (1999), Katz (2002),
-  Cousins and Hepworth-Sawyer (2013), Waddell (2013), Huber and Runstein (2014).
+  The books quoted here from its Table 2: Owsinski (2006), Coryat (2008), Izhaki (2008), Katz (2002).
 - Pearce, A., Brookes, T. and Mason, R. (2018). Audio Commons deliverable D5.7: [Evaluation report on the second
   prototypes of the timbral characterisation
   tools](https://audiocommons.github.io/assets/files/AC-WP5-Surrey-D5.7%20Evaluation%20report%20on%20the%20second%20prototypes%20of%20the%20timbral%20characterisation%20tools.pdf).

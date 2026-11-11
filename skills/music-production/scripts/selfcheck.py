@@ -498,7 +498,7 @@ def checks(work,config=None):
         # Any patch of the measured catalog is a Surge preset by its id: found by role and measured character (flagged
         # patches left out, dark to bright), falling back by its role, and played only from the full patch set, which
         # bootstrap installs (offline with nothing cached it reports the skip and leaves the configuration without it).
-        import contextlib,io,types
+        import contextlib,io,subprocess,types
         import bootstrap
         from musiclib import surge
         from musiclib.audition import label
@@ -525,9 +525,32 @@ def checks(work,config=None):
         assert 0<len(ranged)<len(every) and all(600<=r['centroid_hz']<=900 and .1<=r['attack_s']<=.3 for r in ranged),len(ranged)
         low=search('bass',limit=100000,centroid=(None,120))['shown'];high=search('bass',limit=100000,centroid=(120.5,None))['shown']
         assert low and high and max(r['centroid_hz'] for r in low)<=120<min(r['centroid_hz'] for r in high) and len(low)+len(high)==search('bass',limit=100000)['count']
+        # From the command line a range's ends are plain numbers, finite and not under zero, the lower first (a review
+        # of 0.6.0: nan-900, 0-inf and --1 were taken as ranges).
+        cli=lambda *a:subprocess.run([sys.executable,'-B',str(Path(__file__).with_name('studio.py')),'sounds','--role','pad',*a],capture_output=True,text=True)  # noqa: E731
+        for bad in ('--centroid=nan-900','--centroid=0-inf','--centroid=--1','--attack=-inf-1','--attack=x-1','--centroid=900-600','--centroid=-','--attack=0.1'):
+            r=cli(bad);assert r.returncode==2 and 'Traceback' not in r.stderr and bad.split('=')[0] in r.stderr,(bad,r.returncode,r.stderr[-200:])
+        r=cli('--centroid=600-900','--attack=-0.3','--limit','5');assert r.returncode==0 and json.loads(r.stdout)['shown'],r.stderr[-200:]
         steady=search('pad',['steady'],limit=100000)['shown'];moving=search('pad',['moving'],limit=100000)['shown']
         assert steady and moving and len(steady)+len(moving)==len(every) and all(r['centroid_spread_pct']<=10 for r in steady) and all(r['centroid_spread_pct']>10 for r in moving)
-        assert all(('steady' in v['character'])==(v['measured']['centroid_spread_pct']<=10) for v in cat.values() if 'measured' in v)
+        # A patch whose probe gave no centroid (nothing sounded in the held part) has no spread: it is called neither
+        # steady nor moving and no brightness, and no range of the centroid finds it (a review of 0.6.0: one such
+        # patch carried a spread of -100% and was called steady and dark).
+        spread=lambda v:v['measured']['centroid_spread_pct']  # noqa: E731
+        assert all(spread(v) is None or spread(v)>=0 for v in cat.values() if 'measured' in v)
+        assert all((spread(v) is None)==(not v['measured']['centroid_hz']) for v in cat.values() if 'measured' in v)
+        assert all(('steady' in v['character'])==(spread(v) is not None and spread(v)<=10) and ('moving' in v['character'])==(spread(v) is not None and spread(v)>10)
+                   for v in cat.values() if 'measured' in v)
+        bare=[k for k,v in cat.items() if 'measured' in v and not v['measured']['centroid_hz']]
+        assert bare and all(not any(w in cat[k]['character'] for w in ('dark','warm','mid','bright')) for k in bare),bare
+        role=cat[bare[0]]['role'];ids=lambda **k:{r['id'] for r in search(role,limit=100000,everything=True,**k)['shown']}  # noqa: E731
+        assert bare[0] in ids() and bare[0] not in ids(centroid=(None,400)) and bare[0] not in ids(centroid=(0,None))
+        # The licence a patch states for itself stays with it, word for word, and the catalog's origin says so with
+        # their number (a review of 0.6.0: the catalog measured again had lost all 78).
+        own={k:v['license'] for k,v in cat.items() if 'license' in v}
+        origin=json.loads((Path(surge.__file__).resolve().parents[2]/'references'/'surge-catalog.json').read_text(encoding='utf-8'))['origin']['license']
+        assert len(own)==78 and all('CC0' in text for text in own.values()) and cat['factory/templates/init_square']['license']=='Licensed under the maximally permissive CC0 license'
+        assert 'GPL-3.0-or-later' in origin and f'{len(own)} of the {len(cat):,}' in origin and 'each CC0' in origin,origin
         key=rows[0]['id'];found=surge.entry(key)
         assert found['folder']=='catalog' and found['fallback']=='warm_pad' and describe(key)['measured']['centroid_hz']==rows[0]['centroid_hz']
         dark=next(k for k,v in cat.items() if v['role']=='bass' and v.get('measured',{}).get('centroid_hz',999)<120)
@@ -837,10 +860,9 @@ def checks(work,config=None):
         return {'sine_997hz_0dbfs_lufs':round(calibrated,3),'frequency_vs_time_domain_db':round(float(k_level(x)-in_time),4)}
     check('k_weighting_matches_bs1770',k_weighting)
     def loudness_measures():
-        # The measures the mix's rules of version 2 and analyze read (0.6): momentary and gated loudness by BS.1770,
-        # the relative loudness of two signals, the crest factor and the time constants it gives.
-        from musiclib import measure
-        from musiclib.mixbus import time_constants
+        # The measures analyze and the mix's rules of version 2 read (0.6): momentary and gated loudness by BS.1770,
+        # the clarity of a response, and what a project writes of how much each part sounds.
+        from musiclib import measure,mixbus
         R=audio.RATE;t=np.arange(10*R)/R;rng=np.random.default_rng(11)
         sine=np.zeros((len(t),2));sine[:,0]=np.sin(2*np.pi*997*t)
         m=measure.momentary(sine)  # a 0 dBFS 997 Hz sine in one channel reads -3.01 in every window, and over the whole
@@ -866,44 +888,104 @@ def checks(work,config=None):
         loud=rng.standard_normal((2*R,2))*.2;quiet=rng.standard_normal((8*R,2))*.2*10**(-30/20)
         both=np.concatenate([loud,quiet]);alone=measure.integrated(loud);gated=measure.integrated(both);ungated=measure.k_level(both)
         assert abs(gated-alone-10*np.log10(18.5/20))<.05 and gated-ungated>6,(alone,gated,ungated)
-        # The relative loudness of a copy 20 dB down is -20, with silence round the two or without.
-        pad=np.zeros((R,2));dry=np.concatenate([pad,loud,pad])
-        assert abs(measure.relative_loudness(dry*.1,dry)+20)<1e-6 and abs(measure.relative_loudness(loud*.1,loud)+20)<1e-6
-        assert measure.relative_loudness(pad,pad) is None
-        assert abs(measure.windows_difference(measure.momentary(dry*.1),measure.momentary(dry))+20)<1e-6
-        # The crest factor squared: 2 for a sine, in double or single precision; a click per window, the window's length.
-        tone=np.sin(2*np.pi*440*t);clicks=np.zeros(4*R);clicks[::R//2]=1
-        c=measure.crest_squared(tone);c32=measure.crest_squared(tone.astype(np.float32))
-        assert abs(c-2)<.01 and abs(c32-2)<.01 and measure.crest_squared(clicks)>1000 and measure.crest_squared(np.zeros(R)) is None,(c,c32)
-        # Ma et al. (2015): twice the maximum over the squared crest factor, never above the maximum (80 ms, 1 s).
-        assert time_constants(2)==(80.0,1000.0) and time_constants(20)==(8.0,100.0) and time_constants(None)==(80.0,1000.0) and time_constants(.5)==(80.0,1000.0)
-        # How near a mix is heard, as one room (0.6): C80 from the dry signal's energy and each return's, spread as its
-        # space's response is.  A response with a tenth of its energy in its first 80 ms, returned 10 dB under the dry
-        # signal: early 1 + 0.01, late 0.09.  The gain that gives a C80 gives it back; a space whose response is nearly
-        # all early cannot bring the mix under its own clarity however loud; a clearer target turns the returns down.
-        response=np.zeros((R,2));response[:int(.08*R)]=np.sqrt(.1/(2*int(.08*R)));response[int(.08*R):]=np.sqrt(.9/(2*(R-int(.08*R))))
-        share=measure.early_share(response)
-        assert abs(share-.1)<1e-9 and abs(measure.early_share(response[:,0])-.1)<1e-9 and measure.early_share(np.zeros((10,2)))==0
-        c80=measure.clarity_c80(1.0,[(.1,share)])
-        assert abs(c80-10*np.log10(1.01/.09))<1e-9 and measure.clarity_c80(1.0,[]) is None and measure.clarity_c80(1.0,[(.1,1.0)]) is None
-        for target in (8,2,0,-2,15):
-            g=measure.returns_gain_for_c80(1.0,[(.1,share),(.05,.3)],target)
-            assert abs(measure.clarity_c80(1.0,[(e*10**(g/10),f) for e,f in [(.1,share),(.05,.3)]])-target)<1e-9,(target,g)
-        assert measure.returns_gain_for_c80(1.0,[(.1,share)],15)<0<measure.returns_gain_for_c80(1.0,[(.1,share)],2)
-        assert measure.returns_gain_for_c80(1.0,[(.1,.96)],2) is None and measure.HALL_C80_DB==(-2.0,2.0)
-        # The project's keys: rules 1 or 2, version 2 only on the bus chain; a reverb range only with it, inside -40 to -9.
-        q=example();q['mix'].update(chain='bus',rules=2,reverb_range_lu=[-20,-12]);validate(q)
-        q['mix']['reverb_range_lu']=None;validate(q)
+        # How near a mix is heard, as one room (0.6): C80 from the response the mix gives its parts, in the octaves of
+        # 500, 1000 and 2000 Hz.  A direct sound with reflections of half its amplitude at 20 ms and at 100 ms: each
+        # reflection has a quarter of the energy sent, in every octave, so early is 1 + 0.25 and late 0.25, and the
+        # clarity 10 log10(5) = 6.9897 dB.  It is the room's: the notes played through it do not enter.
+        room=np.zeros((int(.2*R),2));room[int(.02*R)]=.5;room[int(.1*R)]=.5
+        taps=measure.early_late(room)
+        assert len(taps)==3 and all(abs(a-.25)<1e-9 and abs(b-.25)<1e-9 for a,b in taps),taps
+        assert all(abs(a-.25)<1e-9 and abs(b-.25)<1e-9 for a,b in measure.early_late(room[:,0]))  # one channel alike
+        c80=measure.clarity_c80(1.0,[(1.0,taps)])
+        assert abs(c80-10*np.log10(5))<1e-9,c80
+        # Half the energy sent (a send 3 dB down): early 1 + 0.125, late 0.125; the returns 6 dB up: 1 + 1, over 1.
+        assert abs(measure.clarity_c80(1.0,[(.5,taps)])-10*np.log10(1.125/.125))<1e-9
+        assert abs(measure.clarity_c80(1.0,[(1.0,taps)],10*np.log10(4))-10*np.log10(2/1))<1e-9
+        # Two spaces add their early and their late energy; no space, or a response with nothing after 80 ms: none.
+        short=np.zeros((int(.2*R),2));short[int(.01*R)]=1.0
+        both=[(1.0,taps),(1.0,measure.early_late(short))]
+        assert abs(measure.clarity_c80(1.0,both)-10*np.log10((1+.25+1)/.25))<1e-9
+        assert measure.clarity_c80(1.0,[]) is None and measure.clarity_c80(1.0,[(1.0,measure.early_late(short))]) is None
+        assert measure.clarity_c80(1.0,[(0.0,taps)]) is None
+        # The octaves differ where the response does: the same room with the reflection at 100 ms low-passed at 700 Hz
+        # (FFmpeg's own filter's response) keeps its late energy in the 500 Hz octave and loses most of it above, so
+        # the three octaves' clarities part and their mean is what is given.
+        freqs=np.fft.rfftfreq(len(room),1/R);late=np.zeros(len(room));late[int(.1*R)]=.5
+        dark=room.copy();dark[:,:]=0;dark[int(.02*R)]=.5
+        dark+=np.fft.irfft(np.fft.rfft(late)*measure.biquad('lowpass',700,freqs),n=len(room))[:,None]
+        bands=measure.early_late(dark)
+        assert all(abs(a-.25)<1e-6 for a,_ in bands) and bands[0][1]>2*bands[1][1]>8*bands[2][1]>0,bands
+        each=[10*np.log10((1+a)/b) for a,b in bands]
+        assert abs(measure.clarity_c80(1.0,[(1.0,bands)])-sum(each)/3)<1e-9 and each[0]<each[1]<each[2]
+        # The filters on a space's return are counted: FFmpeg's highpass and lowpass at their defaults, two poles with
+        # Q 0.707, whose response is 3.01 dB down at the corner and 12 dB an octave beyond it.
+        for kind,corner,beyond in (('highpass',1000.0,500.0),('lowpass',1000.0,2000.0)):
+            h=np.abs(measure.biquad(kind,corner,np.array([corner,beyond,corner*(8 if kind=='highpass' else 1/8)])))
+            assert abs(20*np.log10(h[0])+3.0103)<.01 and abs(20*np.log10(h[1])+12.3)<.3 and abs(20*np.log10(h[2]))<.01,(kind,h)
+        filtered=measure.early_late(room,highpass_hz=1000.0)
+        assert filtered[0][0]<.5*taps[0][0] and abs(filtered[2][0]-taps[2][0])<.15*taps[2][0],filtered
+        # The gain that gives a clarity gives it back, within the span allowed; past either end the nearer end is
+        # taken (the clarity then misses, which the mix records); with nothing sent there is none to find.
+        for target in (15,8,4,2):
+            g=measure.returns_gain_for_c80(1.0,[(1.0,taps),(.5,bands)],target,30)
+            assert abs(g)<30 and abs(measure.clarity_c80(1.0,[(1.0,taps),(.5,bands)],g)-target)<1e-9,(target,g)
+        # These two spaces alone have a clarity over 1 dB (their own early energy over their late), so no gain brings
+        # the mix to 0: the loudest allowed is given, and the clarity there is still above what was asked.
+        assert measure.returns_gain_for_c80(1.0,[(1.0,taps),(.5,bands)],0,30)==30 and measure.clarity_c80(1.0,[(1.0,taps),(.5,bands)],30)>1
+        assert measure.returns_gain_for_c80(1.0,[(1.0,taps)],15,30)<0<measure.returns_gain_for_c80(1.0,[(1.0,taps)],2,30)
+        assert abs(measure.returns_gain_for_c80(1.0,[(1.0,taps)],10*np.log10(2),30)-10*np.log10(4))<1e-9  # worked above
+        assert measure.returns_gain_for_c80(1.0,[(1.0,taps)],60,30)==-30 and measure.returns_gain_for_c80(1.0,[(1.0,taps)],-5,6)==6
+        assert measure.returns_gain_for_c80(1.0,[(0.0,taps)],2,30) is None and measure.returns_gain_for_c80(1.0,[],2,30) is None
+        assert measure.HALL_C80_DB==(-2.0,2.0) and measure.MID_OCTAVES_HZ==(500.0,1000.0,2000.0)
+        # A signal shorter than one 400 ms block: one block with silence after it, 6.02 dB under the tone for 100 ms
+        # (this skill's reading, said so in the text; BS.1770 counts whole blocks only).
+        brief=measure.integrated(sine[:int(.1*R)]);whole=measure.integrated(sine)
+        assert abs((whole-brief)-10*np.log10(4))<.35,(whole,brief)
+        # What the project writes of how much each part sounds: the clarity is taken from this, never from the audio.
+        # At 120 to the minute a note of four quarter notes is held 2 s; a second note that starts while the first is
+        # held adds only what it adds (beats 2 to 6: one second more).  A part counts 10^(level / 10) for each second,
+        # and sends that into its space at its send's level; a part that sends nothing names no space.
+        w=example();w['clock']={'bars':4,'meter':[4,4],'tempo':[[0,120]],'tail_seconds':1};w['mix']['chain']='bus'
+        one_,two_=copy.deepcopy(w['tracks'][0]),copy.deepcopy(w['tracks'][0]);two_['id']=two_['name']='other'
+        def held(part,spans):
+            part['notes']=[{**part['notes'][0],'id':f'{part["id"]}_{k}','on':on,'duration':d,'pitch':60+k} for k,(on,d) in enumerate(spans)]
+            part['performance']={**part['performance'],'notes':{n['id']:{'velocity':80,'gate':1.0,'timing_ms':0} for n in part['notes']}}
+        held(one_,[(0,4)]);held(two_,[(0,4),(2,4)])
+        one_['mix'].update(level_dbfs=-20,reverb_db=None);two_['mix'].update(level_dbfs=-30,reverb_db=-10)
+        w['tracks']=[one_,two_];validate(w)
+        written,sent=mixbus.written_energies(w,Clock(w))
+        assert abs(written-(10**-2*2+10**-3*3))<2e-3*written and set(sent)=={'hall'} and abs(sent['hall']-10**-3*3*10**-1)<2e-3*sent['hall'],(written,sent)
+        # The clarity such a project asks: the hall's response here is the two reflections above, read after the
+        # return's own filters, and each octave's clarity is (written + sent * early) / (sent * late) by hand.
+        response={'hall':room}
+        filtered_=measure.early_late(room,mixbus.SPACES['hall'][5],mixbus.RETURN_LOWPASS)
+        by_hand=sum(10*np.log10((written+sent['hall']*a)/(sent['hall']*b)) for a,b in filtered_)/3
+        assert mixbus.clarity_setting(w,Clock(w),response) is None  # no clarity asked: nothing is set
+        w['mix'].update(rules=2,c80_db=20);validate(w);set_=mixbus.clarity_setting(w,Clock(w),response)
+        assert abs(set_['c80_written_db']-by_hand)<.01 and set_['c80_reached'] and abs(set_['c80_db']-20)<.05 and set_['c80_asked_db']==20,(set_,by_hand)
+        assert abs(set_['gain_db']-(by_hand-20))<.5 and (set_['gain_db']>0)==(by_hand>20),(set_,by_hand)  # a dB on the returns is about a dB of clarity while the direct sound leads
+        # The same notes written half as long, or a part's level raised, change it as the arithmetic says; the audio
+        # is never read (no render exists here).
+        held(two_,[(0,2)]);quieter=mixbus.written_energies(w,Clock(w))
+        assert abs(quieter[1]['hall']-10**-3*1*10**-1)<2e-3*quieter[1]['hall']
+        # A part whose notes are gone sends nothing: no clarity can be set, and the record says not reached.
+        two_['notes']=[];two_['performance']['notes']={};none_=mixbus.clarity_setting(w,Clock(w),response)
+        assert none_['gain_db']==0 and none_['c80_db'] is None and not none_['c80_reached'] and none_['c80_asked_db']==20,none_
+        # The project's keys: rules 1 or 2, version 2 only on the bus chain, a clarity only with version 2.
         q=example();q['mix'].update(chain='bus',rules=2,c80_db=6);validate(q)
-        for mix in ({'chain':'bus','c80_db':6},{'chain':'bus','rules':2,'c80_db':6,'reverb_range_lu':[-20,-12]},{'chain':'bus','rules':2,'c80_db':26},
+        # A clarity is set on the reverbs' returns: a project that sends nothing to a reverb is refused, not rendered
+        # with the clarity passed over (a review of 0.6.0); one part sending is enough.
+        q=example();q['mix'].update(chain='bus',rules=2,c80_db=6);[t['mix'].pop('reverb_db',None) for t in q['tracks']]
+        try:validate(q);raise AssertionError('a clarity with no reverb send was accepted')
+        except ValueError as e:assert 'mix.c80_db' in str(e) and 'reverb' in str(e),e
+        q['tracks'][0]['mix']['reverb_db']=-12;validate(q)
+        for mix in ({'chain':'bus','c80_db':6},{'chain':'bus','rules':2,'c80_db':26},
                     {'chain':'bus','rules':2,'c80_db':-6},{'chain':'bus','rules':2,'c80_db':'6'},{'chain':'bus','rules':2,'c80_db':None}):
             q=example();q['mix'].update(mix);rejects(lambda:validate(q))
-        for mix in ({'rules':3},{'rules':'2'},{'chain':'room','rules':2},{'chain':'bus','reverb_range_lu':[-20,-12]},
-                    {'chain':'bus','rules':2,'reverb_range_lu':[-12,-20]},{'chain':'bus','rules':2,'reverb_range_lu':[-20,-5]},
-                    {'chain':'bus','rules':2,'reverb_range_lu':[-50,-12]},{'chain':'bus','rules':2,'reverb_range_lu':-14}):
+        for mix in ({'rules':3},{'rules':'2'},{'chain':'room','rules':2},{'chain':'bus','rules':True}):
             q=example();q['mix'].update(mix);rejects(lambda:validate(q))
         return {'sine_integrated_lufs':round(measure.integrated(sine),3),'gated_minus_ungated_lu':round(gated-ungated,2),
-                'crest_squared_sine':round(c,4)}
+                'clarity_written_db':set_['c80_written_db']}
     check('loudness_measures_gate_and_compare',loudness_measures)
     def true_peak_limiter():
         # musiclib/limiter.py, the master's limiter under the mix's rules of version 2.
@@ -919,9 +1001,29 @@ def checks(work,config=None):
         quarter=np.sin(2*np.pi*(R/4)*t+np.pi/4)*fade;q2=np.stack([quarter,quarter],axis=1)
         tp=limiter.true_peak(q2)
         assert abs(float(np.abs(q2).max())-.7071)<1e-3 and abs(float(tp.max())-1)<1e-3 and float(limiter.true_peak(np.zeros((1000,2))).max())==0,float(tp.max())
+        # The interpolation is the curve through the samples.  Worked out here term by term, not by the transform it
+        # uses: for N samples (N even) with spectrum X, x(t) = (1/N) [sum over |k| < N/2 of X_k e^(2 pi i k t / N)
+        # + X_(N/2) cos(pi t)], the term at half the rate being a cosine through its samples.  Every fourth value is a
+        # sample again.  (Until a review of 0.6.0 the term at half the rate went up doubled, and this check compared
+        # the function with the same mistake.)
+        s=rng.standard_normal((64,2));N=len(s);X=np.fft.fft(s,axis=0);tt=np.arange(4*N)/4;k=np.arange(-N//2+1,N//2)
+        curve=((X[k%N][None,:,:]*np.exp(2j*np.pi*k[None,:,None]*tt[:,None,None]/N)).sum(axis=1).real+X[N//2].real[None,:]*np.cos(np.pi*tt)[:,None])/N
+        fine=limiter.interpolate(s,4)
+        assert float(np.abs(fine-curve).max())<1e-9 and float(np.abs(fine[::4]-s).max())<1e-9,float(np.abs(fine-curve).max())
+        odd=rng.standard_normal((63,2));assert float(np.abs(limiter.interpolate(odd,4)[::4]-odd).max())<1e-9  # an odd length has no such bin
+        # A part at half the rate: 0.1 + 0.4 (-1)^n is the curve 0.1 + 0.4 cos(pi t), whose peak is 0.5 (the doubled
+        # term read 0.9).  A limiter with its ceiling at 0.6 leaves it alone.
+        # Read where the blocks hold nothing but the steady signal (the second of three).  In a block where such a part
+        # starts or stops, its curve between samples is not settled by the samples near it, and the reading there
+        # runs up to a third high: over the need, never under it, since the samples themselves are always read.
+        n4=np.arange(3*61440);ends=np.minimum(1,np.minimum(n4,len(n4)-1-n4)/(R/20))
+        half=np.stack([(0.1+0.4*(-1.0)**n4)*ends]*2,axis=1);whole_tp=limiter.true_peak(half);tph=whole_tp[61440:2*61440]
+        assert abs(float(tph.max())-.5)<1e-3 and abs(float(tph.min())-(0.1+0.4*np.cos(np.pi/4)))<1e-3,(float(tph.max()),float(tph.min()))
+        assert float((whole_tp-np.abs(half).max(axis=1)).min())>-1e-6 and float(whole_tp.max())<.5*4/3
+        assert float(limiter.limit(half,.7,.05)[1].min())>-1e-6
         # Against one interpolation of the whole signal with silence round it: block edges change nothing.
         x=rng.standard_normal((70000,2))*.3;z=np.concatenate([np.zeros((4096,2)),x,np.zeros((4096,2))])
-        up=np.abs(np.fft.irfft(np.fft.rfft(z,axis=0),n=len(z)*4,axis=0)*4).max(axis=1)
+        up=np.abs(limiter.interpolate(z,4)).max(axis=1)
         whole=np.array([up[4*i-3:4*i+4].max() for i in range(4096,4096+len(x))])
         assert float(np.abs(limiter.true_peak(x)-whole).max())<.02*float(whole.max()),float(np.abs(limiter.true_peak(x)-whole).max())
         # The guarantee: whatever the signal, the gain is at most what each sample needs, so no true peak this module
@@ -1007,8 +1109,8 @@ def checks(work,config=None):
         assert down==sorted(down) and down[0]==0 and 30<down[-1]<50,down
         assert up==sorted(up,reverse=True) and up[-1]==0 and up[0]<down[-1],up
         assert perf['g1_0']['velocity']<perf['g0_0']['velocity'] and report['gtr']['strokes']=={'down':2,'up':2}
-        # The player's drift wanders in time, not by note count: a note added changes only itself and the onset before
-        # it (every note of the part moved when it gained one: the 0.4.0 Haiku pieces).
+        # The player's distance from the beat runs in time, not by note count: a note added changes only itself (every
+        # note of the part moved when it gained one: the 0.4.0 Haiku pieces).
         line=copy.deepcopy(example());m=copy.deepcopy(line['tracks'][0]);m.update(id='line',role='rhythm')
         m['notes']=[{'id':f'l{k}','on':k*.5,'duration':.4,'pitch':60+k%5} for k in range(48)]
         m['performance']={'notes':{n['id']:{'velocity':80,'timing_ms':0,'gate':1} for n in m['notes']},'cc':[]};line['tracks']=[m]
@@ -1018,7 +1120,7 @@ def checks(work,config=None):
         expression.apply(line,seed=9,drift='time');expression.apply(more,seed=9,drift='time')
         a,b=line['tracks'][0]['performance']['notes'],more['tracks'][0]['performance']['notes']
         moved=[k for k in a if a[k]!=b[k]]
-        assert moved==['l24'] and len({v['timing_ms'] for v in a.values()})>40,moved
+        assert moved==[] and set(b)-set(a)=={'l_new'} and len({v['timing_ms'] for v in a.values()})>40,moved
         # So too a note added in the last half of the score's last sixteenth: it had grown the grid by a slot and
         # redrawn every note (GPT's review of 0.5, E04).
         bar=copy.deepcopy(old_line);bar['clock']['bars']=1;bar['sections']=[{'id':'a','start_bar':0,'bars':1}]
@@ -1028,13 +1130,60 @@ def checks(work,config=None):
         added['tracks'][0]['performance']['notes']['b_tail']={'velocity':80,'timing_ms':0,'gate':1}
         expression.apply(bar,seed=20261109,drift='time');expression.apply(added,seed=20261109,drift='time')
         u,v=bar['tracks'][0]['performance']['notes'],added['tracks'][0]['performance']['notes']
-        assert [k for k in u if u[k]!=v[k]] in ([],['b7']) and len({x['timing_ms'] for x in u.values()})>4,[k for k in u if u[k]!=v[k]]
-        # The default keeps 0.4.0's drift note by note, so earlier scripts write the projects they wrote.
+        assert [k for k in u if u[k]!=v[k]]==[] and len({x['timing_ms'] for x in u.values()})>4,[k for k in u if u[k]!=v[k]]
+        # The default still steps note by note: a part that gains a note is drawn again.
         expression.apply(old_line,seed=9);expression.apply(old_more,seed=9)
         x,y=old_line['tracks'][0]['performance']['notes'],old_more['tracks'][0]['performance']['notes']
         assert len([k for k in x if x[k]!=y[k]])>40 and rejects(lambda:expression.apply(copy.deepcopy(line),drift='bars'))
         return {'downstroke_ms':down,'upstroke_ms':up,'notes_moved_by_an_added_note':moved}
     check('strummed_chords_follow_the_stroke',strum)
+    def keeps_to_the_beat():
+        # The timing line of 0.6: a player keeping to the beat takes back a share of the distance from it by the next
+        # beat and a new error comes on top (linear phase correction: Repp 2005, Table 1).  The oracle is that model
+        # run on tap times, not the function: taps t(n+1) = t(n) + T - share * (t(n) - m(n)) + noise against a
+        # metronome m(n) = n T.  Its distances from the beat correlate by 1 - share one beat apart, by the square two
+        # apart, and the function's series does the same.
+        from musiclib import expression
+        rng=np.random.default_rng(31);ac=lambda x,k:float(np.corrcoef(x[:-k],x[k:])[0,1])  # noqa: E731
+        for share in (.2,.4,.8):
+            T,N=.5,60000;t=np.empty(N);t[0]=0.0;noise=rng.standard_normal(N)*.01
+            for n in range(N-1):t[n+1]=t[n]+T-share*(t[n]-n*T)+noise[n]
+            taps=t-np.arange(N)*T;line=expression.kept_to_the_beat(N,rng,share)
+            for lag in (1,2,3):
+                assert abs(ac(taps,lag)-(1-share)**lag)<.03 and abs(ac(line,lag)-(1-share)**lag)<.03,(share,lag,ac(taps,lag),ac(line,lag))
+        # Four values to the beat (the sixteenth-note grid): a beat apart is four steps on.
+        grid=expression.kept_to_the_beat(120000,rng,.4,4)
+        assert abs(ac(grid,4)-.6)<.03 and abs(ac(grid,8)-.36)<.03 and abs(float(grid.mean()))<1e-9 and abs(float(grid.std())-1)<1e-9
+        # The likeness is short: over the lowest decades of frequency the power stays level, where the 1/f line the
+        # loudness keeps goes on rising toward zero frequency.
+        def decades(x):
+            p=np.abs(np.fft.rfft(x))**2;f=np.fft.rfftfreq(len(x));ref=float(p[(f>=1e-2)&(f<1e-1)].mean())
+            return [float(p[(f>=a)&(f<10*a)].mean())/ref for a in (1e-4,1e-3)]
+        level,rising=decades(expression.kept_to_the_beat(1<<17,rng,.4)),decades(expression.lrc(1<<17,rng,.8))
+        assert max(level)<3 and rising[0]>10*level[0] and rising[0]>rising[1]>1,(level,rising)
+        assert len(expression.kept_to_the_beat(0,rng))==0 and list(expression.kept_to_the_beat(1,rng))==[0.0]
+        for wrong in (0,-.1,1.5):
+            assert rejects(lambda:expression.kept_to_the_beat(8,rng,wrong)),wrong
+        # In a piece: a long line of eighth notes with only the distance from the beat (no motor delay) keeps the
+        # correlation a beat apart, two onsets on; with only the motor delays, successive onsets are unrelated.
+        def line(profile,drift):
+            p=copy.deepcopy(example());m=copy.deepcopy(p['tracks'][0]);m.update(id='line',role='rhythm')
+            p['clock']['bars']=500;p['sections']=[{'id':'a','start_bar':0,'bars':500}]
+            m['notes']=[{'id':f'l{k}','on':k*.5,'duration':.4,'pitch':60} for k in range(4000)]
+            m['performance']={'notes':{n['id']:{'velocity':80,'timing_ms':0,'gate':1} for n in m['notes']},'cc':[]};p['tracks']=[m]
+            expression.apply(p,{'line':{'timing_sd':0,'short_sd':0,'vel_pct':0,'arch':0,'gate_sd':0,'contrast':0,**profile}},seed=12,drift=drift)
+            return np.array([m['performance']['notes'][f'l{k}']['timing_ms'] for k in range(4000)])
+        slow=line({'timing_sd':6},'time');motor=line({'short_sd':6},'time');by_note=line({'timing_sd':6},'notes')
+        assert abs(ac(slow,2)-.6)<.06 and abs(float(slow.std())-6)<.4 and abs(ac(motor,1))<.06 and abs(ac(by_note,2)-.6)<.06,(ac(slow,2),float(slow.std()),ac(motor,1),ac(by_note,2))
+        assert abs(ac(line({'timing_sd':6,'correction':.2},'time'),2)-.8)<.06 and rejects(lambda:line({'timing_sd':6,'correction':0},'time'))
+        # Each part keeps to the beat by itself: a part's timing is the same whatever other parts the piece has.
+        alone=copy.deepcopy(example());both=copy.deepcopy(alone);extra=copy.deepcopy(both['tracks'][0]);extra['id']='extra_part'
+        extra['notes']=[{**n,'id':'x_'+n['id']} for n in extra['notes']];extra['performance']={**extra['performance'],'notes':{'x_'+k:dict(v) for k,v in extra['performance']['notes'].items()}}
+        both['tracks'].append(extra);expression.apply(alone,seed=3,drift='time');expression.apply(both,seed=3,drift='time')
+        assert all(a['performance']['notes']==b['performance']['notes'] for a,b in zip(alone['tracks'],both['tracks']))
+        return {'a_beat_apart':round(ac(slow,2),3),'motor_delays_lag_1':round(ac(motor,1),3),'level_power_by_decade':[round(v,2) for v in level],
+                'loudness_power_by_decade':[round(v,2) for v in rising]}
+    check('timing_keeps_to_the_beat_by_phase_correction',keeps_to_the_beat)
     def xf_bank():
         """A two-dynamic sustained instrument (a soft sine and a bright tone, both swelling in over 300 ms, as a bowed
         attack does) with dynamic-layer and legato presets; built once per selfcheck."""
@@ -4871,9 +5020,10 @@ def checks(work,config=None):
                     'mono_low_side_db':round(float(side_db),1)}
         check('loop_layers_render_and_add_up_to_the_mix',layer_render)
         def rules_2_render():
-            # The mix's rules of version 2 (0.6): every bus back at its stems' loudness, the compressors' times from the
-            # signal, the reverb's amount inside its range or a step toward it, and a master with one true-peak limiter
-            # and no delay.  The same project under version 1 stays as it was (render_bus above: checked there).
+            # The mix's rules of version 2 (0.6): the buses' chains of version 1 with the saturation between two
+            # resamplers, a master with one true-peak limiter and no delay, and a clarity where a project asks one,
+            # set from the project file.  Nothing is set from a measurement of the audio.  The same project under
+            # version 1 stays as it was (render_bus above: checked there).
             from musiclib import loop,mixbus,measure
             from musiclib import summary as said
             q=copy.deepcopy(p);q['mix'].update(chain='bus',rules=2);save_json(work/'rules2.json',q)
@@ -4883,42 +5033,49 @@ def checks(work,config=None):
             assert abs(r['master']['integrated_lufs']-q['mix']['target_lufs'])<=.3 and r['master']['true_peak_dbtp']<=ms['true_peak_ceiling_dbtp'],r['master']
             # One limiter, and it is not FFmpeg's: neither chain names alimiter, and the record says what limited.
             assert 'alimiter' not in ms['master_chain']+ms['delivery_chain'] and 'true-peak limiter' in ms['delivery_chain'],ms['delivery_chain']
-            assert ms['limiter']['lookahead_ms']==3 and 0<ms['limiter']['release_ms']<=1000 and len(ms['passes'])>=1 and not (out/'limited.wav').exists(),ms['limiter']
-            # Every bus sits where its stems did (version 1 moved them: its lead's make-up, its drums' parallel copy).
+            assert ms['limiter']['lookahead_ms']==3 and ms['limiter']['release_ms']==60 and len(ms['passes'])>=1 and not (out/'limited.wav').exists(),ms['limiter']
+            # The ensemble's compressor is version 1's, settings and all: the bus moves against its stems as it did
+            # under version 1, and its filter in the graph is the same text.
             change=r['buses']['level_change_db'];old=one['buses']['level_change_db']
-            assert all(abs(v)<=.15 for v in change.values()) and max(abs(v) for v in old.values())>max(abs(v) for v in change.values()),(change,old)
-            # The times follow the crest factor: twice the maxima over its square, and the graph holds them.
             graph=(out/'mix.filtergraph.txt').read_text(encoding='utf-8')
-            for b,c in st['compressors'].items():
-                attack,release=mixbus.time_constants(10**(c['crest_db']/10))
-                assert abs(c['attack_ms']-attack)<.05*attack and abs(c['release_ms']-release)<.05*release and f'attack={c["attack_ms"]:.4f}:release={c["release_ms"]:.4f}' in graph,(b,c)
+            assert set(change)==set(old) and all(abs(change[b]-old[b])<=.05 for b in change if b not in mixbus.SATURATING+('lead',)),(change,old)
+            assert all(mixbus.BUS_FILTER[b] in graph for b in ('ensemble',) if b in change) and 'lead' not in mixbus.BUS_FILTER_2
+            # The lead's compressor stands 6 dB over the loudest lead part's written level, with 0.4 dB of make-up:
+            # the threshold is in the graph as the project gives it, and the lead ends nearer where it was written
+            # than under version 1's one threshold for every piece.
+            top=max(t['mix']['level_dbfs'] for t in q['tracks'] if mixbus.bus_of(t)=='lead' and t['notes'])
+            assert st['lead_threshold_dbfs']==min(0.0,top+6)==mixbus.lead_threshold_2(q) and f'acompressor=threshold={10**(st["lead_threshold_dbfs"]/20):.6f}:ratio=3:attack=6:release=120:makeup={10**(.4/20):.6f}' in graph,st
+            assert abs(change['lead'])<=1 and abs(change['lead'])<abs(old['lead']),(change,old)
+            bare=copy.deepcopy(q)
+            for t in bare['tracks']:
+                if mixbus.bus_of(t)=='lead':t['notes']=[]
+            assert mixbus.lead_threshold_2(bare) is None and mixbus.lead_filter_2(bare)==mixbus.BUS_FILTER['lead']
+            loud_lead=copy.deepcopy(q)
+            for t in loud_lead['tracks']:
+                if mixbus.bus_of(t)=='lead':t['mix']['level_dbfs']=-6
+            assert mixbus.lead_threshold_2(loud_lead)==0.0 and 'threshold=1.000000' in mixbus.lead_filter_2(loud_lead)
             # The saturating buses pass the curve at four times the rate, between two resamplers, and come out as long
             # as the mix (the checks above read every bus beside its stems); version 1's graph has no resampler.
             assert graph.count('aresample=192000')==len([b for b in mixbus.SATURATING if b in change])>0 and 'aresample' not in (work/'render_bus'/'mix.filtergraph.txt').read_text(encoding='utf-8'),graph.count('aresample=192000')
             assert all(audio.read_wav(out/'returns'/f'bus_{b}.wav')[1]['frames']==r['master']['frames'] for b in change),r['master']['frames']
-            # The reverb: measured as written, moved by one gain of at most 6 dB to the nearest end of the range, and
-            # the returns on disk carry it (measured again from the files).
-            rv=st['reverb'];lo,hi=rv['range_lu']
-            dry=sum(np.asarray(audio.read_wav(f)[0],dtype=np.float64) for f in sorted((out/'returns').glob('bus_*.wav')))
-            wet=sum(np.asarray(audio.read_wav(out/'returns'/n)[0],dtype=np.float64) for n in r['buses']['returns'] if n!='delay_return.wav')
-            again=measure.relative_loudness(wet,dry)
-            assert abs(rv['gain_db'])<=6 and abs(again-rv['relative_loudness_lu'])<.05 and (lo<=again+.05 and again-.05<=hi or abs(abs(rv['gain_db'])-6)<1e-6),(rv,again)
-            assert (rv['gain_db']>0)==(rv['relative_loudness_written_lu']<lo) and r['checks']['buses_and_returns_add_up_to_premix'],rv
-            assert json.loads((out/'returns'/mixbus.RULES_FILE).read_text(encoding='utf-8'))==st and 'Mix rules 2' in said.render(r,out)
-            # A range of the project's own is the one used; none leaves the sends as written.
-            own=copy.deepcopy(q);own['mix']['reverb_range_lu']=[rv['relative_loudness_written_lu']-9,rv['relative_loudness_written_lu']-7]
-            save_json(work/'rules2_own.json',own);ro=render(work/'rules2_own.json',work/'render_rules2_own',config,cache,draft=True)['buses']['rules']['reverb']
-            asis=copy.deepcopy(q);asis['mix']['reverb_range_lu']=None
-            save_json(work/'rules2_asis.json',asis);ra=render(work/'rules2_asis.json',work/'render_rules2_asis',config,cache,draft=True)['buses']['rules']['reverb']
-            assert abs(ro['gain_db']+6)<1e-6 and ra['gain_db']==0 and ra['range_lu'] is None,(ro,ra)
+            # The reverb stays as the sends write it: the record holds no gain, and the returns on disk are version 1's.
+            wet_energy=lambda folder:sum(float((np.asarray(audio.read_wav(folder/'returns'/n)[0],dtype=np.float64)**2).sum()) for n in r['buses']['returns'] if n!='delay_return.wav')  # noqa: E731
+            assert st['rules']==2 and st['reverb'] is None and set(st)=={'rules','lead_threshold_dbfs','reverb'} and r['buses']['returns'] and abs(10*np.log10(wet_energy(out)/wet_energy(work/'render_bus')))<.01,st
+            assert r['checks']['buses_and_returns_add_up_to_premix'] and json.loads((out/'returns'/mixbus.RULES_FILE).read_text(encoding='utf-8'))==st and 'Mix rules 2' in said.render(r,out)
             # A piece that names how near it is heard (mix.c80_db): the returns move by the one gain that gives the mix
-            # that clarity, further than the 6 dB a range allows, and the clarity measured again from the files, by
-            # analyze, is the one asked; analyze does not read such a piece against the range measured on songs.
+            # that clarity, worked out from the project file and the spaces' responses, and analyze, from the same,
+            # reports the clarity asked.
             from musiclib.analysis import analyze as analysed
             near=copy.deepcopy(q);near['mix']['c80_db']=6;save_json(work/'rules2_c80.json',near)
             rn=render(work/'rules2_c80.json',work/'render_rules2_c80',config,cache,draft=True);hn=rn['buses']['rules']['reverb']
             an=analysed(work/'render_rules2_c80')
-            assert all(rn['checks'].values()) and hn['c80_asked_db']==6 and hn['c80_reached'] and abs(hn['c80_db']-6)<.05 and hn['gain_db']>6 and hn['range_lu'] is None,hn
+            # The returns on disk rose by the gain recorded, against the same piece with its sends as written.
+            assert abs(10*np.log10(wet_energy(work/'render_rules2_c80')/wet_energy(out))-hn['gain_db'])<.01,hn
+            assert all(rn['checks'].values()) and hn['c80_asked_db']==6 and hn['c80_reached'] and abs(hn['c80_db']-6)<.05 and hn['gain_db']>0 and hn['c80_written_db']>6,hn
+            # The clarity as written is the project's: the same figure from the file alone, before anything is rendered.
+            from musiclib.model import Clock as Clock_
+            alone=mixbus.clarity_setting(near,Clock_(near),{n:mixbus.space_ir(n) for n in mixbus.SPACES})
+            assert alone==hn,(alone,hn)
             assert abs(an['reverb']['clarity_c80_db']-6)<=.1 and an['reverb']['c80_asked_db']==6 and an['reverb']['hall_c80_db']==[-2.0,2.0] and not any('reverb returns' in w for w in an['warnings']),(an['reverb'],an['warnings'])
             plain=analysed(out)
             assert plain['reverb']['clarity_c80_db']>an['reverb']['clarity_c80_db']+5 and 'c80_asked_db' not in plain['reverb'] and 'clarity C80' in said.analysis(plain,out/'analysis.json'),plain['reverb']
@@ -4932,7 +5089,7 @@ def checks(work,config=None):
             # A wide master under version 2: one gain, no guard limiter, nothing set on the buses.
             wide=copy.deepcopy(q);wide['mix'].update(dynamics='wide',target_lufs=-18);save_json(work/'rules2_wide.json',wide)
             w=render(work/'rules2_wide.json',work/'render_rules2_wide',config,cache,draft=True)
-            assert all(w['checks'].values()) and 'alimiter' not in w['mastering']['delivery_chain'] and w['mastering']['rules']==2 and not w['buses']['rules']['compressors'] and not any(w['buses']['rules']['bus_gain_db'].values()),w['mastering']
+            assert all(w['checks'].values()) and 'alimiter' not in w['mastering']['delivery_chain'] and w['mastering']['rules']==2 and w['buses']['rules']['reverb'] is None,w['mastering']
             # Layers of a loop under version 2 read what the full mix set, add up to the loop, and need no delay: the
             # master has no look-ahead to trail by (under version 1 the master trails its layers by some 10 ms).
             ids=[t['id'] for t in q['tracks']];lq=copy.deepcopy(q);lq['loop']={'start_bar':0,'layers':{'base':ids[:2]+ids[4:],'top':ids[2:4]}}
@@ -4941,9 +5098,56 @@ def checks(work,config=None):
             mix=np.asarray(audio.read_wav(lo_/'loop.wav')[0],dtype=np.float64);both=parts[0]+parts[1]
             corr=float(np.sum(both*mix)/np.sqrt(np.sum(both**2)*np.sum(mix**2)))
             assert all(lr['checks'].values()) and corr>.98 and abs(lp['layers']['sum_minus_loop_db'])<3 and lp['layers']['aligned_frames']==0,(corr,lp['layers'])
-            return {'level_change_db':change,'level_change_db_rules_1':old,'compressors':st['compressors'],'reverb':rv,'limiter':ms['limiter'],
-                    'passes':len(ms['passes']),'layers_correlation_with_loop':round(corr,4)}
-        check('mix_rules_2_render_sets_buses_reverb_and_limiter',rules_2_render)
+            # What a review of 0.6.0 found, on the mix alone (stems written here, no notes rendered).
+            from musiclib import limiter
+            from musiclib.model import Clock
+            R=audio.RATE;cfg_=audio.load_config(config);click=np.zeros((2*R,2),dtype=np.float32);click[R]=1.0
+            def stems_mix(name,mixed,stem,change=None):
+                o=work/name;c=copy.deepcopy(p);c['mix']=mixed
+                if change:change(c)
+                for sub in ('stems','returns','logs'):(o/sub).mkdir(parents=True)
+                for t in c['tracks']:audio.write_wav(o/'stems'/f'{t["id"]}.wav',stem(t))
+                return o,mixbus.mix(c,Clock(c),cfg_,o,2*R)
+            # A bus that is a single click mixes under both versions (under the first version 2 its measured crest
+            # factor asked the compressor for a time under what FFmpeg takes, and the mix stopped).
+            for version in (1,2):
+                o,made=stems_mix(f'click_rules{version}',{'chain':'bus','rules':version},lambda t:click)
+                assert audio.read_wav(o/'premix.wav')[1]['frames']==2*R,version
+            assert made['rules']['rules']==2 and made['rules']['reverb'] is None,made['rules']
+            # A clarity asked of a project whose sending parts have no notes cannot be set: the returns stay, the
+            # record says not reached, and the render's summary says so.  What the stems hold does not enter: the
+            # same project with its notes is given its clarity whatever audio stands in the stems.
+            sending={t['id'] for t in p['tracks'] if t['mix'].get('reverb_db') is not None}
+            def emptied(c):
+                for t in c['tracks']:
+                    if t['id'] in sending:t['notes']=[];t['performance']['notes']={}
+            o,made=stems_mix('silent_sends',{'chain':'bus','rules':2,'c80_db':6},lambda t:click,emptied)
+            sr=made['rules']['reverb']
+            assert sending and sr['c80_asked_db']==6 and sr['c80_db'] is None and not sr['c80_reached'] and sr['gain_db']==0,sr
+            assert 'clarity C80 asked +6 dB: not reached' in said.render({**r,'buses':{**r['buses'],'rules':made['rules']}},out)
+            o,made=stems_mix('any_audio',{'chain':'bus','rules':2,'c80_db':6},lambda t:np.zeros_like(click))
+            assert made['rules']['reverb']==hn,(made['rules']['reverb'],hn)
+            # The delivery records the gain it applied.  A quiet tone with short loud bursts, asked for a loudness
+            # the limiter cannot give it: four tries each of four passes do not settle, and the gain recorded is the
+            # gain of the last signal the limiter was given (it was the next try's, 5 dB on, which a loop's layers
+            # and the limiting by section then read).
+            tt=np.arange(20*R)/R;x=10**(-40/20)*np.sin(2*np.pi*440*tt)
+            for k in range(20):
+                a=int((k+.5)*R);x[a:a+R//20]+=10**(-3/20)*np.sin(2*np.pi*1000*tt[:R//20])
+            o=work/'deliver_bursts';(o/'logs').mkdir(parents=True);audio.write_wav(o/'mixed.wav',np.stack([x,x],axis=1).astype(np.float32))
+            src=audio.measure(cfg_,o/'mixed.wav',o/'logs','measure_mixed');base=float(limiter.true_peak(audio.read_wav(o/'mixed.wav')[0]).max())
+            seen=[];real=limiter.gain_db
+            def watched(peak,*a,**k):
+                seen.append(float(np.max(peak)));return real(peak,*a,**k)
+            limiter.gain_db=watched
+            try:rec,_=mixbus.deliver_2({**q,'mix':{**q['mix'],'target_lufs':-10}},cfg_,o,o/'mixed.wav',src,-10)
+            finally:limiter.gain_db=real
+            applied=20*np.log10(seen[-1]/base);last=rec['passes'][-1]['gain_db']
+            assert len(rec['passes'])==4 and len(seen)==16 and abs(applied-last)<=.002 and f'volume={last:.6f}dB' in rec['delivery_chain'] and not (o/'limited.wav').exists(),(applied,rec['passes'])
+            return {'level_change_db':change,'level_change_db_rules_1':old,'limiter':ms['limiter'],
+                    'passes':len(ms['passes']),'layers_correlation_with_loop':round(corr,4),'clarity_asked_6':hn,
+                    'bursts_gain_applied_db':round(float(applied),3),'bursts_gain_recorded_db':last}
+        check('mix_rules_2_render_limiter_saturation_and_clarity',rules_2_render)
         def wide_render():
             # Four soft bars and four loud ones.  The wide master is one gain and an EQ, so it keeps the mix's contrast
             # between the sections, and it holds the gain down rather than limit when the target would push the true

@@ -44,9 +44,9 @@ section, with soloists. `jazz/swing`
 |---|---|---|
 | `tempo` | dance tempos; swung eighths, the ratio falling as the tempo rises | WP Swing music; Friberg and Sundström 2002 |
 | `harmony` | written arrangements; call and response between the brass and the reeds; interludes arranged behind soloists | WP Swing music |
-| `melody` | soloists improvising on the melody over the arrangement; swing solos play "slower" lines than the rest of the database, more eighths and fewer sixteenths, as traditional jazz does | WP Swing music; WJD |
-| `rhythm` | a smoother rhythmic sense than the ragtime-based dance music before it | WP Swing music |
-| `timbre` | ten or more players in four sections: trumpets, trombones, saxophones, and a rhythm section of guitar, piano, double bass and drums | WP Big band |
+| `melody` | soloists who vary the tune by improvising above the arranged parts; swing solos play "slower" lines than the rest of the database, more eighths and fewer sixteenths, as traditional jazz does | WP Swing music; WJD |
+| `rhythm` | rhythm that runs smoother than in the ragtime-influenced dance music before it | WP Swing music |
+| `timbre` | ten or more players: a rhythm section (piano, guitar, double bass, drums) under three sections of winds (saxophones, trumpets, trombones) | WP Big band |
 | `form` | written compositions and arrangements rather than improvisation; the bandleader, the arranger and the sections over the soloists | WP Big band |
 | `mix` | no source read | |
 
@@ -66,14 +66,14 @@ Bebop, cool and hard bop: a small combo plays the head, solos over its changes, 
 | `harmony` | bebop: complex, fast-moving progressions, quick changes of chord and of key, substitutions, altered and extended chords | WP Bebop |
 | `melody` | angular melodies; virtuosic improvisation on harmony, scales and the melody; asymmetrical phrasing | WP Bebop |
 | `rhythm` | complex syncopation; the rhythm section's role expanded | WP Bebop |
-| `timbre` | saxophone (alto or tenor), trumpet, piano, guitar, double bass, drums | WP Bebop |
+| `timbre` | trumpet and an alto or tenor saxophone, with a rhythm section of double bass, drums, piano and guitar | WP Bebop |
 | `form` | the head with the rhythm section, a solo by each player, the head again | WP Bebop |
 | `mix` | no source read | |
 
 - **In this skill**: [jazz-and-funk.md](jazz-and-funk.md): the walking bass, rootless piano voicings, guitar comping,
   the ride pattern, heads and written solos.
 - **Variants**:
-  - *Cool jazz*: relaxed tempos and a lighter tone, formal arrangements, elements of classical music, a subdued,
+  - *Cool jazz*: unhurried tempos, a lighter tone, formal arrangements, elements of classical music, a subdued,
     reflective approach (WP Cool jazz).
   - *Hard bop*: rhythm and blues, gospel and blues in the saxophone and the piano; "funky", a rollicking rhythmic
     feel (WP Hard bop).
@@ -87,7 +87,7 @@ changes. `jazz/modal`
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | no source read | |
-| `harmony` | musical modes, often modulating among them, in place of one tonal center; a theme's chords repeated through the piece under new improvised themes | WP Modal jazz |
+| `harmony` | modes, with frequent moves from one mode to another, in place of one tonal center; a theme's chords repeated through the piece under new improvised themes | WP Modal jazz |
 | `melody` | in 102 modal choruses: a wider interval range (29.5 semitones against 21.1) and larger intervals; the blue minor third over major chords (0.8% against 3.6%) and the major third over minor ones avoided; more very short durations | WJD (Pfleiderer and Abeßer 2017, Table 2) |
 | `rhythm` | more very short durations than short ones, as in post-bop at large | WJD |
 | `timbre` | no source read | |
@@ -100,16 +100,16 @@ changes. `jazz/modal`
 
 ## Jazz fusion
 
-Jazz harmony and improvisation with rock, funk and R&B on electric instruments: vamps on one chord, or elaborate
-progressions in unusual meters. `jazz/fusion`
+The harmony and improvisation of jazz joined to rock, funk and R&B on electric instruments: vamps on one chord, or
+elaborate progressions in unusual meters. `jazz/fusion`
 
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | no source read | |
 | `harmony` | jazz harmony; groove vamps on one key or chord, or elaborate progressions | WP Jazz fusion |
-| `melody` | a simple repeated melody over a vamp, or melodies with counter-melodies | WP Jazz fusion |
+| `melody` | a simple repeated melody over a vamp, or a melody set against counter-melodies | WP Jazz fusion |
 | `rhythm` | rock and funk grooves; unconventional time signatures in some | WP Jazz fusion |
-| `timbre` | electric guitars and basses, electric pianos, organs, synthesizers, less acoustic piano and double bass | WP Jazz fusion |
+| `timbre` | electric guitars and basses, electric pianos, organs, synthesizers; the acoustic piano and the double bass less often | WP Jazz fusion |
 | `form` | no source read | |
 | `mix` | no source read | |
 
@@ -124,11 +124,11 @@ Downtempo, radio-friendly jazz: a saxophone or a gentle electric guitar over pro
 
 | Axis | Traits | From |
 |---|---|---|
-| `tempo` | downtempo; the most widely played tracks at 90–105 BPM | WP Smooth jazz |
-| `harmony` | influences of R&B, funk, rock and pop | WP Smooth jazz |
+| `tempo` | downtempo; 90–105 BPM in the tracks played most | WP Smooth jazz |
+| `harmony` | influences of pop, rock, funk and R&B | WP Smooth jazz |
 | `melody` | a lead, the saxophone (soprano and tenor most of all) or a guitar | WP Smooth jazz |
 | `rhythm` | programmed rhythms | WP Smooth jazz |
-| `timbre` | the saxophone; a gentle, legato electric guitar; pads and samples behind | WP Smooth jazz |
+| `timbre` | the saxophone; an electric guitar played gently and legato; pads and samples behind | WP Smooth jazz |
 | `form` | no source read | |
 | `mix` | no source read | |
 
@@ -199,22 +199,22 @@ drums and guitar, melody and chord progressions in the background. `jazz/funk`
 - **In this skill**: [jazz-and-funk.md](jazz-and-funk.md), Funk; `blocks.drums` in the `funk` feel and the bass and
   comping blocks ([building-blocks.md](building-blocks.md)). `review` does not ask about a part's loop here: each part
   repeating its figure is the groove (Danielsen 2006, quoted by Christodoulou 2020).
-- **Variants**: *Afrobeat*: Yoruba music and Ghanaian highlife with American funk, jazz and soul; chanted vocals,
-  complex intersecting rhythms and percussion (WP Afrobeat): the `vcsl_world` agogo, shakers and congas over the funk
-  groove. City pop is in the J-pop map (`jpop/city-pop`).
+- **Variants**: *Afrobeat*: Yoruba music and Ghanaian highlife joined to funk, jazz and soul from America; vocals
+  that are chanted, rhythms that cross one another in complex ways, and percussion (WP Afrobeat): the `vcsl_world`
+  agogo, shakers and congas over the funk groove. City pop is in the J-pop map (`jpop/city-pop`).
 - **Neighbours**: Soul; Jazz fusion; `beats/g-funk`; `pop/disco`.
 
 ## Soul
 
-Gospel and rhythm and blues brought together: catchy rhythms stressed by handclaps, call and response between the lead
-and the backing voices. `jazz/soul`
+Gospel and rhythm and blues brought together: rhythms that catch the ear, underlined by handclaps, and a lead voice answered
+by the backing voices. `jazz/soul`
 
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | no source read | |
-| `harmony` | elements of gospel, R&B and jazz | WP Soul music |
-| `melody` | call and response between the lead and the backing vocalists; a tense vocal sound; improvised additions | WP Soul music |
-| `rhythm` | catchy rhythms stressed by handclaps | WP Soul music |
+| `harmony` | drawn from jazz, gospel and R&B | WP Soul music |
+| `melody` | the lead singer and the backing singers in call and response; a tense vocal sound; improvised additions | WP Soul music |
+| `rhythm` | rhythms that catch the ear, underlined by handclaps | WP Soul music |
 | `timbre` | no source read | |
 | `form` | no source read | |
 | `mix` | no source read | |
@@ -222,7 +222,7 @@ and the backing voices. `jazz/soul`
 - **In this skill**: a lead instrument for the singer and a second for the answers; the clap (39) of `drum_synth` or
   the `vcsl_world` claps; `blocks.drums` in the `soul` feel; a Surge organ, the pianos or an electric piano
   ([sound-selection.md](sound-selection.md), Electric pianos), `vsco` horns.
-- **Variants**: *Neo soul*: less conventional than contemporary R&B, from funk, jazz fusion, hip-hop and rock, with
+- **Variants**: *Neo soul*: less conventional than contemporary R&B, drawing on hip-hop, rock, funk and jazz fusion, with
   live instruments rather than samples (WP Neo soul).
 - **Neighbours**: Funk; Blues; `pop/ballad`.
 

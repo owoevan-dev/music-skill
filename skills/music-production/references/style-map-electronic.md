@@ -60,13 +60,13 @@ For the dance entries (House to EDM trap and Electro), `review`:
 
 ## House
 
-A repetitive four-on-the-floor beat on drum machines, off-beat hi-hats, deep basslines and synthesizer riffs, built
+Four-on-the-floor on drum machines, bar after bar, off-beat hi-hats, deep basslines and synthesizer riffs, built
 from loops and samples in a sparse texture. `electronic/house`
 
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | typically 115–130 BPM, mostly 120–130; 4/4 | Ableton Learning Music, which WP House music cites |
-| `harmony` | bass-heavy loops or synthesizer basslines; loops built on samples of disco, soul, jazz-funk or funk | WP House music |
+| `harmony` | bass-heavy loops or synthesizer basslines; loops built on sampled funk, jazz-funk, soul or disco | WP House music |
 | `melody` | synthesizer riffs; where there are vocals, often simple words or phrases repeated | WP House music |
 | `rhythm` | the kick on every beat, snare, claps or higher percussion on 2 and 4, off-beat hi-hats; claps, shakers, snare and hats add syncopation; the "poumtchak", kick and off-beat hat alternating | WP House music; Zeiner-Henriksen 2010 |
 | `timbre` | drum machines, the TR-808, TR-909 or TR-707; synthesizer basslines; sampled instruments rather than session players | WP House music |
@@ -78,8 +78,8 @@ from loops and samples in a sparse texture. `electronic/house`
   ([building-blocks.md](building-blocks.md)); basses from `studio.py sounds --role bass` or `sub_bass`; the pianos for
   the garage-house piano; pumping by `mix.duck` ([electronic.md](electronic.md), Production).
 - **Variants**:
-  - *Deep house*: 110–125 BPM; muted basslines; spacious percussion, typically a TR-909; soft keyboard pads; advanced
-    chord structures from the lush chords of 1980s jazz-funk; ambient mixes; steady, hypnotic repetition that avoids
+  - *Deep house*: 110–125 BPM; a muted bassline; percussion with space in it, typically from a TR-909; soft pads; advanced
+    chord structures after the lush harmony of 1980s jazz-funk; ambient mixes; steady, hypnotic repetition that avoids
     other dance styles' build-up and release (WP Deep house).
   - *Acid house*: the TB-303's squelch over the four-on-the-floor beat: filter resonance raised and cutoff lowered,
     its accent, slide and octave settings varying a simple bass pattern (WP Acid house); `acid_bass`
@@ -98,7 +98,7 @@ its notes. `electronic/techno`
 | `tempo` | typically 120–140 BPM; common time. Wikipedia's 120–150 cites no source | Ableton Learning Music; WP Techno |
 | `harmony` | the harmonic practice of other music often ignored for repetitive sequences of notes | WP Techno |
 | `melody` | repeated sequences rather than melody | WP Techno |
-| `rhythm` | a repetitive four-on-the-floor beat; the kick and an open hat on every off-beat | WP Techno; Zeiner-Henriksen 2010 |
+| `rhythm` | four-on-the-floor, repeated; the kick and an open hat on every off-beat | WP Techno; Zeiner-Henriksen 2010 |
 | `timbre` | drum machines, the TR-808 and TR-909 above all, sequencers and synthesizers; distinctive timbres from synthesis | WP Techno |
 | `form` | loops layered, added and removed; the high point forecast by a filter on the drum loop and layers taken out before it | Garcia 2005 |
 | `mix` | built for a continuous DJ set | WP Techno |
@@ -123,21 +123,21 @@ breakdown that leaves the melody alone. `electronic/trance`
 | `tempo` | 120–150 BPM, mostly 125–150; 4/4; techno and trance typically 120–140 in Ableton's lesson | WP Trance music, after Snoman 2009 and Hewitt 2008; Ableton Learning Music |
 | `harmony` | minor keys almost universal; in the British approach, progressive chord structures | WP Trance music |
 | `melody` | repeating melodic phrases; a lead motif first heard sliced and simplified before the breakdown | WP Trance music |
-| `rhythm` | a kick on every downbeat, often a regular open hi-hat on the upbeat, the kick less emphasised than in house and techno to leave room for the bassline; rapid arpeggios; snare rolls that build in velocity, frequency and volume before transitions | WP Trance music |
+| `rhythm` | the kick on each downbeat and, often, an open hi-hat answering regularly on the upbeat, the kick less emphasised than in house and techno to leave room for the bassline; rapid arpeggios; snare rolls rising in rate, velocity and loudness before transitions | WP Trance music |
 | `timbre` | synthesizers; vocals, where there are any, mostly female soloists over the synths | WP Trance music |
-| `form` | 16- or 32-beat phrases; tension built across the track to one or two peaks or drops; a mid-track climax, then a soft breakdown without beats or percussion, melody or atmospherics alone, then a new build | WP Trance music; Smith 2021 |
-| `mix` | layers mixed with distinctly foreshadowed build-up and release | WP Trance music |
+| `form` | phrases of 16 or 32 beats; tension built across the track to one or two peaks or drops; a mid-track climax, then a soft breakdown without beats or percussion, melody or atmospherics alone, then a new build | WP Trance music; Smith 2021 |
+| `mix` | layers mixed so that each build-up and release is plainly announced beforehand | WP Trance music |
 
 - **In this skill**: `supersaw_lead` or `sounds --role lead --character bright`, `trance_pad`, arpeggios on
   `pluck` or `sounds --role pluck` ([electronic-sounds.md](electronic-sounds.md)); a bassline the kick leaves room
   for; snare rolls and risers ([electronic.md](electronic.md), Form); `mix.gate` for the gated pads of hard trance.
 - **Variants**:
   - *Uplifting trance*: fast, with its own kind of build-up, long breakdowns and large drops (WP Trance music).
-  - *Hard trance*: faster, with gated pads; it set the breakdown-build-anthem template (WP Trance music).
+  - *Hard trance*: faster, with gated pads; it set the pattern of breakdown, build and anthem (WP Trance music).
   - *Psychedelic trance*: 125–150 BPM (full-on 140–148, dark psytrance from about 150); a bass that pounds through
     the whole track under varying rhythms; leads, rhythms and beats changing every eight bars, new layers every four
     to eight until a climax, then a breakdown and a new pattern over the same bass; a developed, atmospheric intro
-    and a breakdown of thirty seconds to over a minute (WP Psychedelic trance).
+    and a breakdown lasting from about thirty seconds to more than a minute (WP Psychedelic trance).
 - **Neighbours**: Festival EDM (simpler melodies, the electro-style drop); Techno (sequences, not melodic phrases).
 
 ## Festival EDM
@@ -152,10 +152,10 @@ supersaw, and large-hall reverb. `electronic/festival-edm`
 | `melody` | simple and minimal, often on a supersaw | WP Big room house |
 | `rhythm` | four-on-the-floor kicks; minimal drums, at times just a kick or a tom with two hi-hats | WP Big room house |
 | `timbre` | the supersaw; the kick | WP Big room house |
-| `form` | two build-ups with breaks, two drops, one or two breakdowns; one build-up much longer than the other | WP Big room house; Smith 2021 |
+| `form` | two build-ups with breaks, two drops, a breakdown or two; of the build-ups, one far longer than the other | WP Big room house; Smith 2021 |
 | `mix` | relative minimalism enlarged by large-hall reverb | WP Big room house |
 
-- **In this skill**: [electronic.md](electronic.md), Form (the example layout of a big room track) and Production
+- **In this skill**: [electronic.md](electronic.md), Form (how a big room track is laid out, as the example) and Production
   (pumping, loudness); `supersaw_lead` or a bright Surge lead; `reverb_db` with `space` `"hall"` on the lead.
 - **Variants**:
   - *Electro house*: 125–135 BPM; heavy, buzzing basslines of distorted sawtooths; large four-on-the-floor kicks;
@@ -182,9 +182,9 @@ Hardstyle and hardcore: overdriven, distorted kicks at fast tempos, the kick its
   `bass_808` (a sine with a pitch punch) under heavy `drive` and `saturate`, playing the bassline on the beats; the
   reverse bass as a synth bass on the off-beats whose `amp` `attack` swells into the next kick. These are this
   skill's approximations, not the producers' methods. Supersaw or bright Surge leads for the melodies.
-- **Variants**: *rawstyle*, darker, with less melody or none and heavy use of screeches, against euphoric
-  hardstyle (WP Hardstyle); *gabber*, superfast tempos, distorted kicks, house-style breakbeats and hi-hat fills,
-  samples from films (WP Gabber).
+- **Variants**: *rawstyle*, darker, with less melody or none and many screeches, against euphoric
+  hardstyle (WP Hardstyle); *gabber*, superfast tempos, distorted kicks, breakbeats and hi-hat fills in the
+  style of house, samples from films (WP Gabber).
 - **Neighbours**: Festival EDM; Trance (hard trance led to hardstyle: WP Trance music).
 
 ## Drum and bass
@@ -195,7 +195,7 @@ Fast, syncopated breakbeats, chopped and rearranged, over deep sub-bass, with pa
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | usually 160–180 BPM, mostly 170–180 since about 1996; jungle about 160 by 1993; at about 140 the same elements make a breakbeat track instead | Ableton Learning Music; WP Drum and bass; Christodoulou 2020 |
-| `harmony` | atmospheric pads: light ones, ambient pads and samples of jazz, or dark ones, dissonant pads and sci-fi samples | WP Drum and bass |
+| `harmony` | atmospheric pads: light ones, ambient pads and samples of jazz, or dark ones, pads in dissonance and samples from science fiction | WP Drum and bass |
 | `melody` | MCs in older styles; melodic instruments soloing in jazz-influenced styles | WP Drum and bass |
 | `rhythm` | syncopated breaks from 1960s and 1970s soul and funk records, one crashing snare-and-cymbal break above all, sped up, cut into their smallest parts and reassembled into intricate, asymmetrical patterns ("choppage"); breakbeats stress weak positions; in early jungle the bass runs at half the tempo of the breaks, about 80 BPM | WP Drum and bass; Christodoulou 2020, after Chapman 2003 and Butler 2006 |
 | `timbre` | a deep sub-bass pattern felt through the sound system; the reese bassline; bass instruments played by hand less common | WP Drum and bass |
@@ -208,12 +208,12 @@ Fast, syncopated breakbeats, chopped and rearranged, over deep sub-bass, with pa
   ([electronic-sounds.md](electronic-sounds.md)); Surge pads, light or dark; a high-pass `filter_sweep` on the break for
   an intro that teases it without its low end, then opens, as an ambient-jungle track does (Christodoulou 2020).
 - **Variants**:
-  - *Jungle*: about 160 BPM; rapid breakbeats; heavily syncopated percussion loops; the deep basslines, melodies and
-    vocal samples of dub, reggae and dancehall (WP Jungle music; Christodoulou 2020).
+  - *Jungle*: about 160 BPM; rapid breakbeats; heavily syncopated percussion loops; deep basslines, melodies and
+    sampled voices like those of dub, reggae and dancehall (WP Jungle music; Christodoulou 2020).
   - *Liquid*: the same basslines and bar layouts with more instrumental layers, harmonies, melodies and ambience,
-    from jazz, soul and sometimes blues (WP Liquid drum and bass).
-  - *Neurofunk*: cleaner production, intricate basslines, subtle changes of timbre, more regular two-step rhythms
-    than jungle's dense ones (WP Neurofunk).
+    from soul and jazz, sometimes from blues (WP Liquid drum and bass).
+  - *Neurofunk*: a cleaner production, basslines of fine detail, timbre that changes by small degrees, two-step
+    rhythms more regular than jungle's dense ones (WP Neurofunk).
   - *Two-step*: the mainstream form: a dominant kick on beats 1 and 3, sparse, repetitive hits that leave room for a
     pop melody (Christodoulou 2020).
 - **Neighbours**: Dubstep (140 BPM, the snare on beat three, sparser); UK garage (130 BPM, shuffled); breakbeat at
@@ -228,8 +228,8 @@ samples at about 130 BPM. `electronic/uk-garage`
 |---|---|---|
 | `tempo` | about 130 BPM | WP UK garage |
 | `harmony` | sub-bass lines; influences of garage house, gospel and R&B | WP UK garage |
-| `melody` | vocal samples chopped, time-stretched or pitch-shifted; vocal phrases played like an instrument, syllables reversed or pitch-shifted | WP UK garage |
-| `rhythm` | percussive, shuffled rhythms; syncopated hats, cymbals and snares; 4/4 house kicks or 2-step: the second and fourth kicks removed and the third shifted; off-beat snares, scattered rimshots and woodblocks; syncopated basslines | WP UK garage; WP 2-step garage |
+| `melody` | vocal samples chopped, stretched in time or shifted in pitch; vocal phrases played like an instrument, syllables reversed or pitch-shifted | WP UK garage |
+| `rhythm` | percussive, shuffled rhythms; syncopated hats, cymbals and snares; 4/4 house kicks or 2-step: the second and fourth kicks removed and the third shifted; off-beat snares, rimshots and woodblocks scattered about; basslines in syncopation | WP UK garage; WP 2-step garage |
 | `timbre` | synth basslines; pads or strings played percussively | WP 2-step garage |
 | `form` | no source read | |
 | `mix` | no source read | |
@@ -252,10 +252,10 @@ minimal. `electronic/dubstep`
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | typically 135–145 BPM, mostly 140; Wikipedia's 132–142 cites no source | Ableton Learning Music; WP Dubstep, after McKinnon 2007 (CBC) |
-| `harmony` | dark: often a minor key or the Phrygian mode; dissonance such as a tritone within a riff | WP Dubstep |
+| `harmony` | dark: often minor or Phrygian; dissonance such as a tritone within a riff | WP Dubstep |
 | `melody` | mostly instrumental; riffs | WP Dubstep |
-| `rhythm` | a clap or snare usually on the third beat of the bar; syncopated, often shuffled or in tuplets; early dubstep closer to 2-step drum patterns | WP Dubstep |
-| `timbre` | prominent sub-bass; the wobble bass, a long bass note shaped rhythmically by an LFO on volume, distortion or filter cutoff | WP Dubstep |
+| `rhythm` | the snare or a clap as a rule on beat three of the bar; syncopated, often shuffled or in tuplets; early dubstep closer to 2-step drum patterns | WP Dubstep |
+| `timbre` | prominent sub-bass; the wobble bass, a long bass note shaped rhythmically by an LFO on the filter's cutoff, the distortion or the volume | WP Dubstep |
 | `form` | intro; a main section with a bass drop; a middle section; another main section much like the first; outro; the drop often after bar 16 or 32, the percussion pausing, often to silence, then resuming with more intensity and a dominant sub-bass | WP Dubstep |
 | `mix` | more minimal than other garage styles, focused on the sub-bass | WP Dubstep |
 
@@ -265,7 +265,7 @@ minimal. `electronic/dubstep`
 - **Variants**:
   - *Brostep*: harder and aggressive; distorted bass riffs in the middle register in place of sub-bass, in the
     register of a heavy-metal guitar (WP Dubstep).
-  - *Chillstep*: softer and more melodic, with elements of ambient and chill-out music (WP Dubstep).
+  - *Chillstep*: softer and more melodic, borrowing from ambient and chill-out (WP Dubstep).
 - **Neighbours**: UK garage; Drum and bass (breakbeats at 160–180); Future bass (which mixes dubstep with EDM trap).
 
 ## Future bass
@@ -286,8 +286,8 @@ abrasive. `electronic/future-bass`
 - **In this skill**: [electronic.md](electronic.md), Future bass: `future_bass_chord` or `sounds --role chords
   --character wide`, ducked by the kick; an `lfo` on pitch or cutoff; `vocal_ah` chops with a dotted-eighth delay.
 - **Variants**:
-  - *Kawaii future bass*: a happy, cute timbre with strong Japanese pop-culture influence; chiptune sounds, soft
-    square waves, percussion instruments, door and bed squeaks, samples from anime or games (WP Future bass). Here:
+  - *Kawaii future bass*: a happy, cute timbre with strong Japanese pop-culture influence; soft square waves and
+    chiptune sounds, percussion, the squeaks of doors and beds, samples from anime or games (WP Future bass). Here:
     `chip_square` and the other chip presets, glockenspiel and toy-like patches (`sounds --name music_box`, `--name
     bell`). No squeak samples, and never a sample of a work.
 - **Neighbours**: Dubstep; EDM trap; fast electro J-pop (`jpop/fast-electro`).
@@ -300,9 +300,9 @@ Hip-hop trap's 808s and hi-hats with EDM's build-ups, drops, breakdowns and rave
 |---|---|---|
 | `tempo` | typically 140 BPM | WP EDM trap music |
 | `harmony` | no source read | |
-| `melody` | dark melodies; vocal samples typical of hip-hop trap | WP EDM trap music |
+| `melody` | dark melodies; the kind of vocal samples that hip-hop trap uses | WP EDM trap music |
 | `rhythm` | the TR-808's drums as in hip-hop trap ([beats.md](beats.md)) | WP EDM trap music |
-| `timbre` | dense production with rave synthesizers; techno, dub and electro sounds with TR-808 drum samples | WP EDM trap music |
+| `timbre` | dense production with rave synthesizers; sounds from electro, dub and techno with TR-808 drum samples | WP EDM trap music |
 | `form` | build-ups, strong bass drops, breakdowns | WP EDM trap music |
 | `mix` | dynamic and boisterous, against hip-hop trap | WP EDM trap music |
 
@@ -320,7 +320,7 @@ science-fiction effects. `electronic/electro`
 | `tempo` | no source read | |
 | `harmony` | programmed basslines; eerie synthetic strings or pads | WP Electro (music) |
 | `melody` | sequenced or arpeggiated synthetic riffs; mostly instrumental, vocals through a vocoder or speech synthesis | WP Electro (music) |
-| `rhythm` | electronic emulations of breakbeats: a syncopated kick, a snare or clap on the backbeat, more mechanical than sampled breaks; staccato drum patterns | WP Electro (music) |
+| `rhythm` | electronic emulations of breakbeats: a syncopated kick, the backbeat on a snare or a clap, more mechanical than sampled breaks; staccato drum patterns | WP Electro (music) |
 | `timbre` | the TR-808: its deep bass drum, handclaps, open and closed hats, clave and cowbell; analogue synthesis; atonal sound effects | WP Electro (music) |
 | `form` | no source read | |
 | `mix` | heavy reverb, delay, chorus or phaser | WP Electro (music) |
@@ -342,7 +342,7 @@ synth riff after the intro and after each chorus, and each repeat of a section a
 | `melody` | very complex melodies; the "sabi", a highly technical synth riff, which can resemble the chorus | WP Eurobeat |
 | `rhythm` | tight, rhythmic percussion in the background | WP Eurobeat |
 | `timbre` | energetic, heavy synths; brass and harp sounds; electric guitars from the mid-1990s; the riff layered on up to twenty tracks | WP Eurobeat |
-| `form` | an introduction like the verse, bridge or chorus played instrumentally; verse, bridge and chorus repeated, each time with a different arrangement; the riff after the introduction and after the chorus | WP Eurobeat |
+| `form` | an introduction that is an instrumental version of a verse, a bridge or a chorus; the three sections repeated, arranged differently each time; the riff follows the introduction and follows the chorus | WP Eurobeat |
 | `mix` | no source read | |
 
 - **In this skill**: `synthwave_bass` or a Surge bass in octaves; `brass_stab` and Surge brass; the concert harp
@@ -352,7 +352,7 @@ synth riff after the intro and after each chorus, and each repeat of a section a
 
 ## Synthwave
 
-The sound of 1980s action, science-fiction and horror film scores and synth-pop, revived with nostalgia.
+The sound of 1980s film scores (science fiction, horror, action) and synth-pop, revived with nostalgia.
 `electronic/synthwave`
 
 | Axis | Traits | From |
@@ -361,12 +361,12 @@ The sound of 1980s action, science-fiction and horror film scores and synth-pop,
 | `harmony` | no source read; this skill's four-chord loops are in [electronic.md](electronic.md) | |
 | `melody` | no source read | |
 | `rhythm` | the drum machines of the 1980s, the LM-1 and TR-808, with gated-reverb snares | Merlini 2023 |
-| `timbre` | the arpeggiated, fat bass of early-1980s polysynths; synthesizers; elements of 1980s rock and metal in some | Merlini 2023; WP Synthwave |
+| `timbre` | the arpeggiated, fat bass of early-1980s polysynths; synthesizers; in some, traits of rock and metal from the 1980s | Merlini 2023; WP Synthwave |
 | `form` | no source read | |
 | `mix` | the thicker sound of present-day EDM | Merlini 2023 |
 
 - **In this skill**: [electronic.md](electronic.md), Synthwave; `fsbs_dist1` for the rock and metal elements.
-- **Variants**: *Darksynth*: influenced by horror cinema, darker, with post-punk, industrial and EBM sounds (WP
+- **Variants**: *Darksynth*: influenced by horror cinema, darker, with sounds from EBM, industrial and post-punk (WP
   Synthwave).
 - **Neighbours**: Electro; the Horror map's ostinato pulse (`horror/ostinato-pulse`) for darksynth's dread.
 
@@ -397,18 +397,18 @@ arpeggios for chords. `electronic/chiptune`
 
 ## Ambient
 
-Tone and atmosphere over structure and rhythm: textural layers, often without beat or structured melody, calm, "as
-ignorable as it is interesting". `electronic/ambient`
+Tone and atmosphere over structure and rhythm: textural layers, often without beat or structured melody, calm,
+"as ignorable as it is interesting". `electronic/ambient`
 
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | often no beat | WP Ambient music |
-| `harmony` | held or repeated notes, drone-like; with minimalism, steady drones and consonant harmony | WP Ambient music |
+| `harmony` | held or repeated notes, drone-like; shared with minimalism: drones that hold steady under harmony that stays consonant | WP Ambient music |
 | `melody` | often without structured melody | WP Ambient music |
 | `rhythm` | often without a beat; repetitive patterns or pulses, shared with minimalism | WP Ambient music |
 | `timbre` | textural layers; piano, strings and flute, often on a synthesizer; nature soundscapes | WP Ambient music |
 | `form` | atmosphere over traditional structure | WP Ambient music |
-| `mix` | music to accommodate many levels of listening attention, "as ignorable as it is interesting" (Eno, quoted there) | WP Ambient music |
+| `mix` | music that suits any degree of attention a listener gives it, "as ignorable as it is interesting" (Eno, quoted there) | WP Ambient music |
 
 - **In this skill**: slow pads (`sounds --role pad --character slow`, `warm_pad`); the pianos, strings and flutes of
   the sampled banks; `noise` parts for air; the ocean drum of `vcsl_world` for waves; long reverb (`space` `"hall"`
@@ -416,7 +416,8 @@ ignorable as it is interesting". `electronic/ambient`
   alike or melodic restatement here: drones, repetition and the absence of structure are the style (WP Ambient
   music).
 - **Variants**:
-  - *Dark ambient*: ominous, dark drones, discordant overtones, a gloomy, monumental atmosphere (WP Ambient music).
+  - *Dark ambient*: dark, threatening drones with overtones that clash, in a gloomy atmosphere on a monumental
+    scale (WP Ambient music).
   - *Ambient techno*: ambient atmospheres with the rhythms and melodies of techno; *ambient house*: house's
     four-on-the-floor beats with synth pads in an atmospheric style (WP Ambient music).
 - **Neighbours**: the Horror map's drone dread (`horror/drone-dread`) for dark ambient; the Orchestral map's
@@ -432,7 +433,7 @@ and timbre complex. `electronic/idm`
 | `tempo` | no source read | |
 | `harmony` | no source read | |
 | `melody` | melody, atmosphere and emotion in its early phase | WP Intelligent dance music (Reynolds) |
-| `rhythm` | binary rhythms made complex; microrhythmic sets, groups of very rapid events, some contrasting with the surrounding rhythm, some suggesting its continuation | WP Intelligent dance music (Papavassiliou) |
+| `rhythm` | binary rhythms made complex; "microrhythmic sets", clusters of events in very quick succession, some set against the rhythm around them, some suggesting that it goes on | WP Intelligent dance music (Papavassiliou) |
 | `timbre` | recorded sound manipulated as material: granular synthesis, slicing, time-stretching, sound "freezing"; recognisable machine timbres | WP Intelligent dance music (Papavassiliou; Ramsay) |
 | `form` | conventional forms with repetition | WP Intelligent dance music (Papavassiliou) |
 | `mix` | reverberation and echo shaping the space | WP Intelligent dance music (Ramsay) |

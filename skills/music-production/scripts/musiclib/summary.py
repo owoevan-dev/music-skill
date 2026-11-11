@@ -125,16 +125,15 @@ def render(report, folder):
         lines.append('Each bus against the sum of its stems (dB): ' + ', '.join(f'{k} {v:+g}' for k, v in buses['level_change_db'].items()) + '.')
     ruled = buses.get('rules') or {}
     if ruled:
-        times = ', '.join(f'{b} {c["attack_ms"]:.3g}/{c["release_ms"]:.3g}' for b, c in (ruled.get('compressors') or {}).items())
-        gains = ', '.join(f'{b} {g:+.1f}' for b, g in (ruled.get('bus_gain_db') or {}).items() if abs(g) >= .05)
         rv = ruled.get('reverb')
-        lines.append('Mix rules 2' + (f': compressor attack/release (ms) {times}' if times else '')
-                     + (f'; bus make-up by loudness (dB) {gains}' if gains else '')
-                     + (f'; reverb {rv["relative_loudness_written_lu"]:g} LU as written, {rv["gain_db"]:+.1f} dB to '
-                        f'{rv["relative_loudness_lu"]:g} LU' if rv and rv.get('relative_loudness_written_lu') is not None else '')
-                     + (f' (clarity C80 {rv["c80_written_db"]:+g} dB as written, asked {rv["c80_asked_db"]:+g}, now {rv["c80_db"]:+g}'
-                        + ('' if rv.get('c80_reached') else ': not reached') + ')'
-                        if rv and rv.get('c80_asked_db') is not None and rv.get('c80_db') is not None else '') + '.')
+        lead = ruled.get('lead_threshold_dbfs')
+        lines.append('Mix rules 2' + (f': lead compressor threshold {lead:g} dBFS' if lead is not None else '')
+                     + (f'; clarity C80 {rv["c80_written_db"]:+g} dB as written, asked {rv["c80_asked_db"]:+g}, the returns '
+                        f'{rv["gain_db"]:+.1f} dB, now {rv["c80_db"]:+g}' + ('' if rv.get('c80_reached') else ': not reached')
+                        if rv and rv.get('c80_db') is not None else '')
+                     # A clarity that was asked and could not be set is said, never passed over.
+                     + (f'; clarity C80 asked {rv["c80_asked_db"]:+g} dB: not reached, nothing that sounds is sent to a reverb'
+                        if rv and rv.get('c80_db') is None else '') + '.')
     failed = [k for k, ok in report['checks'].items() if not ok]
     lines.append('Failed checks: ' + (', '.join(failed) if failed else 'none') + '.')
     if report.get('left_out'):
@@ -184,14 +183,10 @@ def analysis(r, path, render=None):
                      f'loudness range {_signed(c.get("lra_lu_difference"))} LU.')
     rv, la = r.get('reverb'), r.get('lead_against_mix')
     if rv:
-        songs = '' if rv.get('c80_asked_db') is not None else (f' (published range {rv["published_range_lu"][0]:g} to '
-                                                               f'{rv["published_range_lu"][1]:g}, too much from {rv["too_much_from_lu"]:g})')
-        lines.append(f'Reverb: the returns are {rv["relative_loudness_lu"]:g} LU against the buses{songs}, '
-                     f'early decay {_g(rv.get("early_decay_time_s"))} s'
-                     + (f', clarity C80 {rv["clarity_c80_db"]:+g} dB (a seat in a concert hall {rv["hall_c80_db"][0]:+g} to '
+        lines.append(f'Reverb: early decay {_g(rv.get("early_decay_time_s"))} s'
+                     + (f', clarity C80 {rv["clarity_c80_db"]:+g} dB (recommended for concert halls {rv["hall_c80_db"][0]:+g} to '
                         f'{rv["hall_c80_db"][1]:+g}' + (f'; the piece asks {rv["c80_asked_db"]:+g}' if rv.get('c80_asked_db') is not None else '') + ')'
-                        if rv.get('clarity_c80_db') is not None else '')
-                     + (f'; every send {rv["to_range_db"]:+g} dB reaches the range.' if rv['to_range_db'] and rv.get('c80_asked_db') is None else '.'))
+                        if rv.get('clarity_c80_db') is not None else '') + '.')
     if la:
         lines.append(f'Lead against the mix: {la["lead_minus_mix_lu"]:+g} LU (lead vocals in engineers\' mixes: '
                      f'{la["published_vocal_lu"]["mean"]:g}, spread {la["published_vocal_lu"]["spread"]:g}).')

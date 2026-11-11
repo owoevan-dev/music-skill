@@ -47,13 +47,13 @@ A basso continuo supplies the bass line and the chords of almost every baroque g
 
 ## Counterpoint
 
-- **Independent voices** (Open Music Theory, First-Species Counterpoint, after Fux 1725): parallel perfect consonances are forbidden; avoid voice crossing and overlap; approach the final interval by contrary stepwise motion.
+- **Independent voices** (Open Music Theory, First-Species Counterpoint, after Fux 1725): no two perfect consonances in parallel; no voice crossing or overlap; the two voices reach the final interval by step, in contrary motion.
 - **Dissonance off the beat**: passing and neighbour notes, by step (Open Music Theory, Embellishing Tones).
 - **Dissonance on the beat** as a suspension (Open Music Theory, Fourth-Species Counterpoint):
   - prepared as a consonance on the weak beat before;
   - held into the strong beat as a dissonance;
   - resolved down by step: 7–6, 4–3 and 9–8 above the bass, 2–3 below it.
-- **Suspensions in a row.** Open Music Theory allows 7–6 and 4–3 freely, but no more than three times in a row.
+- **Suspensions in a row.** Open Music Theory allows 7–6 and 4–3 freely, up to three in succession.
 - `review` lists sustained minor seconds and ninths, and names each note outside the written chord by its embellishing tone (passing, neighbour, suspension and the rest), asking about those not resolved by step. In this style each dissonance should be a passing or neighbour note or a prepared suspension.
 - `review` lists consecutive fifths and octaves between two lines moving the same way: parts written one note at a time, a melody's top line and a bass part's bottom line. Octaves inside a line doubled at the octave are left out. Write each real voice as its own part, one note at a time, so it is checked: `review` does not split the chords of one part into voices. Read a soloist's broken chords on the beat, where their real voices are.
 - The leading tone and a chordal seventh are tendency tones and are never doubled (Open Music Theory, Chords in SATB Style).
@@ -111,7 +111,7 @@ Eighteenth-century composers built phrases from stock patterns of bass and melod
   - Change registration for contrast: the bank has 8′, 8′+4′ and lute-stop presets.
 - **Ornaments.** Write them as notes.
   - A trill on the penultimate note of a cadence. In the Baroque it starts on the upper note and may start slow and speed up; on a short note at a fast tempo it shrinks to three notes, close to a mordent (Wikipedia, Trill).
-  - Appoggiaturas, reached by leap and left by step the other way, usually on a strong part of the beat (Open Music Theory, Embellishing Tones).
+  - Appoggiaturas: a leap in, a step out the other way, usually on the strong part of a beat (Open Music Theory, Embellishing Tones).
 - **Section strings in an allegro.** The `vsco_strings` sustained samples take about 400 ms to speak, a bowed swell ([soundbank-measurements.md](soundbank-measurements.md)). At allegro tempos, give notes under about a beat and a half to the spiccato presets (bank 1, `offset_ms` −35 to −40) and keep the sustained presets (`offset_ms` −90) for held notes and suspensions. Tied over the bar line, a suspension's swell lands on its dissonance. A note struck again on the strong beat is a rearticulated suspension.
 - **The continuo cello.** The solo cello (`cello_bigcat` 0:42) speaks in 5–14 ms. Let it play the bass line throughout, as the continuo cellist does; the cello section and the double bass join it in the tutti.
 - **Contrast.** The harpsichord's velocity changes nothing, so its contrasts come from registration and texture; a concerto alternates tutti and solo (Ritornello form, above).

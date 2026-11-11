@@ -62,7 +62,7 @@ KNOWN = {
                 'authorship', 'revision_history', 'description', 'comment', 'style'},
     'clock': {'bars', 'meter', 'tempo', 'tail_seconds', 'rubato'},
     'mix': {'chain', 'dynamics', 'loudness', 'target_lufs', 'peak_ceiling_db', 'max_limit_db', 'room_seconds', 'range_lu',
-            'mono_below_hz', 'wow_flutter', 'rules', 'reverb_range_lu', 'c80_db'},
+            'mono_below_hz', 'wow_flutter', 'rules', 'c80_db'},
     'track': {'id', 'engine', 'notes', 'performance', 'mix', 'program', 'bank', 'drums', 'range', 'soundfont', 'patch', 'key_map',
               'instrument', 'synth', 'surge', 'kit', 'role', 'name', 'description', 'comment', 'reverse'},
     'performance': {'notes', 'cc', 'cc_mode', 'offset_ms', 'bend', 'bend_range', 'legato', 'bow_change_s', 'bow_ms', 'round_robin',
@@ -293,21 +293,18 @@ def _validate(p):
     if p['mix'].get('chain','room') not in ('room','bus'):raise ValueError('mix.chain must be "room" or "bus"')
     if p['mix'].get('dynamics','glue') not in ('glue','wide'):raise ValueError('mix.dynamics must be "glue" or "wide"')
     # The mix's rules: 1 is the bus chain as 0.5 mixed it (the default, so a project made before renders as it did);
-    # 2 sets the compressors' times, the buses' make-up and the reverb's amount from the mix itself (mixbus.py).
+    # 2 runs the saturation between resamplers, ends the master in one true-peak limiter and takes a clarity (mixbus.py).
     if p['mix'].get('rules',1) not in (1,2) or isinstance(p['mix'].get('rules',1),bool):raise ValueError('mix.rules must be 1 or 2')
     if p['mix'].get('rules',1)==2 and p['mix'].get('chain')!='bus':raise ValueError('mix.rules 2 needs mix.chain "bus"')
     if 'c80_db' in p['mix']:
-        # How near the piece is heard (measure.HALL_C80_DB): -2 to +2 dB is a seat in a concert hall, 15 dB and more the
-        # close sound of a studio mix.  One or the other: a clarity, or a range of reverb loudness.
+        # How near the piece is heard (measure.HALL_C80_DB): -2 to +2 dB is the range Barron (2013) recommends for
+        # concert halls; a mix with the reverb of mixed songs sits far on the clear side of it.  The clarity is set
+        # on the reverbs' returns, so a project that sends
+        # nothing to a reverb cannot be given one: refused here (it was accepted, and the render said nothing of it).
         if p['mix'].get('rules',1)!=2:raise ValueError('mix.c80_db belongs to mix.rules 2')
-        if 'reverb_range_lu' in p['mix']:raise ValueError('mix.c80_db and mix.reverb_range_lu both set how much reverb the mix has: give one')
+        if not any(isinstance(t,dict) and isinstance(t.get('mix'),dict) and t['mix'].get('reverb_db') is not None for t in (p.get('tracks') or [])):
+            raise ValueError('mix.c80_db sets the clarity of the mix by its reverb, and no part sends to a reverb: give the parts mix.reverb_db, or leave mix.c80_db out')
         number(p['mix']['c80_db'],-5,25,'mix.c80_db')
-    if 'reverb_range_lu' in p['mix']:
-        if p['mix'].get('rules',1)!=2:raise ValueError('mix.reverb_range_lu belongs to mix.rules 2')
-        span=p['mix']['reverb_range_lu']
-        if span is not None:
-            if not (isinstance(span,list) and len(span)==2):raise ValueError('mix.reverb_range_lu is [lowest, highest] in LU, or null to leave the reverb sends as written')
-            number(span[0],-40,-9,'mix.reverb_range_lu lowest');number(span[1],span[0],-9,'mix.reverb_range_lu highest')
     if p['mix'].get('dynamics')=='wide' and p['mix'].get('chain')!='bus':raise ValueError('mix.dynamics "wide" needs mix.chain "bus"')
     if p['mix'].get('range_lu') is not None:
         number(p['mix']['range_lu'],3,30,'master loudness range')

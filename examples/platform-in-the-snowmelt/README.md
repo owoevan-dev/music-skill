@@ -2,7 +2,7 @@
 
 A Japanese ballad like an anime ending theme, mostly piano and strings: it starts quietly, and the last chorus carries the most feeling. Made by Claude (Opus 5.5, xhigh effort) with this skill's version 0.3.0, in one run from the prompt below.
 
-Listen: [Platform in the Snowmelt](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/platform-in-the-snowmelt.mp3) (4:37).
+Listen: [Platform in the Snowmelt](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/platform-in-the-snowmelt.mp3) (4:37).
 
 ## The prompt
 

@@ -33,15 +33,15 @@ music-skill 是一個 [Agent Skill](https://agentskills.io)，讓 AI agent 像�
 
 以下每一首都由 Claude（Opus 5.5，xhigh effort）用這個 skill 的 0.3.0 版，從一句題材和[所有 agent 共用的規則](examples/agent-rules.md)、單次執行做成。曲名、曲式、樂器和音色都由它自己決定，每個音都是它寫的，審查、渲染和修改也都由它自己完成，沒有人修改過成品。每個範例資料夾都有 prompt、agent 的腳本和渲染時的專案檔。
 
-**[《Fughetta on a Lantern Theme》](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/fughetta-on-a-lantern-theme.mp3)**（1:55），題材是「巴洛克風格的大鍵琴與弦樂小品，聲部之間要有模仿對位」：先是莊板（Grave）序奏，接著是 D 小調的小賦格，主題依序在四個弦樂聲部進入（[範例](examples/fughetta-on-a-lantern-theme)）。
+**[《Fughetta on a Lantern Theme》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/fughetta-on-a-lantern-theme.mp3)**（1:55），題材是「巴洛克風格的大鍵琴與弦樂小品，聲部之間要有模仿對位」：先是莊板（Grave）序奏，接著是 D 小調的小賦格，主題依序在四個弦樂聲部進入（[範例](examples/fughetta-on-a-lantern-theme)）。
 
-- [《Platform in the Snowmelt》](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/platform-in-the-snowmelt.mp3)（4:37），題材是「像動畫片尾曲的日系抒情曲，鋼琴和弦樂為主，安靜開始，最後一次副歌情緒最滿」（[範例](examples/platform-in-the-snowmelt)）
-- [《Sodium Lights》](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/sodium-lights.mp3)（4:28），題材是「日系 city pop，夜晚開車兜風的都會感」（[範例](examples/sodium-lights)）
-- [《Sprinkle Satellite》](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/sprinkle-satellite.mp3)（2:30），題材是「可愛系 future bass，明亮的和弦和輕快的 drop」（[範例](examples/sprinkle-satellite)）
+- [《Platform in the Snowmelt》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/platform-in-the-snowmelt.mp3)（4:37），題材是「像動畫片尾曲的日系抒情曲，鋼琴和弦樂為主，安靜開始，最後一次副歌情緒最滿」（[範例](examples/platform-in-the-snowmelt)）
+- [《Sodium Lights》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sodium-lights.mp3)（4:28），題材是「日系 city pop，夜晚開車兜風的都會感」（[範例](examples/sodium-lights)）
+- [《Sprinkle Satellite》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sprinkle-satellite.mp3)（2:30），題材是「可愛系 future bass，明亮的和弦和輕快的 drop」（[範例](examples/sprinkle-satellite)）
 
 [原版與修改版對照](examples/before-after) 把一首小曲改掉一個音，再用 `compare` 列出渲染裡跟著變的所有地方：那個聲部、它的匯流排、殘響尾巴和母帶。
 
-錄音是 MP3 檔，可以從 release [examples-2](https://github.com/owoevan-dev/music-skill/releases/tag/examples-2) 下載。
+錄音是 MP3 檔，可以從 release [examples-3](https://github.com/owoevan-dev/music-skill/releases/tag/examples-3) 下載。
 
 ## 快速開始
 
@@ -169,7 +169,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 ## 效果如何
 
-`selfcheck.py` 共有 151 項檢查（沒有渲染設定時為 121 項），從 MIDI 來回轉換、壓縮檔安全，到實際渲染都包括在內。例如：只改一個音時只會重新合成一個聲部，而 `compare` 只在受影響的檔案裡、從那個音開始找到差異；舊的單一殘響混音能逐位元重現先前的版本；響度量測對 BS.1770 的標準測試音讀出 −3.01 LUFS。CI 會跑完所有檢查（包括渲染），環境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）和 macOS（FluidSynth 2.6、FFmpeg 9.0）。
+`selfcheck.py` 共有 152 項檢查（沒有渲染設定時為 122 項），從 MIDI 來回轉換、壓縮檔安全，到實際渲染都包括在內。例如：只改一個音時只會重新合成一個聲部，而 `compare` 只在受影響的檔案裡、從那個音開始找到差異；舊的單一殘響混音能逐位元重現先前的版本；響度量測對 BS.1770 的標準測試音讀出 −3.01 LUFS。CI 會跑完所有檢查（包括渲染），環境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）和 macOS（FluidSynth 2.6、FFmpeg 9.0）。
 
 音樂好不好聽是另一回事，只有實際聆聽才知道。上面這些曲子是這個 repo 最好的證據。
 

@@ -38,7 +38,7 @@ Like the harpsichord, the organ offers almost no dynamic or timbral nuance from 
 
 ## The church
 
-Organs speak into large, reverberant rooms. Mapp (2019) measured mid-frequency reverberation times of 1.2–3.5 s in ten English churches of 920–2,800 m³, and 5.1 s in a cathedral of about 23,000 m³. In seven Spanish cathedrals it ran from 4.3 to 9 s, and listeners could not tell apart rooms between 4 and 7 s (Girón, Galindo and Gómez-Gómez 2020).
+Organs speak into large, reverberant rooms. Mapp (2019) measured mid-frequency reverberation times of 1.2–3.5 s in ten English churches, and 5.1 s in a cathedral of about 23,000 m³. In seven Spanish cathedrals it ran from 4.3 to 9 s, and listeners could not tell apart rooms between 4 and 7 s (Girón, Galindo and Gómez-Gómez 2020).
 
 The mix's `church` space decays in about 4.2 s at 1 kHz, longer in the bass and shorter in the treble. That is a large church, between those churches and the cathedrals.
 

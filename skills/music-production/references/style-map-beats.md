@@ -43,7 +43,7 @@ and the worn sound muffles its highs ([beats.md](beats.md), The worn sound).
 
 ## Lo-fi
 
-Downtempo, fuzzed-out atmospheric beats with piano or guitar melodies and the hiss of old media, made to relax or
+Slow, hazy, atmospheric beats with piano or guitar melodies and the hiss of old media, made to relax or
 study to. `beats/lo-fi`
 
 | Axis | Traits | From |
@@ -93,7 +93,7 @@ cinematic layer of strings, brass and keys. `beats/trap`
 | `harmony` | monophonic drones, thin or thick, sometimes with synthesized accompaniment | WP Trap music |
 | `melody` | synthesized strings, brass, woodwinds and keys, cinematic and symphonic | WP Trap music |
 | `rhythm` | double-, triple- and finer-divided hi-hats; crisp, grimy snares; the half-time snare on beat 3 | WP Trap music; Computer Music 2016 |
-| `timbre` | the TR-808's kick tuned with a long decay to sound as a bass | WP Trap music |
+| `timbre` | the TR-808's kick with its decay set long, tuned to sound as a bass | WP Trap music |
 | `form` | no source read beyond the loop | |
 | `mix` | simple, rhythmic, minimalistic production | WP Trap music |
 
@@ -103,7 +103,7 @@ cinematic layer of strings, brass and keys. `beats/trap`
 
 ## Drill
 
-Dark, sliding 808 basslines under syncopated hi-hats: in the UK form a steady 3+3+2 hat pattern and the snare moved
+Dark, sliding 808 basslines under syncopated hi-hats: in the UK form hats that keep to 3+3+2 and the snare moved
 off beat 3, at 138–151 BPM. `beats/drill`
 
 | Axis | Traits | From |
@@ -111,7 +111,7 @@ off beat 3, at 138–151 BPM. `beats/drill`
 | `tempo` | about 138–151 BPM in UK drill, faster than its Chicago source | WP UK drill; WP Drill music |
 | `harmony` | dark melodies | WP UK drill |
 | `melody` | synth brass and bells in Chicago drill | WP Drill music |
-| `rhythm` | UK drill: hats in a steady 3+3+2 instead of trap's on-beat and triplet divisions, a sped-up tresillo; every second bar, the snare moved from beat three to beat four; more syncopated drums; Chicago drill: busy snares and the crash | WP UK drill; WP Drill music |
+| `rhythm` | UK drill: hats keeping to 3+3+2 where trap divides on the beat and in triplets, a sped-up tresillo; every second bar, the snare moved from beat three to beat four; more syncopated drums; Chicago drill: busy snares and the crash | WP UK drill; WP Drill music |
 | `timbre` | sliding 808 bass, hard-hitting kicks | WP UK drill |
 | `form` | no source read | |
 | `mix` | no source read | |
@@ -171,7 +171,7 @@ synthesizers and a high portamento saw lead. `beats/g-funk`
 | `tempo` | 90–100 BPM; funk at an artificially altered tempo | WP G-funk |
 | `harmony` | the synthesizer-heavy funk of the 1970s, sampled or re-recorded | WP G-funk |
 | `melody` | a high-pitched portamento sawtooth lead; multi-layered melodic synthesizers; background female vocals | WP G-funk |
-| `rhythm` | slow, hypnotic grooves; heavy use of the snare drum | WP G-funk |
+| `rhythm` | slow, hypnotic grooves; the snare drum used heavily | WP G-funk |
 | `timbre` | a deep bass; synthesizers | WP G-funk |
 | `form` | no source read | |
 | `mix` | smooth and laid back | WP G-funk |

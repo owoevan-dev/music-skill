@@ -221,11 +221,11 @@ def test_examples_group_installs_the_examples_banks():
     assert set(load(SKILL / 'references' / 'soundbank-lock.json')['groups']['examples']) == named
 
 
-RECORDINGS = 'https://github.com/owoevan-dev/music-skill/releases/download/examples-2/'
+RECORDINGS = 'https://github.com/owoevan-dev/music-skill/releases/download/examples-3/'
 
 
 def test_recordings_are_release_assets():
-    """The example recordings are assets of the release examples-2: each language's README links the four pieces there,
+    """The example recordings are assets of the release examples-3: each language's README links the four pieces there,
     each example folder its own piece, and no recording is a repository file."""
     pieces = {f'{folder}.mp3' for folder in AGENT_PIECES}
     expected = {**{f'README{s}.md': pieces for s in ('', '.ja', '.ko', '.zh-CN', '.zh-TW')},
@@ -292,4 +292,4 @@ def test_selfcheck(tmp_path):
     assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-3000:]
     report = load(work / 'selfcheck_report.json')
     assert report['status'] == 'PASS' and all(c['passed'] for c in report['checks'])
-    assert len(report['checks']) == (151 if CONFIG else 121), [c['name'] for c in report['checks']]
+    assert len(report['checks']) == (152 if CONFIG else 122), [c['name'] for c in report['checks']]

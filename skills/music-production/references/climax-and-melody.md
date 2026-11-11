@@ -52,20 +52,20 @@ The sources below describe what such a melody has: an idea that returns, phrases
 
    He asks of a line written for the voice whether the singer has time to breathe between phrases, and whether a phrase is too long for one breath.
 3. **Build each section from restatement.** State an idea, restate it, depart, conclude: the srdc pattern (statement, restatement, departure, conclusion) that Summach (2011) traces through pop forms after Everett (1999). In classical terms this is the sentence (Caplin 1998). Its presentation is a basic idea, often two bars long, and its repetition. A continuation follows and drives to a cadence.
-   - **Restate with a change.** The repetition is often varied. One that keeps the contour is heard as a varied repetition; one with a new contour is heard as a contrasting idea (Open Music Theory). A sequence repeats the idea a step or a third higher or lower (Sloboda, above).
+   - **Restate with a change.** The idea usually comes back changed. One that keeps the contour is heard as a varied repetition; one with a new contour is heard as a contrasting idea (Open Music Theory). A sequence repeats the idea a step or a third higher or lower (Sloboda, above).
    - **Depart by fragmenting.** Fragmentation means units shorter than the basic idea. A continuation often adds sequences and chords that change faster than before (Open Music Theory).
-4. **Contrast the sections.** A chorus intensifies over its verse with a denser or more active texture and/or a higher melody (Summach 2012, in Open Music Theory, Verse-Chorus Form). Summach lists register, phrasing, the length of units and harmonic rhythm among the devices that build a prechorus toward its chorus.
+4. **Contrast the sections.** A chorus intensifies over its verse with a fuller or busier texture, a higher melody, or both (Summach 2012, in Open Music Theory, Verse-Chorus Form). Summach lists register, phrasing, the length of units and harmonic rhythm among the devices that build a prechorus toward its chorus.
 5. **Tension and rest.**
    - **Notes outside the chord** embellish chord tones (Open Music Theory):
-     - an appoggiatura, reached by leap and left by step the other way, usually falls on a strong part of the beat;
+     - an appoggiatura is leapt to and left by a step the other way, and usually takes the strong part of a beat;
      - a suspension, a held note resolving down by step, always does;
      - an escape tone and an anticipation usually fall on weaker parts.
 
      Sloboda found appoggiaturas most often under tears (above).
    - **Pair phrases as question and answer**, the antecedent and consequent of a period (Caplin 1998; Open Music Theory):
-     - the first ends with a weaker cadence, most often a half cadence, on V;
-     - the second ends with a stronger one, most often a perfect authentic cadence, with 1 in the melody over the tonic;
-     - with 3 or 5 in the melody over the tonic, the authentic cadence is imperfect.
+     - the first closes on the weaker cadence, as a rule a half cadence, on V;
+     - the second closes on a stronger one, as a rule the perfect authentic cadence, with 1 in the melody over the tonic;
+     - when the melody ends on 3 or 5 over the tonic, the authentic cadence is imperfect.
    - **Anticipations.** A melody note that anticipates a downbeat is heard as belonging to that beat (Tan, Lustig and Temperley 2019, in [development-and-groove.md](development-and-groove.md)). It is the next chord's tone heard early, over the old chord (Open Music Theory, Embellishing Tones); the band can stay on the beat, or push with it where the arrangement wants a joint push or the early note rubs against the old chord (`review` lists such rubs).
 6. **Save the peak.** Keep the melody's highest note for the high point (Planning a high point, above).
 7. **Check the figures.** `profile` reports, per section, the melody's phrases and its longest run without a breath, its leaps, how many bars restate an earlier bar's rhythm and contour, and where its peak falls. `review` asks about a section of eight bars or more in which no bar restates another. The figures show what the line does, not whether it is good: listen.
@@ -74,7 +74,7 @@ The sources below describe what such a melody has: an idea that returns, phrases
 
 McAdams, Goodchild and Soden (2022) classify orchestral effects by the auditory grouping that produces them:
 
-- **Blend (concurrent grouping).** Instruments fuse into one event when their notes start together, their partials line up and their spectra overlap, and parallel motion in pitch and dynamics strengthens the fusion. In timbral augmentation one instrument stays recognisable and the others colour it (a flute doubling violins an octave up); in timbral emergence a new sound results that is none of its parts. Instruments that start apart or differ widely stay separately audible (heterogeneity). To make a line richer without making it two lines, double it in unison or octaves with notes that start together.
+- **Blend (concurrent grouping).** Instruments fuse into one event when their notes start together, their partials line up and their spectra overlap, and parallel motion in pitch and dynamics strengthens the fusion. In timbral augmentation one instrument stays recognisable and the others colour it (a flute doubling violins an octave up); timbral emergence is the case where the mixture is heard as a new sound, none of its parts. Instruments that start apart or differ widely stay separately audible (heterogeneity). To make a line richer without making it two lines, double it in unison or octaves with notes that start together.
 - **Streams and layers (sequential grouping).** Successive notes of similar timbre and register join into one line; differences in timbre and register split them into separate streams; and layers of different prominence form a foreground and a background. For counterpoint to be heard as counterpoint, give each line its own timbre or register; for a melody to sit in front, keep its timbre apart from the accompaniment's.
 - **Contrast and progression (segmental grouping).** A change of instrumentation divides the music into units: phrases answered by another section (antiphony), a figure echoed in another colour. Over a longer span a planned progression of timbres, adding or changing instruments section by section, gives a form its dramatic shape.
 

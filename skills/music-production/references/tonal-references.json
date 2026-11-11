@@ -1,5 +1,5 @@
 {
- "note": "Long-term measures of the skill's demos that passed listening review, made by analysis.long_term on each master, rendered from the project files of the 0.2.0 examples, whose recordings stay in the release examples-1. They show where a mix of that genre from this engine sat: data points, not targets. Compare a render with one through studio.py analyze --reference NAME.",
+ "note": "Long-term measures of pieces of this skill's own, made by analysis.long_term on each master, rendered from the project files of the 0.2.0 examples, whose recordings stay in the release examples-1. They show where a mix of that genre from this engine sat: data points, not targets. Compare a render with one through studio.py analyze --reference NAME.",
  "published": {
   "slope": "Popular recordings fall about 5 dB per octave over 100 Hz-4 kHz in power per hertz (Pestana et al. 2013, about 800 recordings 1950-2010); Elowsson and Friberg (2017) report about 4.5 over a similar range, measured another way.",
   "genre": "Hip-hop and electronic recordings reach further into the low end and jazz and folk fall away at the top (Pestana et al. 2013). Tracks with more percussion carry more bass and top, which accounts for much of the difference between genres (Elowsson and Friberg 2017).",

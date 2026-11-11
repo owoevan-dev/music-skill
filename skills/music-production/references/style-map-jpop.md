@@ -18,23 +18,15 @@ Source tags: WP is Wikipedia, read on 9 November 2026, by article. The other sou
   through intro, verse, prechorus and chorus; the full-length song is a compound AABA′ form, of which a TV opening is
   one A rotation (Li 2026, after Covach 2005).
 - **Chords.** In the archetypal anime song Li (2026) describes, I, IV, V and vi, with ii and iii, carry the structure,
-  and chromatic chords such as ♭VII and V/ii come sparingly. The progressions frequent in J-pop, by the names
-  Japanese pop gives them (Uehara, Itoh and Takatsuka 2016, Table 1):
+  and chromatic chords such as ♭VII and V/ii come sparingly. Uehara, Itoh and Takatsuka (2016) list the progressions
+  frequent in J-pop under the names Japanese pop gives them (their Table 1). Three of them, as examples:
+  - the royal road, IV–V7–iii–vi;
+  - one-six-two-five, I–vi–ii–V7;
+  - the canon progression, I–V–vi–iii–IV–I–IV–V.
 
-  | Name | Progression |
-  |---|---|
-  | three chords | I–IV–V |
-  | the J-pop progression, the royal road | IV–V7–iii–vi |
-  | a producer's progression, and its minor form | vi–IV–V–I; vi–ii–V–vi |
-  | a 1980s hit's progression | I–vi–IV–V7 |
-  | the Eurobeat progression | IV–V–vi–vi |
-  | one-six-two-five | I–vi–ii–V7 |
-  | the progression of rising expectation | vi–iii–IV–V7 |
-  | the canon progression | I–V–vi–iii–IV–I–IV–V |
-
-  The royal road is usually all sevenths, IVM7–V7–iii7–vi(7), and resolves by IVM7–V7–I or ii7–V7–I; after vi,
-  ii7–V7–I completes a circle of fifths. In minor its forms are VIM7–VII7–v7–i and iv7–v7–IIIM7–VI (WP Royal road
-  progression). Two of the table's names are a producer's and a song's; they are given here by description.
+  The others are in the paper. The royal road is usually all sevenths, IVM7–V7–iii7–vi(7), and resolves by IVM7–V7–I
+  or ii7–V7–I; after vi, ii7–V7–I completes a circle of fifths. In minor its forms are VIM7–VII7–v7–i and
+  iv7–v7–IIIM7–VI (WP Royal road progression).
 - **Colour.** J-pop progressions often carry tensions and slash chords (Uehara, Itoh and Takatsuka 2016). Across
   2,419 songs from 1927 to 2019, the chords J-pop uses grew more varied, most between the 1970s and the mid-1990s; the
   authors leave open how much the make-up of the data adds (Moss and Nakamura 2024). Relative major and minor keys
@@ -131,10 +123,10 @@ funk, disco and boogie grooves, sometimes tropical. `jpop/city-pop`
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | no source read | |
-| `harmony` | jazz techniques of writing and arranging, major-seventh and diminished chords, taken from 1970s American soft rock | WP City pop |
+| `harmony` | jazz techniques of writing and arranging, diminished and major-seventh chords among them, taken from 1970s American soft rock | WP City pop |
 | `melody` | no source read | |
 | `rhythm` | funk, disco, R&B and boogie; of its two styles, one "a thumping rug-cutter" | WP City pop |
-| `timbre` | soft rock and AOR; tropical touches and borrowings from jazz fusion and from Okinawan, Latin and Caribbean music; the other style "a lush, tropical romp" | WP City pop |
+| `timbre` | soft rock and AOR; tropical touches and borrowings from jazz fusion and from the music of Okinawa, Latin America and the Caribbean; the other style "a lush, tropical romp" | WP City pop |
 | `form` | no source read | |
 | `mix` | an urban, sophisticated atmosphere | WP City pop |
 
@@ -153,9 +145,9 @@ The sentimental ballad of postwar Japan: melodies on the yonanuki scales, sung w
 |---|---|---|
 | `tempo` | no source read | |
 | `harmony` | Western harmony under the melody | WP Enka |
-| `melody` | the yonanuki minor scale, the minor scale without its fourth and seventh, derived from the yonanuki major, the major without its fourth and seventh, after the older ryo scale; kobushi, a melisma in which the pitch fluctuates irregularly within one scale degree, unlike the regular cycle of vibrato | WP Enka |
+| `melody` | the yonanuki minor scale, the minor scale without its fourth and seventh, derived from the yonanuki major, the major without its fourth and seventh, after the older ryo scale; kobushi, a melisma whose pitch wavers without a regular cycle inside a single scale degree, where vibrato cycles evenly | WP Enka |
 | `rhythm` | no source read | |
-| `timbre` | synthesizers and a distorted electric lead guitar; the shakuhachi and the shamisen | WP Enka |
+| `timbre` | synthesizers and a distorted electric lead guitar; the shamisen and the shakuhachi | WP Enka |
 | `form` | the sentimental ballad | WP Enka |
 | `mix` | no source read | |
 
@@ -181,7 +173,7 @@ sub-style is an entry of its own).
   The borrowed axis brings the openings' modulation too, a trait of openings to take or leave: 41% of those Li (2026)
   surveyed modulated, 38 of their 72 modulations by a minor third.
 - **The anime underscore**, the background music under an anime's scenes. The sources read describe anime songs, the
-  theme, insert and image songs (WP Anime song), not the underscore. Write it as music for a scene
+  theme songs, insert songs and image songs (WP Anime song), not the underscore. Write it as music for a scene
   ([film-score.md](film-score.md), [scene-music.md](scene-music.md)) in the style of the entry nearest the brief.
 
 ## Sources

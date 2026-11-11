@@ -103,10 +103,10 @@ frequency stay as recorded.
   first 80 ms. Before using `denoise` on such takes, find stretches of plain noise in them: flat for 0.3 s, at least
   35 dB under the note, with no partial lines.
 - The decision-directed estimate trails one frame behind a rising note (Cappé 1994; Plapous, Marro and Scalart 2006), so
-  the softest attacks lose a little of their top. Keep the reduction to 10–12 dB.
+  the softest attacks lose a little of their top. Keep the reduction to 10–12 dB (this skill's limit, from its own bank builds).
 - Not for sounds that are noise themselves (cymbals, tam-tams, breath, bow and reed noise) or noisy by design (a guitar
   amplifier's hiss, vinyl).
-- Check every take: its level while it sounds (median change 0.1 dB or less), its first five partials (1 dB or less), its
+- Check every take against this skill's own limits: its level while it sounds (median change 0.1 dB or less), its first five partials (1 dB or less), its
   first 80 ms band by band, the reduction in its pauses, then a level-matched A/B by ear. A rebuilt bank changes every
   render that uses it, so approved pieces on it need their A/B again.
 - Restoration tools refine the same principle (Godsill and Rayner 1998; Wolfe and Godsill 2003): smoothing the gain in
@@ -161,8 +161,8 @@ playback level.
 
 ## Listening tests
 
-Compare versions level-matched, on the same passage, with a short clip of each. Small differences are judged reliably
-only blind, against a hidden reference (ITU-R BS.1116-3). Listen at the intended playback level and once louder,
+Compare versions level-matched, on the same passage, with a short clip of each. For small differences ITU-R BS.1116-3
+sets out blind comparison against a hidden reference. Listen at the intended playback level and once louder,
 where low frequencies gain the most loudness (ISO 226:2023).
 
 ## Sources

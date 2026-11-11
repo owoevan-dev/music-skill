@@ -14,7 +14,7 @@ Source tags: WP is Wikipedia, by article, read on 9 November 2026 (and on 6 Nove
 
 ## Shared by the family
 
-- **Tresillo and clave.** The habanera rhythm, also called tango-congo or tango, can be heard as tresillo with a
+- **Tresillo and clave.** The habanera rhythm, which also goes by tango-congo or tango, amounts to tresillo with a
   backbeat; tresillo is half a clave (WP Latin jazz). Afro-Cuban music sets its rhythm section on ostinatos or a clave
   (WP Latin jazz).
 - **The percussion.** The drummers' statistics hold `afrocuban` and `latin` feels and their shuffles
@@ -35,7 +35,7 @@ a soft voice. `latin/bossa-nova`
 | `harmony` | unconventional chords, complex progressions, "ambiguous" harmony, which samba guitarists used before jazz | WP Bossa nova |
 | `melody` | long notes against the guitar's syncopation, mostly stepwise, at a speaking volume | jazz-and-funk.md (this skill's practice) |
 | `rhythm` | a calm, syncopated rhythm: the guitar's chords and fingerstyle mimicking a samba groove, the thumb's bass regular | WP Bossa nova |
-| `timbre` | the nylon-string guitar played with the fingers | WP Bossa nova |
+| `timbre` | the nylon-string guitar, played fingerstyle | WP Bossa nova |
 | `form` | no source read | |
 | `mix` | no source read; intimate and dry here ([jazz-and-funk.md](jazz-and-funk.md)) | |
 
@@ -64,8 +64,8 @@ notes over a faster beat than the samba-maxixe before it. `latin/samba`
 
 ## Salsa
 
-Son montuno and son cubano with mambo, cha-cha-chá, jazz and more: a son ensemble with horns, congas, bongos and
-timbales over clave. `latin/salsa`
+Cuban son (son cubano, son montuno) mixed with mambo, cha-cha-chá, jazz and more: a son ensemble with horns, congas,
+bongos and timbales over clave. `latin/salsa`
 
 | Axis | Traits | From |
 |---|---|---|
@@ -80,19 +80,19 @@ timbales over clave. `latin/salsa`
 - **In this skill**: the `vcsl_world` congas, bongos, claves, guiro, cowbells and shakers; `blocks.drums` in the
   `afrocuban` feel; the pianos; `vsco` trumpets and trombones; `bass_darkblack` or `bass_sneaky`. No tres and no
   timbales: a guitar in octaves, and a cowbell with the kit's snare and toms, stand in.
-- **Variants**: *Latin jazz*: jazz over Latin American rhythms, Afro-Cuban jazz on ostinatos or a clave, and
-  Afro-Brazilian jazz with samba and bossa nova (WP Latin jazz).
+- **Variants**: *Latin jazz*: jazz over Latin American rhythms, Afro-Cuban jazz, set on a clave or on
+  ostinatos, and Afro-Brazilian jazz, with samba and bossa nova (WP Latin jazz).
 - **Neighbours**: Samba; `jazz/modern-combo`; Cumbia.
 
 ## Reggae
 
-Slower than ska and rocksteady: drums and bass leaning on the downbeat, clipped guitar or piano chords on the
+Slower than ska and rocksteady: drums and bass leaning on the downbeat, clipped chords from guitar or piano on the
 off-beats, a thick, heavy bass in front. `latin/reggae`
 
 | Axis | Traits | From |
 |---|---|---|
-| `tempo` | slower than ska or rocksteady; dub typically 60–90 BPM | WP Reggae; Ableton Learning Music |
-| `harmony` | clipped guitar or piano chords on the off-beats | WP Reggae |
+| `tempo` | below the tempo of ska and of rocksteady; dub typically 60–90 BPM | WP Reggae; Ableton Learning Music |
+| `harmony` | clipped chords, from guitar or piano, on the off-beats | WP Reggae |
 | `melody` | call and response | WP Reggae |
 | `rhythm` | the drums and bass leaning hard on the downbeat; the bass played as a percussion instrument | WP Reggae |
 | `timbre` | the bass guitar central, thick and heavy | WP Reggae |
@@ -114,7 +114,7 @@ Indo-Trinidadian rhythms; the steelpan of the Carnival steelbands. `latin/calyps
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | no source read | |
-| `harmony` | highly rhythmic and harmonic vocals | WP Calypso music |
+| `harmony` | vocals strong in rhythm and in harmony | WP Calypso music |
 | `melody` | extempo: melodies sung impromptu, commenting on island life | WP Calypso music |
 | `rhythm` | rhythms traced to West African kaiso; soca's from Afro- and Indo-Trinidadian rhythms, fused with calypso, chutney, reggae, zouk and Latin music | WP Calypso music; WP Soca music |
 | `timbre` | the steelpan, a chromatically pitched idiophone made from 200-litre drums, grown from Carnival percussion such as tamboo bamboo | WP Steelpan |
@@ -145,7 +145,7 @@ Puerto Rican music on the dembow beat, from Jamaican dancehall's Dem Bow riddim 
 
 ## Tango
 
-The tango of the River Plate: an orquesta típica of violins, flute, piano, double bass and bandoneóns, on African and
+The tango of the River Plate: an orquesta típica of bandoneóns, violins, piano, double bass and flute, on African and
 European roots. `latin/tango`
 
 | Axis | Traits | From |
@@ -154,7 +154,7 @@ European roots. `latin/tango`
 | `harmony` | no source read | |
 | `melody` | no source read | |
 | `rhythm` | the habanera, tresillo with a backbeat, one of its names "tango" | WP Latin jazz |
-| `timbre` | solo guitar, a guitar duo, or the orquesta típica: at least two violins, flute, piano, double bass and at least two bandoneóns; the sextet of piano, double bass, two violins and two bandoneóns | WP Tango music |
+| `timbre` | solo guitar, a guitar duo, or the orquesta típica: two or more bandoneóns, two or more violins, piano, double bass and flute; the sextet, with a pair of bandoneóns, a pair of violins, piano and double bass | WP Tango music |
 | `form` | no source read | |
 | `mix` | no source read | |
 
@@ -174,7 +174,7 @@ guacharaca's "chu-chucu-chu". `latin/cumbia`
 | `harmony` | no source read | |
 | `melody` | the gaitas and the flauta de millo | WP Cumbia |
 | `rhythm` | in 2/2 or 2/4; a simple "chu-chucu-chu" from the guacharaca | WP Cumbia |
-| `timbre` | three drums (tambora, tambor alegre, llamador) and three flutes; local instruments taken up where it travels, its percussion kept | WP Cumbia |
+| `timbre` | three flutes and three drums (llamador, tambor alegre, tambora); local instruments taken up where it travels, its percussion kept | WP Cumbia |
 | `form` | no source read | |
 | `mix` | no source read | |
 
@@ -191,7 +191,7 @@ the Andalusian cadence, twelve-beat cycles, handclaps. `latin/flamenco`
 |---|---|---|
 | `tempo` | no source read | |
 | `harmony` | the flamenco mode, a Phrygian or a harmonic Phrygian with a major third, beside major and minor; the Andalusian cadence, in E Am–G–F–E; bimodal palos, the guitar in Phrygian and the song in major | WP Flamenco (Manuel 2006; Rossy 1998) |
-| `melody` | melodic ornamentation and improvisatory variation; falsetas on the guitar | WP Flamenco |
+| `melody` | ornamented melody, varied by improvisation; falsetas on the guitar | WP Flamenco |
 | `rhythm` | the compás, cycles of twelve beats in palos such as alegrías and soleá; handclaps and footwork | WP Flamenco |
 | `timbre` | song, guitar, handclaps, footwork | WP Flamenco |
 | `form` | the palo: a rhythmic cycle, a mode, a progression and a stanza form together | WP Flamenco |

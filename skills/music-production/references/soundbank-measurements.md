@@ -39,7 +39,7 @@ VSCO 2 CE samples the cello section from C2 to F5, the violas from C3 to D6 and 
 
 ## VCSL timpani (build b3)
 
-- **Pitch.** VCSL names its timpani takes by drum and tuning letter, not by pitch, so the build measured each take's principal tone: the (1,1) mode, whose partners (2,1) to (5,1) sit near 1.5, 2, 2.4 and 2.9 times it (Rossing). It then mapped one position per key from D2 to B3 and corrected the rest by fine tune.
+- **Pitch.** VCSL names its timpani takes by drum and tuning letter, not by pitch, so the build measured each take's principal tone: the (1,1) mode, which gives the note heard, with the (2,1) mode sitting a fifth above it and the (3,1) mode an octave above (Rossing 2001, [Acoustics of percussion instruments: recent progress](https://doi.org/10.1250/ast.22.177), *Acoustical Science and Technology* 22(3), 177–188). It then mapped one position per key from D2 to B3 and corrected the rest by fine tune.
 - FreePats' independent timpani, assembled by ear from a few of the same takes, sits on average about half a semitone lower on the positions both use. Listen against a tuned instrument before a timpani part carries the harmony.
 - **Response.** Attack to −12 dB about 6 ms. A hit rings about 4.4 s above −40 dB of its peak; samples end at 6 s, and a release lasts 2 s. Velocity 50 lands about 28 dB under 120, and 85 about 10 dB under.
 

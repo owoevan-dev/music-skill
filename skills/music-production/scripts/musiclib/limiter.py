@@ -45,6 +45,28 @@ LOOKAHEAD = .003  # s.  Hamalainen writes that, as a personal opinion, 64 sample
 LOWEST_STEADY_HZ = 27.5
 
 
+def interpolate(seg, factor):
+    """`seg` (frames, channels) at `factor` times its rate: the band-limited curve through its samples, taken as one
+    period (its spectrum with zeros above it).  Every `factor`-th value is a sample of `seg` again.
+
+    A segment of an even number of frames has one bin at half the sample rate, which stands for a positive and a
+    negative frequency at once.  At the higher rate the two are apart and each gets half of it, as
+    scipy.signal.resample splits it.  Left whole (as this was until a review of 0.6.0 found it), a part of the signal
+    at exactly half the rate came out doubled: 0.1 + 0.4 * (-1)^n read as a peak of 0.9 where the curve through its
+    samples peaks at 0.5, and a limiter took 5 dB from it for nothing.
+
+    One thing no interpolation settles: a part at exactly half the rate that starts or stops.  The sinc tails of its
+    samples all have one sign, so the curve between samples depends on how far away the part's ends are, where every
+    other frequency's depends on the samples near by.  In a segment that holds such an end this reads up to a third
+    over the 0.5 above (0.59 to 0.67, measured); in segments of the steady signal it reads 0.5.  The samples
+    themselves are always given back exactly, so a peak read from this is never under the samples' own."""
+    m = len(seg)
+    spec = np.fft.rfft(seg, axis=0)
+    if factor > 1 and m % 2 == 0:
+        spec[m // 2] *= .5
+    return np.fft.irfft(spec, n=m * factor, axis=0) * factor
+
+
 def true_peak(x, factor=4, block=61440, margin=2048):
     """For each sample of `x` (frames, channels), the largest magnitude of the band-limited signal within one sample
     either side, over the channels: FFT interpolation at `factor` times the rate, in blocks whose margins are
@@ -62,7 +84,7 @@ def true_peak(x, factor=4, block=61440, margin=2048):
         seg = np.zeros((block + 2 * margin, x.shape[1]), dtype=np.float32)
         seg[a - (s - margin):b - (s - margin)] = x[a:b]
         m = len(seg)
-        up = np.abs(np.fft.irfft(np.fft.rfft(seg, axis=0), n=m * factor, axis=0)).max(axis=1) * factor
+        up = np.abs(interpolate(seg, factor)).max(axis=1)
         pad = np.pad(up, factor - 1, mode='edge')
         around = pad[0::factor][:m].copy()
         for j in range(1, 2 * factor - 1):

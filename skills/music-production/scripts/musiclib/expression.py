@@ -1,17 +1,30 @@
 """Performance shaping for composers: timing and dynamics that behave like players rather than a grid.
 
-Human timing and loudness fluctuations are long-range correlated, not independent random numbers, and
-listeners prefer them to white-noise "humanize" (Hennig et al. 2011, PLoS ONE 6: e26457; Raesaenen et al.
-2015, PLoS ONE 10: e0127902).  Listeners rated a simple rock pattern best quantized (Fruehauf et al. 2013), and
-swing and funk performances as grooving equally quantized or with the players' own timing, worse exaggerated (Senn et
-al. 2016), so deviations stay small and structured.  Sizes and weights below are this module's starting values:
+Timing.  A player keeping to a beat is never at a fixed distance from it.  In the model the synchronisation
+literature uses most (linear phase correction: Vorberg and Wing 1996 and Vorberg and Schulze 2002, as Repp 2005
+reviews them), the player takes back a share of the distance by the next beat and a new error comes on top, so
+successive distances from the beat are alike and the likeness dies away over a few beats.  Estimates of that share
+lie between 0.2 and 0.8, and the distances vary least when it is between 0.3 and 0.5 (van der Steen and Keller
+2013, after Repp and Keller 2008): PHASE_CORRECTION is 0.4, this module's choice inside that.  Each note then has
+its own motor delay, independent of the others, which is what makes successive intervals between notes pull against
+each other (Wing and Kristofferson 1973).  Each part keeps to the score's beat by itself: nothing in one part's
+timing is taken from another part.
 
-- a slowly wandering 1/f component per player plus a short-range correction (anticorrelated, lag-1 -0.5).  With
-  `drift='time'` the slow component wanders in time over the piece, on the sixteenth-note grid, and the correction is
-  drawn per onset from the part, the seed and the onset's place, so a note added or removed changes only itself and
-  the onset before it (with the default `drift='notes'`, 0.4.0's, every value steps note by note, and a part's whole
-  performance moves when it gains a note: the 0.4.0 Haiku pieces).  Either way a piece made longer draws its slow
-  components again, and the default keeps earlier scripts writing the projects they wrote;
+Loudness.  In the recorded drum part analysed for it, the loudness of the hi-hat wandered with long-range
+correlations and carried a two-bar pattern (Raesaenen et al. 2015, PLoS ONE 10: e0127902): the slow line of the
+velocities is 1/f^beta noise, and cymbals carry a two-bar accent cycle.
+
+Size.  Listeners rated a simple rock pattern best quantized (Fruehauf et al. 2013), and swing and funk performances
+as grooving equally quantized or with the players' own timing, worse exaggerated (Senn et al. 2016), so deviations
+stay small.  Sizes and weights below are this module's starting values:
+
+- the distance from the beat as above (`timing_sd`, ms) and the motor delays (`short_sd`, ms).  With `drift='time'`
+  the distance runs in time over the piece, on the sixteenth-note grid, and each onset's delay is drawn from the
+  part, the seed and the onset's place, so a note added or removed changes only itself (with the default
+  `drift='notes'` every value steps note by note, and a part's whole performance moves when it gains a note: the
+  0.4.0 Haiku pieces).  Either way a piece made longer draws its lines again.  A script written for 0.5 or before
+  writes another performance under 0.6, of the same size: the distance and the gates are drawn another way, and
+  the loudness line, drawn after them, takes other values with them;
 - a fixed feel per part (laid-back bass, the two rhythm guitars apart);
 - phrase arches and high-loud on melodic parts (KTH rules, Friberg et al. 2006);
 - chords that are not perfectly together: the top note leads in keyboards, section players spread;
@@ -20,7 +33,7 @@ al. 2016), so deviations stay small and structured.  Sizes and weights below are
   steps and up on the odd ones (with the default 0.5, down on the beat and up on the "and"), the usual rhythm-guitar
   motion; a chord off the grid is a downstroke.  Upstrokes are a little faster and lighter.  No measurement of
   string-to-string timing was read, so the step sizes are choices;
-- a two-bar periodic accent pattern on hi-hat/ride, as Raesaenen et al. (2015) found in a recorded hi-hat part;
+- a two-bar periodic accent pattern on hi-hat/ride (Raesaenen et al. 2015, above);
 - a bow-like expression arc (CC11) inside held chords of sustained parts.
 
 apply(project, overrides, seed) changes performance.notes (timing_ms, velocity, gate) of the authored
@@ -46,7 +59,9 @@ ROLE_DEFAULTS = {
     'effect': None,
 }
 BASE = {'timing_sd': 0, 'short_sd': 0, 'feel': 0, 'vel_pct': 0, 'high_loud': 0, 'arch': 0, 'spread': 0, 'lead': 0,
-        'gate_sd': 0, 'contrast': 0, 'cymbal_cycle': 0, 'swell': 0, 'strum': 0, 'strum_grid': .5, 'beta': .8}
+        'gate_sd': 0, 'contrast': 0, 'cymbal_cycle': 0, 'swell': 0, 'strum': 0, 'strum_grid': .5, 'beta': .8,
+        'correction': .4}
+PHASE_CORRECTION = BASE['correction']  # the share of its distance from the beat a player takes back by the next beat
 UPSTROKE_SPEED, UPSTROKE_VELOCITY = .8, .92
 GRID = 4  # slots per quarter note: the sixteenth-note grid the slow components wander on
 
@@ -71,8 +86,34 @@ def rng_for(seed, name):
     return np.random.default_rng(int(hashlib.sha256(f'{seed}:{name}'.encode()).hexdigest()[:12], 16))
 
 
+def kept_to_the_beat(n, rng, share=PHASE_CORRECTION, per_beat=1, gaps=None):
+    """n successive distances of a player from the beat, `per_beat` of them to a beat: by the next beat the player
+    has taken back `share` of the distance and a new error has come on top (linear phase correction, the module's
+    text).  Two distances a beat apart correlate by 1 - share, two beats apart by its square, and so on down: the
+    likeness is short, where the loudness line keeps its own over the whole piece.  The n values are brought to zero
+    mean and unit standard deviation, as the loudness line is, so that `timing_sd` is the deviation a part gets
+    whatever its length and a lasting lead or lag is left to `feel`.  With `gaps` (the n - 1 distances between
+    successive values, in beats) the values are those of onsets that far apart: what is kept from one to the next
+    is 1 - share to the power of the gap."""
+    if not 0 < share <= 1:
+        raise ValueError(f'correction is the share of its distance from the beat a player takes back each beat, over 0 and at most 1, not {share!r}')
+    if n < 1:
+        return np.zeros(0)
+    e = rng.standard_normal(n)
+    x = np.empty(n)
+    x[0] = e[0]
+    for i in range(1, n):
+        kept = (1 - share) ** (1 / per_beat if gaps is None else max(0.0, float(gaps[i - 1])))
+        x[i] = kept * x[i - 1] + math.sqrt(1 - kept * kept) * e[i]
+    if n < 2:
+        return np.zeros(n)
+    x -= x.mean()
+    return x / x.std() if x.std() > 0 else x
+
+
 def lrc(n, rng, beta=.8):
-    """n samples of 1/f^beta noise (long-range correlated), zero mean, unit standard deviation."""
+    """n samples of 1/f^beta noise (long-range correlated), zero mean, unit standard deviation: the slow line of a
+    part's loudness."""
     if n < 2:
         return np.zeros(n)
     m = 1 << (n - 1).bit_length()
@@ -82,12 +123,6 @@ def lrc(n, rng, beta=.8):
     x = np.fft.irfft(spectrum, n=m)[:n]
     x -= x.mean()
     return x / x.std() if x.std() > 0 else x
-
-
-def short_range(n, rng):
-    """Differenced white noise: each deviation is partly corrected by the next (lag-1 autocorrelation -0.5)."""
-    w = rng.standard_normal(n + 1)
-    return (w[1:] - w[:-1]) / math.sqrt(2)
 
 
 def arch_shape(x):
@@ -134,8 +169,8 @@ def profile_for(track, overrides):
 
 def apply(project, overrides=None, seed=1, drift='notes'):
     if drift not in ('notes', 'time'):
-        raise ValueError("drift is 'time' (the player's drift in time: an added note changes only itself and the onset "
-                         "before it) or 'notes' (0.4.0's, note by note)")
+        raise ValueError("drift is 'time' (the player's distance from the beat runs in time: an added note changes only "
+                         "itself) or 'notes' (note by note)")
     overrides = overrides or {}
     report = {}
     for t in project['tracks']:
@@ -148,29 +183,31 @@ def apply(project, overrides=None, seed=1, drift='notes'):
         rng = rng_for(seed, t['id'])
         meter = project['clock']['meter']
         if drift == 'time':
-            # The slow components span the piece on the sixteenth-note grid (lrc: 1/f from the piece's length down,
-            # unit deviation over it), so their values depend on the piece's length, not on how many notes it has.  A
+            # The slow lines span the piece on the sixteenth-note grid, so their values depend on the piece's length,
+            # not on how many notes it has: the distance from the beat and the gates as a player keeping to the beat
+            # (kept_to_the_beat, four values to the quarter note), the loudness as 1/f noise (lrc).  A
             # note in the last half of the score's last sixteenth rounds into the slot past it, which had grown the
             # grid by one and redrawn every note (GPT's review of 0.5, E04): the grid takes the slot a note starts in,
             # and the note the nearest slot inside the grid.
             span = max(1, int(round(project['clock']['bars'] * meter[0] * 4 / meter[1] * GRID)),
                        int(math.floor(onsets[-1] * GRID + 1e-9)) + 1)
-            slow_t, slow_v, gates = (lrc(span, rng, prof['beta']) for _ in range(3))
+            slow_t = kept_to_the_beat(span, rng, prof['correction'], GRID)
+            slow_v = lrc(span, rng, prof['beta'])
+            gates = kept_to_the_beat(span, rng, prof['correction'], GRID)
             cycle = rng.uniform(-1, 1, 16)
             slot = {o: min(span - 1, max(0, int(round(o * GRID)))) for o in onsets}
-            # The short-range correction, differenced white noise between successive onsets (lag-1 autocorrelation
-            # -0.5), each onset's draw keyed by its slot, so only the onset before an added or removed note changes.
-            draw = lambda key: float(rng_for(seed, f'{t["id"]}:short:{key}').standard_normal())
-            w = [draw(slot[o]) for o in onsets] + [draw('end')]
-            fast_t = {o: (w[k + 1] - w[k]) / math.sqrt(2) for k, o in enumerate(onsets)}
+            # Each onset's motor delay, independent of the others, keyed by its slot: a note added or removed
+            # changes no other onset's.
+            fast_t = {o: float(rng_for(seed, f'{t["id"]}:short:{slot[o]}').standard_normal()) for o in onsets}
         else:
-            # 0.4.0: one value per onset in order, drawn in this order.
+            # One value per onset in order, drawn in this order, each as far from the last as the onsets are in beats.
             slot = {o: k for k, o in enumerate(onsets)}
-            slow_t = lrc(len(onsets), rng, prof['beta'])
-            fast = short_range(len(onsets), rng)
+            apart = [b - a for a, b in zip(onsets, onsets[1:])]
+            slow_t = kept_to_the_beat(len(onsets), rng, prof['correction'], gaps=apart)
+            fast = rng.standard_normal(len(onsets))
             fast_t = {o: fast[k] for k, o in enumerate(onsets)}
             slow_v = lrc(len(onsets), rng, prof['beta'])
-            gates = lrc(len(onsets), rng, prof['beta'])
+            gates = kept_to_the_beat(len(onsets), rng, prof['correction'], gaps=apart)
             cycle = rng.uniform(-1, 1, 16)
         melodic = t.get('role') in ('melody', 'countermelody')
         pos = phrase_positions(t, project['sections'], melodic, meter[0] * 4 / meter[1]) if prof['arch'] else {}
@@ -220,7 +257,7 @@ def apply(project, overrides=None, seed=1, drift='notes'):
         if prof['swell']:
             swell(t, prof['swell'])
         report[t['id']] = {'notes': len(notes), 'timing_sd_ms': round(float(np.std(moved)), 2),
-                           'profile': {k: v for k, v in prof.items() if v and k not in ('beta', 'strum_grid')}}
+                           'profile': {k: v for k, v in prof.items() if v and k not in ('beta', 'strum_grid', 'correction')}}
         if prof['strum']:
             report[t['id']]['strokes'] = strokes
     return report

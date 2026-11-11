@@ -10,7 +10,9 @@ the catalog holds both for every patch, so a sound of a wanted brightness and at
 section 19): over 120 patches, a low-pass filter moved an octave moved the centroid 0.19 octave at the median, and
 an amplitude attack set to 200 ms measured as 100 to 300 ms in 42 of 92 fast patches.  Each figure is the median of
 three playings of the probe; a patch whose centroid differed by over 10% between them is called moving and the
-others steady (1,144 and 1,853 of those measured): a moving patch's brightness is not one number.
+others steady (1,144 and 1,852 of those measured): a moving patch's brightness is not one number.  One patch gave no
+centroid at all (a shaker that is over before the probe's held part): it has no spread and no word for it, and no
+range of the centroid finds it.
 
 A patch the measurement flagged is left out unless asked for: silent on a plain note (it waits for aftertouch, MPE or
 the wheel), did not render, built for MPE, microtonal, or off its written pitch; for a pitched role, also one with no
@@ -84,7 +86,7 @@ def search(role=None, character=(), name=None, source=None, limit=25, everything
         if any(w.strip() and w.strip().lower() not in words for w in character):
             continue
         m = e.get('measured', {})
-        if not (within(m.get('centroid_hz'), centroid) and within(m.get('attack_s'), attack)):
+        if not (within(m.get('centroid_hz') or None, centroid) and within(m.get('attack_s'), attack)):
             continue
         rows.append({'id': key, 'role': e['role'], 'character': words, 'centroid_hz': m.get('centroid_hz'),
                      'centroid_spread_pct': m.get('centroid_spread_pct'),

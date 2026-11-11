@@ -25,9 +25,9 @@ against the orchestra. `orchestral/baroque`
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | definite, regular rhythm in a meter, the bar line prominent | UM 4.4.2 |
-| `harmony` | major and minor keys and chord progressions over a basso continuo; galant schemas; the rule of the octave | UM 4.4.2; OMT, Galant Schemas, Rule of the Octave |
+| `harmony` | the major and minor keys, with chord progressions over a basso continuo; galant schemas; the rule of the octave | UM 4.4.2; OMT, Galant Schemas, Rule of the Octave |
 | `melody` | a fugue subject answered at the fifth, with a countersubject and episodes; sequences | OMT, High Baroque Fugal Exposition; Diatonic Sequences |
-| `rhythm` | "motor rhythm", the constant subdivision of the beat | UM 4.4.2 |
+| `rhythm` | "motor rhythm", the beat subdivided without a break | UM 4.4.2 |
 | `timbre` | the violin family; a continuo section of harpsichord or organ with cello, viola da gamba or lute; the trio sonata (two melody instruments and continuo); strings at the core, woodwinds and brass doubling the strings or filling the harmony, timpani the only percussion | UM 4.4.2, 4.4.3, 5.4.2 (the orchestra chart) |
 | `form` | longer works in several movements of defined forms: ritornello form, binary form; the concerto and the concerto grosso; fugue; ground bass | UM 4.4.2, 4.4.3; OMT, Binary Form, Ground Bass |
 | `mix` | terraced dynamics, abrupt changes between loud and soft | UM 4.4.2 |
@@ -47,11 +47,11 @@ Tuneful, balanced phrases over a homophonic accompaniment, in forms that set key
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | contrasting tempos, between movements and within them | UM 5.4.1 |
-| `harmony` | slower harmonic rhythm than the Baroque; the phrase model, cadences, tonicization and modulation to closely related keys | UM 5.4.2; OMT, Intro to Harmony, Performing Harmonic Analysis Using the Phrase Model, Extended Tonicization |
+| `harmony` | slower harmonic rhythm than the Baroque; the phrase model, cadences, tonicization, and modulation to keys closely related | UM 5.4.2; OMT, Intro to Harmony, Performing Harmonic Analysis Using the Phrase Model, Extended Tonicization |
 | `melody` | tuneful melodies in question-and-answer (antecedent and consequent) phrases, shorter than earlier phrases; the sentence and the period | UM 5.4.1, 5.4.2; OMT, The Phrase, Archetypes, and Unique Forms |
 | `rhythm` | flexible use of rhythm and rests | UM 5.4.2 |
 | `timbre` | the string quartet; the piano; an orchestra of thirty to sixty in strings, woodwinds, brass and percussion: first violins carry the melody, the lower strings accompany, woodwinds give colour and solos (clarinets added by the early nineteenth century), horns and trumpets add volume and fill the harmony but rarely carry the melody, timpani mark loud moments and the pulse | UM 5.4.2 |
-| `form` | sonata form, theme and variations, minuet and trio, rondo, the first-movement concerto form | UM 5.4.1; OMT, Sonata Form, Rondo |
+| `form` | sonata form, rondo, minuet and trio, theme and variations, the first-movement concerto form | UM 5.4.1; OMT, Sonata Form, Rondo |
 | `mix` | crescendos and decrescendos; contrasting dynamics and articulations | UM 5.4.1 |
 
 - **In this skill**: [orchestration.md](orchestration.md), VSCO 2 CE and Iowa strings and winds, the Steinway and the
@@ -72,7 +72,7 @@ dynamics; music that tells or depicts. `orchestral/romantic`
 | `melody` | lyrical, songlike melodies, often with wider leaps; sequences, often as part of a modulation; chromatic notes from outside the key | UM 6.4.1, 6.4.2 |
 | `rhythm` | no source read on rhythm itself | |
 | `timbre` | larger forces using more registers, dynamics and timbres; orchestras of over fifty, sometimes over a hundred; the piccolo, English horn, tuba and contrabassoon; the modern piano | UM 6.4.1, 6.4.2 |
-| `form` | the symphony, concerto and sonata-form movement continued and transformed; the miniature (song, short piano piece); program music, the program symphony and the symphonic poem | UM 6.4.1, 6.4.2 |
+| `form` | the symphony, concerto and sonata-form movement continued and transformed; the miniature (song, short piano piece); program music, as symphonic poem and as program symphony | UM 6.4.1, 6.4.2 |
 | `mix` | wide dynamic ranges, more crescendos and decrescendos | UM 6.4.1, 6.4.2 |
 
 - **In this skill**: [orchestration.md](orchestration.md) (the orchestra's sections, the hall, dynamic layers and
@@ -154,7 +154,7 @@ it out of phase. `orchestral/minimalist`
 | `melody` | repeated melodic motifs entering over the pattern | UM 7.7 |
 | `rhythm` | a steady pattern established at the start; additive process (a pattern repeated with a note added or taken away each time, or each chord lengthened by more subdivisions); phase shifting, one part keeping the pattern while another rotates it a note at a time | UM 7.7; MT21C 35.1, 35.2 |
 | `timbre` | ensembles such as mallets, voices, woodwinds and percussion | UM 7.7 |
-| `form` | repetition the focus; change only in very slow variations of rhythmic density, texture and range | UM 7.7 |
+| `form` | repetition the focus; change only as rhythmic density, texture and range vary very slowly | UM 7.7 |
 | `mix` | no source read | |
 
 - **In this skill**: marimba, vibraphone and xylophone (`vcsl`), the pianos, winds; a voice on "ah" (`vocal_ah`). `review` does not ask about loops or nearly alike sections: repetition and slow change
@@ -184,7 +184,7 @@ love themes, cadences that carry sentiment or wonder. `orchestral/cinematic`
 
 ## Sources
 
-- Clark, A., Heller, J., Kidd, J., et al. (2016). [*Understanding Music: Past and Present*](https://ung.edu/UNIVERSITY-PRESS/_uploads/files/Understanding_Music-Past_and_Present.pdf).
+- Clark, N. A., Heflin, T., Kluball, J. and Kramer, E. (2016). [*Understanding Music: Past and Present*](https://ung.edu/UNIVERSITY-PRESS/_uploads/files/Understanding_Music-Past_and_Present.pdf).
   University of North Georgia Press, CC BY-SA 4.0: the comparison overviews and general trends of the Baroque (4.4),
   the Classical period (5.4), the nineteenth century (6.4) and the twentieth century (7.3-7.9), with their listening
   guides.

@@ -11,8 +11,8 @@ Source tags: WP is Wikipedia, read on 9 November 2026, by article.
 
 ## Shared by the family
 
-- **The instruments.** Sizhu, "silk and bamboo", names strings and winds: silk for the strings, bamboo for flutes
-  such as the dizi and the xiao (WP Jiangnan sizhu). The erhu, a two-stringed spike fiddle, the most popular of the
+- **The instruments.** Sizhu, "silk and bamboo", names strings and winds: silk for the strings, bamboo for the flutes,
+  the dizi and the xiao among them (WP Jiangnan sizhu). The erhu, a two-stringed spike fiddle, the most popular of the
   huqin, sounds through its python-skin resonator under the bow, and is used in traditional and in pop, rock and jazz
   arrangements alike (WP Erhu).
 - **What the banks lack.** No dizi, xiao, pipa, yangqin, sheng, sanxian or guzheng. The stand-ins, this skill's
@@ -32,7 +32,7 @@ indoors. `chinese/sizhu`
 | `harmony` | no source read | |
 | `melody` | new pieces made by elaborating and ornamenting older tunes | WP Jiangnan sizhu |
 | `rhythm` | no source read | |
-| `timbre` | plucked, bowed, strummed and struck strings, flutes, sometimes a mouth organ, small percussion; the erhu (D4–A4 strings), dizi or xiao, pipa and yangqin at the core, usually one of each, two to ten or more players | WP Jiangnan sizhu |
+| `timbre` | strings that are bowed, plucked, strummed or struck, flutes, sometimes a mouth organ, small percussion; at the core the erhu (D4–A4 strings), the pipa, the yangqin and a flute (dizi or xiao), usually one of each, two to ten or more players | WP Jiangnan sizhu |
 | `form` | no source read | |
 | `mix` | music played indoors, by amateur clubs for social functions and their own entertainment | WP Jiangnan sizhu |
 
@@ -40,23 +40,23 @@ indoors. `chinese/sizhu`
   `vcsl_world` for the plucked parts, a flute for the dizi; one instrument per part. The ornamented versions of one
   tune can be written as the same melody varied part by part (this skill's reading of the elaboration).
 - **Variants**: *The modern Chinese orchestra* (guoyue): grown from the Shanghai sizhu in the 20th century, built on
-  the Western symphony orchestra's structure with Chinese instruments in four sections, winds, plucked strings, bowed
-  strings and percussion (WP Chinese orchestra; WP Guoyue). The banks can play only its erhu.
+  the Western symphony orchestra's structure with Chinese instruments in four sections, percussion, winds and the two
+  kinds of strings, bowed and plucked (WP Chinese orchestra; WP Guoyue). The banks can play only its erhu.
 - **Neighbours**: Ancient-style music; `orchestral/cinematic`.
 
 ## Ancient-style music
 
 Gufeng: modern Chinese compositions steeped in traditional music, narrative singing and folk song, often on Chinese
-instruments, the sound of xianxia, wuxia and historical-fantasy dramas, games and animation. `chinese/gufeng`
+instruments, the sound of historical-fantasy, wuxia and xianxia dramas, games and animation. `chinese/gufeng`
 
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | no source read | |
 | `harmony` | no source read | |
-| `melody` | heavy influences of traditional Chinese music (guoyue), narrative singing (tanci) and folk songs (min'ge) | WP Gufeng music |
+| `melody` | strongly shaped by guoyue (traditional Chinese music), tanci (sung storytelling) and min'ge (folk songs) | WP Gufeng music |
 | `rhythm` | no source read | |
 | `timbre` | often Chinese instruments | WP Gufeng music |
-| `form` | theme songs and soundtracks of television drama, video games and animation | WP Gufeng music |
+| `form` | theme songs and soundtracks for animation, video games and television dramas | WP Gufeng music |
 | `mix` | no source read | |
 
 - **In this skill**: the `erhu` lead over strings, piano or pads; the dan tranh for plucked colour; [game-music.md](game-music.md)
@@ -75,7 +75,7 @@ an orchestra like an American jazz band. `chinese/shidaiqu`
 | `harmony` | no source read | |
 | `melody` | tunes shaped like pentatonic folk melodies | WP Mandopop |
 | `rhythm` | no source read | |
-| `timbre` | instrumentation like that of an American jazz orchestra | WP Mandopop |
+| `timbre` | scored like an American jazz orchestra | WP Mandopop |
 | `form` | songs from sound films, first made in Mandarin in the early 1930s | WP Mandopop |
 | `mix` | no source read | |
 

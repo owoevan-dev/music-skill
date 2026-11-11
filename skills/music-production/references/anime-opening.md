@@ -49,7 +49,7 @@ At 170 BPM a 4/4 bar lasts 1.41 s, so 64 bars take 90 s; at 150 BPM, 56 bars do.
 
 In Li's corpus the prechorus closed on a half cadence, on V.
 
-**The chorus** has a heightened intensity relative to the verse: a denser or more active texture, and/or a higher melody (Summach 2012, in Open Music Theory). A two-part chorus states its idea twice, the halves beginning alike and ending differently (aa′; Open Music Theory, Melody and Phrasing).
+**The chorus** is more intense than the verse: a fuller or busier texture, a higher melody, or both (Summach 2012, in Open Music Theory). A two-part chorus states its idea twice, the halves beginning alike and ending differently (aa′; Open Music Theory, Melody and Phrasing).
 
 ## Harmony
 

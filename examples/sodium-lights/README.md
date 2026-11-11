@@ -2,7 +2,7 @@
 
 Japanese city pop: the city feeling of a drive at night. Made by Claude (Opus 5.5, xhigh effort) with this skill's version 0.3.0, in one run from the prompt below.
 
-Listen: [Sodium Lights](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/sodium-lights.mp3) (4:28).
+Listen: [Sodium Lights](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sodium-lights.mp3) (4:28).
 
 ## The prompt
 

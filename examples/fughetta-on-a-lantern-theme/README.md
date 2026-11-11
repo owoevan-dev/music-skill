@@ -2,7 +2,7 @@
 
 A baroque-style miniature for harpsichord and strings, with imitative counterpoint between the voices. Made by Claude (Opus 5.5, xhigh effort) with this skill's version 0.3.0, in one run from the prompt below.
 
-Listen: [Fughetta on a Lantern Theme](https://github.com/owoevan-dev/music-skill/releases/download/examples-2/fughetta-on-a-lantern-theme.mp3) (1:55).
+Listen: [Fughetta on a Lantern Theme](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/fughetta-on-a-lantern-theme.mp3) (1:55).
 
 ## The prompt
 

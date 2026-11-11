@@ -109,7 +109,7 @@ They have no palm-muted, harmonic or slide samples. The points below write those
   - Write two parts, one on `fsbs_dist1` and one on `fsbs_dist2`, panned −0.9 and +0.9 or wider.
   - Give each its own `musiclib.expression` seed and `feel`.
   - A copy of one part only moves the image; it does not double.
-- **Palm-muted chugs.** Muting the strings with the picking hand shortens the notes and dulls them. Put them on a part of their own:
+- **Palm-muted chugs.** With the picking hand damping the strings, the notes come out shorter and duller. Put them on a part of their own:
   - root and fifth, or the root alone;
   - short notes (`gate` about 0.4);
   - velocities 12–16 below the open chords, accents on the beat;

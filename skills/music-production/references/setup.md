@@ -52,7 +52,7 @@ python <skill>/scripts/studio.py doctor --config <work>/local-config.json
 python <skill>/scripts/selfcheck.py --work <new empty folder> --config <work>/local-config.json
 ```
 
-`doctor` re-hashes every configured file. The selfcheck runs 121 checks on its own and 151 with a configuration (`--config`), real renders included, in a few minutes.
+`doctor` re-hashes every configured file. The selfcheck runs 122 checks on its own and 152 with a configuration (`--config`), real renders included, in a few minutes.
 
 ## Optional sound banks
 

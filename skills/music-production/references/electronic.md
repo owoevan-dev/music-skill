@@ -49,7 +49,7 @@ The sounds for each role, on Surge XT and the built-in synth, and the fifty cura
 
 ## Drums
 
-`drum_synth` builds each hit from the circuits of the classic machines ([schema.md](schema.md)); `tune` and `decay` shape the whole kit. House and techno were made on the Roland TR-808 and TR-909 (Wikipedia, House music; Techno), synthwave revives the LM-1 and the TR-808 (Merlini 2023), and trap is built on the 808 ([beats.md](beats.md)): `kit.style` `"909"` or `"808"`.
+`drum_synth` builds each hit from the circuits of the classic machines ([schema.md](schema.md)); `tune` and `decay` shape the whole kit. House and techno were made on two Roland drum machines, the TR-808 and the TR-909 (Wikipedia, House music; Techno), synthwave revives the LM-1 and the TR-808 (Merlini 2023), and trap is built on the 808 ([beats.md](beats.md)): `kit.style` `"909"` or `"808"`.
 
 - **Four on the floor**: kick (36) on every beat, off-beat hi-hats, a clap (39) or snare (38) on 2 and 4 (Wikipedia, House music; the "poumtchak", Zeiner-Henriksen 2010). The open hat (46) is cut by the next closed hat (42), as on the machines.
 - **Half time**: the backbeat at half the felt tempo, so the snare or clap falls on beat 3 of each bar (Open Music Theory, Drumbeats); trap's hats and rolls are in [beats.md](beats.md).
@@ -70,7 +70,7 @@ The production tools work on a part's processed stem ([schema.md](schema.md)); `
 
 ## Techno
 
-Techno grew in Detroit in the mid-1980s from synth-pop, electro, funk and house, on drum machines, sequencers and synthesizers, the Roland TR-808 and TR-909 above all. It favours repeated sequences over the harmonic motion of other styles (Wikipedia, Techno). What changes is mostly the sound of the loop, not its notes.
+Techno came out of Detroit in the middle of the 1980s, from synth-pop, electro, funk and house. Its tools are drum machines (the TR-808 and the TR-909 above all), sequencers and synthesizers, and it favours repeated sequences over the harmonic motion of other styles (Wikipedia, Techno). What changes is mostly the sound of the loop, not its notes.
 
 - **The pulse.**
   - The kick on every beat and an open hat on every off-beat eighth: the "poumtchak" pattern, a continuous alternation of bass drum and hi-hat. Zeiner-Henriksen (2010) linked it to the vertical movements of club dancing: head nodding, bouncing, foot tapping.
@@ -88,7 +88,7 @@ Techno grew in Detroit in the mid-1980s from synth-pop, electro, funk and house,
   - a second `drum_synth` part playing the kick's notes with a long `kit.decay` (2–3);
   - `lowpass` 200–300 Hz and `saturate` 0.3–0.5;
   - `duck` by the main kick (`keys` [36], `depth_db` 8–12, `release_ms` about an eighth note), so it pumps between the kicks.
-- **The acid line.** Acid house's squelch comes from the TB-303 with its filter resonance raised and its cutoff lowered, and from programming the 303's accent, slide and octave per step (Wikipedia, Acid house); the 303 sets accent and slide for each step of its pattern (Roland 2019).
+- **The acid line.** Acid house's squelch comes from the TB-303 with its filter resonance raised and its cutoff lowered, and from the accents, slides and octave jumps written into its pattern (Wikipedia, Acid house); the 303 sets accent and slide for each step of its pattern (Roland 2019).
   - Where Surge XT is installed with its full patch set, play it on a patch measured to take accents and slides as written ([surge-roles.json](surge-roles.json)): here an accent is a higher velocity, which opens the filter (by the patch's design, or with `surge.velocity_to_cutoff` 24, semitones at velocity 127), and a slide is an overlapping note (`surge.glide_ms` 60). Four patches took both (`kinsey_dulcet/basses/everybody_needs_a_303_really`, `kinsey_dulcet/bass/acid_funk_bass`, `luna/basses/basic_acid`, `luna/basses/sk_acid`; the last two measured 17 cents flat on a note alone), five accents only. Each was measured on its own notes: a note that slides in keeps the velocity of the note the slide starts from (Surge XT's legato does not take the new one), so an accent falls on a note that attacks, and `review` names slid notes it cannot accent. That an accent is a velocity opening the filter is this skill's reading, not a description of the 303's circuit.
   - The built-in `acid_bass` (a sawtooth through a resonant 24 dB low-pass swept by its envelope, velocity opening it) is the fallback.
   - Write sixteenths with rests, octave jumps, a few accents and slides.
@@ -107,7 +107,7 @@ Techno grew in Detroit in the mid-1980s from synth-pop, electro, funk and house,
 
 ## Future bass
 
-Future bass mixes elements of dubstep and EDM trap with warmer rhythms, in 4/4 at 130–175 BPM. Its sounds wobble under automation or an LFO on a filter's cutoff or the amplitude, and it uses risers, arpeggiated chords, vocal chops and vocoders (Wikipedia, Future bass). On the engine: chords on a Surge chords patch (`studio.py sounds --role chords --seed <piece seed>`) or the built-in `future_bass_chord`, ducked by the kick (Pumping, above); an LFO on pitch or cutoff for the wobble; short notes on `vocal_ah` with a dotted-eighth delay where a vocal chop would go.
+Future bass draws on dubstep and on EDM trap, with warmer rhythms, in 4/4 at 130–175 BPM. Its sounds wobble under automation or an LFO on a filter's cutoff or the amplitude, and it uses risers, arpeggiated chords, vocal chops and vocoders (Wikipedia, Future bass). On the engine: chords on a Surge chords patch (`studio.py sounds --role chords --seed <piece seed>`) or the built-in `future_bass_chord`, ducked by the kick (Pumping, above); an LFO on pitch or cutoff for the wobble; short notes on `vocal_ah` with a dotted-eighth delay where a vocal chop would go.
 
 ## Synthwave
 

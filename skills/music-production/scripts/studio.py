@@ -2,6 +2,7 @@
 import argparse
 import copy
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -200,6 +201,8 @@ def main():
             try:
                 if not sep or (not lo and not hi):raise ValueError
                 got=(float(lo) if lo else None,float(hi) if hi else None)
+                # An end is a plain number of Hz or seconds: finite and not under zero (nan-900, 0-inf and --1 were taken).
+                if any(v is not None and not (math.isfinite(v) and v>=0) for v in got):raise ValueError
             except ValueError:
                 raise ValueError(f'{what} is a range LOW-HIGH with either end open (600-900, 1500-, -400), not {text!r}') from None
             if got[0] is not None and got[1] is not None and got[0]>got[1]:raise ValueError(f'{what}: the lowest is over the highest in {text!r}')

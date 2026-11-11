@@ -38,8 +38,8 @@ Source tags: WP is Wikipedia, by article: read on 9 November 2026, and on 6 Nove
   ([performance-and-mix.md](performance-and-mix.md), Brightness and air).
 
 For the whole family, `review` does not ask about parallel fifths and octaves: power chords move in parallel fifths
-by design (Herbst 2019; Lilja 2015), and guitars and bass play the same riff, "the usual heavy metal compositional
-technique" (WP Doom metal). The question on pushes stays: Tan, Lustig and Temperley (2019) measured it on
+by design (Herbst 2019; Lilja 2015), and guitars and bass play the same riff, the ordinary way of writing in heavy
+metal (WP Doom metal). The question on pushes stays: Tan, Lustig and Temperley (2019) measured it on
 rock melodies.
 
 ## Classic and hard rock
@@ -74,7 +74,7 @@ Short, fast, stripped-down songs: driving eighths, power chords on downstrokes, 
 | `harmony` | few chords; eighth-note power chords | WP Punk rock; rock-and-metal.md |
 | `melody` | rough, stripped-down vocals; basic guitar breaks rather than long solos | WP Punk rock |
 | `rhythm` | driving eighths on the hats or ride, the snare on 2 and 4 or on every beat; much less syncopation than other rock | WP Punk rock |
-| `timbre` | one or two guitars, bass, drums | WP Punk rock |
+| `timbre` | drums, bass and one guitar or two | WP Punk rock |
 | `form` | short songs in verse–chorus form | WP Punk rock |
 | `mix` | heavy, dry drums; against the overproduction of arena rock | WP Punk rock |
 
@@ -108,7 +108,7 @@ chorus. `rock/alternative`
 
 ## Shoegaze
 
-A wash of sound: layers of distorted, bent or flanged guitars and obscured vocals in which no instrument stands out.
+A wash of sound: guitars in layers, distorted, flanged or pitch-bent, and obscured vocals; no instrument stands out.
 `rock/shoegaze`
 
 | Axis | Traits | From |
@@ -117,14 +117,14 @@ A wash of sound: layers of distorted, bent or flanged guitars and obscured vocal
 | `harmony` | no source read | |
 | `melody` | ethereal, swirling, obscured vocals | WP Shoegaze |
 | `rhythm` | no source read | |
-| `timbre` | layers of distorted, bent or flanged guitars; reverb, delay, chorus, tremolo and distortion pedals | WP Shoegaze |
+| `timbre` | layered guitars, distorted, flanged or pitch-bent; pedals for distortion, chorus, tremolo, delay and reverb | WP Shoegaze |
 | `form` | no source read | |
 | `mix` | one blended wash in which no single instrument stands out | WP Shoegaze |
 
 - **In this skill**: two or more distorted guitar parts with `bend` and `effects` `chorus` or `phaser`, long
   `reverb_db` and `mix.delay`; a lead set into the wash, not over it. `vocal_ah` for a wordless voice.
-- **Variants**: *Dream pop*: atmosphere and texture as strong as the melody; breathy vocals, dense production, reverb,
-  echo, tremolo and chorus everywhere; textures rather than propulsive riffs (WP Dream pop).
+- **Variants**: *Dream pop*: atmosphere and texture as strong as the melody; breathy vocals, dense production, chorus,
+  tremolo, echo and reverb everywhere; textures rather than propulsive riffs (WP Dream pop).
 - **Neighbours**: Post-rock; Alternative and indie; `electronic/ambient`.
 
 ## Post-rock
@@ -157,7 +157,7 @@ technical virtuosity. `rock/progressive`
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | no source read | |
-| `harmony` | some harmonic language from jazz and 19th-century classical music; complex chord changes in the Canterbury scene | WP Progressive rock |
+| `harmony` | some harmonic language taken from jazz and from the classical music of the 19th century; complex chord changes in the Canterbury scene | WP Progressive rock |
 | `melody` | long solos | WP Progressive rock |
 | `rhythm` | no source read for the style as a whole; math rock below | |
 | `timbre` | the instrumentation of rock; wind instruments in the Canterbury scene; technology for new sounds | WP Progressive rock |
@@ -166,8 +166,8 @@ technical virtuosity. `rock/progressive`
 
 - **In this skill**: the rock band with the keys row of [rock-and-metal.md](rock-and-metal.md) (organs, pianos), the
   winds of the orchestral banks; meters other than 4/4 in the clock.
-- **Variants**: *Math rock*: complex, atypical rhythms with irregular stops and starts, counterpoint, odd time
-  signatures and extended chords, through-composed rather than in song forms (WP Math rock); its metal kin builds
+- **Variants**: *Math rock*: complex, atypical rhythms with irregular stops and starts, odd meters,
+  extended chords and counterpoint, through-composed rather than in song forms (WP Math rock); its metal kin builds
   pieces by stringing together thematically different riffs in changing meters such as 17/16 and 13/16 (Osborn 2011).
 - **Neighbours**: Post-rock; Metalcore (the djent variant); Classic and hard rock.
 
@@ -180,7 +180,7 @@ straight 4/4. `rock/surf`
 |---|---|---|
 | `tempo` | medium to fast | WP Surf music |
 | `harmony` | no source read | |
-| `melody` | the guitar carries it; Middle Eastern and Mexican influences in the founding style | WP Surf music |
+| `melody` | the guitar carries it; influences from Mexico and the Middle East in the founding style | WP Surf music |
 | `rhythm` | almost always straight 4/4; rapid alternate picking | WP Surf music |
 | `timbre` | electric guitars through a "wet" spring reverb | WP Surf music |
 | `form` | instrumental | WP Surf music |
@@ -192,18 +192,18 @@ straight 4/4. `rock/surf`
 
 ## Heavy metal
 
-Traditional heavy metal: loud, distorted guitars, emphatic rhythm, a dense bass-and-drum sound, the gallop, twin leads
+Traditional heavy metal: guitars loud and distorted, rhythm hammered home, bass and drums packed dense, the gallop, twin leads
 and guitar solos. `rock/heavy-metal`
 
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | slow in the early style, faster from the late 1970s | rock-and-metal.md (the Brief's table) |
 | `harmony` | Aeolian and Phrygian riffs, modal progressions, the tritone and chromatic motion, pedal points; power chords | rock-and-metal.md (WP Heavy metal music, Walser 1993) |
-| `melody` | at least one guitar solo, the performer's display of virtuosity; twin leads in thirds | WP Heavy metal music; rock-and-metal.md |
+| `melody` | one guitar solo or more, where the player shows virtuosity; twin leads in thirds | WP Heavy metal music; rock-and-metal.md |
 | `rhythm` | emphatic rhythms with less syncopation than hard rock; the gallop in guitars and bass, often doubled by the kick; palm-muted crunch | WP Heavy metal music |
 | `timbre` | distorted guitars at moderate gain played loud; a prominent bass in interplay with the guitar | WP Heavy metal music |
 | `form` | no source read beyond the solo | |
-| `mix` | loudness; a dense bass-and-drum sound | WP Heavy metal music |
+| `mix` | loudness; bass and drums packed dense | WP Heavy metal music |
 
 - **In this skill**: [rock-and-metal.md](rock-and-metal.md): the gallop, the palm-muted chugs on a part of their own,
   twin leads, the Aeolian and Phrygian riffs, the mix.
@@ -263,8 +263,8 @@ chromaticism or dissonance, growled or shrieked vocals. `rock/extreme-metal`
 | `tempo` | fast, black metal's tempos sometimes near 300 BPM; abrupt changes of tempo, key and meter in death metal | WP Death metal; WP Black metal |
 | `harmony` | minor keys or atonality; chromatic chord progressions; in black metal, dissonance, scales and intervals chosen for dread | WP Death metal; WP Black metal |
 | `melody` | growled (death) or shrieked (black) vocals | WP Death metal; WP Black metal |
-| `rhythm` | blast beats and double kick; palm muting and tremolo picking | WP Death metal; WP Black metal |
-| `timbre` | heavily distorted, low-tuned guitars (death); heavily distorted guitars in un-muted tremolo picking and power chords, the bass following the riff (black); keyboards in some | WP Death metal; WP Black metal |
+| `rhythm` | blast beats and double kick; tremolo picking and palm muting | WP Death metal; WP Black metal |
+| `timbre` | heavily distorted, low-tuned guitars (death); heavily distorted guitars playing power chords and tremolo picking with the strings unmuted, the bass following the riff (black); keyboards in some | WP Death metal; WP Black metal |
 | `form` | unconventional song structures (black) | WP Black metal |
 | `mix` | raw, lo-fi recording in black metal; an emphasis on atmosphere | WP Black metal |
 
@@ -277,22 +277,22 @@ chromaticism or dissonance, growled or shrieked vocals. `rock/extreme-metal`
 
 ## Doom
 
-Slow, low and thick: down-tuned, heavily distorted guitars and bass in unison on repetitive riffs in minor, with the
-tritone. `rock/doom`
+Slow, low and thick: guitars tuned down and heavily distorted, the bass in unison with them, on repetitive riffs in
+minor, with the tritone. `rock/doom`
 
 | Axis | Traits | From |
 |---|---|---|
-| `tempo` | a consistent focus on slow tempos | WP Doom metal |
-| `harmony` | minor tonality, much dissonance, the tritone above all; little regard to harmonic progression | WP Doom metal |
+| `tempo` | slow tempos throughout | WP Doom metal |
+| `harmony` | minor tonality, much dissonance, the tritone above all; harmonic progression counts for little | WP Doom metal |
 | `melody` | clean vocals sung with despair in the traditional style | WP Doom metal |
 | `rhythm` | repetitive rhythms | WP Doom metal |
 | `timbre` | guitars and bass tuned down, with much distortion: a thick, heavy tone; guitars and bass on the same riff | WP Doom metal |
 | `form` | little regard to musical structure | WP Doom metal |
-| `mix` | a loud, bass-heavy wall of sound | WP Doom metal |
+| `mix` | a wall of sound, loud and heavy in the bass | WP Doom metal |
 
 - **In this skill**: the distorted banks at their lowest (B1) with `bass_darkblack`'s low B; slow tempos; long notes
-  that ring under `reverb_db`. `review` does not ask about a part's loop here: repetitive rhythms with little regard to
-  structure are the style (WP Doom metal).
+  that ring under `reverb_db`. `review` does not ask about a part's loop here: rhythms that repeat, with little attention
+  to harmonic progression or to structure, are the style (WP Doom metal).
 - **Neighbours**: Heavy metal; Extreme metal; `horror/drone-dread`.
 
 ## Metalcore
@@ -306,7 +306,7 @@ percussive chugs. `rock/metalcore`
 | `harmony` | low-tuned power chords and open-string chugs | WP Metalcore; rock-and-metal.md |
 | `melody` | melodic choruses; clean singing against harsh shouting and screaming | WP Metalcore |
 | `rhythm` | double kick; in breakdowns a half-time snare with the kick in unison with the chugs | WP Metalcore; rock-and-metal.md |
-| `timbre` | low-tuned, percussive guitar riffs | WP Metalcore |
+| `timbre` | guitar riffs tuned low and played percussively | WP Metalcore |
 | `form` | aggressive verse, melodic chorus, the breakdown as a section of its own | WP Metalcore; Gamble 2019 |
 | `mix` | a highly produced sound | WP Metalcore |
 

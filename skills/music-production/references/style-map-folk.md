@@ -34,7 +34,7 @@ Scotland, harp melodies with a sung counter-melody in Wales. `folk/celtic`
 | `harmony` | no source read | |
 | `melody` | in the Welsh cerdd dant, a counter-melody sung over a harp melody | WP Celtic music |
 | `rhythm` | reels; strathspeys in Highland Scotland and Cape Breton, thought to mimic the rhythms of Scottish Gaelic | WP Celtic music |
-| `timbre` | the Celtic harp, uilleann pipes or Highland bagpipe, fiddle, tin whistle, flute, bodhrán, bones, concertina, accordion, the Irish bouzouki; the mandolin in recent Scottish groups; the fiddle with piano in the Maritimes | WP Celtic music |
+| `timbre` | fiddle, Celtic harp and the Irish bouzouki; tin whistle, flute, and the uilleann pipes or the Highland bagpipe; concertina and accordion; bodhrán and bones; the mandolin in recent Scottish groups; the fiddle with piano in the Maritimes | WP Celtic music |
 | `form` | no source read | |
 | `mix` | no source read | |
 
@@ -44,8 +44,8 @@ Scotland, harp melodies with a sung counter-melody in Wales. `folk/celtic`
 
 ## Klezmer
 
-The Jewish wedding and dance music of Eastern Europe: dance tunes, ritual melodies and virtuosic pieces, played with
-ornaments that imitate sighing and laughing. `folk/klezmer`
+The Jewish wedding and dance music of Eastern Europe: tunes for dancing, melodies for ritual and virtuosic pieces for
+listening, played with ornaments that imitate sighing and laughing. `folk/klezmer`
 
 | Axis | Traits | From |
 |---|---|---|
@@ -53,7 +53,7 @@ ornaments that imitate sighing and laughing. `folk/klezmer`
 | `harmony` | accompaniment from octaves without harmony to a second violin's partial chords to harmonised brass band arrangements | WP Klezmer |
 | `melody` | ornaments shared with cantorial and Hasidic singing, sighs and laughs; ornament chosen with taste and restraint | WP Klezmer |
 | `rhythm` | dance tunes; the bulgar, a circle dance with a recognisable syncopated rhythm in 2/4 or 4/4 | WP Klezmer |
-| `timbre` | a lead violin, second violin, cello and cimbalom; the clarinet from the mid-19th century; in larger bands cornets, trombones, contrabass and a large drum | WP Klezmer |
+| `timbre` | a lead violin with a second violin, a cello and a cimbalom; the clarinet from the mid-1800s on; in larger bands cornets, trombones, contrabass and a large drum | WP Klezmer |
 | `form` | music for weddings and social functions; elements of Ottoman, Baroque, German and Slavic dance and Jewish religious music | WP Klezmer |
 | `mix` | no source read | |
 
@@ -63,16 +63,16 @@ ornaments that imitate sighing and laughing. `folk/klezmer`
 
 ## Bluegrass
 
-Acoustic string-band music: fiddle, mandolin, five-string banjo, guitar and upright bass taking turns on the melody,
+Acoustic string-band music: guitar, mandolin, five-string banjo, fiddle and upright bass taking turns on the melody,
 fast breakdowns. `folk/bluegrass`
 
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | rapid tempos in breakdowns | WP Bluegrass music |
 | `harmony` | sometimes complex chord changes in breakdowns | WP Bluegrass music |
-| `melody` | one or more players take a turn on the melody and improvise around it while the others accompany | WP Bluegrass music |
-| `rhythm` | the off-beat "driven", close to the previous bass note, or "swung", farther from it | WP Bluegrass music |
-| `timbre` | acoustic instruments only: fiddle, five-string banjo, guitar, mandolin, upright bass, often the resonator guitar, occasionally harmonica | WP Bluegrass music |
+| `melody` | the melody passes from player to player, each improvising on it over the accompaniment of the rest | WP Bluegrass music |
+| `rhythm` | the off-beat "driven", played just after the bass note before it, or "swung", farther from it | WP Bluegrass music |
+| `timbre` | acoustic instruments only: guitar, mandolin, five-string banjo, fiddle and upright bass, often the resonator guitar, occasionally harmonica | WP Bluegrass music |
 | `form` | breakdowns: rapid tempos and instrumental dexterity | WP Bluegrass music |
 | `mix` | no source read | |
 
@@ -92,7 +92,7 @@ electric, steel and resonator. `folk/country`
 | `harmony` | traditional harmonies | WP Country music |
 | `melody` | ballads and dance tunes | WP Country music |
 | `rhythm` | no source read | |
-| `timbre` | banjos, mandolins, fiddles, harmonicas and guitars, acoustic, electric, steel or resonator; the steel guitar from Hawaiian music | WP Country music |
+| `timbre` | guitars of every kind (acoustic, electric, resonator, steel), fiddles, banjos, mandolins and harmonicas; the steel guitar from Hawaiian music | WP Country music |
 | `form` | on the same songs: verses 8 bars long in 59%, choruses 8 in 39%; a bridge in 72%; a median 3.7 minutes | Nieto et al. 2019 |
 | `mix` | no source read | |
 

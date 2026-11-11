@@ -1145,864 +1145,864 @@
    "performance": {
     "notes": {
      "vln1_b001_n000": {
-      "velocity": 74,
-      "timing_ms": 1.76,
-      "gate": 1.0169
+      "velocity": 72,
+      "timing_ms": 4.91,
+      "gate": 0.975
      },
      "vln1_b001_n001": {
-      "velocity": 74,
-      "timing_ms": -4.61,
-      "gate": 0.9753
+      "velocity": 71,
+      "timing_ms": -0.7,
+      "gate": 0.9931
      },
      "vln1_b002_n002": {
-      "velocity": 81,
-      "timing_ms": -7.16,
-      "gate": 0.8706
+      "velocity": 73,
+      "timing_ms": -13.94,
+      "gate": 0.8333
      },
      "vln1_b002_n003": {
-      "velocity": 82,
-      "timing_ms": -7.6,
-      "gate": 0.8554
+      "velocity": 79,
+      "timing_ms": -11.17,
+      "gate": 0.8367
      },
      "vln1_b003_n004": {
-      "velocity": 88,
-      "timing_ms": 2.41,
-      "gate": 0.9649
+      "velocity": 85,
+      "timing_ms": -7.33,
+      "gate": 0.9633
      },
      "vln1_b003_n005": {
-      "velocity": 83,
-      "timing_ms": -5.07,
-      "gate": 0.9523
+      "velocity": 85,
+      "timing_ms": -19.25,
+      "gate": 1.0095
      },
      "vln1_b004_n006": {
-      "velocity": 84,
-      "timing_ms": -16.49,
-      "gate": 0.9962
+      "velocity": 82,
+      "timing_ms": -9.56,
+      "gate": 0.9764
      },
      "vln1_b004_n007": {
       "velocity": 74,
-      "timing_ms": -3.76,
-      "gate": 0.8747
+      "timing_ms": 8.87,
+      "gate": 0.8906
      },
      "vln1_b005_n008": {
-      "velocity": 86,
-      "timing_ms": -3.19,
-      "gate": 0.8679
+      "velocity": 93,
+      "timing_ms": -1.1,
+      "gate": 0.8887
      },
      "vln1_b005_n009": {
-      "velocity": 81,
-      "timing_ms": -8.34,
-      "gate": 0.7473
+      "velocity": 87,
+      "timing_ms": 7.41,
+      "gate": 0.7455
      },
      "vln1_b005_n010": {
-      "velocity": 80,
-      "timing_ms": -0.05,
-      "gate": 0.7469
+      "velocity": 89,
+      "timing_ms": 4.39,
+      "gate": 0.7383
      },
      "vln1_b005_n011": {
       "velocity": 84,
-      "timing_ms": -9.08,
-      "gate": 0.9672
+      "timing_ms": -2.9,
+      "gate": 0.9658
      },
      "vln1_b005_n012": {
-      "velocity": 83,
-      "timing_ms": -1.66,
-      "gate": 0.9559
+      "velocity": 81,
+      "timing_ms": -0.73,
+      "gate": 0.9689
      },
      "vln1_b005_n013": {
-      "velocity": 85,
-      "timing_ms": 6.79,
-      "gate": 0.9527
+      "velocity": 81,
+      "timing_ms": 3.14,
+      "gate": 0.9681
      },
      "vln1_b005_n014": {
-      "velocity": 81,
-      "timing_ms": 2.95,
-      "gate": 0.9837
+      "velocity": 80,
+      "timing_ms": 3.79,
+      "gate": 0.9496
      },
      "vln1_b005_n015": {
       "velocity": 87,
-      "timing_ms": -4.49,
-      "gate": 0.7663
+      "timing_ms": -5.75,
+      "gate": 0.747
      },
      "vln1_b005_n016": {
-      "velocity": 84,
-      "timing_ms": 1.84,
-      "gate": 0.7346
+      "velocity": 86,
+      "timing_ms": -0.55,
+      "gate": 0.7566
      },
      "vln1_b006_n017": {
-      "velocity": 89,
-      "timing_ms": 4.95,
-      "gate": 0.9709
+      "velocity": 91,
+      "timing_ms": 1.98,
+      "gate": 0.9708
      },
      "vln1_b006_n018": {
-      "velocity": 85,
-      "timing_ms": 8.61,
-      "gate": 0.9591
+      "velocity": 90,
+      "timing_ms": 7.32,
+      "gate": 0.9525
      },
      "vln1_b006_n019": {
-      "velocity": 90,
-      "timing_ms": 0.64,
-      "gate": 0.9795
+      "velocity": 88,
+      "timing_ms": 10.59,
+      "gate": 0.9377
      },
      "vln1_b006_n020": {
-      "velocity": 86,
-      "timing_ms": -8.77,
-      "gate": 0.9367
+      "velocity": 81,
+      "timing_ms": 6.92,
+      "gate": 0.9395
      },
      "vln1_b006_n021": {
-      "velocity": 86,
-      "timing_ms": -1.42,
-      "gate": 0.9435
+      "velocity": 84,
+      "timing_ms": 8.24,
+      "gate": 0.9468
      },
      "vln1_b006_n022": {
-      "velocity": 85,
-      "timing_ms": 4.17,
-      "gate": 0.9686
+      "velocity": 82,
+      "timing_ms": 12.19,
+      "gate": 0.9534
      },
      "vln1_b006_n023": {
-      "velocity": 87,
-      "timing_ms": -5.86,
-      "gate": 0.937
+      "velocity": 85,
+      "timing_ms": 11.25,
+      "gate": 0.9588
      },
      "vln1_b006_n024": {
-      "velocity": 82,
-      "timing_ms": -1.15,
-      "gate": 0.9809
+      "velocity": 78,
+      "timing_ms": 10.06,
+      "gate": 0.9648
      },
      "vln1_b006_n025": {
-      "velocity": 85,
-      "timing_ms": 1.89,
-      "gate": 0.9711
+      "velocity": 81,
+      "timing_ms": 3.35,
+      "gate": 0.9708
      },
      "vln1_b006_n026": {
-      "velocity": 81,
-      "timing_ms": -0.33,
-      "gate": 0.9432
+      "velocity": 80,
+      "timing_ms": -0.32,
+      "gate": 0.9718
      },
      "vln1_b006_n027": {
-      "velocity": 80,
-      "timing_ms": -6.87,
-      "gate": 0.9563
+      "velocity": 78,
+      "timing_ms": 4.89,
+      "gate": 0.9591
      },
      "vln1_b006_n028": {
-      "velocity": 76,
-      "timing_ms": -0.96,
-      "gate": 0.9818
+      "velocity": 80,
+      "timing_ms": 3.46,
+      "gate": 0.9789
      },
      "vln1_b006_n029": {
-      "velocity": 78,
-      "timing_ms": 5.13,
-      "gate": 0.7405
-     },
-     "vln1_b007_n030": {
-      "velocity": 77,
-      "timing_ms": 5.76,
-      "gate": 0.8536
-     },
-     "vln1_b007_n031": {
-      "velocity": 76,
-      "timing_ms": 9.85,
-      "gate": 0.7445
-     },
-     "vln1_b007_n032": {
-      "velocity": 85,
-      "timing_ms": -5.86,
-      "gate": 0.9815
-     },
-     "vln1_b007_n033": {
-      "velocity": 83,
-      "timing_ms": 6.43,
-      "gate": 0.7408
-     },
-     "vln1_b008_n034": {
-      "velocity": 87,
-      "timing_ms": -2.02,
-      "gate": 0.7539
-     },
-     "vln1_b008_n035": {
-      "velocity": 84,
-      "timing_ms": -1.09,
-      "gate": 0.9062
-     },
-     "vln1_b008_n036": {
-      "velocity": 83,
-      "timing_ms": 3.9,
-      "gate": 0.7438
-     },
-     "vln1_b008_n037": {
-      "velocity": 84,
-      "timing_ms": 5.84,
+      "velocity": 82,
+      "timing_ms": 4.44,
       "gate": 0.7548
      },
-     "vln1_b008_n038": {
+     "vln1_b007_n030": {
+      "velocity": 78,
+      "timing_ms": -6.67,
+      "gate": 0.876
+     },
+     "vln1_b007_n031": {
       "velocity": 83,
-      "timing_ms": -1.25,
-      "gate": 0.8959
+      "timing_ms": -10.04,
+      "gate": 0.7545
+     },
+     "vln1_b007_n032": {
+      "velocity": 88,
+      "timing_ms": -13.33,
+      "gate": 0.9957
+     },
+     "vln1_b007_n033": {
+      "velocity": 88,
+      "timing_ms": 2.13,
+      "gate": 0.7602
+     },
+     "vln1_b008_n034": {
+      "velocity": 89,
+      "timing_ms": -0.58,
+      "gate": 0.7591
+     },
+     "vln1_b008_n035": {
+      "velocity": 87,
+      "timing_ms": 2.03,
+      "gate": 0.9072
+     },
+     "vln1_b008_n036": {
+      "velocity": 85,
+      "timing_ms": 1.19,
+      "gate": 0.7667
+     },
+     "vln1_b008_n037": {
+      "velocity": 89,
+      "timing_ms": 2.4,
+      "gate": 0.7501
+     },
+     "vln1_b008_n038": {
+      "velocity": 86,
+      "timing_ms": 2.64,
+      "gate": 0.8787
      },
      "vln1_b008_n039": {
-      "velocity": 87,
-      "timing_ms": -3.25,
-      "gate": 0.7492
+      "velocity": 89,
+      "timing_ms": -4.57,
+      "gate": 0.7477
      },
      "vln1_b009_n040": {
-      "velocity": 87,
-      "timing_ms": 3.99,
-      "gate": 0.9663
+      "velocity": 88,
+      "timing_ms": -2.93,
+      "gate": 0.9389
      },
      "vln1_b009_n041": {
-      "velocity": 86,
-      "timing_ms": -1.41,
-      "gate": 0.9739
+      "velocity": 84,
+      "timing_ms": -0.3,
+      "gate": 0.9398
      },
      "vln1_b009_n042": {
-      "velocity": 87,
-      "timing_ms": -3.76,
-      "gate": 0.9818
+      "velocity": 79,
+      "timing_ms": -0.58,
+      "gate": 0.9372
      },
      "vln1_b009_n043": {
-      "velocity": 84,
-      "timing_ms": 5.43,
-      "gate": 0.9518
+      "velocity": 81,
+      "timing_ms": 2.3,
+      "gate": 0.911
      },
      "vln1_b009_n044": {
-      "velocity": 83,
-      "timing_ms": -0.81,
-      "gate": 0.9374
+      "velocity": 86,
+      "timing_ms": 7.37,
+      "gate": 0.9327
      },
      "vln1_b009_n045": {
-      "velocity": 77,
-      "timing_ms": -0.07,
-      "gate": 0.9375
+      "velocity": 83,
+      "timing_ms": 5.66,
+      "gate": 0.9327
      },
      "vln1_b009_n046": {
-      "velocity": 79,
-      "timing_ms": 5.12,
-      "gate": 0.9492
+      "velocity": 87,
+      "timing_ms": 4.4,
+      "gate": 0.9408
      },
      "vln1_b009_n047": {
-      "velocity": 77,
-      "timing_ms": 3.25,
-      "gate": 0.9623
+      "velocity": 80,
+      "timing_ms": 5.12,
+      "gate": 0.9429
      },
      "vln1_b009_n048": {
       "velocity": 85,
-      "timing_ms": 0.36,
-      "gate": 0.9626
+      "timing_ms": 8.6,
+      "gate": 0.9496
      },
      "vln1_b009_n049": {
-      "velocity": 81,
-      "timing_ms": 0.1,
-      "gate": 0.9647
+      "velocity": 79,
+      "timing_ms": -0.13,
+      "gate": 0.9466
      },
      "vln1_b009_n050": {
-      "velocity": 80,
-      "timing_ms": -0.37,
-      "gate": 0.9642
+      "velocity": 82,
+      "timing_ms": -0.74,
+      "gate": 0.9541
      },
      "vln1_b009_n051": {
       "velocity": 80,
-      "timing_ms": -12.85,
-      "gate": 0.9515
+      "timing_ms": -10.7,
+      "gate": 0.9552
      },
      "vln1_b009_n052": {
-      "velocity": 89,
-      "timing_ms": -10.42,
-      "gate": 0.7664
+      "velocity": 83,
+      "timing_ms": -7.0,
+      "gate": 0.7426
      },
      "vln1_b009_n053": {
-      "velocity": 86,
-      "timing_ms": -3.74,
-      "gate": 0.7753
+      "velocity": 83,
+      "timing_ms": -13.77,
+      "gate": 0.743
      },
      "vln1_b010_n054": {
-      "velocity": 89,
-      "timing_ms": -2.79,
-      "gate": 0.8969
+      "velocity": 86,
+      "timing_ms": -7.95,
+      "gate": 0.8918
      },
      "vln1_b010_n055": {
-      "velocity": 86,
-      "timing_ms": 8.47,
-      "gate": 0.884
+      "velocity": 85,
+      "timing_ms": -13.59,
+      "gate": 0.8829
      },
      "vln1_b010_n056": {
-      "velocity": 87,
-      "timing_ms": 2.12,
-      "gate": 0.8892
+      "velocity": 86,
+      "timing_ms": -3.32,
+      "gate": 0.8881
      },
      "vln1_b010_n057": {
-      "velocity": 87,
-      "timing_ms": 15.21,
-      "gate": 0.7556
+      "velocity": 88,
+      "timing_ms": -0.54,
+      "gate": 0.7697
      },
      "vln1_b010_n058": {
-      "velocity": 87,
-      "timing_ms": 7.01,
-      "gate": 0.7687
+      "velocity": 89,
+      "timing_ms": 1.7,
+      "gate": 0.7662
      },
      "vln1_b011_n059": {
-      "velocity": 94,
-      "timing_ms": 7.45,
-      "gate": 1.0088
+      "velocity": 97,
+      "timing_ms": 2.88,
+      "gate": 1.0095
      },
      "vln1_b011_n060": {
-      "velocity": 89,
-      "timing_ms": 11.3,
-      "gate": 0.9048
+      "velocity": 90,
+      "timing_ms": 4.3,
+      "gate": 0.8569
      },
      "vln1_b011_n061": {
-      "velocity": 93,
-      "timing_ms": 9.87,
-      "gate": 0.9229
+      "velocity": 90,
+      "timing_ms": 4.16,
+      "gate": 0.8726
      },
      "vln1_b012_n062": {
       "velocity": 94,
-      "timing_ms": 10.72,
-      "gate": 1.0228
+      "timing_ms": 5.22,
+      "gate": 1.0195
      },
      "vln1_b012_n063": {
-      "velocity": 87,
-      "timing_ms": 7.45,
-      "gate": 0.8991
+      "velocity": 94,
+      "timing_ms": 2.56,
+      "gate": 0.8887
      },
      "vln1_b012_n064": {
-      "velocity": 89,
-      "timing_ms": 6.01,
-      "gate": 0.8919
+      "velocity": 95,
+      "timing_ms": -4.81,
+      "gate": 0.8714
      },
      "vln1_b013_n065": {
-      "velocity": 91,
-      "timing_ms": 7.01,
-      "gate": 0.9988
+      "velocity": 97,
+      "timing_ms": 4.02,
+      "gate": 0.9642
      },
      "vln1_b013_n066": {
-      "velocity": 92,
-      "timing_ms": 7.62,
-      "gate": 0.888
+      "velocity": 97,
+      "timing_ms": -5.64,
+      "gate": 0.8803
      },
      "vln1_b013_n067": {
-      "velocity": 87,
-      "timing_ms": 8.68,
-      "gate": 0.8837
+      "velocity": 91,
+      "timing_ms": -11.44,
+      "gate": 0.8585
      },
      "vln1_b014_n068": {
-      "velocity": 93,
-      "timing_ms": 2.58,
-      "gate": 0.9924
+      "velocity": 96,
+      "timing_ms": -10.4,
+      "gate": 0.9641
      },
      "vln1_b015_n069": {
-      "velocity": 85,
-      "timing_ms": -0.7,
-      "gate": 1.001
+      "velocity": 88,
+      "timing_ms": 3.27,
+      "gate": 1.0038
      },
      "vln1_b016_n070": {
-      "velocity": 85,
-      "timing_ms": 12.04,
-      "gate": 0.9665
+      "velocity": 88,
+      "timing_ms": 7.8,
+      "gate": 1.007
      },
      "vln1_b016_n071": {
-      "velocity": 82,
-      "timing_ms": 4.19,
-      "gate": 0.7546
+      "velocity": 87,
+      "timing_ms": 0.95,
+      "gate": 0.7364
      },
      "vln1_b016_n072": {
-      "velocity": 87,
-      "timing_ms": 2.17,
-      "gate": 1.0109
+      "velocity": 89,
+      "timing_ms": 5.0,
+      "gate": 0.966
      },
      "vln1_b016_n073": {
-      "velocity": 85,
-      "timing_ms": 3.17,
-      "gate": 0.7635
+      "velocity": 83,
+      "timing_ms": -1.2,
+      "gate": 0.7692
      },
      "vln1_b017_n074": {
-      "velocity": 89,
-      "timing_ms": -6.99,
-      "gate": 0.7645
+      "velocity": 91,
+      "timing_ms": -0.98,
+      "gate": 0.7654
      },
      "vln1_b017_n075": {
-      "velocity": 88,
-      "timing_ms": 3.0,
-      "gate": 0.907
+      "velocity": 87,
+      "timing_ms": -0.52,
+      "gate": 0.8767
      },
      "vln1_b017_n076": {
-      "velocity": 87,
-      "timing_ms": 8.74,
-      "gate": 0.7401
+      "velocity": 86,
+      "timing_ms": -1.12,
+      "gate": 0.7578
      },
      "vln1_b017_n077": {
       "velocity": 85,
-      "timing_ms": 6.05,
-      "gate": 0.7549
+      "timing_ms": -0.03,
+      "gate": 0.7509
      },
      "vln1_b017_n078": {
-      "velocity": 83,
-      "timing_ms": 0.3,
-      "gate": 0.8902
+      "velocity": 79,
+      "timing_ms": 4.08,
+      "gate": 0.8829
      },
      "vln1_b017_n079": {
-      "velocity": 84,
-      "timing_ms": -1.87,
-      "gate": 0.7666
+      "velocity": 80,
+      "timing_ms": -4.34,
+      "gate": 0.7448
      },
      "vln1_b020_n080": {
-      "velocity": 74,
-      "timing_ms": 3.21,
-      "gate": 0.8993
+      "velocity": 69,
+      "timing_ms": 0.84,
+      "gate": 0.8746
      },
      "vln1_b020_n081": {
-      "velocity": 68,
-      "timing_ms": 3.02,
-      "gate": 0.759
+      "velocity": 65,
+      "timing_ms": 9.15,
+      "gate": 0.7619
      },
      "vln1_b020_n082": {
-      "velocity": 71,
-      "timing_ms": 9.8,
-      "gate": 0.7514
+      "velocity": 67,
+      "timing_ms": 5.16,
+      "gate": 0.772
      },
      "vln1_b021_n083": {
-      "velocity": 75,
-      "timing_ms": 7.73,
-      "gate": 0.9735
+      "velocity": 77,
+      "timing_ms": 6.64,
+      "gate": 0.9985
      },
      "vln1_b021_n084": {
-      "velocity": 76,
-      "timing_ms": -3.6,
-      "gate": 0.9805
+      "velocity": 72,
+      "timing_ms": 7.81,
+      "gate": 0.9566
      },
      "vln1_b022_n085": {
-      "velocity": 79,
-      "timing_ms": 2.26,
-      "gate": 0.9944
+      "velocity": 73,
+      "timing_ms": -3.64,
+      "gate": 0.9752
      },
      "vln1_b022_n086": {
-      "velocity": 88,
-      "timing_ms": 11.77,
-      "gate": 0.892
+      "velocity": 84,
+      "timing_ms": -12.0,
+      "gate": 0.8561
      },
      "vln1_b022_n087": {
-      "velocity": 87,
-      "timing_ms": 7.05,
-      "gate": 0.9215
+      "velocity": 80,
+      "timing_ms": -7.82,
+      "gate": 0.8398
      },
      "vln1_b023_n088": {
-      "velocity": 97,
-      "timing_ms": -3.01,
-      "gate": 1.0117
+      "velocity": 90,
+      "timing_ms": -8.26,
+      "gate": 0.9543
      },
      "vln1_b023_n089": {
-      "velocity": 92,
-      "timing_ms": 1.53,
-      "gate": 1.0013
+      "velocity": 93,
+      "timing_ms": -10.72,
+      "gate": 0.981
      },
      "vln1_b024_n090": {
-      "velocity": 90,
-      "timing_ms": -5.07,
-      "gate": 0.9616
+      "velocity": 95,
+      "timing_ms": -8.47,
+      "gate": 0.9438
      },
      "vln1_b024_n091": {
-      "velocity": 81,
-      "timing_ms": -2.34,
-      "gate": 0.9678
+      "velocity": 80,
+      "timing_ms": -6.07,
+      "gate": 0.9522
      },
      "vln1_b024_n092": {
       "velocity": 83,
-      "timing_ms": -0.11,
-      "gate": 0.9587
+      "timing_ms": -3.2,
+      "gate": 0.959
      },
      "vln1_b024_n093": {
-      "velocity": 79,
-      "timing_ms": -5.77,
-      "gate": 0.9288
+      "velocity": 78,
+      "timing_ms": -8.15,
+      "gate": 0.9479
      },
      "vln1_b024_n094": {
-      "velocity": 83,
-      "timing_ms": -5.19,
-      "gate": 0.7385
+      "velocity": 81,
+      "timing_ms": 0.64,
+      "gate": 0.7391
      },
      "vln1_b024_n095": {
-      "velocity": 86,
-      "timing_ms": -3.79,
-      "gate": 0.7425
+      "velocity": 82,
+      "timing_ms": 7.21,
+      "gate": 0.7273
      },
      "vln1_b024_n096": {
-      "velocity": 90,
-      "timing_ms": -9.79,
-      "gate": 0.9565
+      "velocity": 83,
+      "timing_ms": -4.87,
+      "gate": 0.948
      },
      "vln1_b024_n097": {
-      "velocity": 85,
-      "timing_ms": -8.08,
-      "gate": 0.9638
+      "velocity": 82,
+      "timing_ms": 0.75,
+      "gate": 0.9577
      },
      "vln1_b024_n098": {
-      "velocity": 88,
-      "timing_ms": -8.78,
-      "gate": 0.9659
+      "velocity": 86,
+      "timing_ms": 5.47,
+      "gate": 0.953
      },
      "vln1_b024_n099": {
       "velocity": 84,
-      "timing_ms": -6.63,
-      "gate": 0.9876
+      "timing_ms": 6.34,
+      "gate": 0.9528
      },
      "vln1_b024_n100": {
-      "velocity": 87,
-      "timing_ms": -9.57,
-      "gate": 0.7658
+      "velocity": 85,
+      "timing_ms": 9.92,
+      "gate": 0.7397
      },
      "vln1_b024_n101": {
-      "velocity": 92,
-      "timing_ms": -8.91,
-      "gate": 0.7744
+      "velocity": 88,
+      "timing_ms": -0.88,
+      "gate": 0.7433
      },
      "vln1_b025_n102": {
-      "velocity": 92,
-      "timing_ms": -13.29,
-      "gate": 0.9626
+      "velocity": 95,
+      "timing_ms": 0.96,
+      "gate": 0.9591
      },
      "vln1_b025_n103": {
-      "velocity": 87,
-      "timing_ms": -6.48,
-      "gate": 0.9941
+      "velocity": 89,
+      "timing_ms": -2.46,
+      "gate": 0.9443
      },
      "vln1_b025_n104": {
       "velocity": 90,
-      "timing_ms": -12.3,
-      "gate": 1.0
+      "timing_ms": -3.38,
+      "gate": 0.9392
      },
      "vln1_b025_n105": {
-      "velocity": 84,
-      "timing_ms": -3.81,
-      "gate": 0.9967
+      "velocity": 88,
+      "timing_ms": -8.34,
+      "gate": 0.9548
      },
      "vln1_b025_n106": {
-      "velocity": 92,
-      "timing_ms": -3.75,
-      "gate": 0.7443
+      "velocity": 91,
+      "timing_ms": -3.69,
+      "gate": 0.7378
      },
      "vln1_b025_n107": {
-      "velocity": 89,
-      "timing_ms": 2.79,
-      "gate": 0.7491
+      "velocity": 90,
+      "timing_ms": 6.25,
+      "gate": 0.774
      },
      "vln1_b025_n108": {
-      "velocity": 91,
-      "timing_ms": 6.35,
-      "gate": 0.9585
+      "velocity": 94,
+      "timing_ms": 6.47,
+      "gate": 1.0049
      },
      "vln1_b025_n109": {
-      "velocity": 87,
-      "timing_ms": 5.39,
-      "gate": 0.962
+      "velocity": 88,
+      "timing_ms": 1.71,
+      "gate": 0.996
      },
      "vln1_b025_n110": {
-      "velocity": 89,
-      "timing_ms": 12.31,
-      "gate": 0.96
+      "velocity": 98,
+      "timing_ms": 0.66,
+      "gate": 0.9961
      },
      "vln1_b025_n111": {
-      "velocity": 87,
-      "timing_ms": 6.61,
-      "gate": 0.9694
+      "velocity": 96,
+      "timing_ms": -3.37,
+      "gate": 0.9905
      },
      "vln1_b025_n112": {
-      "velocity": 90,
-      "timing_ms": 7.89,
-      "gate": 0.7538
+      "velocity": 96,
+      "timing_ms": -1.2,
+      "gate": 0.7693
      },
      "vln1_b025_n113": {
-      "velocity": 93,
-      "timing_ms": 12.26,
-      "gate": 0.76
+      "velocity": 98,
+      "timing_ms": -6.0,
+      "gate": 0.773
      },
      "vln1_b026_n114": {
-      "velocity": 96,
-      "timing_ms": -8.97,
-      "gate": 0.9953
+      "velocity": 101,
+      "timing_ms": -2.53,
+      "gate": 0.9852
      },
      "vln1_b026_n115": {
-      "velocity": 92,
-      "timing_ms": -5.63,
-      "gate": 0.9891
+      "velocity": 97,
+      "timing_ms": -8.04,
+      "gate": 0.9862
      },
      "vln1_b026_n116": {
-      "velocity": 95,
-      "timing_ms": -5.32,
-      "gate": 0.9767
+      "velocity": 102,
+      "timing_ms": -3.0,
+      "gate": 0.988
      },
      "vln1_b026_n117": {
-      "velocity": 91,
-      "timing_ms": -2.13,
-      "gate": 0.9459
+      "velocity": 95,
+      "timing_ms": -7.42,
+      "gate": 0.9861
      },
      "vln1_b026_n118": {
-      "velocity": 96,
-      "timing_ms": -2.48,
-      "gate": 0.7416
+      "velocity": 94,
+      "timing_ms": 2.31,
+      "gate": 0.7652
      },
      "vln1_b026_n119": {
-      "velocity": 96,
-      "timing_ms": -2.15,
-      "gate": 0.7569
+      "velocity": 98,
+      "timing_ms": -5.78,
+      "gate": 0.7668
      },
      "vln1_b026_n120": {
-      "velocity": 98,
-      "timing_ms": -10.26,
-      "gate": 0.9686
+      "velocity": 99,
+      "timing_ms": 3.85,
+      "gate": 0.9805
      },
      "vln1_b026_n121": {
       "velocity": 97,
-      "timing_ms": -10.29,
-      "gate": 0.9559
+      "timing_ms": 4.5,
+      "gate": 0.9821
      },
      "vln1_b026_n122": {
-      "velocity": 100,
-      "timing_ms": 1.92,
-      "gate": 0.942
+      "velocity": 97,
+      "timing_ms": 3.91,
+      "gate": 0.9816
      },
      "vln1_b026_n123": {
-      "velocity": 98,
-      "timing_ms": 5.61,
-      "gate": 0.9321
+      "velocity": 96,
+      "timing_ms": 4.02,
+      "gate": 0.9847
      },
      "vln1_b026_n124": {
-      "velocity": 100,
-      "timing_ms": 6.9,
-      "gate": 0.7396
+      "velocity": 97,
+      "timing_ms": 2.22,
+      "gate": 0.7668
      },
      "vln1_b026_n125": {
-      "velocity": 98,
-      "timing_ms": 5.58,
-      "gate": 0.7234
+      "velocity": 103,
+      "timing_ms": 1.76,
+      "gate": 0.7859
      },
      "vln1_b027_n126": {
-      "velocity": 98,
-      "timing_ms": -6.65,
-      "gate": 0.882
+      "velocity": 106,
+      "timing_ms": 6.12,
+      "gate": 0.9067
      },
      "vln1_b027_n127": {
       "velocity": 101,
-      "timing_ms": -4.62,
-      "gate": 0.7357
+      "timing_ms": 6.83,
+      "gate": 0.7375
      },
      "vln1_b027_n128": {
-      "velocity": 98,
-      "timing_ms": 5.27,
-      "gate": 0.7447
+      "velocity": 101,
+      "timing_ms": 5.2,
+      "gate": 0.734
      },
      "vln1_b027_n129": {
-      "velocity": 107,
-      "timing_ms": -2.63,
-      "gate": 0.9078
+      "velocity": 106,
+      "timing_ms": 4.84,
+      "gate": 0.8865
      },
      "vln1_b027_n130": {
-      "velocity": 104,
-      "timing_ms": -7.57,
-      "gate": 0.7502
+      "velocity": 106,
+      "timing_ms": 7.48,
+      "gate": 0.7633
      },
      "vln1_b027_n131": {
-      "velocity": 102,
-      "timing_ms": -8.05,
-      "gate": 0.7594
+      "velocity": 101,
+      "timing_ms": 2.07,
+      "gate": 0.7661
      },
      "vln1_b028_n132": {
-      "velocity": 106,
-      "timing_ms": -0.78,
-      "gate": 0.9546
+      "velocity": 105,
+      "timing_ms": 5.36,
+      "gate": 0.9728
      },
      "vln1_b028_n133": {
-      "velocity": 100,
-      "timing_ms": -3.14,
-      "gate": 0.9678
+      "velocity": 98,
+      "timing_ms": 8.0,
+      "gate": 0.963
      },
      "vln1_b028_n134": {
-      "velocity": 102,
-      "timing_ms": -4.83,
-      "gate": 0.9479
+      "velocity": 103,
+      "timing_ms": 0.46,
+      "gate": 0.9628
      },
      "vln1_b028_n135": {
-      "velocity": 103,
-      "timing_ms": -11.44,
-      "gate": 0.9617
+      "velocity": 101,
+      "timing_ms": 0.88,
+      "gate": 0.9554
      },
      "vln1_b028_n136": {
-      "velocity": 108,
-      "timing_ms": -6.66,
-      "gate": 0.7454
+      "velocity": 112,
+      "timing_ms": -6.0,
+      "gate": 0.7593
      },
      "vln1_b028_n137": {
-      "velocity": 107,
-      "timing_ms": -5.33,
-      "gate": 0.7371
+      "velocity": 100,
+      "timing_ms": 3.69,
+      "gate": 0.7501
      },
      "vln1_b028_n138": {
-      "velocity": 112,
-      "timing_ms": 1.06,
-      "gate": 0.7354
+      "velocity": 102,
+      "timing_ms": -2.98,
+      "gate": 0.7555
      },
      "vln1_b028_n139": {
-      "velocity": 113,
-      "timing_ms": -1.4,
-      "gate": 0.7496
+      "velocity": 105,
+      "timing_ms": -5.24,
+      "gate": 0.7385
      },
      "vln1_b028_n140": {
-      "velocity": 112,
-      "timing_ms": 4.05,
-      "gate": 0.7538
+      "velocity": 109,
+      "timing_ms": 5.12,
+      "gate": 0.7441
      },
      "vln1_b028_n141": {
-      "velocity": 108,
-      "timing_ms": -1.61,
-      "gate": 0.7413
+      "velocity": 110,
+      "timing_ms": 0.57,
+      "gate": 0.7548
      },
      "vln1_b029_n142": {
-      "velocity": 109,
-      "timing_ms": 5.51,
-      "gate": 0.8723
+      "velocity": 108,
+      "timing_ms": 2.32,
+      "gate": 0.8801
      },
      "vln1_b029_n143": {
       "velocity": 106,
-      "timing_ms": -9.54,
-      "gate": 0.7486
+      "timing_ms": 3.03,
+      "gate": 0.7794
      },
      "vln1_b029_n144": {
-      "velocity": 113,
-      "timing_ms": -11.73,
-      "gate": 0.9663
+      "velocity": 112,
+      "timing_ms": 6.7,
+      "gate": 1.0231
      },
      "vln1_b029_n145": {
-      "velocity": 114,
-      "timing_ms": 2.12,
-      "gate": 0.7563
+      "velocity": 111,
+      "timing_ms": 5.82,
+      "gate": 0.7486
      },
      "vln1_b030_n146": {
-      "velocity": 116,
-      "timing_ms": 3.07,
-      "gate": 0.7507
+      "velocity": 112,
+      "timing_ms": -3.99,
+      "gate": 0.7524
      },
      "vln1_b030_n147": {
-      "velocity": 113,
-      "timing_ms": -4.34,
-      "gate": 0.8856
+      "velocity": 110,
+      "timing_ms": -10.39,
+      "gate": 0.8682
      },
      "vln1_b030_n148": {
-      "velocity": 111,
-      "timing_ms": 8.0,
-      "gate": 0.7469
+      "velocity": 106,
+      "timing_ms": -14.8,
+      "gate": 0.7382
      },
      "vln1_b030_n149": {
-      "velocity": 114,
-      "timing_ms": 0.28,
-      "gate": 0.7392
+      "velocity": 108,
+      "timing_ms": -1.48,
+      "gate": 0.7471
      },
      "vln1_b030_n150": {
-      "velocity": 108,
-      "timing_ms": 9.94,
-      "gate": 0.8688
+      "velocity": 109,
+      "timing_ms": -7.71,
+      "gate": 0.8717
      },
      "vln1_b030_n151": {
-      "velocity": 112,
-      "timing_ms": 7.35,
-      "gate": 0.7258
+      "velocity": 114,
+      "timing_ms": 2.02,
+      "gate": 0.7443
      },
      "vln1_b031_n152": {
       "velocity": 119,
-      "timing_ms": 0.7,
-      "gate": 0.7388
+      "timing_ms": 0.34,
+      "gate": 0.7274
      },
      "vln1_b031_n153": {
-      "velocity": 112,
-      "timing_ms": 2.19,
-      "gate": 0.7256
+      "velocity": 111,
+      "timing_ms": -3.7,
+      "gate": 0.733
      },
      "vln1_b031_n154": {
-      "velocity": 109,
-      "timing_ms": 3.11,
-      "gate": 0.718
+      "velocity": 111,
+      "timing_ms": 6.83,
+      "gate": 0.7396
      },
      "vln1_b031_n155": {
-      "velocity": 105,
-      "timing_ms": -6.51,
-      "gate": 0.755
+      "velocity": 107,
+      "timing_ms": 6.66,
+      "gate": 0.7377
      },
      "vln1_b031_n156": {
-      "velocity": 110,
-      "timing_ms": 6.54,
-      "gate": 0.7526
+      "velocity": 109,
+      "timing_ms": -3.25,
+      "gate": 0.7338
      },
      "vln1_b031_n157": {
-      "velocity": 110,
-      "timing_ms": -6.76,
-      "gate": 0.9271
+      "velocity": 107,
+      "timing_ms": -6.74,
+      "gate": 0.9237
      },
      "vln1_b031_n158": {
       "velocity": 104,
-      "timing_ms": 0.28,
-      "gate": 0.9126
+      "timing_ms": -7.9,
+      "gate": 0.9387
      },
      "vln1_b031_n159": {
-      "velocity": 107,
-      "timing_ms": -1.44,
-      "gate": 0.9344
+      "velocity": 109,
+      "timing_ms": 1.66,
+      "gate": 0.9478
      },
      "vln1_b031_n160": {
-      "velocity": 109,
-      "timing_ms": 7.71,
-      "gate": 0.9205
+      "velocity": 108,
+      "timing_ms": 3.47,
+      "gate": 0.9581
      },
      "vln1_b031_n161": {
-      "velocity": 101,
-      "timing_ms": 3.97,
-      "gate": 0.9147
+      "velocity": 108,
+      "timing_ms": 4.93,
+      "gate": 0.9743
      },
      "vln1_b031_n162": {
-      "velocity": 99,
-      "timing_ms": 10.59,
-      "gate": 0.9347
+      "velocity": 103,
+      "timing_ms": -0.37,
+      "gate": 0.9711
      },
      "vln1_b031_n163": {
       "velocity": 104,
-      "timing_ms": -6.69,
-      "gate": 0.9287
+      "timing_ms": -2.94,
+      "gate": 0.9649
      },
      "vln1_b031_n164": {
-      "velocity": 107,
-      "timing_ms": 2.04,
-      "gate": 0.9158
+      "velocity": 99,
+      "timing_ms": -5.02,
+      "gate": 0.9504
      },
      "vln1_b031_n165": {
-      "velocity": 105,
-      "timing_ms": -2.98,
-      "gate": 0.9343
+      "velocity": 100,
+      "timing_ms": -0.78,
+      "gate": 0.9405
      },
      "vln1_b032_n166": {
-      "velocity": 109,
-      "timing_ms": -6.64,
-      "gate": 0.8614
+      "velocity": 103,
+      "timing_ms": -5.84,
+      "gate": 0.8798
      },
      "vln1_b032_n167": {
       "velocity": 106,
-      "timing_ms": -4.12,
-      "gate": 0.7249
+      "timing_ms": -2.35,
+      "gate": 0.7296
      },
      "vln1_b032_n168": {
-      "velocity": 101,
-      "timing_ms": 0.18,
-      "gate": 0.7294
+      "velocity": 99,
+      "timing_ms": -5.19,
+      "gate": 0.7413
      },
      "vln1_b032_n169": {
-      "velocity": 102,
-      "timing_ms": -1.39,
-      "gate": 0.8705
+      "velocity": 100,
+      "timing_ms": 1.72,
+      "gate": 0.8953
      },
      "vln1_b032_n170": {
-      "velocity": 97,
-      "timing_ms": 2.09,
-      "gate": 0.8591
+      "velocity": 98,
+      "timing_ms": 10.04,
+      "gate": 0.9018
      },
      "vln1_b033_n171": {
-      "velocity": 106,
-      "timing_ms": 4.42,
-      "gate": 0.9692
+      "velocity": 105,
+      "timing_ms": 6.98,
+      "gate": 0.9974
      }
     },
     "legato": {
@@ -2864,683 +2864,683 @@
    "performance": {
     "notes": {
      "vln2_b001_n000": {
-      "velocity": 74,
-      "timing_ms": 1.22,
+      "velocity": 77,
+      "timing_ms": -3.05,
       "gate": 0.97
      },
      "vln2_b001_n001": {
       "velocity": 75,
-      "timing_ms": 2.49,
+      "timing_ms": -1.46,
       "gate": 0.88
      },
      "vln2_b002_n002": {
-      "velocity": 79,
-      "timing_ms": -2.4,
+      "velocity": 80,
+      "timing_ms": -8.34,
       "gate": 0.97
      },
      "vln2_b002_n003": {
-      "velocity": 79,
-      "timing_ms": -7.83,
+      "velocity": 84,
+      "timing_ms": -1.67,
       "gate": 0.88
      },
      "vln2_b003_n004": {
-      "velocity": 89,
-      "timing_ms": -2.3,
+      "velocity": 92,
+      "timing_ms": -10.82,
       "gate": 0.97
      },
      "vln2_b003_n005": {
-      "velocity": 84,
-      "timing_ms": -7.77,
+      "velocity": 88,
+      "timing_ms": -7.25,
       "gate": 0.97
      },
      "vln2_b004_n006": {
-      "velocity": 85,
-      "timing_ms": -4.75,
+      "velocity": 88,
+      "timing_ms": -3.24,
       "gate": 0.97
      },
      "vln2_b004_n007": {
-      "velocity": 77,
-      "timing_ms": -5.58,
+      "velocity": 78,
+      "timing_ms": 8.3,
       "gate": 0.97
      },
      "vln2_b007_n008": {
       "velocity": 87,
-      "timing_ms": -9.29,
+      "timing_ms": 4.88,
       "gate": 0.88
      },
      "vln2_b007_n009": {
-      "velocity": 81,
-      "timing_ms": -11.87,
+      "velocity": 80,
+      "timing_ms": 0.65,
       "gate": 0.78
      },
      "vln2_b007_n010": {
       "velocity": 84,
-      "timing_ms": -6.83,
+      "timing_ms": 9.73,
       "gate": 0.78
      },
      "vln2_b007_n011": {
-      "velocity": 86,
-      "timing_ms": -13.73,
+      "velocity": 88,
+      "timing_ms": 4.17,
       "gate": 1.0
      },
      "vln2_b007_n012": {
-      "velocity": 82,
-      "timing_ms": -2.86,
+      "velocity": 81,
+      "timing_ms": 5.8,
       "gate": 1.0
      },
      "vln2_b007_n013": {
-      "velocity": 82,
-      "timing_ms": -10.64,
+      "velocity": 81,
+      "timing_ms": 9.0,
       "gate": 1.0
      },
      "vln2_b007_n014": {
-      "velocity": 81,
-      "timing_ms": -3.87,
+      "velocity": 82,
+      "timing_ms": 5.29,
       "gate": 1.0
      },
      "vln2_b007_n015": {
-      "velocity": 86,
-      "timing_ms": -3.95,
+      "velocity": 82,
+      "timing_ms": 5.6,
       "gate": 0.78
      },
      "vln2_b007_n016": {
       "velocity": 86,
-      "timing_ms": -7.25,
+      "timing_ms": 11.05,
       "gate": 0.78
      },
      "vln2_b008_n017": {
-      "velocity": 87,
-      "timing_ms": -0.3,
+      "velocity": 91,
+      "timing_ms": 9.58,
       "gate": 1.0
      },
      "vln2_b008_n018": {
-      "velocity": 84,
-      "timing_ms": 0.42,
+      "velocity": 82,
+      "timing_ms": 7.25,
       "gate": 1.0
      },
      "vln2_b008_n019": {
-      "velocity": 87,
-      "timing_ms": -8.38,
+      "velocity": 85,
+      "timing_ms": 7.56,
       "gate": 1.0
      },
      "vln2_b008_n020": {
-      "velocity": 81,
-      "timing_ms": 4.98,
+      "velocity": 79,
+      "timing_ms": 9.99,
       "gate": 1.0
      },
      "vln2_b008_n021": {
-      "velocity": 85,
-      "timing_ms": -6.33,
+      "velocity": 79,
+      "timing_ms": 9.72,
       "gate": 1.0
      },
      "vln2_b008_n022": {
-      "velocity": 83,
-      "timing_ms": 0.37,
+      "velocity": 78,
+      "timing_ms": 9.7,
       "gate": 1.0
      },
      "vln2_b008_n023": {
-      "velocity": 86,
-      "timing_ms": -2.76,
+      "velocity": 83,
+      "timing_ms": -3.83,
       "gate": 1.0
      },
      "vln2_b008_n024": {
-      "velocity": 80,
-      "timing_ms": -8.35,
+      "velocity": 84,
+      "timing_ms": 2.24,
       "gate": 1.0
      },
      "vln2_b008_n025": {
-      "velocity": 84,
-      "timing_ms": -9.53,
+      "velocity": 83,
+      "timing_ms": 5.21,
       "gate": 1.0
      },
      "vln2_b008_n026": {
-      "velocity": 82,
-      "timing_ms": 2.91,
+      "velocity": 78,
+      "timing_ms": 9.42,
       "gate": 1.0
      },
      "vln2_b008_n027": {
-      "velocity": 83,
-      "timing_ms": -2.8,
+      "velocity": 80,
+      "timing_ms": 0.47,
       "gate": 1.0
      },
      "vln2_b008_n028": {
-      "velocity": 83,
-      "timing_ms": 9.51,
+      "velocity": 80,
+      "timing_ms": 7.49,
       "gate": 1.0
      },
      "vln2_b008_n029": {
       "velocity": 85,
-      "timing_ms": 3.48,
+      "timing_ms": 7.43,
       "gate": 0.78
      },
      "vln2_b009_n030": {
-      "velocity": 87,
-      "timing_ms": 4.83,
+      "velocity": 86,
+      "timing_ms": -4.54,
       "gate": 0.88
      },
      "vln2_b009_n031": {
-      "velocity": 86,
-      "timing_ms": -2.72,
+      "velocity": 83,
+      "timing_ms": -5.68,
       "gate": 0.88
      },
      "vln2_b009_n032": {
-      "velocity": 84,
-      "timing_ms": 12.63,
+      "velocity": 85,
+      "timing_ms": -3.92,
       "gate": 0.88
      },
      "vln2_b009_n033": {
-      "velocity": 82,
-      "timing_ms": 10.76,
+      "velocity": 88,
+      "timing_ms": -2.77,
       "gate": 0.88
      },
      "vln2_b010_n034": {
-      "velocity": 83,
-      "timing_ms": -1.99,
+      "velocity": 85,
+      "timing_ms": 0.47,
       "gate": 0.88
      },
      "vln2_b010_n035": {
-      "velocity": 84,
-      "timing_ms": -2.34,
+      "velocity": 91,
+      "timing_ms": 2.9,
       "gate": 0.78
      },
      "vln2_b010_n036": {
-      "velocity": 85,
-      "timing_ms": -1.76,
+      "velocity": 94,
+      "timing_ms": -7.69,
       "gate": 0.97
      },
      "vln2_b010_n037": {
-      "velocity": 85,
-      "timing_ms": 1.03,
+      "velocity": 88,
+      "timing_ms": 11.1,
       "gate": 0.78
      },
      "vln2_b011_n038": {
-      "velocity": 89,
-      "timing_ms": 9.36,
+      "velocity": 96,
+      "timing_ms": 4.87,
       "gate": 0.78
      },
      "vln2_b011_n039": {
-      "velocity": 87,
-      "timing_ms": 6.78,
+      "velocity": 92,
+      "timing_ms": 3.99,
       "gate": 0.88
      },
      "vln2_b011_n040": {
-      "velocity": 90,
-      "timing_ms": 0.17,
+      "velocity": 91,
+      "timing_ms": -7.49,
       "gate": 0.78
      },
      "vln2_b011_n041": {
-      "velocity": 88,
-      "timing_ms": -1.91,
+      "velocity": 90,
+      "timing_ms": -7.26,
       "gate": 0.78
      },
      "vln2_b011_n042": {
-      "velocity": 91,
-      "timing_ms": 4.11,
+      "velocity": 85,
+      "timing_ms": -6.8,
       "gate": 0.88
      },
      "vln2_b011_n043": {
-      "velocity": 88,
-      "timing_ms": 5.99,
+      "velocity": 85,
+      "timing_ms": -4.41,
       "gate": 0.78
      },
      "vln2_b012_n044": {
       "velocity": 91,
-      "timing_ms": -2.16,
+      "timing_ms": -8.86,
       "gate": 0.78
      },
      "vln2_b012_n045": {
-      "velocity": 87,
-      "timing_ms": 5.3,
+      "velocity": 90,
+      "timing_ms": -11.74,
       "gate": 0.97
      },
      "vln2_b012_n046": {
-      "velocity": 83,
-      "timing_ms": 1.37,
+      "velocity": 89,
+      "timing_ms": -9.43,
       "gate": 0.88
      },
      "vln2_b012_n047": {
       "velocity": 90,
-      "timing_ms": -0.25,
+      "timing_ms": 1.94,
       "gate": 0.78
      },
      "vln2_b012_n048": {
-      "velocity": 85,
-      "timing_ms": 1.62,
+      "velocity": 88,
+      "timing_ms": -3.4,
       "gate": 0.78
      },
      "vln2_b013_n049": {
-      "velocity": 98,
-      "timing_ms": 3.63,
+      "velocity": 101,
+      "timing_ms": -5.75,
       "gate": 0.97
      },
      "vln2_b013_n050": {
-      "velocity": 96,
-      "timing_ms": 2.59,
+      "velocity": 92,
+      "timing_ms": -9.74,
       "gate": 0.88
      },
      "vln2_b013_n051": {
-      "velocity": 92,
-      "timing_ms": 5.48,
+      "velocity": 91,
+      "timing_ms": -9.98,
       "gate": 0.88
      },
      "vln2_b014_n052": {
-      "velocity": 95,
-      "timing_ms": 2.64,
+      "velocity": 94,
+      "timing_ms": -7.79,
       "gate": 0.97
      },
      "vln2_b014_n053": {
-      "velocity": 83,
-      "timing_ms": 6.14,
+      "velocity": 82,
+      "timing_ms": -7.74,
       "gate": 0.97
      },
      "vln2_b015_n054": {
-      "velocity": 82,
-      "timing_ms": 6.64,
+      "velocity": 80,
+      "timing_ms": 5.43,
       "gate": 0.97
      },
      "vln2_b016_n055": {
-      "velocity": 83,
-      "timing_ms": 1.65,
+      "velocity": 82,
+      "timing_ms": -0.02,
       "gate": 0.88
      },
      "vln2_b016_n056": {
-      "velocity": 84,
-      "timing_ms": -2.09,
+      "velocity": 82,
+      "timing_ms": 3.89,
       "gate": 0.78
      },
      "vln2_b016_n057": {
-      "velocity": 83,
+      "velocity": 82,
       "timing_ms": -0.96,
       "gate": 0.78
      },
      "vln2_b016_n058": {
-      "velocity": 86,
-      "timing_ms": -8.88,
+      "velocity": 85,
+      "timing_ms": -3.48,
       "gate": 1.0
      },
      "vln2_b016_n059": {
-      "velocity": 81,
-      "timing_ms": -2.44,
+      "velocity": 82,
+      "timing_ms": -1.35,
       "gate": 1.0
      },
      "vln2_b016_n060": {
-      "velocity": 84,
-      "timing_ms": 7.27,
+      "velocity": 86,
+      "timing_ms": -0.73,
       "gate": 1.0
      },
      "vln2_b016_n061": {
-      "velocity": 78,
-      "timing_ms": 5.49,
+      "velocity": 82,
+      "timing_ms": -1.72,
       "gate": 1.0
      },
      "vln2_b016_n062": {
-      "velocity": 87,
-      "timing_ms": 12.5,
+      "velocity": 86,
+      "timing_ms": -0.68,
       "gate": 0.78
      },
      "vln2_b016_n063": {
-      "velocity": 83,
-      "timing_ms": 3.14,
+      "velocity": 82,
+      "timing_ms": 0.86,
       "gate": 0.78
      },
      "vln2_b017_n064": {
-      "velocity": 91,
-      "timing_ms": 10.43,
+      "velocity": 86,
+      "timing_ms": -2.11,
       "gate": 1.0
      },
      "vln2_b017_n065": {
-      "velocity": 89,
-      "timing_ms": -0.14,
+      "velocity": 81,
+      "timing_ms": -7.42,
       "gate": 1.0
      },
      "vln2_b017_n066": {
-      "velocity": 90,
-      "timing_ms": -1.34,
+      "velocity": 85,
+      "timing_ms": -3.72,
       "gate": 1.0
      },
      "vln2_b017_n067": {
-      "velocity": 85,
-      "timing_ms": 5.49,
+      "velocity": 83,
+      "timing_ms": -6.48,
       "gate": 1.0
      },
      "vln2_b017_n068": {
-      "velocity": 89,
-      "timing_ms": 1.49,
+      "velocity": 83,
+      "timing_ms": -9.58,
       "gate": 1.0
      },
      "vln2_b017_n069": {
-      "velocity": 84,
-      "timing_ms": -2.83,
+      "velocity": 87,
+      "timing_ms": -4.13,
       "gate": 1.0
      },
      "vln2_b017_n070": {
       "velocity": 86,
-      "timing_ms": -0.07,
+      "timing_ms": -10.21,
       "gate": 1.0
      },
      "vln2_b017_n071": {
-      "velocity": 82,
-      "timing_ms": 4.39,
+      "velocity": 84,
+      "timing_ms": -5.47,
       "gate": 1.0
      },
      "vln2_b017_n072": {
-      "velocity": 82,
-      "timing_ms": 12.6,
+      "velocity": 90,
+      "timing_ms": 4.5,
       "gate": 1.0
      },
      "vln2_b017_n073": {
-      "velocity": 75,
-      "timing_ms": 9.7,
+      "velocity": 86,
+      "timing_ms": 4.25,
       "gate": 1.0
      },
      "vln2_b017_n074": {
-      "velocity": 82,
-      "timing_ms": 5.67,
+      "velocity": 88,
+      "timing_ms": 6.09,
       "gate": 1.0
      },
      "vln2_b017_n075": {
-      "velocity": 82,
-      "timing_ms": 2.23,
+      "velocity": 83,
+      "timing_ms": -2.42,
       "gate": 1.0
      },
      "vln2_b017_n076": {
       "velocity": 87,
-      "timing_ms": 5.68,
+      "timing_ms": -3.01,
       "gate": 0.78
      },
      "vln2_b020_n077": {
       "velocity": 78,
-      "timing_ms": 2.25,
+      "timing_ms": 10.17,
       "gate": 0.88
      },
      "vln2_b020_n078": {
-      "velocity": 75,
-      "timing_ms": -0.68,
+      "velocity": 72,
+      "timing_ms": 4.1,
       "gate": 0.78
      },
      "vln2_b020_n079": {
-      "velocity": 76,
-      "timing_ms": 1.2,
+      "velocity": 72,
+      "timing_ms": -0.58,
       "gate": 0.97
      },
      "vln2_b021_n080": {
-      "velocity": 81,
-      "timing_ms": -2.98,
+      "velocity": 76,
+      "timing_ms": 20.27,
       "gate": 0.97
      },
      "vln2_b021_n081": {
-      "velocity": 77,
-      "timing_ms": 0.85,
+      "velocity": 78,
+      "timing_ms": -11.02,
       "gate": 0.88
      },
      "vln2_b021_n082": {
-      "velocity": 73,
-      "timing_ms": 7.1,
+      "velocity": 74,
+      "timing_ms": -7.58,
       "gate": 0.78
      },
      "vln2_b021_n083": {
-      "velocity": 74,
-      "timing_ms": 8.76,
+      "velocity": 76,
+      "timing_ms": -7.21,
       "gate": 0.78
      },
      "vln2_b022_n084": {
       "velocity": 77,
-      "timing_ms": 11.91,
+      "timing_ms": -9.13,
       "gate": 0.78
      },
      "vln2_b022_n085": {
-      "velocity": 83,
-      "timing_ms": 10.54,
+      "velocity": 87,
+      "timing_ms": -7.33,
       "gate": 0.88
      },
      "vln2_b022_n086": {
-      "velocity": 88,
-      "timing_ms": 4.35,
+      "velocity": 91,
+      "timing_ms": -3.87,
       "gate": 0.78
      },
      "vln2_b022_n087": {
-      "velocity": 89,
-      "timing_ms": 2.34,
+      "velocity": 94,
+      "timing_ms": 8.75,
       "gate": 0.97
      },
      "vln2_b023_n088": {
-      "velocity": 97,
-      "timing_ms": 1.49,
+      "velocity": 94,
+      "timing_ms": 4.89,
       "gate": 0.78
      },
      "vln2_b023_n089": {
       "velocity": 92,
-      "timing_ms": -4.59,
+      "timing_ms": 7.58,
       "gate": 0.97
      },
      "vln2_b023_n090": {
-      "velocity": 88,
-      "timing_ms": 9.54,
+      "velocity": 90,
+      "timing_ms": 5.54,
       "gate": 0.88
      },
      "vln2_b023_n091": {
-      "velocity": 87,
-      "timing_ms": 1.89,
+      "velocity": 83,
+      "timing_ms": 2.83,
       "gate": 0.88
      },
      "vln2_b024_n092": {
-      "velocity": 93,
-      "timing_ms": 4.16,
+      "velocity": 90,
+      "timing_ms": 1.29,
       "gate": 0.88
      },
      "vln2_b024_n093": {
-      "velocity": 87,
-      "timing_ms": 6.41,
+      "velocity": 84,
+      "timing_ms": 1.49,
       "gate": 1.0
      },
      "vln2_b024_n094": {
-      "velocity": 87,
-      "timing_ms": 2.5,
+      "velocity": 85,
+      "timing_ms": 1.64,
       "gate": 1.0
      },
      "vln2_b024_n095": {
-      "velocity": 91,
-      "timing_ms": -1.57,
+      "velocity": 87,
+      "timing_ms": 8.14,
       "gate": 1.0
      },
      "vln2_b024_n096": {
       "velocity": 83,
-      "timing_ms": 9.01,
+      "timing_ms": 5.29,
       "gate": 1.0
      },
      "vln2_b024_n097": {
       "velocity": 90,
-      "timing_ms": 9.95,
+      "timing_ms": -6.65,
       "gate": 0.88
      },
      "vln2_b024_n098": {
       "velocity": 88,
-      "timing_ms": 2.83,
+      "timing_ms": -12.86,
       "gate": 0.88
      },
      "vln2_b025_n099": {
-      "velocity": 91,
-      "timing_ms": 9.04,
+      "velocity": 92,
+      "timing_ms": -10.96,
       "gate": 0.88
      },
      "vln2_b025_n100": {
-      "velocity": 96,
-      "timing_ms": 2.97,
+      "velocity": 93,
+      "timing_ms": -8.51,
       "gate": 1.0
      },
      "vln2_b025_n101": {
-      "velocity": 88,
-      "timing_ms": -0.81,
+      "velocity": 87,
+      "timing_ms": 0.62,
       "gate": 1.0
      },
      "vln2_b025_n102": {
-      "velocity": 91,
-      "timing_ms": -0.53,
+      "velocity": 92,
+      "timing_ms": 0.14,
       "gate": 1.0
      },
      "vln2_b025_n103": {
-      "velocity": 92,
-      "timing_ms": 8.12,
+      "velocity": 89,
+      "timing_ms": 9.61,
       "gate": 1.0
      },
      "vln2_b025_n104": {
-      "velocity": 97,
-      "timing_ms": 4.55,
+      "velocity": 94,
+      "timing_ms": 5.19,
       "gate": 0.88
      },
      "vln2_b025_n105": {
-      "velocity": 93,
-      "timing_ms": 6.36,
+      "velocity": 92,
+      "timing_ms": -5.53,
       "gate": 0.88
      },
      "vln2_b026_n106": {
-      "velocity": 106,
-      "timing_ms": -3.47,
+      "velocity": 95,
+      "timing_ms": -0.84,
       "gate": 0.88
      },
      "vln2_b026_n107": {
-      "velocity": 103,
-      "timing_ms": -1.53,
+      "velocity": 95,
+      "timing_ms": 3.88,
       "gate": 1.0
      },
      "vln2_b026_n108": {
-      "velocity": 97,
-      "timing_ms": -7.35,
+      "velocity": 91,
+      "timing_ms": 3.6,
       "gate": 1.0
      },
      "vln2_b026_n109": {
-      "velocity": 98,
-      "timing_ms": 0.27,
+      "velocity": 97,
+      "timing_ms": 5.11,
       "gate": 1.0
      },
      "vln2_b026_n110": {
       "velocity": 94,
-      "timing_ms": -2.38,
+      "timing_ms": 3.12,
       "gate": 1.0
      },
      "vln2_b026_n111": {
-      "velocity": 99,
-      "timing_ms": 0.78,
+      "velocity": 100,
+      "timing_ms": -2.85,
       "gate": 0.88
      },
      "vln2_b026_n112": {
-      "velocity": 96,
-      "timing_ms": -5.23,
+      "velocity": 100,
+      "timing_ms": -7.86,
       "gate": 0.88
      },
      "vln2_b027_n113": {
-      "velocity": 95,
-      "timing_ms": -4.57,
+      "velocity": 99,
+      "timing_ms": -8.55,
       "gate": 0.88
      },
      "vln2_b027_n114": {
       "velocity": 100,
-      "timing_ms": -5.32,
+      "timing_ms": -5.9,
       "gate": 0.78
      },
      "vln2_b027_n115": {
-      "velocity": 94,
-      "timing_ms": -11.54,
+      "velocity": 99,
+      "timing_ms": -2.16,
       "gate": 0.78
      },
      "vln2_b027_n116": {
-      "velocity": 94,
-      "timing_ms": -3.68,
+      "velocity": 97,
+      "timing_ms": 4.47,
       "gate": 0.78
      },
      "vln2_b027_n117": {
-      "velocity": 94,
-      "timing_ms": -7.04,
+      "velocity": 103,
+      "timing_ms": 12.75,
       "gate": 0.78
      },
      "vln2_b028_n118": {
-      "velocity": 102,
-      "timing_ms": -5.52,
+      "velocity": 104,
+      "timing_ms": 4.42,
       "gate": 0.97
      },
      "vln2_b028_n119": {
-      "velocity": 99,
-      "timing_ms": -5.8,
+      "velocity": 107,
+      "timing_ms": 11.06,
       "gate": 0.88
      },
      "vln2_b028_n120": {
-      "velocity": 105,
-      "timing_ms": -4.05,
+      "velocity": 109,
+      "timing_ms": -3.58,
       "gate": 0.88
      },
      "vln2_b029_n121": {
-      "velocity": 111,
-      "timing_ms": -5.61,
+      "velocity": 112,
+      "timing_ms": -12.64,
       "gate": 0.97
      },
      "vln2_b029_n122": {
-      "velocity": 110,
-      "timing_ms": -12.65,
+      "velocity": 107,
+      "timing_ms": 1.24,
       "gate": 0.88
      },
      "vln2_b029_n123": {
-      "velocity": 107,
-      "timing_ms": -10.0,
+      "velocity": 104,
+      "timing_ms": -5.05,
       "gate": 0.88
      },
      "vln2_b030_n124": {
-      "velocity": 112,
-      "timing_ms": -10.9,
+      "velocity": 108,
+      "timing_ms": -1.51,
       "gate": 0.88
      },
      "vln2_b030_n125": {
-      "velocity": 115,
-      "timing_ms": -10.73,
+      "velocity": 108,
+      "timing_ms": 10.57,
       "gate": 0.97
      },
      "vln2_b030_n126": {
-      "velocity": 109,
-      "timing_ms": -10.4,
+      "velocity": 103,
+      "timing_ms": 2.52,
       "gate": 0.88
      },
      "vln2_b031_n127": {
-      "velocity": 114,
-      "timing_ms": -3.54,
+      "velocity": 109,
+      "timing_ms": 1.87,
       "gate": 0.88
      },
      "vln2_b031_n128": {
-      "velocity": 110,
-      "timing_ms": -8.44,
+      "velocity": 106,
+      "timing_ms": 0.73,
       "gate": 0.88
      },
      "vln2_b031_n129": {
-      "velocity": 106,
-      "timing_ms": -1.08,
+      "velocity": 105,
+      "timing_ms": -9.92,
       "gate": 0.97
      },
      "vln2_b032_n130": {
-      "velocity": 109,
-      "timing_ms": -3.27,
+      "velocity": 111,
+      "timing_ms": -13.53,
       "gate": 0.88
      },
      "vln2_b032_n131": {
-      "velocity": 104,
-      "timing_ms": 2.55,
+      "velocity": 103,
+      "timing_ms": -1.76,
       "gate": 0.78
      },
      "vln2_b032_n132": {
       "velocity": 102,
-      "timing_ms": 4.63,
+      "timing_ms": 7.35,
       "gate": 0.78
      },
      "vln2_b032_n133": {
-      "velocity": 104,
-      "timing_ms": -1.74,
+      "velocity": 101,
+      "timing_ms": 4.8,
       "gate": 0.88
      },
      "vln2_b032_n134": {
-      "velocity": 96,
-      "timing_ms": -6.26,
+      "velocity": 98,
+      "timing_ms": 7.44,
       "gate": 0.88
      },
      "vln2_b033_n135": {
-      "velocity": 102,
-      "timing_ms": -6.15,
+      "velocity": 105,
+      "timing_ms": 0.31,
       "gate": 0.97
      }
     },
@@ -4414,658 +4414,658 @@
    "performance": {
     "notes": {
      "vla_b001_n000": {
-      "velocity": 77,
-      "timing_ms": 4.36,
+      "velocity": 75,
+      "timing_ms": -9.78,
       "gate": 0.9845
      },
      "vla_b002_n001": {
-      "velocity": 86,
-      "timing_ms": 9.63,
+      "velocity": 78,
+      "timing_ms": -1.85,
       "gate": 0.9845
      },
      "vla_b002_n002": {
-      "velocity": 83,
-      "timing_ms": 4.41,
+      "velocity": 78,
+      "timing_ms": -3.56,
       "gate": 0.9845
      },
      "vla_b003_n003": {
-      "velocity": 82,
-      "timing_ms": 0.74,
+      "velocity": 83,
+      "timing_ms": 2.05,
       "gate": 0.9845
      },
      "vla_b003_n004": {
-      "velocity": 81,
-      "timing_ms": 3.86,
+      "velocity": 80,
+      "timing_ms": -4.96,
       "gate": 0.9845
      },
      "vla_b004_n005": {
-      "velocity": 77,
-      "timing_ms": 9.96,
+      "velocity": 78,
+      "timing_ms": 9.79,
       "gate": 0.88
      },
      "vla_b004_n006": {
-      "velocity": 79,
-      "timing_ms": 7.02,
+      "velocity": 75,
+      "timing_ms": 2.09,
       "gate": 0.9845
      },
      "vla_b010_n007": {
-      "velocity": 88,
-      "timing_ms": 10.9,
+      "velocity": 85,
+      "timing_ms": -0.55,
       "gate": 0.88
      },
      "vla_b010_n008": {
-      "velocity": 88,
-      "timing_ms": 7.25,
+      "velocity": 83,
+      "timing_ms": 4.9,
       "gate": 0.7566
      },
      "vla_b010_n009": {
-      "velocity": 86,
-      "timing_ms": 7.18,
+      "velocity": 82,
+      "timing_ms": 3.54,
       "gate": 0.7566
      },
      "vla_b010_n010": {
-      "velocity": 89,
-      "timing_ms": 1.71,
+      "velocity": 86,
+      "timing_ms": -1.88,
       "gate": 0.97
      },
      "vla_b010_n011": {
-      "velocity": 87,
-      "timing_ms": 3.81,
+      "velocity": 82,
+      "timing_ms": 8.16,
       "gate": 0.97
      },
      "vla_b010_n012": {
-      "velocity": 89,
-      "timing_ms": 4.2,
+      "velocity": 85,
+      "timing_ms": 8.35,
       "gate": 0.97
      },
      "vla_b010_n013": {
-      "velocity": 88,
-      "timing_ms": 9.65,
+      "velocity": 82,
+      "timing_ms": 6.46,
       "gate": 0.97
      },
      "vla_b010_n014": {
-      "velocity": 86,
-      "timing_ms": 8.33,
+      "velocity": 85,
+      "timing_ms": 9.04,
       "gate": 0.7566
      },
      "vla_b010_n015": {
-      "velocity": 85,
-      "timing_ms": 1.77,
+      "velocity": 86,
+      "timing_ms": -1.08,
       "gate": 0.7566
      },
      "vla_b011_n016": {
-      "velocity": 89,
-      "timing_ms": 1.4,
+      "velocity": 93,
+      "timing_ms": -2.15,
       "gate": 0.97
      },
      "vla_b011_n017": {
-      "velocity": 84,
-      "timing_ms": 5.07,
+      "velocity": 82,
+      "timing_ms": -0.83,
       "gate": 0.97
      },
      "vla_b011_n018": {
-      "velocity": 84,
-      "timing_ms": 3.16,
+      "velocity": 88,
+      "timing_ms": -1.0,
       "gate": 0.97
      },
      "vla_b011_n019": {
-      "velocity": 87,
-      "timing_ms": 2.73,
+      "velocity": 91,
+      "timing_ms": -2.35,
       "gate": 0.97
      },
      "vla_b011_n020": {
-      "velocity": 87,
-      "timing_ms": 7.68,
+      "velocity": 92,
+      "timing_ms": 0.2,
       "gate": 0.97
      },
      "vla_b011_n021": {
-      "velocity": 86,
-      "timing_ms": 2.18,
+      "velocity": 91,
+      "timing_ms": -2.25,
       "gate": 0.97
      },
      "vla_b011_n022": {
       "velocity": 90,
-      "timing_ms": -0.98,
+      "timing_ms": -11.88,
       "gate": 0.97
      },
      "vla_b011_n023": {
       "velocity": 88,
-      "timing_ms": 2.51,
+      "timing_ms": -5.83,
       "gate": 0.97
      },
      "vla_b011_n024": {
-      "velocity": 91,
-      "timing_ms": -1.47,
+      "velocity": 88,
+      "timing_ms": -5.98,
       "gate": 0.97
      },
      "vla_b011_n025": {
-      "velocity": 86,
-      "timing_ms": -4.67,
+      "velocity": 85,
+      "timing_ms": -1.36,
       "gate": 0.97
      },
      "vla_b011_n026": {
-      "velocity": 86,
-      "timing_ms": -6.56,
+      "velocity": 87,
+      "timing_ms": -7.34,
       "gate": 0.97
      },
      "vla_b011_n027": {
-      "velocity": 85,
-      "timing_ms": -11.01,
+      "velocity": 86,
+      "timing_ms": -3.41,
       "gate": 0.97
      },
      "vla_b011_n028": {
-      "velocity": 95,
-      "timing_ms": -5.79,
+      "velocity": 87,
+      "timing_ms": -6.08,
       "gate": 0.7566
      },
      "vla_b012_n029": {
-      "velocity": 88,
-      "timing_ms": -9.68,
+      "velocity": 84,
+      "timing_ms": -7.29,
       "gate": 0.88
      },
      "vla_b012_n030": {
-      "velocity": 88,
-      "timing_ms": -4.07,
+      "velocity": 82,
+      "timing_ms": -4.04,
       "gate": 0.7566
      },
      "vla_b012_n031": {
-      "velocity": 91,
-      "timing_ms": -4.62,
+      "velocity": 86,
+      "timing_ms": 1.85,
       "gate": 0.9845
      },
      "vla_b012_n032": {
-      "velocity": 84,
-      "timing_ms": 0.06,
+      "velocity": 83,
+      "timing_ms": -12.24,
       "gate": 0.7566
      },
      "vla_b013_n033": {
       "velocity": 85,
-      "timing_ms": -4.45,
+      "timing_ms": -5.13,
       "gate": 0.7566
      },
      "vla_b013_n034": {
-      "velocity": 84,
-      "timing_ms": -0.93,
+      "velocity": 83,
+      "timing_ms": -0.73,
       "gate": 0.88
      },
      "vla_b013_n035": {
-      "velocity": 85,
-      "timing_ms": -4.7,
+      "velocity": 87,
+      "timing_ms": -0.5,
       "gate": 0.7566
      },
      "vla_b013_n036": {
-      "velocity": 87,
-      "timing_ms": -10.8,
+      "velocity": 90,
+      "timing_ms": 4.15,
       "gate": 0.7566
      },
      "vla_b013_n037": {
-      "velocity": 82,
-      "timing_ms": 0.44,
+      "velocity": 88,
+      "timing_ms": 4.3,
       "gate": 0.88
      },
      "vla_b013_n038": {
-      "velocity": 86,
-      "timing_ms": -1.83,
+      "velocity": 89,
+      "timing_ms": 5.46,
       "gate": 0.7566
      },
      "vla_b014_n039": {
-      "velocity": 89,
-      "timing_ms": 4.01,
+      "velocity": 91,
+      "timing_ms": -4.08,
       "gate": 0.97
      },
      "vla_b014_n040": {
-      "velocity": 73,
-      "timing_ms": -7.28,
+      "velocity": 74,
+      "timing_ms": -7.42,
       "gate": 0.97
      },
      "vla_b014_n041": {
-      "velocity": 77,
-      "timing_ms": -0.44,
+      "velocity": 75,
+      "timing_ms": -2.76,
       "gate": 0.97
      },
      "vla_b014_n042": {
-      "velocity": 75,
-      "timing_ms": -1.28,
+      "velocity": 74,
+      "timing_ms": 2.42,
       "gate": 0.97
      },
      "vla_b014_n043": {
       "velocity": 75,
-      "timing_ms": 7.93,
+      "timing_ms": 2.55,
       "gate": 0.97
      },
      "vla_b014_n044": {
       "velocity": 76,
-      "timing_ms": 7.46,
+      "timing_ms": 2.87,
       "gate": 0.97
      },
      "vla_b014_n045": {
-      "velocity": 72,
-      "timing_ms": 3.82,
+      "velocity": 75,
+      "timing_ms": 3.06,
       "gate": 0.97
      },
      "vla_b014_n046": {
-      "velocity": 72,
-      "timing_ms": -3.98,
+      "velocity": 74,
+      "timing_ms": 2.29,
       "gate": 0.97
      },
      "vla_b014_n047": {
-      "velocity": 77,
-      "timing_ms": -5.87,
+      "velocity": 79,
+      "timing_ms": 6.45,
       "gate": 0.97
      },
      "vla_b014_n048": {
-      "velocity": 72,
-      "timing_ms": 2.74,
+      "velocity": 77,
+      "timing_ms": 11.63,
       "gate": 0.97
      },
      "vla_b014_n049": {
-      "velocity": 78,
-      "timing_ms": 3.07,
+      "velocity": 82,
+      "timing_ms": 0.75,
       "gate": 0.97
      },
      "vla_b014_n050": {
       "velocity": 75,
-      "timing_ms": -3.04,
+      "timing_ms": 1.19,
       "gate": 0.97
      },
      "vla_b014_n051": {
-      "velocity": 81,
-      "timing_ms": -7.02,
+      "velocity": 80,
+      "timing_ms": 2.73,
       "gate": 0.97
      },
      "vla_b014_n052": {
-      "velocity": 81,
-      "timing_ms": 0.42,
+      "velocity": 76,
+      "timing_ms": -1.05,
       "gate": 0.97
      },
      "vla_b014_n053": {
-      "velocity": 80,
-      "timing_ms": 2.83,
+      "velocity": 76,
+      "timing_ms": 0.97,
       "gate": 0.97
      },
      "vla_b014_n054": {
-      "velocity": 76,
-      "timing_ms": 2.47,
+      "velocity": 75,
+      "timing_ms": 4.26,
       "gate": 0.97
      },
      "vla_b015_n055": {
-      "velocity": 85,
-      "timing_ms": 5.32,
+      "velocity": 82,
+      "timing_ms": 4.11,
       "gate": 0.97
      },
      "vla_b015_n056": {
-      "velocity": 78,
-      "timing_ms": 4.55,
+      "velocity": 75,
+      "timing_ms": 2.59,
       "gate": 0.97
      },
      "vla_b015_n057": {
-      "velocity": 81,
-      "timing_ms": 0.12,
+      "velocity": 79,
+      "timing_ms": 6.01,
       "gate": 0.97
      },
      "vla_b015_n058": {
-      "velocity": 81,
-      "timing_ms": -2.36,
+      "velocity": 76,
+      "timing_ms": 2.9,
       "gate": 0.97
      },
      "vla_b015_n059": {
-      "velocity": 83,
-      "timing_ms": -3.39,
+      "velocity": 80,
+      "timing_ms": 5.65,
       "gate": 0.97
      },
      "vla_b015_n060": {
-      "velocity": 83,
-      "timing_ms": 5.73,
+      "velocity": 78,
+      "timing_ms": 3.75,
       "gate": 0.97
      },
      "vla_b015_n061": {
-      "velocity": 76,
-      "timing_ms": -4.86,
+      "velocity": 79,
+      "timing_ms": 0.77,
       "gate": 0.97
      },
      "vla_b015_n062": {
-      "velocity": 77,
-      "timing_ms": 1.18,
+      "velocity": 79,
+      "timing_ms": -6.36,
       "gate": 0.97
      },
      "vla_b015_n063": {
-      "velocity": 81,
-      "timing_ms": -3.38,
+      "velocity": 83,
+      "timing_ms": -1.25,
       "gate": 0.97
      },
      "vla_b015_n064": {
       "velocity": 77,
-      "timing_ms": 0.42,
+      "timing_ms": -3.13,
       "gate": 0.97
      },
      "vla_b015_n065": {
-      "velocity": 77,
-      "timing_ms": 5.1,
+      "velocity": 78,
+      "timing_ms": -0.58,
       "gate": 0.97
      },
      "vla_b015_n066": {
       "velocity": 78,
-      "timing_ms": 3.53,
+      "timing_ms": 2.31,
       "gate": 0.97
      },
      "vla_b015_n067": {
-      "velocity": 78,
-      "timing_ms": 7.0,
+      "velocity": 80,
+      "timing_ms": 7.36,
       "gate": 0.97
      },
      "vla_b015_n068": {
-      "velocity": 79,
-      "timing_ms": 0.87,
+      "velocity": 80,
+      "timing_ms": 7.11,
       "gate": 0.97
      },
      "vla_b015_n069": {
-      "velocity": 80,
-      "timing_ms": 3.04,
+      "velocity": 81,
+      "timing_ms": 6.76,
       "gate": 0.97
      },
      "vla_b015_n070": {
       "velocity": 77,
-      "timing_ms": -2.42,
+      "timing_ms": 1.67,
       "gate": 0.97
      },
      "vla_b016_n071": {
-      "velocity": 80,
-      "timing_ms": -4.83,
+      "velocity": 82,
+      "timing_ms": 1.62,
       "gate": 0.88
      },
      "vla_b016_n072": {
-      "velocity": 84,
-      "timing_ms": -7.67,
+      "velocity": 88,
+      "timing_ms": 1.15,
       "gate": 0.88
      },
      "vla_b016_n073": {
-      "velocity": 85,
-      "timing_ms": -4.53,
+      "velocity": 87,
+      "timing_ms": 0.68,
       "gate": 0.88
      },
      "vla_b016_n074": {
-      "velocity": 85,
-      "timing_ms": -4.9,
+      "velocity": 89,
+      "timing_ms": 0.05,
       "gate": 0.88
      },
      "vla_b017_n075": {
-      "velocity": 91,
-      "timing_ms": 1.94,
+      "velocity": 89,
+      "timing_ms": -1.83,
       "gate": 0.88
      },
      "vla_b017_n076": {
-      "velocity": 85,
-      "timing_ms": 6.42,
+      "velocity": 84,
+      "timing_ms": 1.76,
       "gate": 0.88
      },
      "vla_b017_n077": {
-      "velocity": 87,
-      "timing_ms": -4.73,
+      "velocity": 89,
+      "timing_ms": -9.88,
       "gate": 0.7566
      },
      "vla_b017_n078": {
-      "velocity": 87,
-      "timing_ms": -4.18,
+      "velocity": 89,
+      "timing_ms": -5.87,
       "gate": 0.7566
      },
      "vla_b017_n079": {
-      "velocity": 88,
-      "timing_ms": -11.27,
+      "velocity": 90,
+      "timing_ms": -9.56,
       "gate": 0.88
      },
      "vla_b021_n080": {
-      "velocity": 82,
-      "timing_ms": -7.99,
+      "velocity": 79,
+      "timing_ms": -2.42,
       "gate": 0.88
      },
      "vla_b021_n081": {
       "velocity": 76,
-      "timing_ms": -5.97,
+      "timing_ms": 1.14,
       "gate": 0.7566
      },
      "vla_b021_n082": {
-      "velocity": 73,
-      "timing_ms": -2.32,
+      "velocity": 74,
+      "timing_ms": -2.01,
       "gate": 0.7566
      },
      "vla_b021_n083": {
       "velocity": 79,
-      "timing_ms": -13.32,
+      "timing_ms": -3.59,
       "gate": 0.9845
      },
      "vla_b022_n084": {
-      "velocity": 77,
-      "timing_ms": -8.46,
+      "velocity": 78,
+      "timing_ms": -10.49,
       "gate": 0.7566
      },
      "vla_b022_n085": {
-      "velocity": 80,
-      "timing_ms": 0.66,
+      "velocity": 85,
+      "timing_ms": -7.44,
       "gate": 0.88
      },
      "vla_b022_n086": {
       "velocity": 83,
-      "timing_ms": 0.77,
+      "timing_ms": -11.3,
       "gate": 0.7566
      },
      "vla_b022_n087": {
-      "velocity": 91,
-      "timing_ms": -2.68,
+      "velocity": 88,
+      "timing_ms": -9.76,
       "gate": 0.9845
      },
      "vla_b022_n088": {
-      "velocity": 91,
-      "timing_ms": 0.17,
+      "velocity": 89,
+      "timing_ms": -5.59,
       "gate": 0.7566
      },
      "vla_b023_n089": {
-      "velocity": 92,
-      "timing_ms": -0.15,
+      "velocity": 91,
+      "timing_ms": -4.62,
       "gate": 0.7566
      },
      "vla_b023_n090": {
-      "velocity": 90,
-      "timing_ms": 5.53,
+      "velocity": 88,
+      "timing_ms": -6.98,
       "gate": 0.88
      },
      "vla_b023_n091": {
-      "velocity": 85,
-      "timing_ms": 6.79,
+      "velocity": 87,
+      "timing_ms": 0.26,
       "gate": 0.7566
      },
      "vla_b023_n092": {
-      "velocity": 85,
-      "timing_ms": 12.9,
+      "velocity": 86,
+      "timing_ms": -1.09,
       "gate": 0.7566
      },
      "vla_b023_n093": {
       "velocity": 88,
-      "timing_ms": 8.17,
+      "timing_ms": 3.11,
       "gate": 0.88
      },
      "vla_b023_n094": {
-      "velocity": 86,
-      "timing_ms": 1.68,
+      "velocity": 89,
+      "timing_ms": 1.96,
       "gate": 0.7566
      },
      "vla_b024_n095": {
       "velocity": 89,
-      "timing_ms": 2.02,
+      "timing_ms": 3.45,
       "gate": 0.88
      },
      "vla_b024_n096": {
-      "velocity": 80,
-      "timing_ms": 3.77,
+      "velocity": 79,
+      "timing_ms": 0.23,
       "gate": 0.88
      },
      "vla_b024_n097": {
-      "velocity": 88,
-      "timing_ms": 0.45,
+      "velocity": 81,
+      "timing_ms": -3.57,
       "gate": 0.97
      },
      "vla_b024_n098": {
-      "velocity": 83,
-      "timing_ms": -0.37,
+      "velocity": 82,
+      "timing_ms": -3.6,
       "gate": 0.97
      },
      "vla_b024_n099": {
-      "velocity": 81,
-      "timing_ms": 4.51,
+      "velocity": 84,
+      "timing_ms": -1.36,
       "gate": 0.97
      },
      "vla_b024_n100": {
-      "velocity": 81,
-      "timing_ms": -2.92,
+      "velocity": 85,
+      "timing_ms": -4.71,
       "gate": 0.97
      },
      "vla_b024_n101": {
-      "velocity": 82,
-      "timing_ms": 5.6,
+      "velocity": 85,
+      "timing_ms": -2.13,
       "gate": 0.88
      },
      "vla_b025_n102": {
-      "velocity": 93,
-      "timing_ms": 1.36,
+      "velocity": 92,
+      "timing_ms": -8.32,
       "gate": 0.88
      },
      "vla_b025_n103": {
-      "velocity": 90,
-      "timing_ms": -5.8,
+      "velocity": 92,
+      "timing_ms": 7.8,
       "gate": 0.88
      },
      "vla_b025_n104": {
-      "velocity": 97,
-      "timing_ms": -4.11,
+      "velocity": 93,
+      "timing_ms": -0.0,
       "gate": 0.97
      },
      "vla_b025_n105": {
-      "velocity": 93,
-      "timing_ms": 0.27,
+      "velocity": 91,
+      "timing_ms": -1.43,
       "gate": 0.97
      },
      "vla_b025_n106": {
-      "velocity": 96,
-      "timing_ms": 2.9,
+      "velocity": 94,
+      "timing_ms": -1.72,
       "gate": 0.97
      },
      "vla_b025_n107": {
-      "velocity": 92,
-      "timing_ms": 1.92,
+      "velocity": 93,
+      "timing_ms": -0.72,
       "gate": 0.97
      },
      "vla_b025_n108": {
-      "velocity": 92,
-      "timing_ms": 3.89,
+      "velocity": 94,
+      "timing_ms": -3.97,
       "gate": 0.88
      },
      "vla_b026_n109": {
       "velocity": 101,
-      "timing_ms": -2.66,
+      "timing_ms": -3.1,
       "gate": 0.88
      },
      "vla_b026_n110": {
-      "velocity": 103,
-      "timing_ms": -2.03,
+      "velocity": 97,
+      "timing_ms": -2.52,
       "gate": 0.88
      },
      "vla_b026_n111": {
-      "velocity": 107,
-      "timing_ms": 3.78,
+      "velocity": 100,
+      "timing_ms": 8.14,
       "gate": 0.97
      },
      "vla_b026_n112": {
-      "velocity": 102,
-      "timing_ms": 4.38,
+      "velocity": 99,
+      "timing_ms": 14.51,
       "gate": 0.97
      },
      "vla_b026_n113": {
-      "velocity": 101,
-      "timing_ms": 2.63,
+      "velocity": 102,
+      "timing_ms": 8.4,
       "gate": 0.97
      },
      "vla_b026_n114": {
-      "velocity": 98,
-      "timing_ms": -1.75,
+      "velocity": 97,
+      "timing_ms": 12.99,
       "gate": 0.97
      },
      "vla_b026_n115": {
-      "velocity": 104,
-      "timing_ms": -4.2,
+      "velocity": 103,
+      "timing_ms": 5.63,
       "gate": 0.88
      },
      "vla_b027_n116": {
-      "velocity": 104,
-      "timing_ms": -4.33,
+      "velocity": 105,
+      "timing_ms": 3.93,
       "gate": 0.88
      },
      "vla_b027_n117": {
-      "velocity": 100,
-      "timing_ms": -3.25,
+      "velocity": 105,
+      "timing_ms": -0.44,
       "gate": 0.88
      },
      "vla_b028_n118": {
       "velocity": 105,
-      "timing_ms": -7.79,
+      "timing_ms": 3.76,
       "gate": 0.9845
      },
      "vla_b028_n119": {
-      "velocity": 109,
-      "timing_ms": -7.12,
+      "velocity": 110,
+      "timing_ms": 0.85,
       "gate": 0.9845
      },
      "vla_b029_n120": {
-      "velocity": 106,
-      "timing_ms": -6.98,
+      "velocity": 116,
+      "timing_ms": 10.69,
       "gate": 0.9845
      },
      "vla_b029_n121": {
-      "velocity": 109,
-      "timing_ms": 6.19,
+      "velocity": 108,
+      "timing_ms": -1.06,
       "gate": 0.88
      },
      "vla_b029_n122": {
-      "velocity": 109,
-      "timing_ms": -5.34,
+      "velocity": 112,
+      "timing_ms": -5.73,
       "gate": 0.88
      },
      "vla_b030_n123": {
-      "velocity": 112,
-      "timing_ms": -0.6,
+      "velocity": 122,
+      "timing_ms": -10.57,
       "gate": 0.9845
      },
      "vla_b030_n124": {
-      "velocity": 113,
-      "timing_ms": -0.24,
+      "velocity": 119,
+      "timing_ms": -6.28,
       "gate": 0.9845
      },
      "vla_b031_n125": {
-      "velocity": 110,
-      "timing_ms": -7.86,
+      "velocity": 115,
+      "timing_ms": -4.7,
       "gate": 0.88
      },
      "vla_b031_n126": {
-      "velocity": 104,
-      "timing_ms": -6.88,
+      "velocity": 113,
+      "timing_ms": -1.14,
       "gate": 0.88
      },
      "vla_b031_n127": {
-      "velocity": 104,
-      "timing_ms": -7.21,
+      "velocity": 110,
+      "timing_ms": 3.42,
       "gate": 0.9845
      },
      "vla_b032_n128": {
-      "velocity": 111,
-      "timing_ms": -3.94,
+      "velocity": 112,
+      "timing_ms": -6.47,
       "gate": 0.9845
      },
      "vla_b032_n129": {
-      "velocity": 106,
-      "timing_ms": 2.77,
+      "velocity": 111,
+      "timing_ms": 1.05,
       "gate": 0.9845
      },
      "vla_b033_n130": {
-      "velocity": 103,
-      "timing_ms": 1.43,
+      "velocity": 109,
+      "timing_ms": 5.09,
       "gate": 0.9845
      }
     },
@@ -6091,799 +6091,799 @@
    "performance": {
     "notes": {
      "vc_b001_n000": {
-      "velocity": 74,
-      "timing_ms": 5.15,
-      "gate": 0.9452
+      "velocity": 75,
+      "timing_ms": 3.51,
+      "gate": 0.9722
      },
      "vc_b001_n001": {
-      "velocity": 74,
-      "timing_ms": 5.67,
-      "gate": 0.9545
+      "velocity": 77,
+      "timing_ms": -2.47,
+      "gate": 0.9863
      },
      "vc_b002_n002": {
-      "velocity": 78,
-      "timing_ms": 6.03,
-      "gate": 0.9621
+      "velocity": 80,
+      "timing_ms": 1.52,
+      "gate": 0.9942
      },
      "vc_b002_n003": {
-      "velocity": 79,
-      "timing_ms": 3.04,
-      "gate": 0.9698
+      "velocity": 85,
+      "timing_ms": 1.03,
+      "gate": 0.9843
      },
      "vc_b003_n004": {
-      "velocity": 77,
-      "timing_ms": 0.78,
-      "gate": 0.8821
+      "velocity": 86,
+      "timing_ms": 3.12,
+      "gate": 0.8958
      },
      "vc_b003_n005": {
-      "velocity": 82,
-      "timing_ms": 0.78,
-      "gate": 0.8853
+      "velocity": 80,
+      "timing_ms": 3.54,
+      "gate": 0.8871
      },
      "vc_b003_n006": {
-      "velocity": 81,
-      "timing_ms": 2.68,
-      "gate": 0.8885
+      "velocity": 85,
+      "timing_ms": 8.69,
+      "gate": 0.8974
      },
      "vc_b003_n007": {
-      "velocity": 80,
-      "timing_ms": 6.89,
-      "gate": 0.8774
+      "velocity": 78,
+      "timing_ms": 7.66,
+      "gate": 0.8865
      },
      "vc_b004_n008": {
-      "velocity": 82,
-      "timing_ms": 1.73,
-      "gate": 0.8825
+      "velocity": 84,
+      "timing_ms": 13.63,
+      "gate": 0.874
      },
      "vc_b004_n009": {
-      "velocity": 81,
-      "timing_ms": -0.6,
-      "gate": 0.889
+      "velocity": 83,
+      "timing_ms": 7.13,
+      "gate": 0.8495
      },
      "vc_b004_n010": {
-      "velocity": 79,
-      "timing_ms": -0.16,
-      "gate": 0.9762
+      "velocity": 83,
+      "timing_ms": 9.11,
+      "gate": 0.9628
      },
      "vc_b012_n011": {
-      "velocity": 91,
-      "timing_ms": -6.99,
-      "gate": 0.8935
+      "velocity": 92,
+      "timing_ms": -0.58,
+      "gate": 0.896
      },
      "vc_b012_n012": {
-      "velocity": 86,
-      "timing_ms": -2.37,
-      "gate": 0.7839
+      "velocity": 88,
+      "timing_ms": -5.51,
+      "gate": 0.7783
      },
      "vc_b012_n013": {
-      "velocity": 83,
-      "timing_ms": 4.0,
-      "gate": 0.7753
+      "velocity": 85,
+      "timing_ms": 0.65,
+      "gate": 0.7724
      },
      "vc_b012_n014": {
-      "velocity": 89,
-      "timing_ms": -0.53,
-      "gate": 0.9971
+      "velocity": 90,
+      "timing_ms": 9.38,
+      "gate": 0.9838
      },
      "vc_b012_n015": {
       "velocity": 85,
-      "timing_ms": 4.74,
-      "gate": 0.9952
+      "timing_ms": 8.34,
+      "gate": 0.976
      },
      "vc_b012_n016": {
-      "velocity": 84,
-      "timing_ms": 3.15,
-      "gate": 1.0133
+      "velocity": 87,
+      "timing_ms": 9.5,
+      "gate": 0.9769
      },
      "vc_b012_n017": {
-      "velocity": 86,
-      "timing_ms": 6.59,
-      "gate": 1.0035
+      "velocity": 81,
+      "timing_ms": 7.88,
+      "gate": 0.9798
      },
      "vc_b012_n018": {
-      "velocity": 87,
-      "timing_ms": 0.68,
-      "gate": 0.7695
+      "velocity": 88,
+      "timing_ms": 6.39,
+      "gate": 0.7614
      },
      "vc_b012_n019": {
-      "velocity": 87,
-      "timing_ms": -3.57,
-      "gate": 0.7767
+      "velocity": 91,
+      "timing_ms": 9.79,
+      "gate": 0.7656
      },
      "vc_b013_n020": {
-      "velocity": 91,
-      "timing_ms": 5.27,
-      "gate": 1.0284
+      "velocity": 92,
+      "timing_ms": 11.15,
+      "gate": 0.9937
      },
      "vc_b013_n021": {
       "velocity": 83,
-      "timing_ms": -4.99,
-      "gate": 1.0044
+      "timing_ms": 11.19,
+      "gate": 1.0082
      },
      "vc_b013_n022": {
-      "velocity": 87,
-      "timing_ms": 1.63,
-      "gate": 1.005
+      "velocity": 82,
+      "timing_ms": 4.85,
+      "gate": 0.9854
      },
      "vc_b013_n023": {
-      "velocity": 86,
-      "timing_ms": 2.46,
-      "gate": 0.9915
+      "velocity": 81,
+      "timing_ms": 3.46,
+      "gate": 0.9792
      },
      "vc_b013_n024": {
-      "velocity": 88,
-      "timing_ms": -3.4,
-      "gate": 0.968
+      "velocity": 85,
+      "timing_ms": 0.05,
+      "gate": 0.9862
      },
      "vc_b013_n025": {
-      "velocity": 86,
-      "timing_ms": -0.36,
-      "gate": 0.9501
+      "velocity": 85,
+      "timing_ms": 4.39,
+      "gate": 0.9871
      },
      "vc_b013_n026": {
-      "velocity": 92,
-      "timing_ms": 0.19,
-      "gate": 0.9602
+      "velocity": 82,
+      "timing_ms": -0.86,
+      "gate": 0.9983
      },
      "vc_b013_n027": {
-      "velocity": 82,
-      "timing_ms": -2.08,
-      "gate": 0.9799
+      "velocity": 80,
+      "timing_ms": -1.52,
+      "gate": 0.9891
      },
      "vc_b013_n028": {
-      "velocity": 86,
-      "timing_ms": 2.8,
-      "gate": 0.9768
+      "velocity": 87,
+      "timing_ms": 0.83,
+      "gate": 0.9689
      },
      "vc_b013_n029": {
-      "velocity": 84,
-      "timing_ms": 6.5,
-      "gate": 0.9962
+      "velocity": 81,
+      "timing_ms": -2.06,
+      "gate": 0.9829
      },
      "vc_b013_n030": {
-      "velocity": 87,
-      "timing_ms": 5.16,
-      "gate": 0.9723
+      "velocity": 82,
+      "timing_ms": 3.94,
+      "gate": 0.9807
      },
      "vc_b013_n031": {
-      "velocity": 89,
-      "timing_ms": 4.98,
-      "gate": 0.9795
+      "velocity": 84,
+      "timing_ms": 3.32,
+      "gate": 0.9717
      },
      "vc_b013_n032": {
-      "velocity": 88,
-      "timing_ms": 2.69,
-      "gate": 0.7596
+      "velocity": 85,
+      "timing_ms": 3.88,
+      "gate": 0.7619
      },
      "vc_b013_n033": {
-      "velocity": 88,
-      "timing_ms": 4.14,
-      "gate": 0.7527
+      "velocity": 86,
+      "timing_ms": 5.08,
+      "gate": 0.7706
      },
      "vc_b014_n034": {
-      "velocity": 90,
-      "timing_ms": 8.74,
-      "gate": 0.8759
+      "velocity": 93,
+      "timing_ms": 3.36,
+      "gate": 0.8568
      },
      "vc_b014_n035": {
-      "velocity": 80,
-      "timing_ms": 7.98,
-      "gate": 0.8653
+      "velocity": 77,
+      "timing_ms": 4.15,
+      "gate": 0.8547
      },
      "vc_b014_n036": {
-      "velocity": 81,
-      "timing_ms": 6.95,
-      "gate": 0.8406
+      "velocity": 77,
+      "timing_ms": 10.92,
+      "gate": 0.8697
      },
      "vc_b014_n037": {
-      "velocity": 79,
-      "timing_ms": 9.37,
-      "gate": 0.8717
+      "velocity": 77,
+      "timing_ms": 6.75,
+      "gate": 0.8732
      },
      "vc_b015_n038": {
-      "velocity": 80,
-      "timing_ms": 5.92,
-      "gate": 0.8958
+      "velocity": 79,
+      "timing_ms": 5.5,
+      "gate": 0.8824
      },
      "vc_b015_n039": {
-      "velocity": 77,
-      "timing_ms": 9.98,
-      "gate": 0.9011
+      "velocity": 81,
+      "timing_ms": 1.95,
+      "gate": 0.8792
      },
      "vc_b015_n040": {
       "velocity": 80,
-      "timing_ms": 2.97,
-      "gate": 0.8659
+      "timing_ms": -0.11,
+      "gate": 0.8857
      },
      "vc_b015_n041": {
-      "velocity": 86,
-      "timing_ms": 4.12,
-      "gate": 0.8797
+      "velocity": 77,
+      "timing_ms": -0.28,
+      "gate": 0.8755
      },
      "vc_b016_n042": {
-      "velocity": 87,
-      "timing_ms": 4.53,
-      "gate": 0.8864
+      "velocity": 78,
+      "timing_ms": 0.33,
+      "gate": 0.8656
      },
      "vc_b016_n043": {
-      "velocity": 87,
-      "timing_ms": -1.41,
-      "gate": 0.8843
+      "velocity": 84,
+      "timing_ms": 6.69,
+      "gate": 0.8677
      },
      "vc_b016_n044": {
       "velocity": 88,
-      "timing_ms": 4.55,
-      "gate": 0.8809
+      "timing_ms": 5.16,
+      "gate": 0.8687
      },
      "vc_b016_n045": {
-      "velocity": 86,
-      "timing_ms": 0.27,
-      "gate": 0.8887
+      "velocity": 88,
+      "timing_ms": 5.81,
+      "gate": 0.8711
      },
      "vc_b017_n046": {
-      "velocity": 93,
-      "timing_ms": -0.85,
-      "gate": 0.7911
+      "velocity": 92,
+      "timing_ms": 8.86,
+      "gate": 0.7831
      },
      "vc_b017_n047": {
-      "velocity": 87,
-      "timing_ms": -2.33,
-      "gate": 0.7698
+      "velocity": 86,
+      "timing_ms": 9.92,
+      "gate": 0.7875
      },
      "vc_b017_n048": {
-      "velocity": 85,
-      "timing_ms": 1.59,
-      "gate": 0.8801
+      "velocity": 89,
+      "timing_ms": 1.63,
+      "gate": 0.8975
      },
      "vc_b017_n049": {
-      "velocity": 89,
-      "timing_ms": 5.75,
-      "gate": 0.7755
+      "velocity": 87,
+      "timing_ms": 5.1,
+      "gate": 0.7844
      },
      "vc_b017_n050": {
-      "velocity": 89,
-      "timing_ms": 8.12,
-      "gate": 0.7815
+      "velocity": 87,
+      "timing_ms": -0.54,
+      "gate": 0.7907
      },
      "vc_b017_n051": {
-      "velocity": 88,
-      "timing_ms": 0.91,
-      "gate": 0.7846
+      "velocity": 89,
+      "timing_ms": 1.48,
+      "gate": 0.7989
      },
      "vc_b017_n052": {
       "velocity": 85,
-      "timing_ms": 9.67,
-      "gate": 0.7907
+      "timing_ms": -0.31,
+      "gate": 0.7957
      },
      "vc_b018_n053": {
-      "velocity": 83,
-      "timing_ms": 6.69,
-      "gate": 0.873
+      "velocity": 87,
+      "timing_ms": 0.27,
+      "gate": 0.9092
      },
      "vc_b018_n054": {
-      "velocity": 68,
-      "timing_ms": 3.43,
-      "gate": 0.8893
+      "velocity": 71,
+      "timing_ms": 6.16,
+      "gate": 0.9217
      },
      "vc_b018_n055": {
-      "velocity": 70,
-      "timing_ms": 8.58,
-      "gate": 0.893
+      "velocity": 74,
+      "timing_ms": 2.05,
+      "gate": 0.9142
      },
      "vc_b018_n056": {
-      "velocity": 71,
-      "timing_ms": -0.94,
-      "gate": 0.8869
+      "velocity": 72,
+      "timing_ms": -3.0,
+      "gate": 0.9329
      },
      "vc_b019_n057": {
-      "velocity": 72,
-      "timing_ms": 2.21,
-      "gate": 0.8802
+      "velocity": 76,
+      "timing_ms": -0.49,
+      "gate": 0.9506
      },
      "vc_b019_n058": {
-      "velocity": 69,
-      "timing_ms": -0.58,
-      "gate": 0.8864
+      "velocity": 75,
+      "timing_ms": 4.27,
+      "gate": 0.9497
      },
      "vc_b019_n059": {
-      "velocity": 70,
-      "timing_ms": -0.12,
-      "gate": 0.8761
+      "velocity": 75,
+      "timing_ms": 3.57,
+      "gate": 0.9281
      },
      "vc_b019_n060": {
-      "velocity": 71,
-      "timing_ms": 1.45,
-      "gate": 0.8833
+      "velocity": 78,
+      "timing_ms": 4.31,
+      "gate": 0.9051
      },
      "vc_b020_n061": {
-      "velocity": 77,
-      "timing_ms": 1.32,
-      "gate": 0.904
+      "velocity": 76,
+      "timing_ms": 1.42,
+      "gate": 0.8982
      },
      "vc_b020_n062": {
-      "velocity": 75,
-      "timing_ms": 10.07,
-      "gate": 0.9001
+      "velocity": 78,
+      "timing_ms": 3.48,
+      "gate": 0.8863
      },
      "vc_b020_n063": {
-      "velocity": 74,
-      "timing_ms": 4.21,
-      "gate": 0.9025
+      "velocity": 77,
+      "timing_ms": -0.94,
+      "gate": 0.8687
      },
      "vc_b020_n064": {
-      "velocity": 78,
-      "timing_ms": 3.3,
-      "gate": 0.8989
+      "velocity": 80,
+      "timing_ms": 0.05,
+      "gate": 0.8737
      },
      "vc_b021_n065": {
-      "velocity": 81,
-      "timing_ms": -1.91,
-      "gate": 0.8735
+      "velocity": 80,
+      "timing_ms": -1.7,
+      "gate": 0.8757
      },
      "vc_b021_n066": {
-      "velocity": 78,
-      "timing_ms": 5.05,
-      "gate": 0.8697
+      "velocity": 76,
+      "timing_ms": 6.92,
+      "gate": 0.8783
      },
      "vc_b021_n067": {
       "velocity": 78,
-      "timing_ms": 2.83,
-      "gate": 0.8955
+      "timing_ms": 3.87,
+      "gate": 0.8701
      },
      "vc_b021_n068": {
       "velocity": 75,
-      "timing_ms": -3.48,
-      "gate": 0.8831
+      "timing_ms": -2.87,
+      "gate": 0.8897
      },
      "vc_b022_n069": {
-      "velocity": 76,
-      "timing_ms": 0.85,
-      "gate": 0.8699
+      "velocity": 77,
+      "timing_ms": 6.38,
+      "gate": 0.8996
      },
      "vc_b022_n070": {
-      "velocity": 83,
-      "timing_ms": 8.25,
-      "gate": 0.7887
+      "velocity": 91,
+      "timing_ms": -3.69,
+      "gate": 0.7976
      },
      "vc_b022_n071": {
-      "velocity": 86,
-      "timing_ms": 4.86,
-      "gate": 0.782
+      "velocity": 92,
+      "timing_ms": -3.65,
+      "gate": 0.7968
      },
      "vc_b022_n072": {
-      "velocity": 87,
-      "timing_ms": 4.47,
-      "gate": 0.9997
+      "velocity": 90,
+      "timing_ms": -2.46,
+      "gate": 0.9929
      },
      "vc_b022_n073": {
-      "velocity": 81,
-      "timing_ms": 5.79,
-      "gate": 1.0066
+      "velocity": 85,
+      "timing_ms": -1.84,
+      "gate": 0.9864
      },
      "vc_b022_n074": {
-      "velocity": 86,
-      "timing_ms": 7.42,
-      "gate": 0.9999
+      "velocity": 84,
+      "timing_ms": -1.5,
+      "gate": 0.9988
      },
      "vc_b022_n075": {
-      "velocity": 82,
-      "timing_ms": 9.15,
-      "gate": 1.0171
+      "velocity": 86,
+      "timing_ms": -1.79,
+      "gate": 1.0022
      },
      "vc_b022_n076": {
-      "velocity": 90,
-      "timing_ms": 6.85,
-      "gate": 0.7846
+      "velocity": 86,
+      "timing_ms": -0.46,
+      "gate": 0.7856
      },
      "vc_b022_n077": {
-      "velocity": 89,
-      "timing_ms": 10.69,
-      "gate": 0.7819
+      "velocity": 87,
+      "timing_ms": 3.1,
+      "gate": 0.7941
      },
      "vc_b023_n078": {
-      "velocity": 93,
-      "timing_ms": 13.72,
-      "gate": 1.015
+      "velocity": 91,
+      "timing_ms": 5.67,
+      "gate": 1.0086
      },
      "vc_b023_n079": {
-      "velocity": 87,
-      "timing_ms": 6.73,
-      "gate": 1.0038
+      "velocity": 86,
+      "timing_ms": 6.22,
+      "gate": 1.0187
      },
      "vc_b023_n080": {
       "velocity": 88,
-      "timing_ms": 4.31,
-      "gate": 0.985
+      "timing_ms": 6.55,
+      "gate": 0.9999
      },
      "vc_b023_n081": {
-      "velocity": 89,
-      "timing_ms": 2.04,
-      "gate": 0.9852
+      "velocity": 88,
+      "timing_ms": 4.67,
+      "gate": 1.0074
      },
      "vc_b023_n082": {
-      "velocity": 91,
-      "timing_ms": 0.55,
-      "gate": 1.0059
+      "velocity": 88,
+      "timing_ms": 2.76,
+      "gate": 0.9923
      },
      "vc_b023_n083": {
-      "velocity": 90,
-      "timing_ms": 0.91,
-      "gate": 1.0028
+      "velocity": 86,
+      "timing_ms": 6.55,
+      "gate": 0.9881
      },
      "vc_b023_n084": {
-      "velocity": 83,
-      "timing_ms": 4.09,
-      "gate": 0.9994
+      "velocity": 93,
+      "timing_ms": 4.9,
+      "gate": 0.9856
      },
      "vc_b023_n085": {
-      "velocity": 78,
-      "timing_ms": 4.03,
-      "gate": 0.9941
+      "velocity": 87,
+      "timing_ms": 9.77,
+      "gate": 0.9936
      },
      "vc_b023_n086": {
-      "velocity": 86,
-      "timing_ms": 9.39,
-      "gate": 0.9933
+      "velocity": 93,
+      "timing_ms": 3.21,
+      "gate": 1.0026
      },
      "vc_b023_n087": {
-      "velocity": 85,
-      "timing_ms": 7.96,
-      "gate": 0.9716
+      "velocity": 84,
+      "timing_ms": 2.91,
+      "gate": 1.0011
      },
      "vc_b023_n088": {
-      "velocity": 85,
-      "timing_ms": 5.21,
-      "gate": 0.9739
+      "velocity": 89,
+      "timing_ms": -0.06,
+      "gate": 0.9919
      },
      "vc_b023_n089": {
       "velocity": 86,
-      "timing_ms": 3.45,
-      "gate": 0.9894
+      "timing_ms": 2.92,
+      "gate": 1.0006
      },
      "vc_b023_n090": {
       "velocity": 89,
-      "timing_ms": 3.19,
-      "gate": 0.7668
+      "timing_ms": 2.63,
+      "gate": 0.7725
      },
      "vc_b023_n091": {
-      "velocity": 90,
-      "timing_ms": 5.52,
-      "gate": 0.7584
+      "velocity": 87,
+      "timing_ms": 3.42,
+      "gate": 0.7659
      },
      "vc_b024_n092": {
       "velocity": 92,
-      "timing_ms": 7.06,
-      "gate": 0.7571
+      "timing_ms": -0.1,
+      "gate": 0.7652
      },
      "vc_b024_n093": {
       "velocity": 81,
-      "timing_ms": 7.77,
-      "gate": 0.762
+      "timing_ms": 7.52,
+      "gate": 0.7748
      },
      "vc_b024_n094": {
-      "velocity": 81,
-      "timing_ms": 9.28,
-      "gate": 0.7772
+      "velocity": 85,
+      "timing_ms": -1.15,
+      "gate": 0.7759
      },
      "vc_b024_n095": {
-      "velocity": 83,
-      "timing_ms": 5.19,
-      "gate": 0.7704
+      "velocity": 84,
+      "timing_ms": 2.46,
+      "gate": 0.7708
      },
      "vc_b024_n096": {
-      "velocity": 87,
-      "timing_ms": 2.64,
-      "gate": 0.7716
+      "velocity": 86,
+      "timing_ms": -0.71,
+      "gate": 0.7746
      },
      "vc_b024_n097": {
-      "velocity": 86,
-      "timing_ms": 5.28,
-      "gate": 0.7695
+      "velocity": 84,
+      "timing_ms": -0.65,
+      "gate": 0.7733
      },
      "vc_b024_n098": {
-      "velocity": 83,
-      "timing_ms": 0.95,
-      "gate": 0.7702
+      "velocity": 86,
+      "timing_ms": 3.86,
+      "gate": 0.7879
      },
      "vc_b024_n099": {
-      "velocity": 86,
-      "timing_ms": 4.33,
-      "gate": 0.782
+      "velocity": 82,
+      "timing_ms": 4.26,
+      "gate": 0.7947
      },
      "vc_b025_n100": {
-      "velocity": 88,
-      "timing_ms": 7.35,
-      "gate": 0.7676
+      "velocity": 85,
+      "timing_ms": 4.34,
+      "gate": 0.7935
      },
      "vc_b025_n101": {
-      "velocity": 91,
-      "timing_ms": 6.25,
-      "gate": 0.7455
+      "velocity": 82,
+      "timing_ms": 5.02,
+      "gate": 0.7838
      },
      "vc_b025_n102": {
-      "velocity": 95,
-      "timing_ms": -0.91,
-      "gate": 0.7555
+      "velocity": 90,
+      "timing_ms": 9.94,
+      "gate": 0.7868
      },
      "vc_b025_n103": {
-      "velocity": 92,
-      "timing_ms": 5.22,
-      "gate": 0.7842
+      "velocity": 90,
+      "timing_ms": 6.82,
+      "gate": 0.7837
      },
      "vc_b025_n104": {
-      "velocity": 97,
-      "timing_ms": 3.6,
-      "gate": 0.7757
+      "velocity": 90,
+      "timing_ms": 10.56,
+      "gate": 0.7968
      },
      "vc_b025_n105": {
-      "velocity": 92,
-      "timing_ms": -0.06,
-      "gate": 0.7753
+      "velocity": 94,
+      "timing_ms": 4.98,
+      "gate": 0.8002
      },
      "vc_b025_n106": {
-      "velocity": 97,
-      "timing_ms": 3.94,
-      "gate": 0.7731
+      "velocity": 90,
+      "timing_ms": 7.69,
+      "gate": 0.7922
      },
      "vc_b025_n107": {
-      "velocity": 95,
-      "timing_ms": -1.49,
-      "gate": 0.7663
+      "velocity": 91,
+      "timing_ms": 7.77,
+      "gate": 0.7775
      },
      "vc_b026_n108": {
       "velocity": 99,
-      "timing_ms": 4.81,
-      "gate": 0.7495
+      "timing_ms": 3.26,
+      "gate": 0.7918
      },
      "vc_b026_n109": {
-      "velocity": 95,
-      "timing_ms": 5.07,
-      "gate": 0.7608
+      "velocity": 93,
+      "timing_ms": 2.97,
+      "gate": 0.7889
      },
      "vc_b026_n110": {
-      "velocity": 98,
-      "timing_ms": 1.85,
-      "gate": 0.7592
+      "velocity": 93,
+      "timing_ms": 1.71,
+      "gate": 0.7928
      },
      "vc_b026_n111": {
-      "velocity": 98,
-      "timing_ms": 3.1,
-      "gate": 0.7469
+      "velocity": 94,
+      "timing_ms": 2.69,
+      "gate": 0.7767
      },
      "vc_b026_n112": {
       "velocity": 99,
-      "timing_ms": 0.3,
-      "gate": 0.7358
+      "timing_ms": 1.38,
+      "gate": 0.7846
      },
      "vc_b026_n113": {
-      "velocity": 93,
-      "timing_ms": -0.71,
-      "gate": 0.7573
+      "velocity": 98,
+      "timing_ms": 6.26,
+      "gate": 0.8019
      },
      "vc_b026_n114": {
-      "velocity": 97,
-      "timing_ms": -1.61,
-      "gate": 0.7511
+      "velocity": 99,
+      "timing_ms": 0.11,
+      "gate": 0.7884
      },
      "vc_b026_n115": {
-      "velocity": 98,
-      "timing_ms": 3.74,
-      "gate": 0.7742
+      "velocity": 97,
+      "timing_ms": 3.19,
+      "gate": 0.7893
      },
      "vc_b027_n116": {
       "velocity": 97,
-      "timing_ms": 8.64,
-      "gate": 0.6073
+      "timing_ms": 6.86,
+      "gate": 0.6039
      },
      "vc_b027_n117": {
-      "velocity": 91,
-      "timing_ms": -6.13,
-      "gate": 0.6086
+      "velocity": 90,
+      "timing_ms": 13.2,
+      "gate": 0.6032
      },
      "vc_b027_n118": {
-      "velocity": 95,
-      "timing_ms": 7.94,
-      "gate": 0.6092
+      "velocity": 92,
+      "timing_ms": 6.89,
+      "gate": 0.6069
      },
      "vc_b027_n119": {
-      "velocity": 92,
-      "timing_ms": 8.4,
-      "gate": 0.5996
+      "velocity": 89,
+      "timing_ms": 6.76,
+      "gate": 0.599
      },
      "vc_b027_n120": {
-      "velocity": 98,
-      "timing_ms": 11.19,
-      "gate": 0.6067
+      "velocity": 96,
+      "timing_ms": 8.57,
+      "gate": 0.6033
      },
      "vc_b027_n121": {
-      "velocity": 95,
-      "timing_ms": 9.59,
-      "gate": 0.6041
+      "velocity": 97,
+      "timing_ms": 4.53,
+      "gate": 0.5974
      },
      "vc_b027_n122": {
-      "velocity": 99,
-      "timing_ms": 7.23,
-      "gate": 0.6151
+      "velocity": 94,
+      "timing_ms": 2.6,
+      "gate": 0.5981
      },
      "vc_b027_n123": {
-      "velocity": 100,
-      "timing_ms": 10.38,
-      "gate": 0.6068
+      "velocity": 95,
+      "timing_ms": 0.12,
+      "gate": 0.5897
      },
      "vc_b028_n124": {
-      "velocity": 101,
-      "timing_ms": 6.63,
-      "gate": 0.5867
+      "velocity": 99,
+      "timing_ms": -5.33,
+      "gate": 0.6043
      },
      "vc_b028_n125": {
-      "velocity": 100,
-      "timing_ms": 6.66,
-      "gate": 0.5984
+      "velocity": 98,
+      "timing_ms": 3.02,
+      "gate": 0.6005
      },
      "vc_b028_n126": {
-      "velocity": 100,
-      "timing_ms": 3.82,
-      "gate": 0.5992
+      "velocity": 96,
+      "timing_ms": 7.42,
+      "gate": 0.6055
      },
      "vc_b028_n127": {
-      "velocity": 100,
-      "timing_ms": 11.02,
-      "gate": 0.6197
+      "velocity": 97,
+      "timing_ms": 2.59,
+      "gate": 0.6114
      },
      "vc_b028_n128": {
-      "velocity": 99,
-      "timing_ms": 2.4,
-      "gate": 0.6144
+      "velocity": 102,
+      "timing_ms": 4.36,
+      "gate": 0.6046
      },
      "vc_b028_n129": {
-      "velocity": 100,
-      "timing_ms": 12.38,
-      "gate": 0.613
+      "velocity": 95,
+      "timing_ms": 9.97,
+      "gate": 0.6025
      },
      "vc_b028_n130": {
-      "velocity": 101,
-      "timing_ms": 10.3,
-      "gate": 0.6185
+      "velocity": 98,
+      "timing_ms": 8.57,
+      "gate": 0.6032
      },
      "vc_b028_n131": {
-      "velocity": 101,
-      "timing_ms": 11.39,
-      "gate": 0.6077
+      "velocity": 99,
+      "timing_ms": 8.89,
+      "gate": 0.5929
      },
      "vc_b029_n132": {
-      "velocity": 109,
-      "timing_ms": 10.0,
-      "gate": 0.9
+      "velocity": 104,
+      "timing_ms": 6.83,
+      "gate": 0.8529
      },
      "vc_b029_n133": {
-      "velocity": 103,
-      "timing_ms": 6.97,
-      "gate": 0.7965
+      "velocity": 104,
+      "timing_ms": 2.23,
+      "gate": 0.7831
      },
      "vc_b029_n134": {
-      "velocity": 103,
-      "timing_ms": 2.97,
-      "gate": 0.775
+      "velocity": 101,
+      "timing_ms": 4.91,
+      "gate": 0.793
      },
      "vc_b029_n135": {
-      "velocity": 103,
-      "timing_ms": 7.43,
-      "gate": 0.9972
+      "velocity": 104,
+      "timing_ms": 3.49,
+      "gate": 0.9941
      },
      "vc_b029_n136": {
-      "velocity": 103,
-      "timing_ms": 3.73,
-      "gate": 1.0054
+      "velocity": 101,
+      "timing_ms": 3.48,
+      "gate": 0.9794
      },
      "vc_b029_n137": {
-      "velocity": 105,
-      "timing_ms": 2.73,
-      "gate": 1.0099
+      "velocity": 102,
+      "timing_ms": 4.18,
+      "gate": 0.978
      },
      "vc_b029_n138": {
-      "velocity": 100,
-      "timing_ms": 2.38,
-      "gate": 0.9927
+      "velocity": 99,
+      "timing_ms": 5.53,
+      "gate": 0.9755
      },
      "vc_b029_n139": {
-      "velocity": 104,
-      "timing_ms": 4.67,
-      "gate": 0.7804
+      "velocity": 105,
+      "timing_ms": 7.88,
+      "gate": 0.7498
      },
      "vc_b029_n140": {
-      "velocity": 104,
-      "timing_ms": 7.67,
-      "gate": 0.7842
+      "velocity": 103,
+      "timing_ms": 2.11,
+      "gate": 0.7732
      },
      "vc_b030_n141": {
-      "velocity": 108,
-      "timing_ms": 5.62,
-      "gate": 1.0548
+      "velocity": 104,
+      "timing_ms": 4.0,
+      "gate": 0.9629
      },
      "vc_b030_n142": {
-      "velocity": 101,
-      "timing_ms": 2.2,
-      "gate": 1.0333
+      "velocity": 98,
+      "timing_ms": 6.68,
+      "gate": 0.969
      },
      "vc_b030_n143": {
-      "velocity": 102,
-      "timing_ms": 7.11,
-      "gate": 1.0144
+      "velocity": 101,
+      "timing_ms": 8.1,
+      "gate": 0.9611
      },
      "vc_b030_n144": {
       "velocity": 107,
-      "timing_ms": 6.04,
-      "gate": 1.0043
+      "timing_ms": 6.48,
+      "gate": 0.9601
      },
      "vc_b030_n145": {
       "velocity": 110,
-      "timing_ms": 4.4,
-      "gate": 1.0169
+      "timing_ms": 9.17,
+      "gate": 0.9654
      },
      "vc_b030_n146": {
-      "velocity": 106,
-      "timing_ms": 1.19,
-      "gate": 1.0168
+      "velocity": 105,
+      "timing_ms": 4.88,
+      "gate": 0.9797
      },
      "vc_b030_n147": {
-      "velocity": 106,
-      "timing_ms": 0.79,
-      "gate": 1.0279
+      "velocity": 113,
+      "timing_ms": -1.42,
+      "gate": 0.9917
      },
      "vc_b030_n148": {
-      "velocity": 105,
-      "timing_ms": 2.84,
-      "gate": 1.0314
+      "velocity": 110,
+      "timing_ms": 4.54,
+      "gate": 0.9812
      },
      "vc_b030_n149": {
-      "velocity": 111,
-      "timing_ms": 5.29,
-      "gate": 1.0264
+      "velocity": 110,
+      "timing_ms": 1.32,
+      "gate": 0.9924
      },
      "vc_b030_n150": {
-      "velocity": 106,
-      "timing_ms": -0.31,
-      "gate": 0.9925
+      "velocity": 104,
+      "timing_ms": 4.01,
+      "gate": 0.9929
      },
      "vc_b030_n151": {
       "velocity": 109,
-      "timing_ms": 2.8,
-      "gate": 1.0182
+      "timing_ms": -2.95,
+      "gate": 0.9819
      },
      "vc_b030_n152": {
-      "velocity": 109,
-      "timing_ms": -1.16,
-      "gate": 1.0292
+      "velocity": 110,
+      "timing_ms": 7.67,
+      "gate": 0.9885
      },
      "vc_b030_n153": {
-      "velocity": 116,
-      "timing_ms": 4.42,
-      "gate": 0.8075
+      "velocity": 117,
+      "timing_ms": 4.87,
+      "gate": 0.7701
      },
      "vc_b031_n154": {
-      "velocity": 111,
-      "timing_ms": 3.82,
-      "gate": 0.9367
+      "velocity": 115,
+      "timing_ms": 10.4,
+      "gate": 0.8891
      },
      "vc_b031_n155": {
-      "velocity": 108,
-      "timing_ms": -1.72,
-      "gate": 0.9138
+      "velocity": 109,
+      "timing_ms": 6.07,
+      "gate": 0.8886
      },
      "vc_b031_n156": {
-      "velocity": 107,
-      "timing_ms": 3.71,
-      "gate": 0.9905
+      "velocity": 113,
+      "timing_ms": 4.62,
+      "gate": 0.9814
      },
      "vc_b032_n157": {
-      "velocity": 108,
-      "timing_ms": 8.55,
-      "gate": 0.9907
+      "velocity": 113,
+      "timing_ms": 1.87,
+      "gate": 0.9849
      },
      "vc_b033_n158": {
-      "velocity": 106,
-      "timing_ms": 3.54,
-      "gate": 0.9998
+      "velocity": 113,
+      "timing_ms": 8.51,
+      "gate": 0.9638
      }
     },
     "legato": {
@@ -7142,134 +7142,134 @@
    "performance": {
     "notes": {
      "db_sus_b001_n000": {
-      "velocity": 73,
-      "timing_ms": 5.29,
-      "gate": 1.0217
+      "velocity": 77,
+      "timing_ms": 10.57,
+      "gate": 0.9989
      },
      "db_sus_b001_n001": {
-      "velocity": 75,
-      "timing_ms": 3.84,
-      "gate": 0.9669
+      "velocity": 79,
+      "timing_ms": 8.99,
+      "gate": 0.9839
      },
      "db_sus_b002_n002": {
-      "velocity": 79,
-      "timing_ms": 11.42,
-      "gate": 0.9998
+      "velocity": 84,
+      "timing_ms": 5.33,
+      "gate": 0.9548
      },
      "db_sus_b002_n003": {
-      "velocity": 85,
-      "timing_ms": 7.57,
-      "gate": 0.9634
+      "velocity": 81,
+      "timing_ms": 9.22,
+      "gate": 0.945
      },
      "db_sus_b003_n004": {
       "velocity": 84,
-      "timing_ms": 5.56,
-      "gate": 0.8838
+      "timing_ms": 7.6,
+      "gate": 0.8702
      },
      "db_sus_b003_n005": {
-      "velocity": 83,
-      "timing_ms": 6.05,
-      "gate": 0.8801
+      "velocity": 81,
+      "timing_ms": 9.94,
+      "gate": 0.8553
      },
      "db_sus_b003_n006": {
-      "velocity": 84,
-      "timing_ms": -0.38,
-      "gate": 0.8631
+      "velocity": 79,
+      "timing_ms": 4.48,
+      "gate": 0.8397
      },
      "db_sus_b003_n007": {
-      "velocity": 85,
-      "timing_ms": 5.96,
-      "gate": 0.8707
+      "velocity": 77,
+      "timing_ms": 1.92,
+      "gate": 0.857
      },
      "db_sus_b004_n008": {
-      "velocity": 82,
-      "timing_ms": 7.5,
-      "gate": 0.838
+      "velocity": 76,
+      "timing_ms": 7.72,
+      "gate": 0.8818
      },
      "db_sus_b004_n009": {
-      "velocity": 73,
-      "timing_ms": 3.03,
-      "gate": 0.8833
+      "velocity": 80,
+      "timing_ms": 4.57,
+      "gate": 0.8559
      },
      "db_sus_b004_n010": {
-      "velocity": 80,
-      "timing_ms": 5.12,
-      "gate": 0.9518
+      "velocity": 81,
+      "timing_ms": 1.84,
+      "gate": 0.9658
      },
      "db_sus_b029_n011": {
-      "velocity": 105,
-      "timing_ms": 3.41,
-      "gate": 0.8571
+      "velocity": 111,
+      "timing_ms": -5.57,
+      "gate": 0.9088
      },
      "db_sus_b029_n012": {
-      "velocity": 108,
-      "timing_ms": 2.24,
-      "gate": 0.7917
+      "velocity": 106,
+      "timing_ms": -1.19,
+      "gate": 0.8006
      },
      "db_sus_b029_n013": {
-      "velocity": 107,
-      "timing_ms": 5.82,
-      "gate": 0.7758
+      "velocity": 106,
+      "timing_ms": 1.59,
+      "gate": 0.7955
      },
      "db_sus_b029_n014": {
-      "velocity": 106,
-      "timing_ms": 2.0,
-      "gate": 0.8763
+      "velocity": 110,
+      "timing_ms": 3.7,
+      "gate": 0.8907
      },
      "db_sus_b029_n015": {
       "velocity": 103,
-      "timing_ms": -0.8,
-      "gate": 0.7677
+      "timing_ms": 4.43,
+      "gate": 0.7869
      },
      "db_sus_b029_n016": {
-      "velocity": 101,
-      "timing_ms": 6.41,
-      "gate": 0.7999
+      "velocity": 110,
+      "timing_ms": 4.9,
+      "gate": 0.7807
      },
      "db_sus_b030_n017": {
-      "velocity": 104,
-      "timing_ms": -1.38,
-      "gate": 0.9025
+      "velocity": 108,
+      "timing_ms": 8.32,
+      "gate": 0.8882
      },
      "db_sus_b030_n018": {
-      "velocity": 106,
-      "timing_ms": -3.65,
-      "gate": 0.8711
+      "velocity": 107,
+      "timing_ms": 2.09,
+      "gate": 0.8617
      },
      "db_sus_b030_n019": {
-      "velocity": 113,
-      "timing_ms": -1.24,
-      "gate": 0.8859
+      "velocity": 108,
+      "timing_ms": 0.68,
+      "gate": 0.8871
      },
      "db_sus_b030_n020": {
-      "velocity": 111,
-      "timing_ms": 7.11,
-      "gate": 0.8944
+      "velocity": 105,
+      "timing_ms": -2.67,
+      "gate": 0.8965
      },
      "db_sus_b031_n021": {
       "velocity": 109,
-      "timing_ms": 2.74,
-      "gate": 0.8816
+      "timing_ms": 1.64,
+      "gate": 0.8756
      },
      "db_sus_b031_n022": {
-      "velocity": 104,
-      "timing_ms": 0.88,
-      "gate": 0.8676
+      "velocity": 107,
+      "timing_ms": -1.07,
+      "gate": 0.8776
      },
      "db_sus_b031_n023": {
-      "velocity": 109,
-      "timing_ms": 2.68,
-      "gate": 0.9826
+      "velocity": 113,
+      "timing_ms": 8.5,
+      "gate": 0.9913
      },
      "db_sus_b032_n024": {
-      "velocity": 110,
-      "timing_ms": 7.3,
-      "gate": 0.9664
+      "velocity": 107,
+      "timing_ms": 3.48,
+      "gate": 0.9787
      },
      "db_sus_b033_n025": {
-      "velocity": 108,
-      "timing_ms": 8.06,
-      "gate": 0.9598
+      "velocity": 104,
+      "timing_ms": 2.69,
+      "gate": 0.9684
      }
     }
    },
@@ -7573,204 +7573,204 @@
    "performance": {
     "notes": {
      "db_spic_b024_n000": {
-      "velocity": 91,
-      "timing_ms": 7.91,
-      "gate": 0.6066
+      "velocity": 83,
+      "timing_ms": 2.19,
+      "gate": 0.5946
      },
      "db_spic_b024_n001": {
-      "velocity": 80,
-      "timing_ms": 7.28,
-      "gate": 0.6036
+      "velocity": 73,
+      "timing_ms": 5.49,
+      "gate": 0.5901
      },
      "db_spic_b024_n002": {
-      "velocity": 79,
-      "timing_ms": 5.84,
-      "gate": 0.5847
+      "velocity": 75,
+      "timing_ms": 12.13,
+      "gate": 0.5786
      },
      "db_spic_b024_n003": {
-      "velocity": 79,
-      "timing_ms": 7.15,
-      "gate": 0.5966
+      "velocity": 77,
+      "timing_ms": 7.1,
+      "gate": 0.5851
      },
      "db_spic_b024_n004": {
-      "velocity": 81,
-      "timing_ms": 8.18,
-      "gate": 0.5865
+      "velocity": 80,
+      "timing_ms": 9.45,
+      "gate": 0.5869
      },
      "db_spic_b024_n005": {
-      "velocity": 79,
-      "timing_ms": 3.52,
-      "gate": 0.5916
+      "velocity": 77,
+      "timing_ms": 6.74,
+      "gate": 0.6021
      },
      "db_spic_b024_n006": {
-      "velocity": 82,
-      "timing_ms": 11.56,
-      "gate": 0.5871
+      "velocity": 81,
+      "timing_ms": 7.95,
+      "gate": 0.601
      },
      "db_spic_b024_n007": {
-      "velocity": 80,
-      "timing_ms": 6.64,
-      "gate": 0.6174
+      "velocity": 82,
+      "timing_ms": 6.61,
+      "gate": 0.5804
      },
      "db_spic_b025_n008": {
-      "velocity": 84,
-      "timing_ms": 9.97,
-      "gate": 0.6163
+      "velocity": 89,
+      "timing_ms": 4.61,
+      "gate": 0.5928
      },
      "db_spic_b025_n009": {
-      "velocity": 82,
-      "timing_ms": 0.83,
-      "gate": 0.6028
+      "velocity": 87,
+      "timing_ms": 4.01,
+      "gate": 0.5877
      },
      "db_spic_b025_n010": {
-      "velocity": 88,
-      "timing_ms": -1.98,
-      "gate": 0.5968
+      "velocity": 90,
+      "timing_ms": 4.71,
+      "gate": 0.5911
      },
      "db_spic_b025_n011": {
-      "velocity": 90,
-      "timing_ms": 4.05,
-      "gate": 0.5968
+      "velocity": 88,
+      "timing_ms": 0.03,
+      "gate": 0.5944
      },
      "db_spic_b025_n012": {
-      "velocity": 90,
-      "timing_ms": 2.18,
-      "gate": 0.6012
+      "velocity": 88,
+      "timing_ms": 0.86,
+      "gate": 0.5892
      },
      "db_spic_b025_n013": {
-      "velocity": 84,
-      "timing_ms": 6.03,
-      "gate": 0.6052
+      "velocity": 85,
+      "timing_ms": 3.65,
+      "gate": 0.5852
      },
      "db_spic_b025_n014": {
-      "velocity": 87,
-      "timing_ms": 8.04,
-      "gate": 0.5902
+      "velocity": 92,
+      "timing_ms": 1.56,
+      "gate": 0.5935
      },
      "db_spic_b025_n015": {
-      "velocity": 90,
-      "timing_ms": 3.78,
-      "gate": 0.5985
-     },
-     "db_spic_b026_n016": {
-      "velocity": 91,
-      "timing_ms": 1.29,
-      "gate": 0.6355
-     },
-     "db_spic_b026_n017": {
-      "velocity": 88,
-      "timing_ms": 4.35,
-      "gate": 0.599
-     },
-     "db_spic_b026_n018": {
-      "velocity": 88,
-      "timing_ms": 2.88,
-      "gate": 0.5919
-     },
-     "db_spic_b026_n019": {
-      "velocity": 89,
-      "timing_ms": 3.06,
-      "gate": 0.5837
-     },
-     "db_spic_b026_n020": {
-      "velocity": 88,
-      "timing_ms": 1.93,
-      "gate": 0.5913
-     },
-     "db_spic_b026_n021": {
-      "velocity": 94,
-      "timing_ms": 4.65,
-      "gate": 0.6079
-     },
-     "db_spic_b026_n022": {
-      "velocity": 94,
-      "timing_ms": 0.47,
-      "gate": 0.6237
-     },
-     "db_spic_b026_n023": {
-      "velocity": 93,
-      "timing_ms": -2.11,
-      "gate": 0.6018
-     },
-     "db_spic_b027_n024": {
-      "velocity": 95,
-      "timing_ms": -3.63,
+      "velocity": 96,
+      "timing_ms": 7.77,
       "gate": 0.5977
      },
+     "db_spic_b026_n016": {
+      "velocity": 97,
+      "timing_ms": 4.71,
+      "gate": 0.5936
+     },
+     "db_spic_b026_n017": {
+      "velocity": 93,
+      "timing_ms": 4.46,
+      "gate": 0.5895
+     },
+     "db_spic_b026_n018": {
+      "velocity": 98,
+      "timing_ms": 5.37,
+      "gate": 0.5885
+     },
+     "db_spic_b026_n019": {
+      "velocity": 91,
+      "timing_ms": 2.63,
+      "gate": 0.593
+     },
+     "db_spic_b026_n020": {
+      "velocity": 95,
+      "timing_ms": 8.65,
+      "gate": 0.5963
+     },
+     "db_spic_b026_n021": {
+      "velocity": 93,
+      "timing_ms": 7.61,
+      "gate": 0.6032
+     },
+     "db_spic_b026_n022": {
+      "velocity": 97,
+      "timing_ms": 9.64,
+      "gate": 0.6016
+     },
+     "db_spic_b026_n023": {
+      "velocity": 96,
+      "timing_ms": 7.6,
+      "gate": 0.6053
+     },
+     "db_spic_b027_n024": {
+      "velocity": 100,
+      "timing_ms": 5.11,
+      "gate": 0.6127
+     },
      "db_spic_b027_n025": {
-      "velocity": 92,
-      "timing_ms": 3.42,
-      "gate": 0.5857
+      "velocity": 90,
+      "timing_ms": 2.72,
+      "gate": 0.6034
      },
      "db_spic_b027_n026": {
-      "velocity": 97,
-      "timing_ms": 4.22,
-      "gate": 0.5974
+      "velocity": 96,
+      "timing_ms": 3.32,
+      "gate": 0.6162
      },
      "db_spic_b027_n027": {
-      "velocity": 98,
-      "timing_ms": 0.27,
-      "gate": 0.5994
+      "velocity": 94,
+      "timing_ms": 5.0,
+      "gate": 0.6282
      },
      "db_spic_b027_n028": {
-      "velocity": 99,
-      "timing_ms": -0.23,
-      "gate": 0.6023
+      "velocity": 95,
+      "timing_ms": 0.64,
+      "gate": 0.6261
      },
      "db_spic_b027_n029": {
-      "velocity": 94,
-      "timing_ms": 2.53,
-      "gate": 0.6108
-     },
-     "db_spic_b027_n030": {
-      "velocity": 100,
-      "timing_ms": 12.03,
-      "gate": 0.6101
-     },
-     "db_spic_b027_n031": {
-      "velocity": 100,
-      "timing_ms": 4.51,
+      "velocity": 98,
+      "timing_ms": -0.08,
       "gate": 0.6175
      },
+     "db_spic_b027_n030": {
+      "velocity": 94,
+      "timing_ms": 6.05,
+      "gate": 0.618
+     },
+     "db_spic_b027_n031": {
+      "velocity": 97,
+      "timing_ms": 7.78,
+      "gate": 0.616
+     },
      "db_spic_b028_n032": {
-      "velocity": 105,
-      "timing_ms": 4.24,
-      "gate": 0.5898
+      "velocity": 101,
+      "timing_ms": 2.09,
+      "gate": 0.609
      },
      "db_spic_b028_n033": {
-      "velocity": 99,
-      "timing_ms": 7.37,
-      "gate": 0.5874
+      "velocity": 96,
+      "timing_ms": 0.67,
+      "gate": 0.6086
      },
      "db_spic_b028_n034": {
-      "velocity": 104,
-      "timing_ms": 7.87,
-      "gate": 0.6131
+      "velocity": 100,
+      "timing_ms": 0.09,
+      "gate": 0.5946
      },
      "db_spic_b028_n035": {
-      "velocity": 101,
-      "timing_ms": 8.98,
-      "gate": 0.5949
+      "velocity": 96,
+      "timing_ms": -2.1,
+      "gate": 0.6021
      },
      "db_spic_b028_n036": {
-      "velocity": 103,
-      "timing_ms": -1.34,
-      "gate": 0.6005
+      "velocity": 97,
+      "timing_ms": -2.02,
+      "gate": 0.6141
      },
      "db_spic_b028_n037": {
       "velocity": 100,
-      "timing_ms": 1.13,
-      "gate": 0.5765
+      "timing_ms": -2.52,
+      "gate": 0.5972
      },
      "db_spic_b028_n038": {
-      "velocity": 100,
-      "timing_ms": 0.56,
-      "gate": 0.589
+      "velocity": 103,
+      "timing_ms": 1.31,
+      "gate": 0.6063
      },
      "db_spic_b028_n039": {
-      "velocity": 101,
-      "timing_ms": -0.24,
-      "gate": 0.6113
+      "velocity": 100,
+      "timing_ms": 0.68,
+      "gate": 0.6085
      }
     }
    },

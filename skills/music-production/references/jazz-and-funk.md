@@ -19,7 +19,7 @@ Settle these from the request, deciding what it leaves open and saying so:
   |---|---|
   | Swing | swung eighths whose ratio falls toward even eighths as the tempo rises (Friberg and Sundström 2002), walking bass |
   | Bossa nova | straight eighths, a syncopated guitar, the bass in a two-feel on 1 and 3 (Wikipedia, Bossa nova; TalkingBass 2019) |
-  | Blues | shuffle patterns and steady bass lines, the backbeat on 2 and 4 (Wikipedia, Blues); a slow blues in 12/8 |
+  | Blues | a shuffle over a steady bass line, the backbeat on 2 and 4 (Wikipedia, Blues); a slow blues in 12/8 |
   | Funk | sixteenths, everything on the One (Vincent 1996; Danielsen 2006) |
 
 - **Form.** A jazz performance usually plays the tune (the head), then solos over its chord changes, then the head again, with an intro and an ending or tag. Common tune forms are the 32-bar AABA and the 12-bar blues. A funk track is a groove of two or four bars with a contrasting bridge and breaks.
@@ -114,7 +114,7 @@ The blues is built on a repeating chord progression, the twelve-bar sequence mos
 
 ## Bossa nova
 
-Bossa nova is a relaxed style of samba from Rio de Janeiro in the late 1950s, played on the nylon-string classical guitar with the fingers. Its core is the guitar beat, the batida, which takes one layer of the samba ensemble, the tamborim, into the picking hand (Wikipedia, Bossa nova).
+A relaxed kind of samba born in late-1950s Rio de Janeiro, bossa nova is played with the fingers on a classical guitar with nylon strings. Its core is the guitar beat, the batida, which takes one layer of the samba ensemble, the tamborim, into the picking hand (Wikipedia, Bossa nova).
 
 - **The guitar** (`iowa_guitar` 0:24, the nylon-string guitar in [soundbanks.md](soundbanks.md)).
   - The thumb keeps the bass regular: the root on beats 1 and 3, or the root and then the fifth. `blocks.accompaniment` with `figure='batida'` writes the chords' beat ([building-blocks.md](building-blocks.md)).

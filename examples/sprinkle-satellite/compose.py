@@ -1077,7 +1077,7 @@ overrides = {
     'fx_rise': None, 'fx_rev': None, 'fx_down': None, 'fx_hit': None,
 }
 expression.apply(project, overrides, seed=SEED)
-decide('musiclib.expression adds small long-range timing and dynamics drift; the grid stays straight (no swing), kick '
+decide('musiclib.expression adds small timing deviation that keeps to the beat and a slow dynamics drift; the grid stays straight (no swing), kick '
        'and 808 kept tight, chord spread kept to a few ms as synth chords are struck by a sequencer.')
 project['decisions'] = DECISIONS
 

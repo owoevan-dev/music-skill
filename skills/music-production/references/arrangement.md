@@ -38,7 +38,7 @@ Arrivals and held notes (cadences, predominants and colour chords are in [harmon
 - **Arrivals.** Anchor important arrivals in the harmony.
 - **Notes outside the chord** embellish chord tones (Open Music Theory):
   - passing and neighbour tones move by step;
-  - an appoggiatura usually falls on a strong part of the beat;
+  - an appoggiatura usually takes the strong part of a beat;
   - a suspension is held over the change and resolves down by step.
 - **A held note crossing a chord change** becomes one of four things:
   - a common tone;
@@ -48,10 +48,10 @@ Arrivals and held notes (cadences, predominants and colour chords are in [harmon
 
 **Voicing chords by their actual parts** (Open Music Theory, Jazz Voicings):
 
-- **Spacing.** Wide intervals low and close ones high, after the harmonic series; notes close together in a low register sound muddy. Low interval limits give the lowest pitch for each close interval (Hoffmann, in [development-and-groove.md](development-and-groove.md)); `review` lists close intervals under them.
+- **Spacing.** Wide intervals low and close ones high, after the harmonic series; close intervals placed low sound muddy. Low interval limits give the lowest pitch for each close interval (Hoffmann, in [development-and-groove.md](development-and-groove.md)); `review` lists close intervals under them.
 - **Doubling.** Double the bass note or the root.
 - **Omitting tones.** Leave out the fifth first, and the root where a bass plays it.
-- **Motion.** Move each voice as little as possible: common tones held, then steps. Use leaps sparingly, for contrast.
+- **Motion.** Give each voice the shortest way to its next note: common tones held, then steps. Use leaps sparingly, for contrast.
 - **Slash chords.** A slash chord names the bass note. It does not make that note the root of a new guitar chord.
 - **Staggered changes.** When every sustained part changes on the downbeat, the change draws the ear less than when some parts move on other beats (Senior 2020).
 - **The tool.** `musiclib.voicing.voice_lead` finds such voicings for a whole progression ([development-and-groove.md](development-and-groove.md)).
@@ -85,7 +85,7 @@ Each part can be voiced correctly on its own while the ensemble still rubs. Meas
 - a held F♯ sat under the melody's G;
 - 153 cross-part minor seconds and ninths in all, none visible part by part.
 
-The practice behind the fixes: a tone a semitone above a chord tone (a minor ninth above it, an octave higher) is the jazz "avoid note", heard as a dissonance. An F over a C major chord sits a semitone above its third (Wikipedia, Avoid note, citing Nettles 1987 and Terefenko 2017). Tones are omitted to avoid excessive dissonance with other important chord members (Open Music Theory, Jazz Voicings). What fixed that piece:
+The practice behind the fixes: a tone a semitone above a chord tone (a minor ninth above it, an octave higher) is the jazz "avoid note", heard as a dissonance. An F over a C major chord sits a semitone above its third (Wikipedia, Avoid note, citing Nettles 1987 and Terefenko 2017). A voicing leaves out a tone that would clash too strongly with a more important member of the chord (Open Music Theory, Jazz Voicings). What fixed that piece:
 
 - **Voice parts in dependency order:** foreground, bass, rhythm guitars, held strings, pads, piano, accents. Each later voicing avoids a minor second or minor ninth against anything already sounding.
   - Prefer dropping a colour tone, or moving the seventh above the root, to keeping a complete chord that clashes.

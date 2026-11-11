@@ -61,7 +61,7 @@ section id:
 | Setting | Values | From |
 |---|---|---|
 | `feel` | one of `blocks.FEELS` ([below](#the-drummers-feels)) | the drummers' statistics |
-| `backbeat` | `normal` (2 and 4; beat 3 in triple meter), `half` (beat 3), `double` (every off-beat eighth), `dembow` (the last two parts of a tresillo, each half-bar, with `kick` `four_floor`), `blast` (every second sixteenth, the kick between), `eighths` (every eighth), `none` | the most stable layer: Open Music Theory; the blasts: Wikipedia, Blast beat |
+| `backbeat` | `normal` (2 and 4; beat 3 in triple meter), `half` (beat 3), `double` (every off-beat eighth), `dembow` (a tresillo's second and third parts, each half-bar, with `kick` `four_floor`), `blast` (every second sixteenth, the kick between), `eighths` (every eighth), `none` | the most stable layer: Open Music Theory; the blasts: Wikipedia, Blast beat |
 | `kick` | `one_three`, `four_floor`, `syncopated` (the downbeat, the rest where the feel puts its kicks), `tresillo` (3+3+2 eighths), `euclidean` (an even spread, rotated: Toussaint 2005), `eighths` (every eighth), `double` (every sixteenth, the double kick), `none` | the most flexible layer, often syncopated, still on the downbeat: Open Music Theory; the double kick: [rock-and-metal.md](rock-and-metal.md) |
 | `pulse` | `quarter`, `eighth`, `sixteenth`, `offbeat`, `feel` (the cymbal where the feel's drummers played it, step by step in proportion), `none` | the cymbals' regular pulse: Open Music Theory |
 | `cymbal` | `closed_hat`, `open_hat`, `ride`, `shaker` (the shaker takes the closed hat's accents) | |

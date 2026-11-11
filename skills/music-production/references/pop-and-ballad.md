@@ -30,9 +30,9 @@ Settle these from the request, deciding what it leaves open and saying so:
 - **Get to the hook early.** Léveillé Gauvin (2018) measured 303 US top-10 singles from 1986 to 2015. Their instrumental intros shrank from about 20 seconds in the mid-1980s to about 5 seconds. Start with the hook, or keep the intro short.
 - **Verse, pre-chorus, chorus** (Open Music Theory, Verse-Chorus Form):
   - Verses tend to begin on the tonic.
-  - The pre-chorus gains energy toward the chorus through four devices: fragmentation, a faster harmonic rhythm, movement away from the tonic, and an open ending (Summach 2011). [anime-opening.md](anime-opening.md) lists them with the J-pop build.
-  - The chorus has a heightened intensity relative to the verse: a denser or more active texture, and/or a higher melody (Summach 2012). Choruses most often begin on the tonic.
-- **Bridge.** In verse-chorus form a bridge appears once, if at all, and is followed by the last chorus. It replaces the verse or pre-chorus of its cycle (Open Music Theory).
+  - The pre-chorus gains energy toward the chorus through four devices: shorter units, chords that change faster, harmony that leaves the tonic, and an ending left open (Summach 2011). [anime-opening.md](anime-opening.md) lists them with the J-pop build.
+  - The chorus is more intense than the verse: a fuller or busier texture, a higher melody, or both (Summach 2012). Choruses most often begin on the tonic.
+- **Bridge.** In verse-chorus form a bridge appears once, if at all, with the last chorus after it. It replaces the verse or pre-chorus of its cycle (Open Music Theory).
 - **Final chorus.** Bigger than the first: keep some layers back for it, such as strings, a countermelody or a sub-bass layer, so the song has somewhere to build (Senior 2024).
 
 An example layout for an instrumental ballad at 72 BPM, where a 4/4 bar lasts 3.33 s: 29 to 34 bars, about 97 to 113 seconds before the last chord rings out. For 90 seconds (27 bars), make the intro and the turn one bar each, the final chorus four and the tag one.
@@ -49,7 +49,7 @@ An example layout for an instrumental ballad at 72 BPM, where a 4/4 bar lasts 3.
 
 ## Harmony
 
-- **Loops.** I, IV, V and vi are probably the most common chords in pop. Open Music Theory names the four-chord schemas they form, each with its own sound:
+- **Loops.** Four chords, I, IV, V and vi, probably turn up in pop more than any others. Open Music Theory names the four-chord schemas they form, each with its own sound:
   - **doo-wop:** I–vi–IV–V, common in 1960s pop; ii can replace IV;
   - **singer/songwriter:** I–V–vi–IV or vi–IV–I–V, common from the mid-1990s. Without an authentic cadence it can leave the tonic ambiguous between the major key and its relative minor;
   - **hopscotch:** IV–V–vi–I, common since 2010.
@@ -57,7 +57,7 @@ An example layout for an instrumental ballad at 72 BPM, where a 4/4 bar lasts 3.
   The royal road, IV–V–iii–vi, is in [anime-opening.md](anime-opening.md).
 - **Plagal and Mixolydian colour.** In a corpus of 100 rock songs, IV was the most common chord after I, especially right before the tonic, and ♭VII was the most common root outside the major scale (de Clercq and Temperley 2011). So IV–I and ♭VII–I sound like pop and rock more than every cadence on V–I ([rock-and-metal.md](rock-and-metal.md)).
 - **The key change** (Dalla Riva 2022, 2025):
-  - **The lift.** Moving the key up a half or a whole step near the end of the song was the most common key change for decades: 52% of the key changes in US number-one hits from 1958 to 1990.
+  - **The lift.** Moving the key up a half or a whole step late in the song was the most common key change for decades: 52% of the key changes in US number-one hits from 1958 to 1990.
   - **Then and now.** From 1960 to 1995, 20–35% of each year's number ones changed key. From 2010 to 2020 only one did, and a few have returned since.
   - **So** treat the last-chorus lift as a choice, not a default.
 
@@ -79,7 +79,7 @@ An example layout for an instrumental ballad at 72 BPM, where a 4/4 bar lasts 3.
 ## Rhythm and drums
 
 - **The beat** (Open Music Theory, Drumbeats):
-  - Most pop drumbeats keep a backbeat, an accent on beats 2 and 4 played by the snare.
+  - Most pop drumbeats keep a backbeat: the snare accents beats 2 and 4.
   - Common beats besides the basic rock beat are double-time, half-time and four-on-the-floor.
 - **The arrival.** Reserving the drums for a later section gives the song room to build (Senior 2024). A drum pattern usually changes from section to section, and a small fill at the end of an eight-bar section leads into the next (Dow 2010).
 - **Tight drums and ghost notes.** Small timing deviations did not make a simple pattern groove more (Frühauf, Kopiez and Platz 2013). Keep the kit tight. Ghost notes are quiet hits between the main ones, and velocities rise toward the end of a bar or a verse (Dow 2010).

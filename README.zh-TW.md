@@ -26,22 +26,24 @@ music-skill 是一個 [Agent Skill](https://agentskills.io)，讓 AI agent 像�
 整個過程沒有用到任何音訊生成模型。除了 MP3 和 WAV，你還會拿到 MIDI、每個聲部各自的音軌，以及一份專案檔：裡面任何一個音都能改，改完再重新渲染。
 
 <p align="center">
-  <img src="docs/images/fughetta-on-a-lantern-theme.png" alt="《Fughetta on a Lantern Theme》的每一個音依聲部排列，上方標出段落：紅色是主題，依序在第一小提琴、第二小提琴、中提琴和大提琴進入，之後在 F 大調、G 小調和曲末的低音聲部再出現">
+  <img src="docs/images/cairnfire.png" alt="《Cairnfire》（管弦樂序曲）的一個瞬間，直接從專案檔畫出：每個音是鋼琴捲簾上的一條，弦樂藍色、木管綠色、銅管橘色，上方是樂曲的段落，下方是各聲部的名稱，正在演奏的會亮起">
 </p>
 
 ## 試聽
 
-以下每一首都由 Claude（Opus 5.5，xhigh effort）用這個 skill 的 0.3.0 版，從一句題材和[所有 agent 共用的規則](examples/agent-rules.md)、單次執行做成。曲名、曲式、樂器和音色都由它自己決定，每個音都是它寫的，審查、渲染和修改也都由它自己完成，沒有人修改過成品。每個範例資料夾都有 prompt、agent 的腳本和渲染時的專案檔。
+以下每一首都是用這個 skill 的 0.6.0 版、由標示的模型單次完成的，只給了一則訊息：[七首共用的開頭](examples/prompt.md)，加上三四句的需求。曲名、曲式、樂器和音色都由 agent 自己決定，每個音都是它寫的，審查、渲染和修改也都由它自己完成；製作期間沒有人回覆它，成品也沒有人修改過。七首全部都在這裡，沒有從多首裡挑選。每個範例資料夾都有需求原文、agent 的腳本和渲染時的專案檔。
 
-**[《Fughetta on a Lantern Theme》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/fughetta-on-a-lantern-theme.mp3)**（1:55），題材是「巴洛克風格的大鍵琴與弦樂小品，聲部之間要有模仿對位」：先是莊板（Grave）序奏，接著是 D 小調的小賦格，主題依序在四個弦樂聲部進入（[範例](examples/fughetta-on-a-lantern-theme)）。
-
-- [《Platform in the Snowmelt》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/platform-in-the-snowmelt.mp3)（4:37），題材是「像動畫片尾曲的日系抒情曲，鋼琴和弦樂為主，安靜開始，最後一次副歌情緒最滿」（[範例](examples/platform-in-the-snowmelt)）
-- [《Sodium Lights》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sodium-lights.mp3)（4:28），題材是「日系 city pop，夜晚開車兜風的都會感」（[範例](examples/sodium-lights)）
-- [《Sprinkle Satellite》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sprinkle-satellite.mp3)（2:30），題材是「可愛系 future bass，明亮的和弦和輕快的 drop」（[範例](examples/sprinkle-satellite)）
+- [《Stormglass Gambit》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/stormglass-gambit.mp3)（3:07），Claude Fable 5.2，xhigh effort：可循環的合成器遊戲戰鬥曲（[範例](examples/stormglass-gambit)）
+- [《Cairnfire》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/cairnfire.mp3)（4:29），Claude Fable 5.2，xhigh effort：給完整管弦樂團的音樂會序曲，共 36 個聲部（[範例](examples/cairnfire)）
+- [《Glass Towers, Low Gear》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/glass-towers-low-gear.mp3)（3:03），Claude Opus 5.5，xhigh effort：city pop，夜晚開車穿過燈火通明的城市（[範例](examples/glass-towers-low-gear)）
+- [《The Stone Vault Turns to Light》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/the-stone-vault-turns-to-light.mp3)（3:56），GPT-6 Astra，xhigh effort：管風琴觸技曲（[範例](examples/the-stone-vault-turns-to-light)）
+- [《Paper Lantern Hours》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/paper-lantern-hours.mp3)（2:10），Claude Sonnet 5.5，medium effort：可循環的 lo-fi hip-hop（[範例](examples/paper-lantern-hours)）
+- [《Fughetta in D minor》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/fughetta-in-d-minor.mp3)（2:00），Claude Opus 5.5，medium effort：巴洛克風格的小賦格，大鍵琴與弦樂（[範例](examples/fughetta-in-d-minor)）
+- [《Skybutton Speedway》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/skybutton-speedway.mp3)（1:31），GPT-6 Luna，max effort：8-bit 晶片音樂的標題畫面曲，90 秒循環（[範例](examples/skybutton-speedway)）
 
 [原版與修改版對照](examples/before-after) 把一首小曲改掉一個音，再用 `compare` 列出渲染裡跟著變的所有地方：那個聲部、它的匯流排、殘響尾巴和母帶。
 
-錄音是 MP3 檔，可以從 release [examples-3](https://github.com/owoevan-dev/music-skill/releases/tag/examples-3) 下載。
+錄音是 MP3 檔，可以從 release [examples-4](https://github.com/owoevan-dev/music-skill/releases/tag/examples-4) 下載。
 
 ## 快速開始
 
@@ -58,7 +60,7 @@ music-skill 是一個 [Agent Skill](https://agentskills.io)，讓 AI agent 像�
 
    > 幫我的 RPG 寫一首一分鐘、可以循環的城鎮主題：直笛、豎琴和輕柔的弦樂。
 
-你會拿到 MP3 和 WAV、MIDI、每個聲部的分軌、加起來就是完整混音的匯流排與殘響回送，以及專案檔。在一台 24 執行緒的筆電上，上面的範例從零開始渲染，每首花了半分鐘（小賦格）到兩分半（city pop）。
+你會拿到 MP3 和 WAV、MIDI、每個聲部的分軌、加起來就是完整混音的匯流排與殘響回送，以及專案檔。在一台 24 執行緒的筆電上，上面的範例從零開始渲染，每首花了 22 秒（小賦格）到 108 秒（36 個聲部的序曲）。
 
 ## 為什麼不直接生成？
 

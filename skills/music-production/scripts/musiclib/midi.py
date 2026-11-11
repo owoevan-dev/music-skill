@@ -40,7 +40,7 @@ def write(project,path,tracks=None,expressive=True,single_stem=False,render=Fals
     program/bank and `key_map` remaps pitches; a drum part whose patch is not bank 128 plays on a
     melodic channel; with `keys` (a preset's recordings per key, musiclib/variation.py) a part with
     `performance.round_robin` plays repeated notes on neighbouring keys, on channels 1-4 with the wheel
-    holding them at pitch; with `cycles` (variation.velocity_cycles) repeated hits step through the
+    holding them at pitch; with `cycles` (variation.velocity_cycles) each hit takes one of the
     bank's recorded round robins.  Exports for people keep the authored identity."""
     clock=Clock(project)
     tracks=project['tracks'] if tracks is None else tracks
@@ -74,7 +74,7 @@ def write(project,path,tracks=None,expressive=True,single_stem=False,render=Fals
         if render and t.get('key_map'):notes=remap(notes,t['key_map'])
         if render and cycles:
             notes=sorted(notes,key=lambda n:(n['tick'],n['pitch']))
-            notes=[{**n,'velocity':v} for n,v in zip(notes,variation.cycle_velocities(notes,cycles))]
+            notes=[{**n,'velocity':v} for n,v in zip(notes,variation.take_velocities(notes,cycles))]
         if render and expressive and t['performance'].get('legato'):
             # Synthesis only: slurred notes sound as one sample with the pitch carried by the wheel.
             notes,slurs=legato_notes(t,notes,clock)

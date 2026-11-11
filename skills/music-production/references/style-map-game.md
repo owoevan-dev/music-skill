@@ -52,7 +52,7 @@ Music for a town or a village. `game/town`
 | `melody` | no source read | |
 | `rhythm` | no source read | |
 | `timbre` | no source read | |
-| `form` | period structures, more likely here than in the other places; with the cadences, a sense of balance and rest largely absent from the others | Elkins 2020 |
+| `form` | phrases in pairs, the second closing more firmly than the first (the period), commoner in towns than in the other two places; the pairing and its cadences give a town its settled feel | Elkins 2020 |
 | `mix` | no source read | |
 
 - **In this skill**: the period's antecedent and consequent, the first closing on a weaker cadence and the second on
@@ -71,7 +71,7 @@ Music for exploring the world between the towns and the dungeons. `game/overworl
 | `melody` | no source read | |
 | `rhythm` | no source read | |
 | `timbre` | no source read | |
-| `form` | more likely to consist of sentential structures, with the forward-oriented, dynamic character Vande Moortele (2011) gives the sentence, where the town's music has periods | Elkins 2020 |
+| `form` | the sentence where a town has the period: a form that presses on toward its close (Vande Moortele 2011 on the sentence), which suits music for travelling | Elkins 2020 |
 | `mix` | no source read | |
 
 - **In this skill**: the sentence, a basic idea stated and repeated, then a continuation that fragments it and drives
@@ -86,11 +86,11 @@ Music for a dungeon, a cave or a tower. `game/dungeon`
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | no source read | |
-| `harmony` | tonally static or ambiguous harmonies; a lack of functional harmony | Elkins 2020 |
+| `harmony` | chords that stay where they are or leave the key unclear, without the pull of functional progressions | Elkins 2020 |
 | `melody` | no source read | |
 | `rhythm` | no source read | |
 | `timbre` | no source read | |
-| `form` | a significant amount of internal repetition | Elkins 2020 |
+| `form` | much repeating inside the cue | Elkins 2020 |
 | `mix` | no source read | |
 
 - **In this skill**: harmony that does not progress toward a cadence, a drone or pedal under it

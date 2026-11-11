@@ -968,6 +968,15 @@ def checks(work,config=None):
         # is never read (no render exists here).
         held(two_,[(0,2)]);quieter=mixbus.written_energies(w,Clock(w))
         assert abs(quieter[1]['hall']-10**-3*1*10**-1)<2e-3*quieter[1]['hall']
+        # A part played backwards fills its written span whatever its notes' gates say (render.reversed_notes), so
+        # it counts for the written span: the same for a gate of 0.1 as for 1.0 (it had followed the gate, and the
+        # clarity of a piece moved by 7 dB with a field the renderer does not read: a review of 0.6.0).
+        backwards=[]
+        for gate in (.1,1.0):
+            held(two_,[(0,4)]);two_['reverse']=True;two_['performance']['notes'][two_['notes'][0]['id']]['gate']=gate
+            backwards.append(mixbus.written_energies(w,Clock(w))[1]['hall'])
+        assert backwards[0]==backwards[1] and abs(backwards[0]-10**-3*2*10**-1)<2e-3*backwards[0],backwards
+        two_.pop('reverse')
         # A part whose notes are gone sends nothing: no clarity can be set, and the record says not reached.
         two_['notes']=[];two_['performance']['notes']={};none_=mixbus.clarity_setting(w,Clock(w),response)
         assert none_['gain_db']==0 and none_['c80_db'] is None and not none_['c80_reached'] and none_['c80_asked_db']==20,none_
@@ -1181,6 +1190,19 @@ def checks(work,config=None):
         extra['notes']=[{**n,'id':'x_'+n['id']} for n in extra['notes']];extra['performance']={**extra['performance'],'notes':{'x_'+k:dict(v) for k,v in extra['performance']['notes'].items()}}
         both['tracks'].append(extra);expression.apply(alone,seed=3,drift='time');expression.apply(both,seed=3,drift='time')
         assert all(a['performance']['notes']==b['performance']['notes'] for a,b in zip(alone['tracks'],both['tracks']))
+        # Onsets nearer than a sixteenth note share a slot of the grid, and each still has a motor delay of its own:
+        # eight thirty-second notes with the slow line off move by eight different amounts (they had taken their
+        # slot's, the same for two or three of them: a review of 0.6.0).  The delay is the onset's own, so the same
+        # onsets in a longer line keep theirs.
+        def thirty_seconds(count):
+            q=example();part=copy.deepcopy(next(x for x in q['tracks'] if x.get('role')=='melody'))
+            part['notes']=[{**part['notes'][0],'id':f'm{k}','on':k*.125,'duration':.1,'pitch':60+k%12} for k in range(count)]
+            part['performance']={**part['performance'],'notes':{n['id']:{'velocity':80,'gate':1.0,'timing_ms':0} for n in part['notes']}}
+            q['tracks']=[part]
+            expression.apply(q,{part['id']:{'timing_sd':0,'short_sd':5,'feel':0,'spread':0,'lead':0,'vel_pct':0,'arch':0,'high_loud':0,'gate_sd':0,'contrast':0}},seed=7,drift='time')
+            return [part['performance']['notes'][f'm{k}']['timing_ms'] for k in range(count)]
+        eight,sixteen=thirty_seconds(8),thirty_seconds(16)
+        assert len(set(eight))==8 and sixteen[:8]==eight,(eight,sixteen)
         return {'a_beat_apart':round(ac(slow,2),3),'motor_delays_lag_1':round(ac(motor,1),3),'level_power_by_decade':[round(v,2) for v in level],
                 'loudness_power_by_decade':[round(v,2) for v in rising]}
     check('timing_keeps_to_the_beat_by_phase_correction',keeps_to_the_beat)
@@ -1538,16 +1560,23 @@ def checks(work,config=None):
         cells=variation.cycle_layers(row);flat=variation.cycle_layers([set()]+[{v} for v in range(1,128)])
         assert cells[5][:3]==(1,20,4) and cells[30][:3]==(21,40,4) and cells[50] is None and flat[64][2]==1,(cells[5],cells[30],flat[64])
         cycles={38:cells,40:flat}
-        # A groove at one velocity per role: each later hit on a key takes the layer's next take, a step or two away,
-        # inside its layer; the two dynamics rotate apart; a velocity-layered key keeps its velocities.
-        notes=[{'pitch':38,'velocity':10 if i%2==0 else 35} for i in range(12)]+[{'pitch':40,'velocity':64} for _ in range(4)]
-        out=variation.cycle_velocities(notes,cycles)
-        takes=[row[v] for v in out[:12]]
-        soft=[next(iter(t))[1] for t,n in zip(takes,notes) if n['velocity']==10];loud=[next(iter(t))[1] for t,n in zip(takes,notes) if n['velocity']==35]
-        assert soft==[1,2,3,0,1,2] and loud==[2,3,0,1,2,3],(soft,loud)
-        assert all(abs(v-n['velocity'])<=2 and cells[v][0]==cells[n['velocity']][0] for v,n in zip(out[:12],notes)) and out[12:]==[64]*4,out
-        return {'soft_takes':soft,'loud_takes':loud,'largest_step':max(abs(v-n['velocity']) for v,n in zip(out,notes))}
-    check('drum_hits_cycle_their_recorded_round_robins',drum_round_robins)
+        # A groove at one velocity per role: each hit takes one of its layer's four takes by a draw of its own, a step
+        # or two away inside its layer; a velocity-layered key keeps its velocities.
+        notes=[{'id':f'h{i}','tick':i*240,'pitch':38,'velocity':10 if i%2==0 else 35} for i in range(400)]+[{'id':f'k{i}','tick':i*240,'pitch':40,'velocity':64} for i in range(4)]
+        out=variation.take_velocities(notes,cycles)
+        takes=[next(iter(row[v]))[1] for v in out[:400]]
+        assert all(abs(v-n['velocity'])<=3 and cells[v][0]==cells[n['velocity']][0] for v,n in zip(out[:400],notes)) and out[400:]==[64]*4,out[:12]
+        # The take is the hit's own: the same on a second run, the same when another hit is taken away, and the draw
+        # worked out here by hand from the hit's id, pitch and tick.
+        import hashlib
+        by_hand=[int(hashlib.sha256(f"{n['id']}:{n['pitch']}:{n['tick']}".encode()).hexdigest()[:8],16)%4 for n in notes[:400]]
+        assert takes==by_hand and variation.take_velocities(notes,cycles)==out and variation.take_velocities(notes[1:],cycles)==out[1:]
+        # All four takes are used about equally, and a hit has the take of the hit before it about one time in four:
+        # no take is stepped to in order (0, 1, 2, 3 after one another would never repeat and would always be next).
+        share=[takes.count(k)/400 for k in range(4)];again=sum(a==b for a,b in zip(takes,takes[1:]))/399;nexts=sum((a+1)%4==b for a,b in zip(takes,takes[1:]))/399
+        assert all(.17<s<.33 for s in share) and .15<again<.35 and .15<nexts<.35,(share,again,nexts)
+        return {'take_shares':[round(s,3) for s in share],'same_as_the_hit_before':round(again,3),'largest_step':max(abs(v-n['velocity']) for v,n in zip(out,notes))}
+    check('drum_hits_take_their_recorded_takes_by_their_own_draw',drum_round_robins)
     def surge_state():
         import re
         from musiclib import surge
@@ -5022,7 +5051,7 @@ def checks(work,config=None):
         def rules_2_render():
             # The mix's rules of version 2 (0.6): the buses' chains of version 1 with the saturation between two
             # resamplers, a master with one true-peak limiter and no delay, and a clarity where a project asks one,
-            # set from the project file.  Nothing is set from a measurement of the audio.  The same project under
+            # set from the project file.  None of these is set from a measurement of the audio.  The same project under
             # version 1 stays as it was (render_bus above: checked there).
             from musiclib import loop,mixbus,measure
             from musiclib import summary as said
@@ -5090,6 +5119,9 @@ def checks(work,config=None):
             wide=copy.deepcopy(q);wide['mix'].update(dynamics='wide',target_lufs=-18);save_json(work/'rules2_wide.json',wide)
             w=render(work/'rules2_wide.json',work/'render_rules2_wide',config,cache,draft=True)
             assert all(w['checks'].values()) and 'alimiter' not in w['mastering']['delivery_chain'] and w['mastering']['rules']==2 and w['buses']['rules']['reverb'] is None,w['mastering']
+            # A wide mix compresses no bus: its record names no lead threshold and its summary says none (it named the
+            # threshold of a compressor that was not there: a review of 0.6.0).
+            assert w['buses']['rules']['lead_threshold_dbfs'] is None and 'lead compressor' not in said.render(w,work/'render_rules2_wide') and '[sum_lead]anull[bus_lead]' in (work/'render_rules2_wide'/'mix.filtergraph.txt').read_text(encoding='utf-8')
             # Layers of a loop under version 2 read what the full mix set, add up to the loop, and need no delay: the
             # master has no look-ahead to trail by (under version 1 the master trails its layers by some 10 ms).
             ids=[t['id'] for t in q['tracks']];lq=copy.deepcopy(q);lq['loop']={'start_bar':0,'layers':{'base':ids[:2]+ids[4:],'top':ids[2:4]}}

@@ -85,7 +85,9 @@ DRUM_BUS = ['[sum_drums]asplit=2[dr_dry][dr_par]',
 # The mix's rules of version 2 (mix.rules: 2; 0.6).  The buses keep the compressors of version 1 as they are:
 # thresholds, ratios, attack, release and make-up are this skill's starting values from its first versions, and no
 # source read gives others.
-# Nothing in this version is set from a measurement of the piece's audio.  What changes:
+# None of what version 2 changes is set from a measurement of the piece's audio.  (What version 1 measures, version 2
+# still does: each stem is brought to its written level, the premix to the level the master chain works at, the master
+# to its loudness target, and a wide master's range_lu works from the measured loudness.)  What changes:
 # - the lead bus's compressor keeps its ratio and times and takes its threshold from the project: LEAD_OVER_WRITTEN_DB
 #   over the written level of the loudest lead part (lead_filter_2).  Version 1's threshold is one figure for every
 #   piece, so a lead written loud was compressed hard and a quiet one hardly: on this skill's test projects it took
@@ -95,8 +97,8 @@ DRUM_BUS = ['[sum_drums]asplit=2[dr_dry][dr_par]',
 #   measured stand beside the constants.  It is the usual way of setting a compressor, the threshold moved to match
 #   the signal's level and make-up gain then putting the level right (White, Inglis et al. 2003, Sound On Sound,
 #   "Using Your DAW's Compressors & Limiters"); here the level is the one the project writes.  The distance and the
-#   make-up are this skill's, from its own measurement.  A lead whose level is written as a peak (level_mode) stands
-#   under such a threshold and is not compressed;
+#   make-up are this skill's, from its own measurement.  One lead part whose level is written as a peak (level_mode)
+#   stands under such a threshold; several lead parts sounding together can still add up over it;
 # - a project that names how near it is to be heard (mix.c80_db, the clarity of measure.HALL_C80_DB's note) gets the
 #   one gain on its spaces' returns that gives it that C80, however far that is from what its sends were written at,
 #   up to C80_STEP_MAX_DB either way: it asked for it by name.  The clarity is worked out from the project file and
@@ -196,7 +198,10 @@ def rules(p):
 
 def lead_threshold_2(p):
     """The lead bus's compressor threshold (dBFS) under the rules of version 2: LEAD_OVER_WRITTEN_DB over the written
-    level of the loudest lead part that has notes, never over full scale; None when no lead part has notes."""
+    level of the loudest lead part that has notes, never over full scale; None when no lead part has notes, and in
+    a wide mix, where no bus compresses."""
+    if p['mix'].get('dynamics') == 'wide':
+        return None
     levels = [t['mix']['level_dbfs'] for t in p['tracks'] if bus_of(t) == 'lead' and t['notes']]
     return min(0.0, max(levels) + LEAD_OVER_WRITTEN_DB) if levels else None
 
@@ -215,11 +220,17 @@ def written_energies(p, clock):
     its written level and by the time its notes sound, 10^(level_dbfs / 10) times the seconds in which one of its
     notes is held, and what it sends into its space is that at its send's level (send_db).  A space no part sends to
     is left out.  Nothing is measured: a part counts as it is written, whatever its sound does within its notes (a
-    level written as a peak counts as if the part held it)."""
+    level written as a peak counts as if the part held it).  The time a note is held is the time the renderer holds
+    it: the performed span for a part played forwards, and for a part played backwards (`reverse`) the written span,
+    which render.reversed_notes fills whatever the note's gate and timing say."""
     dry, sent = 0.0, {}
     for t in p['tracks']:
         seconds, end = 0.0, 0.0
-        for a, b in sorted((n['start_seconds'], n['end_seconds']) for n in performed(t, clock)):
+        if t.get('reverse'):
+            spans = sorted((clock.seconds(n['on']), clock.seconds(n['on'] + n['duration'])) for n in t['notes'])
+        else:
+            spans = sorted((n['start_seconds'], n['end_seconds']) for n in performed(t, clock))
+        for a, b in spans:
             if b > end:
                 seconds += b - max(a, end)
                 end = b

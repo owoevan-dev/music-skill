@@ -196,9 +196,9 @@ def apply(project, overrides=None, seed=1, drift='notes'):
             gates = kept_to_the_beat(span, rng, prof['correction'], GRID)
             cycle = rng.uniform(-1, 1, 16)
             slot = {o: min(span - 1, max(0, int(round(o * GRID)))) for o in onsets}
-            # Each onset's motor delay, independent of the others, keyed by its slot: a note added or removed
-            # changes no other onset's.
-            fast_t = {o: float(rng_for(seed, f'{t["id"]}:short:{slot[o]}').standard_normal()) for o in onsets}
+            # Each onset's motor delay, independent of the others, keyed by the onset itself (not by its slot of the
+            # grid, which onsets nearer than a sixteenth share): a note added or removed changes no other onset's.
+            fast_t = {o: float(rng_for(seed, f'{t["id"]}:short:{o!r}').standard_normal()) for o in onsets}
         else:
             # One value per onset in order, drawn in this order, each as far from the last as the onsets are in beats.
             slot = {o: k for k, o in enumerate(onsets)}

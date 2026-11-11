@@ -100,7 +100,7 @@ Trevor, Arnal and Frühholz (2020) compared screams and other vocalizations with
 So use **high clusters for terror** and **low clusters for dread**.
 
 **Nonlinear sounds.**
-- Blumstein, Davitian and Kaye (2010) scored the soundtracks of highly ranked action, drama, horror and war films. Horror soundtracks had more noisy screams and non-musical sidebands (harsh, rough tones) than expected, and fewer abrupt frequency transitions; dramas had more of the transitions and less noise.
+- Blumstein, Davitian and Kaye (2010) scored the soundtracks of highly ranked action, drama, horror and war films. The horror soundtracks of their sample had more noisy screams and more of what they call "non-musical sidebands" than expected, and fewer abrupt frequency transitions; dramas had more of the transitions and less noise.
 - Noise or abrupt frequency shifts added to neutral music changed listeners' ratings of both arousal and valence. Paired with a benign video, only valence still fell, with the added noise or downward shifts (Blumstein, Bryant and Kaye 2012).
 - So with a picture, expect a harsh sound to darken a scene more than to excite it, and tie it to an event on screen.
 

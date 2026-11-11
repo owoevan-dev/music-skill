@@ -92,7 +92,8 @@ def k_level(x):
 # octaves, as the index is defined.  It is not a hall's: a generated space has no stage, no seats and no audience,
 # and the first reflections a part's stage depth adds to its dry sound count here as direct sound.  The two say the
 # same thing of the balance of early and late sound and nothing of a hall's other measures.  The parts enter as the
-# project writes them (mixbus.written_energies), never as their audio measures: the notes played do not change it.
+# project writes them (mixbus.written_energies), never as their audio measures: what a part's sound does within
+# its notes does not change it, and how long the notes are written does.
 HALL_C80_DB = (-2.0, 2.0)
 EARLY_S = .08
 MID_OCTAVES_HZ = (500.0, 1000.0, 2000.0)
@@ -194,9 +195,8 @@ def _k_block_response():
 def k_power(x):
     """The K-weighted power of `x` at each sample, summed over its channels: k_filter(x) squared, to about 1e-6 of
     it.  The filter runs in single precision over blocks of 2**16 samples whose margins
-    (4096 samples, some twenty time constants of the high-pass, its slowest part) are discarded; the mix's rules of
-    version 2 measure every bus, its stems and the returns with it, where k_filter's one transform of the whole
-    signal took 2 to 4 s for a mix of four minutes and this takes 0.8 s.  `x` is read block by block and never copied
+    (4096 samples, some twenty time constants of the high-pass, its slowest part) are discarded; k_filter's one
+    transform of the whole signal took 2 to 4 s for a mix of four minutes, where this takes 0.8 s.  `x` is read block by block and never copied
     whole, so a file's samples can be given as they are mapped."""
     x = np.asarray(x)
     if x.ndim == 1:

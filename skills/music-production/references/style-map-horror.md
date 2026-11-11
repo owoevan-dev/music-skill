@@ -23,7 +23,7 @@ in film scores (Ireland 2023, a film-music scholar's overview).
   a step higher (Ireland 2023).
 - **Signals of alarm.** A scream is rough: its loudness flutters 30 to 150 times a second, and rougher voices are
   heard as more fearful (Arnal et al. 2015). Scream-like film music shares that roughness (Trevor, Arnal and
-  Frühholz 2020), and horror soundtracks hold more noisy screams and harsh, non-musical tones than expected
+  Frühholz 2020), and the horror films of one sample held more noisy screams and "non-musical sidebands" than expected
   (Blumstein, Davitian and Kaye 2010). High strings, whispered or shouted voices and heartbeat-like sounds carry it
   (Ireland 2023).
 - **The startle.** A stinger: a sudden loud sound, often after a sudden silence (Ireland 2023). An unexpected event

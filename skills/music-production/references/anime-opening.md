@@ -22,7 +22,7 @@ Settle these from the request, deciding what it leaves open and saying so:
 
 Japanese songwriting names the sections A-melo (verse), B-melo (the pre-chorus) and sabi (chorus). Li (2026) surveyed the openings of the most popular TV series on MyAnimeList:
 - 100 of 108 (92.6%) used a single intro–verse–prechorus–chorus rotation lasting about 90 seconds;
-- the verse and the chorus closed on authentic cadences, and the prechorus on a half cadence;
+- in the opening Li presents as the archetype, the verse and the chorus close on authentic cadences and the prechorus on a half cadence (one example, not a count of the corpus);
 - section lengths varied widely around the often-quoted 16 + 8 + 16 bars;
 - 61% had no postchorus.
 
@@ -47,7 +47,7 @@ At 170 BPM a 4/4 bar lasts 1.41 s, so 64 bars take 90 s; at 150 BPM, 56 bars do.
 - a harmonic progression that leaves the verse's tonic;
 - sometimes a held pause just before the chorus.
 
-In Li's corpus the prechorus closed on a half cadence, on V.
+In the opening Li presents as the archetype the prechorus closes on a half cadence, on V.
 
 **The chorus** is more intense than the verse: a fuller or busier texture, a higher melody, or both (Summach 2012, in Open Music Theory). A two-part chorus states its idea twice, the halves beginning alike and ending differently (aa′; Open Music Theory, Melody and Phrasing).
 

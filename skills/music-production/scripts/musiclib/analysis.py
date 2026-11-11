@@ -28,10 +28,8 @@ verdict on how the music sounds.
   number ones of the genre that governs the piece's mix axis (`published_genre`, from style-maps.json).
 - Warnings from the stem receipts: parts whose dynamics sat between two recorded takes that disagree in phase, and
   Surge XT parts that played their fallback preset.
-- In a bus-chain render, how much reverb the mix carries (`reverb`): the relative reverb loudness of De Man, McNally
-  and Reiss (2017), the momentary loudness of the spaces' returns minus that of the buses, and the early decay time
-  of the spaces as the mix weights them; and how loud the lead bus is against the mix (`lead_against_mix`), beside
-  the range De Man, Leonard, King and Reiss (2014) measured for lead vocals in engineers' mixes.
+- In a bus-chain render, what the project and the spaces' impulse responses say of the reverb (`reverb`): the early
+  decay time of the spaces as the project's sends weight them, and the mix's clarity.
 """
 import json
 import math
@@ -41,16 +39,11 @@ import tempfile
 import numpy as np
 
 from . import audio, files
-from .measure import HALL_C80_DB, clarity_c80, k_filter, level, momentary, release
+from .measure import HALL_C80_DB, clarity_c80, k_filter, level, release
 from .model import Clock, load_project
 
 RATE = audio.RATE
 BANDS = [(20, 60), (60, 250), (250, 800), (800, 2500), (2500, 6000), (6000, 16000)]
-# Lead vocals in eight songs each mixed by eight engineers sat at -2.7 LU against the mix's loudness, in "a relative
-# narrow range" (the paper's bracket reads -2.7 and 1.6 LU), "suggesting an agreement on a 'target loudness' of about
-# -3 LU relative to the overall mix loudness" (De Man, Leonard, King and Reiss 2014, ISMIR).  A voice, not an
-# instrument: beside a lead instrument it is a point of comparison, no target.
-LEAD_VOCAL_AGAINST_MIX_LU = (-2.7, 1.6)
 NPERSEG, HOP = 4096, 1024
 REFERENCES = Path(__file__).resolve().parents[2] / 'references' / 'tonal-references.json'
 OCTAVE_NAMES = {-5: '31', -4: '63', -3: '125', -2: '250', -1: '500', 0: '1k', 1: '2k', 2: '4k', 3: '8k', 4: '16k'}
@@ -344,14 +337,14 @@ def early_decay_time(responses):
 
 
 def mix_measures(render_dir, report, p=None):
-    """What a bus-chain render says of its reverb and its lead: {'reverb': ..., 'lead_against_mix': ...}, each None
-    where the render lacks what it needs (another chain; no part sends to a space; no project).
+    """What a bus-chain render says of its reverb: {'reverb': ...}, None where the render lacks what it needs
+    (another chain; no part sends to a space; no project).
 
     The reverb is described from the project `p` (the render's own project.json without it) and from the spaces'
     impulse responses in returns/, never from the returns' audio: the early decay time of the responses heard
     together and the clarity (measure.clarity_c80), each part counting as the project writes it
     (mixbus.written_energies).  Only buses and spaces the mix knows are read, whatever names the report holds.
-    The lead is set against the mix from returns/bus_lead.wav and premix.wav, before the master."""
+    No audio is read."""
     from .mixbus import clarity_rooms, written_energies
     from .mixbus import SPACES
     from .model import BUSES
@@ -361,11 +354,11 @@ def mix_measures(render_dir, report, p=None):
     spaces = [s for s in spaces if s in SPACES]
     buses = sorted({b for b in (mix.get('assignment') or {}).values() if b in BUSES})
     if report.get('chain') != 'bus' or not buses or any(not (returns / f'bus_{b}.wav').is_file() for b in buses):
-        return {'reverb': None, 'lead_against_mix': None}
+        return {'reverb': None}
 
     def read(path):
         return np.asarray(audio.read_wav(path)[0], dtype=np.float64)
-    out = {'reverb': None, 'lead_against_mix': None}
+    out = {'reverb': None}
     if p is None and (render_dir / 'project.json').is_file():
         try:
             p = load_project(render_dir / 'project.json')
@@ -380,17 +373,6 @@ def mix_measures(render_dir, report, p=None):
         c80 = clarity_c80(dry, rooms, float(((mix.get('rules') or {}).get('reverb') or {}).get('gain_db') or 0.0)) if rooms else None
         out['reverb'] = {'early_decay_time_s': early_decay_time([(responses[s], sent.get(s, 0.0)) for s in spaces]),
                          'clarity_c80_db': None if c80 is None else round(c80, 1), 'hall_c80_db': list(HALL_C80_DB), 'spaces': spaces}
-    if 'lead' in buses and (render_dir / 'premix.wav').is_file():
-        lead, premix = read(returns / 'bus_lead.wav'), read(render_dir / 'premix.wav')
-        n = min(len(lead), len(premix))
-        ll, lm = momentary(lead[:n]), momentary(premix[:n])
-        # While the lead sounds: within 30 LU of its own loudest window.
-        use = ll > ll.max() - 30
-        if use.any() and ll.max() > -70:
-            power = lambda v: 10 * math.log10(float(np.mean(10 ** (v / 10))))  # noqa: E731
-            mean, spread = LEAD_VOCAL_AGAINST_MIX_LU
-            out['lead_against_mix'] = {'lead_minus_mix_lu': round(power(ll[use]) - power(lm[use]), 1),
-                                       'published_vocal_lu': {'mean': mean, 'spread': spread}}
     return out
 
 
@@ -565,7 +547,7 @@ def analyze(render_dir, bar_spans=(), reference=None):
                 'side_minus_mid_db': here['side_minus_mid_db'], 'published_genre': genre, 'reference_comparison': comparison, 'stem_levels_lufs_ungated': stems,
                 'lead_tracks': lead_tracks, 'lead_source': 'buses' if buses is not None else 'stems',
                 'lead_presence': lead_presence(lead, accompaniment, regions) if lead is not None and accompaniment is not None else [],
-                'melody_groups': melody, 'reverb': mixed['reverb'], 'lead_against_mix': mixed['lead_against_mix'],
+                'melody_groups': melody, 'reverb': mixed['reverb'],
                 'warnings': warnings,
                 'master': here['loudness'],
                 'note': 'Measurements only; they do not establish how the music sounds.'}

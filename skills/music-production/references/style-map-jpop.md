@@ -55,7 +55,7 @@ modulation into the chorus. `jpop/anime-opening`
 | `melody` | singable, mostly by step with leaps for character; a chorus higher or denser than the verse | Perricone 2000; Summach 2012 (in anime-opening.md) |
 | `rhythm` | a backbeat, half time and double time the common alternatives; moderate syncopation | OMT, Drumbeats; Witek et al. 2014 (in anime-opening.md) |
 | `timbre` | as the anime's genre asks; in a band, distorted guitars on power chords, whose distortion gives the chords a major quality | Li 2026; Lilja 2015 |
-| `form` | 92.6% of 108 openings surveyed: one intro–verse–prechorus–chorus rotation of about 90 s; verse and chorus closing on authentic cadences, the prechorus on a half cadence; the chorus slightly longer than the verse, the prechorus shortest; 61% without a postchorus | Li 2026 |
+| `form` | 92.6% of 108 openings surveyed: one intro–verse–prechorus–chorus rotation of about 90 s; the chorus slightly longer than the verse, the prechorus shortest; 61% without a postchorus. In the one opening Li presents as the archetype, verse and chorus close on authentic cadences and the prechorus on a half cadence | Li 2026 |
 | `mix` | no source read; this skill delivers at −14 LUFS ([anime-opening.md](anime-opening.md), The mix) | |
 
 - **In this skill**: [anime-opening.md](anime-opening.md): the TV-size layout, the build, the royal road and the

@@ -482,7 +482,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
                         # The synthesis MIDI applies the track's render patch/key map; the exported part MIDI does not.
                         patch=t.get('patch') or {'bank':t.get('bank',0),'program':t.get('program',0)}
                         keys=variation.key_samples(font['path'],patch.get('bank',0),patch.get('program',0)) if t['performance'].get('round_robin') else None
-                        # A drum part steps through the bank's recorded round robins unless round_robin is set false.
+                        # Each hit of a drum part takes one of the bank's recorded takes unless round_robin is set false.
                         cycles=variation.velocity_cycles(font['path'],patch.get('bank',0),patch.get('program',0)) if t.get('drums') and t['performance'].get('round_robin',True) is not False else None
                         synth_midi=folder/'synth.mid';midi.write(p,synth_midi,[t],single_stem=True,render=True,keys=keys,cycles=cycles)
                         audio.fluidsynth(cfg,font['path'],synth_midi,fresh,folder)

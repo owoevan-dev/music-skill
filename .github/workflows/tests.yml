@@ -49,16 +49,8 @@ jobs:
         # normally a few seconds. A slow mirror still stalls some downloads, so the packages are fetched first, each
         # attempt for at most four minutes, a stalled one starting again where it stopped; only then are they installed,
         # so dpkg is never cut off half way. The step stops after 15 minutes in all.
-        # The runner's list of mirrors starts with one inside Azure. When that name does not resolve, apt waits on it
-        # for minutes and then reads no package index at all, so it is taken off the list and the next two (the
-        # Ubuntu archive and its security mirror) are used.
         timeout-minutes: 15
         run: |
-          if [ -f /etc/apt/apt-mirrors.txt ] && ! getent hosts azure.archive.ubuntu.com > /dev/null; then
-            echo "azure.archive.ubuntu.com does not resolve; using the other mirrors of the runner's list"
-            sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
-            cat /etc/apt/apt-mirrors.txt
-          fi
           sudo apt-get update
           for attempt in 1 2 3; do
             timeout 240 sudo apt-get install -y --no-install-recommends --download-only fluidsynth ffmpeg libarchive-tools && break

@@ -92,9 +92,9 @@ rated for the first (Warrenburg 2021, through Strauss et al. 2024).
 - **Expressed: four emotions with measured cues.** Happy, sad, peaceful and scary, from cues varied one at a time
   (Eerola et al. 2013): [moods.md](moods.md).
 - **Labels of commercial music: five clusters.** AllMusic's editors' mood labels fell into five clusters with few
-  synonyms crossing between them (Hu and Downie 2007): rowdy, rousing, confident, boisterous, passionate;
-  good-natured, sweet, fun, rollicking, cheerful; literate, wistful, bittersweet, autumnal, brooding, poignant; witty,
-  humorous, whimsical, wry, campy, quirky, silly; volatile, fiery, visceral, aggressive, tense, intense.
+  synonyms crossing between them (Hu and Downie 2007). A few words of each show where it lies: rousing and
+  passionate; cheerful and fun; wistful, bittersweet and brooding; humorous and whimsical; aggressive, intense and
+  fiery. Their Table 1 lists all 29 labels.
 - **Felt: nine dimensions.** The Geneva Emotional Music Scale groups 45 terms for emotions music evokes into nine
   dimensions, wonder, transcendence, tenderness, nostalgia, peacefulness, power (called energy in later work),
   joyful activation, sadness and tension, and three higher-order factors, sublimity, vitality and unease (Zentner,

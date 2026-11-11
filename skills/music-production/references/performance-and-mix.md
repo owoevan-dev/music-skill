@@ -38,7 +38,7 @@ A player is never exactly on the beat, and the distance is not a fresh random nu
 - **A timing line per player**, a few milliseconds in size (2.5 ms drums to 6 ms melody).
   - It follows the model the research on keeping time with a beat uses most, linear phase correction: by the next beat the player takes back a share of the distance from the beat, and a new error comes on top (Repp 2005). So a part that is a little late stays a little late for a beat or two and then is not.
   - That share is measured between 0.2 and 0.8, and timing varies least when it is between 0.3 and 0.5 (van der Steen and Keller 2013). The skill uses 0.4; a part's profile can set another with `correction`.
-  - On top of it each note has its own small motor delay, independent of the others (Wing and Kristofferson 1973).
+  - On top of it each onset has its own small motor delay, independent of the other onsets' (Wing and Kristofferson 1973); notes struck together share one.
   - Each part keeps to the score's beat by itself. No part's timing is taken from another's.
 - **A slowly wandering loudness line per player.** In the recorded drum part analysed for it, the hi-hat's loudness wandered with long-range correlations (Räsänen et al. 2015); the velocities follow a line of that kind.
 - **Pass `drift='time'` for a new piece.**

@@ -17,8 +17,8 @@ in film scores (Ireland 2023, a film-music scholar's overview).
 - **Instability that does not settle.** Tension comes from conflict, dissonance or instability, which make a listener
   want a more stable state (Lehne and Koelsch 2015). These scores hold that state back: the harmony stays dissonant
   and there is little tune to follow (Ireland 2023).
-- **An expectation kept waiting.** What triggers tension is an event that raises a strong expectation of what comes
-  next (Lehne and Koelsch 2015). A short figure played again and again, a tremolo or a drone raises one and does not
+- **An expectation kept waiting.** An event that raises a strong expectation of what comes next can trigger tension
+  (Lehne and Koelsch 2015). A short figure played again and again, a tremolo or a drone raises one and does not
   answer it. The wait is tightened by more instruments, more level, repeats that come more regularly, or each repeat
   a step higher (Ireland 2023).
 - **Signals of alarm.** A scream is rough: its loudness flutters 30 to 150 times a second, and rougher voices are

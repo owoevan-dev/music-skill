@@ -65,7 +65,7 @@ from loops and samples in a sparse texture. `electronic/house`
 
 | Axis | Traits | From |
 |---|---|---|
-| `tempo` | typically 115–130 BPM, mostly 120–130; 4/4 | Ableton Learning Music, which WP House music cites |
+| `tempo` | 115–130 BPM (Ableton Learning Music); 4/4, between 120 and 130 (WP House music) | Ableton Learning Music; WP House music |
 | `harmony` | bass-heavy loops or synthesizer basslines; loops built on sampled funk, jazz-funk, soul or disco | WP House music |
 | `melody` | synthesizer riffs; where there are vocals, often simple words or phrases repeated | WP House music |
 | `rhythm` | the kick on every beat, snare, claps or higher percussion on 2 and 4, off-beat hi-hats; claps, shakers, snare and hats add syncopation; the "poumtchak", kick and off-beat hat alternating | WP House music; Zeiner-Henriksen 2010 |

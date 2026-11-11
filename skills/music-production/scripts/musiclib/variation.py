@@ -6,8 +6,9 @@ velocity, take 2 at the next, and so on), so a part written at one velocity woul
 hit of a drum part instead takes one of the layer's takes by a draw of its own, made from the hit's id, its key and
 its tick together, at the nearest velocity inside that layer that holds it (with N takes at most N - 1 steps away,
 at a layer's edge), as a sampler's random mode does.  The velocity moves only in the MIDI given to the synthesizer;
-the project and the exported MIDI keep the written one.  No hit's take depends on another hit, so with N takes one hit in N has the take of
-the hit before it.  (Until 0.6 a drum stepped through its takes in order.)
+the project and the exported MIDI keep the written one.  No hit's take depends on another hit, so a hit has the take
+of the hit before it on the same key and layer with a chance of about one in N, where the layer has N takes.  (Until
+0.6 a drum stepped through its takes in order.)
 
 A sampler plays the same recording every time a key repeats, and a fast repeated figure then sounds mechanical (the
 "machine-gun" effect); libraries record several takes of each note (round robins) and alternate them.  A bank without

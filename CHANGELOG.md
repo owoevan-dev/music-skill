@@ -2,9 +2,9 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.6.0] - 2026-11-11
 
-A true-peak limiter in the master, a lead that stays where it is written, and a timing line after how players keep to a beat.
+A true-peak limiter in the master, a lead that stays near where it is written, and a timing line after how players keep to a beat.
 
 ### Added
 
@@ -441,9 +441,4 @@ First public release.
 - `match_notes: "across"` measures each dynamic against its own median, so a dynamic recorded over less of the range than the others can step slightly at the edge of its range (on the Kawai, 0.5 dB at most).
 - Installing banks assumes a runtime folder that no other program changes during the install: archive members are checked against links in the destination before they are written, not while.
 
-[0.5.0]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.5.0
-[0.4.0]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.4.0
-[0.3.0]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.3.0
-[0.2.0]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.2.0
-[0.1.1]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.1.1
-[0.1.0]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.1.0
+[0.6.0]: https://github.com/owoevan-dev/music-skill/releases/tag/v0.6.0

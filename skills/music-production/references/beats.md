@@ -109,7 +109,7 @@ The name imitates the kick ("boom") and the snare ("bap"). The style's drum loop
   Keep the 808's tonic between about F1 and C2 (44–65 Hz, MIDI 29–36; G1 is MIDI 31, and 43 is already G2 at 98 Hz). In a key whose tonic falls lower, play the 808 an octave up or choose another key. `mix.saturate` 0.2–0.4 adds the harmonics that carry it on phone speakers. `analyze` shows a misplaced octave at once: an 808 an octave too high puts its energy at 100–160 Hz and leaves the 31 and 63 Hz octaves nearly empty.
 - **Kick, snare, claps.**
   - The `drum_synth` `"808"` kick (36), short, or no separate kick where the 808 carries the downbeat.
-  - The snare (38 or 40) and a bright clap (39) layered on beat 3, with extra hits as fills. A second, thinner clap on 2 and 4 can mark the full tempo against the half-time snare (Computer Music 2016).
+  - The snare (38 or 40) and a bright clap (39) layered on beat 3, with extra hits as fills. A second, thicker clap on 2 and 4 can mark the full tempo against the half-time snare (Computer Music 2016).
   - Trap producers also pitch repeated snares up or down into a roll; `drum_synth` tunes only the whole kit, so do that with the snare's velocity and density instead.
   - A rim (37) or percussion as a counter-rhythm.
 - **Melody and colour.** Trap uses synthesized strings, brass, woodwinds and keyboards for a cinematic sound (Wikipedia, Trap music):

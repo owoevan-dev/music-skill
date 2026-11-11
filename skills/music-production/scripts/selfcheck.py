@@ -977,6 +977,34 @@ def checks(work,config=None):
             backwards.append(mixbus.written_energies(w,Clock(w))[1]['hall'])
         assert backwards[0]==backwards[1] and abs(backwards[0]-10**-3*2*10**-1)<2e-3*backwards[0],backwards
         two_.pop('reverse')
+        # The time a part counts for is the time its renderer holds its notes, each worked out here by hand at 120 to
+        # the minute (the third review of 0.6.0 found the performed notes counted where the renderer plays others):
+        # - a drum hit of four beats on key 35 that the part's key map moves onto key 36, where a louder hit of half a
+        #   beat starts with it: the renderer keeps the louder and drops the other, so 0.25 s, as without the long hit;
+        # - a slur, notes of 0.45 beat at beats 0 and 0.5: one note from 0 to 0.475 s, the gap filled; and with notes
+        #   of 0.2 beat and a slur across 200 ms, 0 to 0.35 s;
+        # - the same two notes with crossfade legato of 100 ms: the first held to the crossfade's end at 0.35 s, the
+        #   second from 0.25 to 0.475 s, 0.475 s together, with the part moved 80 ms early as without;
+        # - a mono synth line, a note at beat 1 of half a beat over a first note of four beats or of one: the later
+        #   note owns the voice and its release, so 0 to 0.75 s both times.
+        def span_part(notes,**more):
+            return {'id':'send','role':'harmony','engine':'soundfont','program':0,'notes':[{'id':f'n{i}','on':on,'duration':d,'pitch':key} for i,(on,d,key) in enumerate(notes)],
+                    'performance':{'notes':{f'n{i}':{'velocity':80,'gate':1.0,'timing_ms':0} for i in range(len(notes))},'cc':[]},'mix':{'level_dbfs':-20,'reverb_db':-10,'space':'hall'},**more}
+        def counted(part):
+            q={'schema':'music-production/v1','title':'Spans','clock':{'bars':2,'meter':[4,4],'tempo':[[0,120]],'tail_seconds':1},'sections':[{'id':'all','start_bar':0,'bars':2}],
+               'tracks':[part],'mix':{'chain':'bus'}}
+            validate(q);return mixbus.written_energies(q,Clock(q))[1]['hall']/(10**-2*10**-1)
+        mapped=span_part([(0,4,35),(0,.5,36)],drums=True,key_map={'35':36});mapped['performance']['notes']['n0']['velocity']=60;mapped['performance']['notes']['n1']['velocity']=100
+        alone_=span_part([(0,.5,36)],drums=True,key_map={'35':36});alone_['performance']['notes']['n0']['velocity']=100
+        spans_={'mapped':counted(mapped),'alone':counted(alone_)}
+        for name_,notes_,gap_ in (('slur',[(0,.45,60),(.5,.45,62)],40),('wide_slur',[(0,.2,60),(.5,.2,62)],200)):
+            slurred=span_part(notes_);slurred['performance'].update(legato={'mode':'slur','gap_ms':gap_,'max_interval':5},bend_range=12);spans_[name_]=counted(slurred)
+        for early_ in (0,-80):
+            crossed=span_part([(0,.45,60),(.5,.45,62)]);crossed['performance'].update(legato={'mode':'crossfade','gap_ms':40,'crossfade_ms':100},offset_ms=early_);spans_[f'crossfade{early_}']=counted(crossed)
+        for first_ in (4,1):
+            line_=span_part([(0,first_,60),(1,.5,62)],engine='synth',synth={'mono':True});line_['performance'].pop('cc');spans_[f'mono{first_}']=counted(line_)
+        by_hand_={'mapped':.25,'alone':.25,'slur':.475,'wide_slur':.35,'crossfade0':.475,'crossfade-80':.475,'mono4':.75,'mono1':.75}
+        assert all(abs(spans_[k]-v)<1e-6 for k,v in by_hand_.items()),spans_
         # A part whose notes are gone sends nothing: no clarity can be set, and the record says not reached.
         two_['notes']=[];two_['performance']['notes']={};none_=mixbus.clarity_setting(w,Clock(w),response)
         assert none_['gain_db']==0 and none_['c80_db'] is None and not none_['c80_reached'] and none_['c80_asked_db']==20,none_
@@ -1203,6 +1231,21 @@ def checks(work,config=None):
             return [part['performance']['notes'][f'm{k}']['timing_ms'] for k in range(count)]
         eight,sixteen=thirty_seconds(8),thirty_seconds(16)
         assert len(set(eight))==8 and sixteen[:8]==eight,(eight,sixteen)
+        # One beat is one onset however its number is written: a note at beat 1 draws the same delay written 1 or 1.0,
+        # alone or with another note on that beat written the other way, under it or over it (the key had been the
+        # number as Python prints it, and 1 and 1.0 drew 22 ms apart: the third review of 0.6.0).  A strummed chord
+        # likewise strums the same written in whole numbers or not.
+        def at_beat_one(own,other=None,pitch=60,strum=0):
+            q=example();part=copy.deepcopy(next(x for x in q['tracks'] if x.get('role')=='melody'))
+            part['notes']=[{**part['notes'][0],'id':'old','on':own,'duration':.125,'pitch':64}]+([{**part['notes'][0],'id':'new','on':other,'duration':.125,'pitch':pitch}] if other is not None else [])
+            part['performance']={**part['performance'],'notes':{n['id']:{'velocity':80,'gate':1.0,'timing_ms':0} for n in part['notes']}}
+            q['tracks']=[part]
+            expression.apply(q,{part['id']:{'timing_sd':0,'short_sd':0 if strum else 6,'feel':0,'spread':0,'lead':0,'vel_pct':0,'arch':0,'high_loud':0,'gate_sd':0,'contrast':0,'strum':strum}},seed=7,drift='time')
+            return [part['performance']['notes'][n['id']]['timing_ms'] for n in part['notes']]
+        ones=[at_beat_one(1)[0],at_beat_one(1.0)[0],at_beat_one(1,1.0,60)[0],at_beat_one(1,1.0,67)[0],at_beat_one(1.0,1,60)[0],at_beat_one(.1+.9)[0]]
+        assert len(set(ones))==1 and ones[0]!=0,ones
+        strums=[at_beat_one(1,1,60,12),at_beat_one(1.0,1.0,60,12),at_beat_one(1,1.0,60,12)]
+        assert strums[0]==strums[1]==strums[2] and strums[0][0]!=strums[0][1],strums
         return {'a_beat_apart':round(ac(slow,2),3),'motor_delays_lag_1':round(ac(motor,1),3),'level_power_by_decade':[round(v,2) for v in level],
                 'loudness_power_by_decade':[round(v,2) for v in rising]}
     check('timing_keeps_to_the_beat_by_phase_correction',keeps_to_the_beat)
@@ -1575,6 +1618,22 @@ def checks(work,config=None):
         # no take is stepped to in order (0, 1, 2, 3 after one another would never repeat and would always be next).
         share=[takes.count(k)/400 for k in range(4)];again=sum(a==b for a,b in zip(takes,takes[1:]))/399;nexts=sum((a+1)%4==b for a,b in zip(takes,takes[1:]))/399
         assert all(.17<s<.33 for s in share) and .15<again<.35 and .15<nexts<.35,(share,again,nexts)
+        # The draw is from the hit's id, key and tick together, as the texts say: one id on another tick or another
+        # key is another draw (over many hits about three in four differ; an id alone would give none), and a hit
+        # without an id draws from its key and tick.
+        moved=[variation.take_of({'id':f'h{i}','pitch':38,'tick':240},4)!=variation.take_of({'id':f'h{i}','pitch':38,'tick':0},4) for i in range(400)]
+        other_key=[variation.take_of({'id':f'h{i}','pitch':40,'tick':0},4)!=variation.take_of({'id':f'h{i}','pitch':38,'tick':0},4) for i in range(400)]
+        assert .65<sum(moved)/400<.85 and .65<sum(other_key)/400<.85,(sum(moved),sum(other_key))
+        assert variation.take_of({'pitch':38,'tick':0},4)==int(hashlib.sha256(b'None:38:0').hexdigest()[:8],16)%4
+        # A layer of eight takes on velocities 1 to 16: every hit stays in the layer on the nearest velocity that holds
+        # its take, found here by looking at every velocity of the layer, and at the layer's edge that is up to seven
+        # steps away (one fewer than the takes), not the three of a layer with four.
+        wide_row=[set()]+[{('only',(v-1)%8)} if v<=16 else set() for v in range(1,128)];wide_cells=variation.cycle_layers(wide_row)
+        edge=[{'id':f'e{i}','tick':i*240,'pitch':38,'velocity':1+i%16} for i in range(800)];edge_out=variation.take_velocities(edge,{38:wide_cells})
+        for n,v in zip(edge,edge_out):
+            want=int(hashlib.sha256(f"{n['id']}:38:{n['tick']}".encode()).hexdigest()[:8],16)%8
+            assert 1<=v<=16 and (v-1)%8==want and abs(v-n['velocity'])==min(abs(u-n['velocity']) for u in range(1,17) if (u-1)%8==want),(n,v)
+        assert max(abs(v-n['velocity']) for n,v in zip(edge,edge_out))==7
         return {'take_shares':[round(s,3) for s in share],'same_as_the_hit_before':round(again,3),'largest_step':max(abs(v-n['velocity']) for v,n in zip(out,notes))}
     check('drum_hits_take_their_recorded_takes_by_their_own_draw',drum_round_robins)
     def surge_state():

@@ -35,6 +35,21 @@ def remap(notes,key_map):
             kept.append(n);prev=n
     return sorted(kept,key=lambda n:(n['tick'],n['pitch']))
 
+def synthesis_notes(t,clock,expressive=True,cycles=None):
+    """The notes a part's synthesis MIDI plays (write with render=True), and the wheel curve of its slurs or None:
+    the performed notes after the part's `key_map` (remap), with each drum hit's take where `cycles` is given, and
+    with slurred notes joined into the one note they sound as (model.legato_notes, synthesis only).  The mix reads
+    the same notes for the time a part sounds (mixbus.held_spans), so what is written here is what is counted there."""
+    notes=performed(t,clock,expressive)
+    if t.get('key_map'):notes=remap(notes,t['key_map'])
+    if cycles:
+        notes=sorted(notes,key=lambda n:(n['tick'],n['pitch']))
+        notes=[{**n,'velocity':v} for n,v in zip(notes,variation.take_velocities(notes,cycles))]
+    if expressive and t['performance'].get('legato'):
+        # Synthesis only: slurred notes sound as one sample with the pitch carried by the wheel.
+        return legato_notes(t,notes,clock)
+    return notes,None
+
 def write(project,path,tracks=None,expressive=True,single_stem=False,render=False,keys=None,cycles=None,new=False):
     """Standard MIDI file. With render=True (synthesis input only) a track's `patch` replaces its
     program/bank and `key_map` remaps pitches; a drum part whose patch is not bank 128 plays on a
@@ -70,14 +85,8 @@ def write(project,path,tracks=None,expressive=True,single_stem=False,render=Fals
         e.append((0,2,bytes([192+channel,program])))
         for cc,value in [(7,100),(10,64),(11,100),(64,0)]:
             e.append((0,3,bytes([176+channel,cc,value])))
-        notes=performed(t,clock,expressive)
-        if render and t.get('key_map'):notes=remap(notes,t['key_map'])
-        if render and cycles:
-            notes=sorted(notes,key=lambda n:(n['tick'],n['pitch']))
-            notes=[{**n,'velocity':v} for n,v in zip(notes,variation.take_velocities(notes,cycles))]
-        if render and expressive and t['performance'].get('legato'):
-            # Synthesis only: slurred notes sound as one sample with the pitch carried by the wheel.
-            notes,slurs=legato_notes(t,notes,clock)
+        notes,slurs=synthesis_notes(t,clock,expressive,cycles) if render else (performed(t,clock,expressive),None)
+        if slurs is not None:
             bends=wheel_events([bend_curve(t['performance'].get('bend',[])),slurs],t['performance'].get('bend_range',2),clock.total_beats)
         else:
             bends=bend_events(t) if expressive else []

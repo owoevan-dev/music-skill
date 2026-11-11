@@ -41,9 +41,10 @@ checks the true peak against the ceiling, and that the MP3 decodes to the same l
 peak passes full scale.
 
 Rules.  All of the above is version 1 of the mix's rules (mix.rules, the default), kept as it was so that a project
-made before 0.6 renders as it did.  Version 2 keeps the chain and changes four things, none of them from a
+made before 0.6 is mixed as it was (what it is mixed from is as it was too, but for a sampled drum part with several
+recorded takes of a hit, which plays other takes: musiclib/variation.py).  Version 2 keeps the chain and changes four things, none of them from a
 measurement of the piece's audio: the lead bus's compressor takes its threshold from the lead's written level, so
-the lead stays where the project writes it (lead_filter_2); the saturation runs between two resamplers so that far
+the lead bus stays near the sum of its stems (lead_filter_2); the saturation runs between two resamplers so that far
 less of it folds back into the band (the measurement stands beside _saturation_2); the master ends in one true-peak
 limiter (deliver_2, musiclib/limiter.py), with no delay; and a project may ask how near it is heard (mix.c80_db),
 which sets one gain on the spaces' returns from what the project writes and from the spaces' own responses
@@ -52,10 +53,10 @@ which sets one gain on the spaces' returns from what the project writes and from
 import math
 import numpy as np
 
-from . import audio, files, limiter, stage
+from . import audio, files, layered, limiter, midi, stage, synth
 from .loop import starts_at_zero
 from .measure import clarity_c80, early_late, k_filter, k_level, returns_gain_for_c80
-from .model import BUSES, performed, save_json
+from .model import BUSES, TPQ, performed, save_json
 
 RATE = audio.RATE
 ROLE_BUS = {'drums': 'drums', 'bass': 'bass', 'rhythm': 'rhythm', 'melody': 'lead', 'effect': 'fx'}
@@ -91,14 +92,15 @@ DRUM_BUS = ['[sum_drums]asplit=2[dr_dry][dr_par]',
 # - the lead bus's compressor keeps its ratio and times and takes its threshold from the project: LEAD_OVER_WRITTEN_DB
 #   over the written level of the loudest lead part (lead_filter_2).  Version 1's threshold is one figure for every
 #   piece, so a lead written loud was compressed hard and a quiet one hardly: on this skill's test projects it took
-#   1.2 to 8.9 dB from the lead bus's loudness, and with one make-up for all the lead ended 4.8 dB under to 2.8 dB
-#   over where its parts were written.  With the threshold a fixed distance over the written level the compressor
+#   1.2 to 8.9 dB from the lead bus's loudness, and with one make-up for all the lead bus ended 4.8 dB under to 2.8 dB
+#   over the sum of its stems as they enter it.  With the threshold a fixed distance over the written level the compressor
 #   works as deep on a quiet lead as on a loud one, and one make-up (LEAD_MAKEUP_DB) suits them all; the figures
 #   measured stand beside the constants.  It is the usual way of setting a compressor, the threshold moved to match
 #   the signal's level and make-up gain then putting the level right (White, Inglis et al. 2003, Sound On Sound,
 #   "Using Your DAW's Compressors & Limiters"); here the level is the one the project writes.  The distance and the
 #   make-up are this skill's, from its own measurement.  One lead part whose level is written as a peak (level_mode)
-#   stands under such a threshold; several lead parts sounding together can still add up over it;
+#   stands under such a threshold as long as nothing after its level raises it (render.process_stem sets the level
+#   first; the part's EQ, effects and automation come after); several lead parts sounding together can add up over it;
 # - a project that names how near it is to be heard (mix.c80_db, the clarity of measure.HALL_C80_DB's note) gets the
 #   one gain on its spaces' returns that gives it that C80, however far that is from what its sends were written at,
 #   up to C80_STEP_MAX_DB either way: it asked for it by name.  The clarity is worked out from the project file and
@@ -115,7 +117,7 @@ DRUM_BUS = ['[sum_drums]asplit=2[dr_dry][dr_par]',
 #   measurement; no source read sets how much aliasing may be left.
 C80_STEP_MAX_DB = 30.0
 # Measured on this skill's 27 test projects rendered under version 2: of the 21 whose lead bus compresses, the lead
-# ended within 0.4 dB of where it is written on 20 and 1.1 dB under on one, a bell line whose peaks stand far over
+# bus ended within 0.4 dB of the sum of its stems on 20 and 1.1 dB under on one, a bell line whose peaks stand far over
 # its level.  In the experiment before it (the lead stems of 17 pieces through the compressor alone) the threshold
 # 3 dB over the written level took 0.2 to 1.9 dB from the bus's loudness, and at the written level 0.9 to 3.6 dB.
 LEAD_OVER_WRITTEN_DB = 6.0
@@ -215,22 +217,45 @@ def lead_filter_2(p):
     return f'acompressor=threshold={10 ** (threshold / 20):.6f}:ratio=3:attack=6:release=120:makeup={10 ** (LEAD_MAKEUP_DB / 20):.6f}'
 
 
+def held_spans(t, clock):
+    """The spans in seconds in which the part's renderer holds a note, by engine as render.render takes them, each
+    from the function that renderer plays from:
+    - a sampled part played backwards (`reverse`): each note's written span, which render.reversed_notes fills
+      whatever the note's gate and timing say;
+    - a sampled part on its recorded dynamics or with crossfade legato: layered.played, where a note that crosses
+      into the next is held to the crossfade's end and a slur is one note;
+    - any other sampled part, and a Surge XT part: midi.synthesis_notes, the notes of the MIDI written for the
+      synthesizer, after the part's key map (a hit dropped there counts for nothing) and with a slur as the one note
+      it sounds as, its gaps filled.  A Surge part counts so wherever it is rendered, also where its fallback preset
+      plays it;
+    - a built-in synth part: its voices (synth.line_voices, voice_held), so a mono line is held from its first note
+      to the end of the note that owns the voice;
+    - the additive instrument and the drum machines: the performed notes.
+    Spans come as the renderer has them, overlapping where notes do; a release after the note's end is not counted."""
+    ticks = lambda notes: [(clock.seconds(n['tick'] / TPQ), clock.seconds(n['end_tick'] / TPQ)) for n in notes]
+    if t['engine'] == 'soundfont' and t.get('reverse'):
+        return [(clock.seconds(n['on']), clock.seconds(n['on'] + n['duration'])) for n in t['notes']]
+    if t['engine'] == 'soundfont' and layered.wanted(t):
+        return ticks(layered.played(t, clock)[0])
+    if t['engine'] in ('soundfont', 'surge'):
+        return ticks(midi.synthesis_notes(t, clock)[0])
+    if t['engine'] == 'synth':
+        groups, patch = synth.line_voices(t, clock)
+        return [(start, start + held) for start, held in (synth.voice_held(g, patch) for g in groups)]
+    return [(n['start_seconds'], n['end_seconds']) for n in performed(t, clock)]
+
+
 def written_energies(p, clock):
     """What the project writes of how much each part sounds, for the clarity: (dry, {space: sent}).  A part counts by
     its written level and by the time its notes sound, 10^(level_dbfs / 10) times the seconds in which one of its
     notes is held, and what it sends into its space is that at its send's level (send_db).  A space no part sends to
     is left out.  Nothing is measured: a part counts as it is written, whatever its sound does within its notes (a
-    level written as a peak counts as if the part held it).  The time a note is held is the time the renderer holds
-    it: the performed span for a part played forwards, and for a part played backwards (`reverse`) the written span,
-    which render.reversed_notes fills whatever the note's gate and timing say."""
+    level written as a peak counts as if the part held it).  The time a note is held is the time the part's renderer
+    holds it (held_spans), counted once where notes overlap."""
     dry, sent = 0.0, {}
     for t in p['tracks']:
         seconds, end = 0.0, 0.0
-        if t.get('reverse'):
-            spans = sorted((clock.seconds(n['on']), clock.seconds(n['on'] + n['duration'])) for n in t['notes'])
-        else:
-            spans = sorted((n['start_seconds'], n['end_seconds']) for n in performed(t, clock))
-        for a, b in spans:
+        for a, b in sorted(held_spans(t, clock)):
             if b > end:
                 seconds += b - max(a, end)
                 end = b

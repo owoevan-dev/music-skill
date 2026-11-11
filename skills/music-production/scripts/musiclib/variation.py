@@ -3,9 +3,10 @@ repeated note borrows the neighbouring key's recording.
 
 A bank built here keeps a hit's recorded takes on neighbouring velocities inside its dynamic layer (take 1 at one
 velocity, take 2 at the next, and so on), so a part written at one velocity would play one take every time.  Each
-hit of a drum part instead takes one of the layer's takes by a draw of its own, made from the hit's id, at the
-nearest velocity inside that layer that holds it: a step or two (three where the layer ends), a fraction of a dB, as
-a sampler's random mode does.  No hit's take depends on another hit, so with N takes one hit in N has the take of
+hit of a drum part instead takes one of the layer's takes by a draw of its own, made from the hit's id, its key and
+its tick together, at the nearest velocity inside that layer that holds it (with N takes at most N - 1 steps away,
+at a layer's edge), as a sampler's random mode does.  The velocity moves only in the MIDI given to the synthesizer;
+the project and the exported MIDI keep the written one.  No hit's take depends on another hit, so with N takes one hit in N has the take of
 the hit before it.  (Until 0.6 a drum stepped through its takes in order.)
 
 A sampler plays the same recording every time a key repeats, and a fast repeated figure then sounds mechanical (the
@@ -111,8 +112,9 @@ def cycle_layers(row):
 
 
 def take_of(note, period):
-    """Which of `period` recorded takes a hit plays: a draw from the hit itself (its id, or its pitch and tick where it
-    has none), the same on every render and independent of every other hit."""
+    """Which of `period` recorded takes a hit plays: a draw from the hit itself, its id (where it has one), the key it
+    plays and its tick together, the same on every render and independent of every other hit.  A hit that keeps its
+    id and is moved or played on another key draws again."""
     key = f"{note.get('id')}:{note['pitch']}:{note.get('tick')}"
     return int(hashlib.sha256(key.encode()).hexdigest()[:8], 16) % period
 

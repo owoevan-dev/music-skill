@@ -187,6 +187,22 @@ def voices(notes, patch):
     return groups
 
 
+def voice_held(group, patch):
+    """A voice's start and the seconds it is held before its release: to the end of its last note, which owns the
+    voice on a mono patch whatever an earlier note's length, and to the latest end of its chord on an arpeggio.  The
+    mix reads the same for the time a part sounds (mixbus.held_spans)."""
+    start = group[0]['start_seconds']
+    end = max(e['end_seconds'] for e in group) if patch.get('arpeggio') else group[-1]['end_seconds']
+    return start, max(.005, end - start)
+
+
+def line_voices(track, clock):
+    """The part's voices as render plays them: its performed notes by start and pitch, grouped by voices()."""
+    from .model import performed
+    patch = patch_of(track)
+    return voices(sorted(performed(track, clock), key=lambda e: (e['start_seconds'], e['pitch'])), patch), patch
+
+
 def seed(text):
     return int(hashlib.sha256(text.encode()).hexdigest()[:8], 16)
 
@@ -473,25 +489,22 @@ def arpeggio_curve(chord, arp, start, n, rate, beats, clock):
 
 def render(project, track, path, clock=None):
     """Render a synth part to `path` (stereo float WAV at RATE)."""
-    from .model import Clock, performed
+    from .model import Clock
     from . import audio
     clock = clock or Clock(project)
-    patch = patch_of(track)
+    groups, patch = line_voices(track, clock)
     total = round((clock.end + clock.tail) * RATE)
     out = np.zeros((total, 2))
-    notes = sorted(performed(track, clock), key=lambda e: (e['start_seconds'], e['pitch']))
     release = (patch.get('amp') or {}).get('release', .2)
     rate = RATE * OVER
     glide = patch.get('glide_ms', 0) / 1000
     # A mono patch plays one line: a note that starts while the previous one still sounds, or as it ends, takes over
     # its voice, gliding from its pitch; the envelope restarts only after a gap.  A line is synthesized whole at four
     # times the rate, about 60 MB a second, so after MONO_LINE_S of unbroken legato the next note starts afresh.
-    groups = voices(notes, patch)
     arp = patch.get('arpeggio')
     for group in groups:
         first, last = group[0], group[-1]
-        start = first['start_seconds']
-        held = max(.005, (max(e['end_seconds'] for e in group) if arp else last['end_seconds']) - start)
+        start, held = voice_held(group, patch)
         length = held + release * 1.2 + .02
         n = int(round(length * rate))
         n_on = int(round(held * rate))
@@ -527,4 +540,4 @@ def render(project, track, path, clock=None):
             out[i0:i0 + m] += y[:m]
     out *= 10 ** (patch.get('gain_db', 0.0) / 20) * .25
     audio.write_wav(path, out.astype(np.float32))
-    return {'notes': len(notes), 'voices': len(groups), 'oversampling': OVER}
+    return {'notes': sum(len(g) for g in groups), 'voices': len(groups), 'oversampling': OVER}

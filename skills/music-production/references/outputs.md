@@ -83,7 +83,7 @@ the sections, the authored decisions and the questions as a page.
 | `stem_levels_lufs_ungated` | each part's level per section and span |
 | `tonal_balance` | `slope_db_per_octave_100hz_4khz`, `low_end_vs_line_db`, `top_end_vs_line_db`, `third_octaves_db`, the published range it is read against |
 | `reference_comparison` | with `--reference`: the slope, low and top end, each octave, width, loudness, peak to loudness and loudness range minus the reference's |
-| `reverb` | a bus-chain render with reverb, from the project and the spaces' impulse responses: `early_decay_time_s` (of the spaces in use, weighted by what the parts send into each), `clarity_c80_db` (the mix taken as one room; `null` without the project) with `hall_c80_db` (the range Barron recommends for concert halls) and, where the project asks one, `c80_asked_db`, and `spaces` |
+| `reverb` | a bus-chain render with reverb, from the project and the spaces' impulse responses: `early_decay_time_s` (of the spaces in use, weighted by what the parts send into each), `clarity_c80_db` (the mix taken as one room; `analyze` needs the render's `project.json`) with `hall_c80_db` (the range Barron recommends for concert halls) and, where the project asks one, `c80_asked_db`, and `spaces` |
 | `master`, `side_minus_mid_db`, `warnings` | `integrated_lufs`, `true_peak_dbtp`, `lra_lu`, `plr_db`; width per band; what the analysis flags |
 
 How to read these is in [measuring.md](measuring.md). At its peak `analyze` holds about ten float64 copies of the

@@ -236,6 +236,17 @@ def plan(track, clock):
     return notes
 
 
+def played(track, clock):
+    """The notes the layered render plays, and the wheel curve of its slurs or None: the plan, with slurred notes joined
+    into the one note they sound as where the part's legato is a slur (model.legato_notes, as on a plain preset in
+    midi.synthesis_notes).  The mix reads the same notes for the time a part sounds (mixbus.held_spans)."""
+    notes = plan(track, clock)
+    leg = track['performance'].get('legato')
+    if leg and leg.get('mode', 'slur') == 'slur':
+        return legato_notes(track, notes, clock)
+    return notes, None
+
+
 def write_midi(path, project, track, notes, program, layer_bank, legato_bank, end, bends=None, clock=None):
     """One render's MIDI: attacks on channel 0 (the dynamic layer), legato entries on channel 1 (its legato preset),
     each with the part's controllers and pitch bends; round-robin attacks on channels 2-5 with the wheel holding them
@@ -574,12 +585,9 @@ def render(project, track, clock, cfg, font, folder, raw):
                          '(build it with dynamic_layers; see references/soundbank-building.md)')
     if crossfade and len(legato) != len(layers):
         raise ValueError(f'{track["id"]}: crossfade legato needs the bank\'s legato presets for program {program}')
-    notes = plan(track, clock)
+    notes, slurs = played(track, clock)
     bends = None
-    leg = track['performance'].get('legato')
-    if leg and leg.get('mode', 'slur') == 'slur':
-        # Slurred notes sound as one sample with the pitch carried by the wheel, as on a plain preset (midi.write).
-        notes, slurs = legato_notes(track, notes, clock)
+    if slurs is not None:
         bends = wheel_events([bend_curve(track['performance'].get('bend', [])), slurs], track['performance'].get('bend_range', 2), clock.total_beats)
     if track['performance'].get('round_robin') and not bends and not bend_events(track):
         attacks = [n for n in notes if not n['legato']]

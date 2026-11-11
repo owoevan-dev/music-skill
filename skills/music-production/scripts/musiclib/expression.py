@@ -20,7 +20,8 @@ stay small.  Sizes and weights below are this module's starting values:
 
 - the distance from the beat as above (`timing_sd`, ms) and the motor delays (`short_sd`, ms).  With `drift='time'`
   the distance runs in time over the piece, on the sixteenth-note grid, and each onset's delay is drawn from the
-  part, the seed and the onset's place, so a note added or removed changes only itself (with the default
+  part, the seed and the onset's place, so a note added or removed changes no other note's draws (a chord it joins
+  is shaped again: which note leads, the strum, the spread) (with the default
   `drift='notes'` every value steps note by note, and a part's whole performance moves when it gains a note: the
   0.4.0 Haiku pieces).  Either way a piece made longer draws its lines again.  A script written for 0.5 or before
   writes another performance under 0.6, of the same size: the distance and the gates are drawn another way, and
@@ -197,8 +198,10 @@ def apply(project, overrides=None, seed=1, drift='notes'):
             cycle = rng.uniform(-1, 1, 16)
             slot = {o: min(span - 1, max(0, int(round(o * GRID)))) for o in onsets}
             # Each onset's motor delay, independent of the others, keyed by the onset itself (not by its slot of the
-            # grid, which onsets nearer than a sixteenth share): a note added or removed changes no other onset's.
-            fast_t = {o: float(rng_for(seed, f'{t["id"]}:short:{o!r}').standard_normal()) for o in onsets}
+            # grid, which onsets nearer than a sixteenth share): a note added or removed changes no other onset's.  The
+            # key is the onset in whole millionths of a beat, so that one beat written 1 or 1.0, or reached by another
+            # sum, is one key (the third review of 0.6.0 found 1 and 1.0 drawing apart).
+            fast_t = {o: float(rng_for(seed, f'{t["id"]}:short:{int(round(o * 1_000_000))}').standard_normal()) for o in onsets}
         else:
             # One value per onset in order, drawn in this order, each as far from the last as the onsets are in beats.
             slot = {o: k for k, o in enumerate(onsets)}
@@ -225,7 +228,8 @@ def apply(project, overrides=None, seed=1, drift='notes'):
             group = sorted(group, key=lambda n: n['pitch'])
             strummed = {}
             if prof['strum'] and len(group) > 1:
-                strummed, up = strum_offsets(o, group, prof, rng_for(seed, f'{t["id"]}:{o}'))
+                # Keyed by the onset as a float, so that a beat written 1 strums as the same beat written 1.0.
+                strummed, up = strum_offsets(o, group, prof, rng_for(seed, f'{t["id"]}:{float(o) + 0.0}'))
                 strokes['up' if up else 'down'] += 1
             for j, n in enumerate(group):
                 e = perf[n['id']]

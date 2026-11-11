@@ -292,7 +292,7 @@ def _validate(p):
             number(h.get('transpose_semitones',0),-24,24,'harmony transpose',True)
     if p['mix'].get('chain','room') not in ('room','bus'):raise ValueError('mix.chain must be "room" or "bus"')
     if p['mix'].get('dynamics','glue') not in ('glue','wide'):raise ValueError('mix.dynamics must be "glue" or "wide"')
-    # The mix's rules: 1 is the bus chain as 0.5 mixed it (the default, so a project made before renders as it did);
+    # The mix's rules: 1 is the bus chain as 0.5 mixed it (the default, so a project made before is mixed as it was);
     # 2 runs the saturation between resamplers, ends the master in one true-peak limiter and takes a clarity (mixbus.py).
     if p['mix'].get('rules',1) not in (1,2) or isinstance(p['mix'].get('rules',1),bool):raise ValueError('mix.rules must be 1 or 2')
     if p['mix'].get('rules',1)==2 and p['mix'].get('chain')!='bus':raise ValueError('mix.rules 2 needs mix.chain "bus"')

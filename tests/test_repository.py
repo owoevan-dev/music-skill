@@ -5,6 +5,7 @@ Set MUSIC_SKILL_CONFIG to a renderer configuration written by bootstrap.py to in
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -15,12 +16,16 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / 'skills' / 'music-production'
 SCRIPTS = SKILL / 'scripts'
 BEFORE_AFTER = ROOT / 'examples' / 'before-after'
-AGENT_PIECES = {  # folder: the agent's script and its arguments as the example's README gives them, {out} the output
-    'fughetta-on-a-lantern-theme': ('compose_baroque.py', ['{out}']),
-    'platform-in-the-snowmelt': ('compose.py', ['{out}', 'r6']),
-    'sodium-lights': ('compose.py', ['--output', '{out}', '--revision', 'r6']),
-    'sprinkle-satellite': ('compose.py', ['{out}']),
+AGENT_PIECES = {  # folder: the arguments of the agent's compose.py as the example's README gives them
+    'stormglass-gambit': [],
+    'cairnfire': [],
+    'glass-towers-low-gear': [],
+    'the-stone-vault-turns-to-light': [],
+    'paper-lantern-hours': ['--round', '3'],
+    'fughetta-in-d-minor': [],
+    'skybutton-speedway': ['--revision', '3'],
 }
+BESIDE_ITS_PROJECT = {'skybutton-speedway'}  # this script takes each note's id from the project of the round before, beside it
 CONFIG = os.environ.get('MUSIC_SKILL_CONFIG')
 
 
@@ -200,17 +205,25 @@ def test_example_projects():
 
 @pytest.mark.parametrize('folder', AGENT_PIECES)
 def test_agent_piece_script_writes_the_published_project(tmp_path, folder):
-    """Each agent's script, run as its example's README says, writes a valid project equal to the published one."""
-    script, args = AGENT_PIECES[folder]
-    out = tmp_path / 'song.json'
-    r = subprocess.run([sys.executable, str(ROOT / 'examples' / folder / script), *(a.replace('{out}', str(out)) for a in args)],
-                       capture_output=True, text=True, encoding='utf-8', errors='replace', cwd=tmp_path)
+    """Each agent's script, run as its example's README says, writes a valid project equal to the published one.  It
+    runs on a copy in an empty folder, with the skill's scripts on PYTHONPATH, since most of the scripts write
+    song.json beside themselves.  One script reads the project of the round before to keep each note's id: it runs
+    beside the published project and writes the same notes, with one more entry in the project's revision history."""
+    published = load(ROOT / 'examples' / folder / 'song.json')
+    shutil.copyfile(ROOT / 'examples' / folder / 'compose.py', tmp_path / 'compose.py')
+    if folder in BESIDE_ITS_PROJECT:
+        shutil.copyfile(ROOT / 'examples' / folder / 'song.json', tmp_path / 'song.json')
+    r = subprocess.run([sys.executable, 'compose.py', *AGENT_PIECES[folder]], capture_output=True, text=True, encoding='utf-8', errors='replace',
+                       cwd=tmp_path, env={**os.environ, 'PYTHONPATH': str(SCRIPTS), 'PYTHONDONTWRITEBYTECODE': '1'})
     assert r.returncode == 0, r.stderr[-2000:]
     sys.path.insert(0, str(SCRIPTS))
     from musiclib.model import validate
-    made = load(out)
+    made = load(tmp_path / 'song.json')
     validate(made)  # the renderer's checks: a pitch written 60.0 equals 60 once parsed, but does not render
-    assert made == load(ROOT / 'examples' / folder / 'song.json')
+    if folder in BESIDE_ITS_PROJECT:
+        assert len(made['revision_history']) == len(published['revision_history']) + 1
+        made['revision_history'] = made['revision_history'][:-1]
+    assert made == published
 
 
 def test_examples_group_installs_the_examples_banks():
@@ -221,11 +234,11 @@ def test_examples_group_installs_the_examples_banks():
     assert set(load(SKILL / 'references' / 'soundbank-lock.json')['groups']['examples']) == named
 
 
-RECORDINGS = 'https://github.com/owoevan-dev/music-skill/releases/download/examples-3/'
+RECORDINGS = 'https://github.com/owoevan-dev/music-skill/releases/download/examples-4/'
 
 
 def test_recordings_are_release_assets():
-    """The example recordings are assets of the release examples-3: each language's README links the four pieces there,
+    """The example recordings are assets of the release examples-4: each language's README links the seven pieces there,
     each example folder its own piece, and no recording is a repository file."""
     pieces = {f'{folder}.mp3' for folder in AGENT_PIECES}
     expected = {**{f'README{s}.md': pieces for s in ('', '.ja', '.ko', '.zh-CN', '.zh-TW')},

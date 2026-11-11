@@ -26,22 +26,24 @@ music-skill is an [Agent Skill](https://agentskills.io) for writing original ins
 No audio-generation model is involved. Besides the MP3 and WAV you get the MIDI, a stem per part, and a project file in which any note can be changed and rendered again.
 
 <p align="center">
-  <img src="docs/images/fughetta-on-a-lantern-theme.png" alt="Every note of Fughetta on a Lantern Theme, part by part, with its sections marked: the subject in red as it enters in violin I, violin II, the viola and the cello, then in F major, in G minor and in the bass at the end">
+  <img src="docs/images/cairnfire.png" alt="One moment of Cairnfire, an overture for full orchestra, drawn from its project file: every note is a bar on a piano roll, strings in blue, woodwinds in green and brass in orange, with the piece's sections above and the parts' names below, those playing lit">
 </p>
 
 ## Listen
 
-Claude (Opus 5.5, xhigh effort) made each of these with this skill's version 0.3.0, in one run from a one-line subject and [the rules every agent followed](examples/agent-rules.md). It chose the title, the form, the instruments and the sounds, wrote every note, and reviewed, rendered and revised its own work; nobody edited the result. Each example folder has the prompt, the agent's script and the project as it was rendered.
+Each of these was made with this skill's version 0.6.0 by the model named, in one take from one message: [an opening that is the same for all seven](examples/prompt.md), then a brief of three or four sentences. The agent chose the title, the form, the instruments and the sounds, wrote every note, and reviewed, rendered and revised its own work; nobody replied to it while it worked, and nobody edited the result. All seven are here: none was picked from several. Each example folder has the brief, the agent's script and the project as it was rendered.
 
-**[Fughetta on a Lantern Theme](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/fughetta-on-a-lantern-theme.mp3)** (1:55), from "a baroque-style miniature for harpsichord and strings, with imitative counterpoint between the voices": a Grave, then a fughetta in D minor whose subject enters in each of the four string voices in turn ([the example](examples/fughetta-on-a-lantern-theme)).
-
-- [Platform in the Snowmelt](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/platform-in-the-snowmelt.mp3) (4:37), from "a Japanese ballad like an anime ending theme, mostly piano and strings: it starts quietly, and the last chorus carries the most feeling" ([the example](examples/platform-in-the-snowmelt))
-- [Sodium Lights](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sodium-lights.mp3) (4:28), from "Japanese city pop: the city feeling of a drive at night" ([the example](examples/sodium-lights))
-- [Sprinkle Satellite](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sprinkle-satellite.mp3) (2:30), from "kawaii future bass: bright chords and a light, bouncy drop" ([the example](examples/sprinkle-satellite))
+- [Stormglass Gambit](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/stormglass-gambit.mp3) (3:07), Claude Fable 5.2 at xhigh effort: a looping synth battle theme for a game ([the example](examples/stormglass-gambit))
+- [Cairnfire](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/cairnfire.mp3) (4:29), Claude Fable 5.2 at xhigh effort: a concert overture for full orchestra, in 36 parts ([the example](examples/cairnfire))
+- [Glass Towers, Low Gear](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/glass-towers-low-gear.mp3) (3:03), Claude Opus 5.5 at xhigh effort: city pop, a night drive through a lit city ([the example](examples/glass-towers-low-gear))
+- [The Stone Vault Turns to Light](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/the-stone-vault-turns-to-light.mp3) (3:56), GPT-6 Astra at xhigh effort: a toccata for pipe organ ([the example](examples/the-stone-vault-turns-to-light))
+- [Paper Lantern Hours](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/paper-lantern-hours.mp3) (2:10), Claude Sonnet 5.5 at medium effort: a lo-fi hip-hop beat that loops ([the example](examples/paper-lantern-hours))
+- [Fughetta in D minor](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/fughetta-in-d-minor.mp3) (2:00), Claude Opus 5.5 at medium effort: a baroque-style fughetta for harpsichord and strings ([the example](examples/fughetta-in-d-minor))
+- [Skybutton Speedway](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/skybutton-speedway.mp3) (1:31), GPT-6 Luna at max effort: an 8-bit chiptune for a title screen, a 90-second loop ([the example](examples/skybutton-speedway))
 
 [Before and after](examples/before-after) changes one note of a short piece, and `compare` shows everything in the render that changed with it: the part, its bus, the reverb's tail and the master.
 
-The recordings download as MP3 files from the release [examples-3](https://github.com/owoevan-dev/music-skill/releases/tag/examples-3).
+The recordings download as MP3 files from the release [examples-4](https://github.com/owoevan-dev/music-skill/releases/tag/examples-4).
 
 ## Quick start
 
@@ -58,7 +60,7 @@ The recordings download as MP3 files from the release [examples-3](https://githu
 
    > Write a one-minute looping town theme for my RPG: recorder, harp and light strings.
 
-You get an MP3 and a WAV, the MIDI, a stem per part, the buses and reverb returns that add up to the mix, and the project file. On a 24-thread laptop each of the examples above rendered from scratch in half a minute (the fughetta) to two and a half minutes (the city pop).
+You get an MP3 and a WAV, the MIDI, a stem per part, the buses and reverb returns that add up to the mix, and the project file. On a 24-thread laptop each of the examples above rendered from scratch in 22 seconds (the fughetta) to 108 seconds (the overture, with its 36 parts).
 
 ## Why not just generate it?
 

@@ -86,7 +86,7 @@ If the piece must also carry on small speakers, `mix.range_lu` brings the master
 
 With the sends in this guide (−14 dB each with `depth_m`), the response a mix gives its parts, the direct sound and the hall's answer at that level, has a clarity of about +16 dB. Clarity (C80) is the energy within 80 ms of the direct sound, the direct sound included, over the energy after it, read at mid frequencies. Barron (2013) recommends −2 to +2 dB for concert halls, beside a reverberation time of 1.8 to 2.2 s. So a piece mixed as this guide starts it stands far on the clear side of a hall: every line is easy to follow, and little of the room is in the sound. Recordings spread widely too: Griesinger gives their direct-to-reverberant ratio, a related measure, as +25 down to −3 dB.
 
-With `mix.rules: 2`, `mix.c80_db` asks for a clarity and the render moves the hall's return to give it ([schema.md](schema.md#the-mix)). The clarity is worked out from the project file and the hall's impulse response, not from the audio. `analyze` reports the mix's `clarity_c80_db` beside the range for halls either way. For the generated hall at this guide's sends, on this skill's fughetta example:
+With `mix.rules: 2`, `mix.c80_db` asks for a clarity and the render moves the hall's return to give it ([schema.md](schema.md#the-mix)). The clarity is worked out from the project file and the hall's impulse response, not from the audio. `analyze` reports the mix's `clarity_c80_db` beside the range for halls either way. For the generated hall at this guide's sends, on a fughetta for harpsichord and strings written with them (an example of this skill's version 0.3.0):
 
 | Balance of early and late sound | `c80_db` | The hall's return, against where the sends put it |
 |---|---|---|

@@ -26,22 +26,24 @@ music-skill은 작곡가와 작은 스튜디오가 일하는 방식으로 오리
 오디오 생성 모델은 전혀 쓰지 않습니다. MP3와 WAV뿐 아니라 MIDI, 파트별 스템, 그리고 어떤 음이든 고쳐서 다시 렌더링할 수 있는 프로젝트 파일까지 받게 됩니다.
 
 <p align="center">
-  <img src="docs/images/fughetta-on-a-lantern-theme.png" alt="《Fughetta on a Lantern Theme》의 모든 음을 파트별로 나열한 그림. 위에는 구간 이름. 빨간색이 주제로, 제1 바이올린, 제2 바이올린, 비올라, 첼로 순으로 들어오고, 바장조, 사단조, 곡 끝의 저음에서 다시 나타남">
+  <img src="docs/images/cairnfire.png" alt="《Cairnfire》(관현악 서곡)의 한 순간을 프로젝트 파일에서 그대로 그린 그림. 모든 음이 피아노 롤 위의 막대 하나이며, 현악은 파란색, 목관은 초록색, 금관은 주황색. 위에는 곡의 구간, 아래에는 각 파트의 이름이 있고 연주 중인 파트가 밝게 표시됨">
 </p>
 
 ## 들어 보기
 
-여기 있는 곡은 모두 Claude(Opus 5.5, xhigh effort)가 이 스킬의 0.3.0 버전으로, 한 줄짜리 주제와 [모든 에이전트가 따른 규칙](examples/agent-rules.md)으로, 한 번의 실행에서 만들었습니다. 곡 제목, 형식, 악기, 음색을 스스로 정하고, 모든 음을 쓰고, 리뷰·렌더링·수정까지 직접 했습니다. 결과물을 사람이 고치지 않았습니다. 각 예제 폴더에는 프롬프트, 에이전트의 스크립트, 렌더링할 때의 프로젝트가 있습니다.
+여기 있는 곡은 모두 이 스킬의 0.6.0 버전으로, 표기한 모델이 한 번의 실행에서 만들었습니다. 준 것은 메시지 하나뿐으로, [일곱 곡에 공통인 첫머리](examples/prompt.md)에 서너 문장의 의뢰문을 붙인 것입니다. 곡 제목, 형식, 악기, 음색을 에이전트가 스스로 정하고, 모든 음을 쓰고, 리뷰·렌더링·수정까지 직접 했습니다. 작업하는 동안 아무도 답하지 않았고, 결과물을 사람이 고치지 않았습니다. 일곱 곡이 전부이며, 여러 곡 가운데 고른 것이 아닙니다. 각 예제 폴더에는 의뢰문, 에이전트의 스크립트, 렌더링할 때의 프로젝트가 있습니다.
 
-**[《Fughetta on a Lantern Theme》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/fughetta-on-a-lantern-theme.mp3)**(1:55). 주제는 "하프시코드와 현악을 위한 바로크풍 소품, 성부끼리 모방 대위법으로". 그라베 서주에 이어 D단조 푸게타에서 주제가 현악 네 성부에 차례로 들어옵니다([예제](examples/fughetta-on-a-lantern-theme)).
-
-- [《Platform in the Snowmelt》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/platform-in-the-snowmelt.mp3)(4:37). 주제는 "애니메이션 엔딩곡 같은 일본풍 발라드, 피아노와 현악 중심, 조용히 시작해 마지막 후렴에서 감정이 가장 고조됨"([예제](examples/platform-in-the-snowmelt))
-- [《Sodium Lights》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sodium-lights.mp3)(4:28). 주제는 "일본 시티팝, 밤 드라이브의 도시적인 느낌"([예제](examples/sodium-lights))
-- [《Sprinkle Satellite》](https://github.com/owoevan-dev/music-skill/releases/download/examples-3/sprinkle-satellite.mp3)(2:30). 주제는 "귀여운 퓨처 베이스, 밝은 코드와 경쾌한 드롭"([예제](examples/sprinkle-satellite))
+- [《Stormglass Gambit》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/stormglass-gambit.mp3)(3:07). Claude Fable 5.2, xhigh effort. 반복 재생되는 신시사이저 중심의 게임 전투곡([예제](examples/stormglass-gambit))
+- [《Cairnfire》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/cairnfire.mp3)(4:29). Claude Fable 5.2, xhigh effort. 풀 오케스트라를 위한 연주회용 서곡, 36개 파트([예제](examples/cairnfire))
+- [《Glass Towers, Low Gear》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/glass-towers-low-gear.mp3)(3:03). Claude Opus 5.5, xhigh effort. 시티팝, 불 켜진 도시를 달리는 밤 드라이브([예제](examples/glass-towers-low-gear))
+- [《The Stone Vault Turns to Light》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/the-stone-vault-turns-to-light.mp3)(3:56). GPT-6 Astra, xhigh effort. 파이프 오르간을 위한 토카타([예제](examples/the-stone-vault-turns-to-light))
+- [《Paper Lantern Hours》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/paper-lantern-hours.mp3)(2:10). Claude Sonnet 5.5, medium effort. 반복 재생되는 lo-fi 힙합([예제](examples/paper-lantern-hours))
+- [《Fughetta in D minor》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/fughetta-in-d-minor.mp3)(2:00). Claude Opus 5.5, medium effort. 하프시코드와 현악을 위한 바로크풍 푸게타([예제](examples/fughetta-in-d-minor))
+- [《Skybutton Speedway》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/skybutton-speedway.mp3)(1:31). GPT-6 Luna, max effort. 타이틀 화면용 8비트 칩튠, 90초 루프([예제](examples/skybutton-speedway))
 
 [Before and after](examples/before-after)는 짧은 곡의 음 하나를 바꾸고, 렌더링에서 함께 바뀐 모든 것을 `compare`로 보여 줍니다. 그 파트, 그 버스, 리버브 꼬리, 마스터입니다.
 
-녹음은 MP3 파일이며, 릴리스 [examples-3](https://github.com/owoevan-dev/music-skill/releases/tag/examples-3)에서 내려받을 수 있습니다.
+녹음은 MP3 파일이며, 릴리스 [examples-4](https://github.com/owoevan-dev/music-skill/releases/tag/examples-4)에서 내려받을 수 있습니다.
 
 ## 빠른 시작
 
@@ -58,7 +60,7 @@ music-skill은 작곡가와 작은 스튜디오가 일하는 방식으로 오리
 
    > 내 RPG에 쓸 1분짜리 반복되는 마을 테마를 써 줘. 리코더, 하프, 부드러운 현악으로.
 
-MP3와 WAV, MIDI, 파트별 스템, 더하면 믹스가 되는 버스와 리버브 리턴, 프로젝트 파일을 받습니다. 24스레드 노트북에서 위의 예제 곡들을 처음부터 렌더링하는 데 한 곡에 30초(푸게타)에서 2분 반(시티팝)이 걸렸습니다.
+MP3와 WAV, MIDI, 파트별 스템, 더하면 믹스가 되는 버스와 리버브 리턴, 프로젝트 파일을 받습니다. 24스레드 노트북에서 위의 예제 곡들을 처음부터 렌더링하는 데 한 곡에 22초(푸게타)에서 108초(36개 파트의 서곡)가 걸렸습니다.
 
 ## 그냥 생성하면 안 되나요?
 

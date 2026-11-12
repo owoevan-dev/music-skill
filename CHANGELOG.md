@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 
 - **Seven new examples take the place of the four.** Each was made with 0.6.0 in one take, from one message: an opening that is the same for all seven and a brief of three or four sentences ([examples/prompt.md](examples/prompt.md)). *Stormglass Gambit* and *Cairnfire* are by Claude Fable 5.2, *Glass Towers, Low Gear* and *Fughetta in D minor* by Claude Opus 5.5, *Paper Lantern Hours* by Claude Sonnet 5.5, *The Stone Vault Turns to Light* by GPT-6 Astra and *Skybutton Speedway* by GPT-6 Luna. Nobody replied to an agent while it worked, nothing was edited afterwards, and none was picked from several. Each folder has the brief, the agent's script and the project as rendered; the recordings are the release examples-4, and compositions and recordings are CC0.
+- **Where the skill runs is written down.** `SKILL.md` and the readmes say what it needs (an agent that runs commands on your computer, internet access for the setup, a folder that stays: about 1 GB, about 12 GB with every bank) and where it is tested (Claude Code and Codex). An agent that cannot do the setup where it is now says so instead of starting it.
 - `fetch_soundbanks.py --only examples` installs the banks the new examples use: `bass_sneaky` and `organ_vcsl` are in the group, `piano_osiris` and `vcsl_winds` no longer.
 
 ## [0.6.0] - 2026-11-11

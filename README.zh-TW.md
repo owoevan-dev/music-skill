@@ -85,6 +85,8 @@ music-skill 是一個 [Agent Skill](https://agentskills.io)，讓 AI agent 像�
 
 ## 安裝
 
+**在哪裡執行。** 在你自己的電腦上，透過能在那裡執行指令的 agent 使用；已在 Claude Code 和 Codex 測試過。安裝時需要連網一次，並會保留它的資料夾供之後的工作階段使用，大小從約 1 GB 到裝滿全部音色庫的約 12 GB。claude.ai 的對話和 Cowork 尚未測試；離線或每次對話都會重設的沙盒無法保留安裝。
+
 **Claude Code**
 
 ```
@@ -100,7 +102,7 @@ npx skills add owoevan-dev/music-skill
 
 也可以直接把 `skills/music-production` 複製到 agent 的 skills 資料夾。
 
-**渲染工具**：每台電腦設定一次，可以交給 agent 代勞。
+**渲染工具**：每台電腦設定一次，可以交給 agent 代勞。指令裡的 `<folder>` 是你自選的資料夾，放在 skill 自己的資料夾之外，安裝的內容會留在那裡。
 
 需要 Python 3.10 以上和 NumPy。在 Linux 和 macOS 上，用虛擬環境把 NumPy 和系統的 Python 分開，下面的指令也就能用 `python`（Debian 和 Ubuntu 要先 `sudo apt install python3-venv`）：
 

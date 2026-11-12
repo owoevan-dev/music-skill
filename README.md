@@ -85,6 +85,8 @@ For a game, a project can loop. The render folds the reverb tail back into the l
 
 ## Install
 
+**Where it runs.** On your own computer, through an agent that runs commands there: it is tested in Claude Code and Codex. The setup needs internet access once and keeps its folder for later sessions, from about 1 GB to about 12 GB with every bank. In claude.ai chat and Cowork it has not been tested; a sandbox that is offline or reset between conversations cannot keep the setup.
+
 **Claude Code**
 
 ```
@@ -100,7 +102,7 @@ npx skills add owoevan-dev/music-skill
 
 Or copy `skills/music-production` into your agent's skills folder.
 
-**The renderer**, once per machine. Your agent can run these for you.
+**The renderer**, once per machine. Your agent can run these for you. In the commands, `<folder>` is a folder you choose outside the skill's own folder; the setup stays there.
 
 Python 3.10 or newer with NumPy. On Linux and macOS a virtual environment keeps NumPy apart from the system's Python and makes `python` the command below (Debian and Ubuntu need `sudo apt install python3-venv` first):
 

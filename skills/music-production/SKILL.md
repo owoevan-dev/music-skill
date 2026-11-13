@@ -31,7 +31,7 @@ Nine steps, in order. Copy the checklist into the project's notes and tick it of
     - an anime opening or a J-rock or J-pop band cue: the length (TV size is about 90 s) and the instrument that carries the vocal line ([anime-opening.md](references/anime-opening.md));
     - a scene in a visual novel or an RPG: the cue's place in the set, whether the lines are voiced, and the engine ([scene-music.md](references/scene-music.md));
     - orchestra or pipe organ: the ensemble, the room and the dynamic range ([orchestration.md](references/orchestration.md), [organ.md](references/organ.md));
-    - solo piano or a small ensemble: the piano, its preset and how near it is heard ([piano-and-chamber.md](references/piano-and-chamber.md));
+    - solo piano or a small ensemble: how the piano is written, pedalled and how near it is heard ([piano-and-chamber.md](references/piano-and-chamber.md)); a piano part in any kind of music is played on the Steinway grand (`vcsl` 0:0) unless the user names another;
     - EDM, techno, future bass, synthwave or chiptune: the style, tempo and use ([electronic.md](references/electronic.md)); lo-fi, boom-bap or trap beats: [beats.md](references/beats.md);
     - jazz, blues, bossa nova, funk or city pop: [jazz-and-funk.md](references/jazz-and-funk.md); baroque music: [baroque.md](references/baroque.md);
     - film or video underscore, music timed to picture, a suspense or horror cue: [film-score.md](references/film-score.md);

@@ -29,7 +29,7 @@ Write one track per orchestral part (violins I, violins II, violas, cellos, bass
 | | Orchestra bells `iowa_perc` 0:9, crotales 0:10, Thai gongs 0:11; kit 128:48 with clash and suspended cymbals, tam-tams of 22–40 inches and a wind gong, struck, rolled and bowed | C5–E8, C6–C8, C4–C5 |
 | Colours | Muted horn `vsco_colors` 0:60; harmon- and straight-muted trumpet 0:59, 1:59; trombone vibrato, falls and growls 0:57, 1:57, 2:57; flute, oboe and bassoon with vibrato 0:73, 0:68, 0:70; solo violin tremolo 0:44 and pizzicato 2:40; glockenspiel glissandi and orchestral effects (kits 128:9, 128:50) | |
 | Early and folk ([baroque.md](baroque.md)) | Harpsichords `vcsl_keys` 0:6–3:6; recorders `vcsl_winds` program 74; Renaissance organ 0:20; folk harp, psaltery, dan tranh, kalimbas, balafon and world percussion in `vcsl_world` | |
-| Harp, keyboards | Harp `vcsl` 0:46; pianos `piano_osiris` and `vcsl` 0:0; organ `organ_vcsl` | |
+| Harp, keyboards | Harp `vcsl` 0:46; piano `vcsl` 0:0 (the Steinway); organ `organ_vcsl` | |
 
 **Write each string section on its own preset.** `vsco_strings` plays every section over its whole sampled range: a cello melody in the tenor register sounds like cellos, a viola line in the treble like violas. The combined `vsco` presets switch sections by register (cellos to F♯3, violas G3–E4, violins above F4), so there a viola line below G3 takes on the cellos' tone and a cello line above F♯3 the violas', and they stretch the violins' top sample (D6) up to G7. The violins have no sample above D6: on `vsco_strings` they reach F♯6, and the octave above belongs to flutes, piccolo or the solo violin (sampled to C7). Run `review --config` to list notes played far from their samples. Violins I and II are two tracks on the same preset.
 

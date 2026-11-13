@@ -2770,6 +2770,30 @@ def checks(work,config=None):
         fresh=example();fresh['tracks'][0]['mix']['highpass']=a0;validate(fresh)
         return {'flagged':st['count'],'outside':st['outside_count'],'highpass_cut_db':[round(c,2) for c in cuts]}
     check('review_flags_far_transposed_samples_and_missing_keys',transposed_samples)
+    def piano_on_another_piano():
+        from musiclib import review as rv
+        # Known answers: with the Steinway's bank installed, a part on the Kawai, on an upright, on the Osiris or on the
+        # default bank's grand is asked about by its own identifier; a part on the Steinway, a harpsichord of the same
+        # bank as the Kawai, a part without notes and a drum part are not; without the bank nothing is asked.
+        def piece(**fields):
+            q=example();t=q['tracks'][0]
+            for k in ('soundfont','patch','bank','program'):t.pop(k,None)
+            t.update(engine='soundfont',**fields);return q,t['id']
+        have={'vcsl','vcsl_keys','piano_osiris','vsco_colors'}
+        for fields,named in (({'soundfont':'vcsl_keys','patch':{'bank':0,'program':1}},'Kawai'),
+                             ({'soundfont':'vcsl_keys','patch':{'bank':1,'program':3}},'Knight'),
+                             ({'soundfont':'piano_osiris','program':0},'Osiris'),({'soundfont':'vsco_colors'},'VSCO upright'),
+                             ({},'Acoustic Grand'),({'program':1},'Bright Acoustic')):
+            q,tid=piece(**fields);asked=rv.piano_choice(q,have)
+            assert [i for i,_ in asked]==[f'piano:{tid}'] and named in asked[0][1] and '"vcsl"' in asked[0][1],(fields,asked)
+            assert rv.piano_choice(q,have-{'vcsl'})==[],fields
+        for fields in ({'soundfont':'vcsl','patch':{'bank':0,'program':0}},{'soundfont':'vcsl_keys','patch':{'bank':0,'program':6}},
+                       {'program':4},{'soundfont':'vcsl_keys','patch':{'bank':0,'program':1},'drums':True}):
+            assert rv.piano_choice(piece(**fields)[0],have)==[],fields
+        q,tid=piece(soundfont='vcsl_keys',patch={'bank':0,'program':1});q['tracks'][0]['notes']=[]
+        assert rv.piano_choice(q,have)==[]
+        return {'asked_of':6,'not_asked_of':5}
+    check('a_piano_part_on_another_piano_is_asked_about',piano_on_another_piano)
     def melody_group_and_balance():
         from musiclib import analysis
         q=example();q['tracks']=q['tracks'][:3]

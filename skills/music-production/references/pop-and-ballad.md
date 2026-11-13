@@ -107,7 +107,7 @@ An example plan, built from the points above: build by addition from verse to ch
 
 | Role | Bank and preset |
 |---|---|
-| Piano | `piano_osiris` 1:0 (pedalled; change the pedal with the harmony), 0:0 for detached playing; `vcsl` 0:0 (Steinway); `vcsl_keys` Kawai and uprights |
+| Piano | `vcsl` 0:0, the Steinway, for every piano part, the one that opens a ballad alone too (change the pedal with the harmony, CC64); another piano only for a sound the piece is built on ([piano-and-chamber.md](piano-and-chamber.md)) |
 | Electric piano, keys | a Surge electric piano (`studio.py sounds --role keys --name ep`, or `rhodes`, `wurli`, `suitcase`); synth `fm_epiano`, `lofi_keys` |
 | Bass | `bass_darkblack` 0:33 (fingers, ghost notes at low velocities), `bass_pick` (brighter); a Surge sub bass (`sounds --role bass --name sub`) or synth `sub_bass` for modern pop |
 | Drums | `rusty` (acoustic kit); `drum_synth` 808 or 909 for electronic pop |

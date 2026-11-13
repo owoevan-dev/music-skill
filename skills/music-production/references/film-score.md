@@ -112,7 +112,7 @@ So use **high clusters for terror** and **low clusters for dread**.
 | A thin high tremolo | `vsco_colors` 0:44 (solo violin tremolo) |
 | Bowed metal | `iowa_perc` 128:48 keys 27 (40-inch tam-tam bowed), 28 (28-inch), 29 (crash), 30 (Chinese cymbal) |
 | Scrapes and rubs | `vsco_colors` 128:50 keys 52 (scraped gong), 53 (bowed cymbal), 54 (scraped cymbal), 35 (rubbed bass drum) |
-| The hit | `iowa_perc` tam-tams 52, 50, 48 and wind gong 47 (leave 12–15 s of `tail_seconds`); `vcsl` timpani 0:47; a low piano cluster on `piano_osiris` |
+| The hit | `iowa_perc` tam-tams 52, 50, 48 and wind gong 47 (leave 12–15 s of `tail_seconds`); `vcsl` timpani 0:47; a low piano cluster on the Steinway (`vcsl` 0:0) |
 | Falling or rising shimmer | `vsco_colors` 128:9 glockenspiel glissandi |
 | Drones, air, wind | synth pads, `noise` parts |
 

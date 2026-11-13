@@ -70,7 +70,9 @@ Use pan to separate parts while keeping a stable centre: the most prominent part
 
 Measured here: the same figure (a C5–E5–G5 chord and eighths up to C6) on every piano in the banks, with its spectral
 centroid and the share of its energy above 2 kHz. The recording chosen and the touch changed the brightness more than EQ
-did.
+did. The table is what each recording measured, not a choice among them: the piano to use is the Steinway
+([piano-and-chamber.md](piano-and-chamber.md)), for what the brighter recordings carry beside their brightness, and the
+touch and the equalizer below are how it is made brighter.
 
 | Piano | Centroid at velocity 110 | Above 2 kHz | Velocity 50 → 110 |
 |---|---|---|---|

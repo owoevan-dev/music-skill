@@ -541,6 +541,27 @@ def stretched(p,clock,maps,limit=4,examples=40):
                 b=by[t['id']];b['notes']+=1
                 if b['worst'] is None or abs(d)>abs(b['worst']['semitones']):b['worst']={'pitch':n['pitch'],'semitones':d,'at':where(clock,n['on'])}
     return {'limit_semitones':limit,'count':len(far),'by_track':dict(sorted(by.items(),key=lambda kv:-kv[1]['notes'])),'examples':far[:examples],'outside_preset':silent[:examples],'outside_count':len(silent)}
+# The acoustic pianos of the banks other than the Steinway grand (vcsl 0:0), by bank, bank number and program; 'default'
+# is a SoundFont part that names no bank, on the General MIDI bank every installation has.
+OTHER_PIANOS={('piano_osiris',0,0):'the Osiris piano',('piano_osiris',1,0):'the Osiris piano recorded with the pedal held',
+              ('vcsl_keys',0,1):'the Kawai grand',('vcsl_keys',0,3):'the Yamaha upright',('vcsl_keys',1,3):'the Knight upright',
+              ('vsco_colors',0,0):'the VSCO upright',('default',0,0):"the default bank's Acoustic Grand",
+              ('default',0,1):"the default bank's Bright Acoustic"}
+def piano_choice(p,installed):
+    """A question for each piano part played on another piano than the Steinway grand, where `installed` (the names of
+    the configured banks) has the Steinway's bank: [(identifier, text)].  The Steinway is the piano for every piano
+    part (piano-and-chamber.md); another is kept on the user's word or for a sound the piece is built on, and a
+    decision beginning with the identifier says which.  Parts without notes, drum parts and parts with a key map are
+    left out, and so is everything where the bank is not installed: there is nothing to move the part to."""
+    if 'vcsl' not in installed:return []
+    asked=[]
+    for t in p['tracks']:
+        if t['engine']!='soundfont' or t.get('drums') or t.get('key_map') or not t['notes']:continue
+        patch=t.get('patch') or {'bank':t.get('bank',0),'program':t.get('program',0)}
+        bank,b,pr=t.get('soundfont','default'),patch.get('bank',0),patch.get('program',0)
+        name=OTHER_PIANOS.get((bank,b,pr))
+        if name:asked.append((f'piano:{t["id"]}',f'{t["id"]}: plays {name} ({bank} {b}:{pr}). The piano for every piano part is the Steinway grand ("soundfont": "vcsl", bank 0, program 0; piano-and-chamber.md): move the part to it, and make it brighter or closer in the mix, not by changing the piano. Keep this one only where the user asked for it or the piece is built on its own sound (a worn upright for lo-fi or a bar room, the closeness of the Osiris in slow, sparse music), and say which in a decision that begins "piano:{t["id"]}: ".'))
+    return asked
 def review(p,out,config=None):
     out=Path(out);out.mkdir(parents=True,exist_ok=True);clock=Clock(p)
     summary={'validation':validate(p),'title':p['title'],'tracks':[],'sections':[],'prompts':[],'not_a_perceptual_quality_score':True}
@@ -706,6 +727,7 @@ def review(p,out,config=None):
         from . import audio,layered
         cannot=summary['cannot_render']=[m for t in p['tracks'] if t['engine']=='soundfont' for m in [layered.unsupported(t,audio.soundfont_for(config,t)[1]['path'])] if m]
         for m in cannot:put('cannot_render','Cannot render: '+m)
+        for qid,text in piano_choice(p,set(config.get('soundfonts') or {})):put(qid,text)
     if 'loop' in p:
         from . import loop
         s=summary['loop_seam']=loop.seam(p,clock)

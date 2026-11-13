@@ -25,7 +25,8 @@ relative paths `review`, `render`, `analysis`, `compare`, `seconds` per step and
 its `analysis.json`).
 With a `plan` in the project, the round also records `plan` (the plan as it stands in this round), `plan_first` (the
 plan as first written, carried from round to round so that it outlives the earlier rounds' folders) and, where the
-two differ, `plan_changed` (`identity`, `high_point`, `section <id>`).
+two differ, `plan_changed` (`identity`, `high_point`, `section <id>`). A round whose project has no plan any more
+still carries `plan_first` on, and its `plan_changed` says the whole plan is gone.
 
 ## report.json (render)
 
@@ -65,7 +66,7 @@ memory while other parts held it), `synthesis` and `processing`.
 |---|---|
 | `prompts` | every review question, as the summary prints them |
 | `association` questions | `association.missing` (the project records none), `association.whole` (words without the whole made of them), `association.gives` (the whole gave the music fewer than three levels); a project with `"association": {"none": "..."}` is asked none of them |
-| `answered` | the questions a decision answers and that are therefore not asked: `id`, the question's `text` with what it counts now, and the `reason` (the decision after the identifier and its colon) |
+| `answered` | the questions a decision answers and that are therefore not asked: `id`, the question's `text` with what it counts now, and the `reason` (the decision after the identifier and its colon). A decision answers the question with the longest identifier it begins with: one for `plan:answer: reprise` does not also answer `plan:answer` |
 | `plan` | null for a project without a plan, else the plan read against the score: `identity`; `high_point` (`section`, `means`, `in_piece`); `commitments`, `kept` and `differences` (counts of the statements that can be read off a score); and per planned section `kept` (the commitments the score holds), `differs` (each with `what`, `planned`, `found` and the sentence the question prints), `unread` (what cannot be read and why: a first section has none before it, a project without `harmony` has no pace) and `what_differs` (the plan's own sentence, compared with nothing) |
 | `questions` | the same questions, each with its `text` and an `id` that does not depend on the wording: the kind of question and, after a colon, the part, the parts or the section it is about (`vertical`, `outside_chord.melody`, `sections_alike:verse+chorus`, `stiffness:keys`, `restatement:chorus`). Rounds and versions are compared by these |
 | `views` | the score at a glance, which the summary prints before the questions. `parts_by_section`: per section the parts that sound in it, attacked there or held into it, each with `attacks`, `held_in`, `notes_per_bar`, `low` and `high`, `velocity`; `part_sets`: how many different sets of parts the sections have. `harmony_pace`: `entries` of `harmony`, `changes` (a chord that differs from the one before it, however it is spelled; the same chord written again is none), `changes_per_bar`, `kinds` (triad, added, seventh, extended, altered) and the same by section. `melody_rhythm`: for each part with the role `melody`, `syncopated_pct` and `pushes_pct` by the rule of `stiffness`, `longest_run` (the longest stretch it sounds without a rest of half a beat: `beats`, `seconds`, `from_bar`, `to_bar`), `bar_rhythms`, and by section its attacks, syncopations, pushes, rests and phrases. They describe the score; none is a question or a mark |

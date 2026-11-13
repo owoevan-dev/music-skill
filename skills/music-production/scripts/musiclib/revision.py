@@ -61,8 +61,6 @@ def keep_plan(record, p, before):
     changed after the score, to fit it, is not a plan carried out: the first one stays in every round's record, so it
     outlives the earlier rounds' folders, and the change is shown."""
     plan = p.get('plan')
-    if not isinstance(plan, dict):
-        return None
     first = None
     if before is not None and Path(before).name == 'render':
         try:
@@ -71,6 +69,14 @@ def keep_plan(record, p, before):
             old = None
         if isinstance(old, dict):
             first = old.get('plan_first') if isinstance(old.get('plan_first'), dict) else old.get('plan')
+    if not isinstance(plan, dict):
+        # A round whose project has no plan still carries the first one on: without it the plan written again a
+        # round later was taken for the first (the review of 0.7's code, F05).  That the plan is gone is shown.
+        if not isinstance(first, dict):
+            return None
+        record['plan_first'] = first
+        record['plan_changed'] = ['the whole plan (the project has none now)']
+        return record['plan_changed']
     from .plan import changed
     record['plan'] = plan
     record['plan_first'] = first if isinstance(first, dict) else plan

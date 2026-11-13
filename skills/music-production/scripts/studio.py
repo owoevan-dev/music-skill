@@ -129,7 +129,12 @@ def main():
             print('SoundFont',name,'|',entry.get('version',''),'|',entry.get('license',''))
         # Surge XT is optional: without it a synth part plays its patch's built-in fallback, and nothing said so here.
         surge,host=c.get('surge'),c.get('pedalboard')
-        if surge and host:
+        from musiclib.surge import installed as surge_installed
+        if surge and host and not surge_installed(c):
+            # Configured, and the plugin or pedalboard is not where the configuration says: a render plays the
+            # fallbacks, and this line gave the version and PASS (the review of 0.7's code, F09).
+            print('Surge XT: configured, but its plugin or pedalboard is not at the configured path; synth parts written for it play their built-in fallbacks. Run bootstrap.py again (references/setup.md)')
+        elif surge and host:
             catalog=surge.get('catalog') or surge.get('patches')
             count=sum(1 for _,_,names in os.walk(catalog) for n in names if n.lower().endswith('.fxp')) if catalog and os.path.isdir(catalog) else 0
             print('Surge XT',surge.get('version',''),'|',surge.get('license',''),'|',f'{count} patches' if count else 'no patch folder found','| host: pedalboard',host.get('version',''))

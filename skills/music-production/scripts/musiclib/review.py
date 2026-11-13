@@ -575,11 +575,24 @@ def review(p,out,config=None):
 
         A decision that begins with the identifier and a colon ("stiffness:lead: a sequenced arpeggio, meant") answers
         that question: it is listed under `answered` with its reason and is not asked again, for as long as it keeps
-        its identifier.  Its text is kept there with its current figures, so a change in what it counts is still seen."""
+        its identifier.  Its text is kept there with its current figures, so a change in what it counts is still seen.
+
+        Which decision answers which question is settled once every question is known (resolve, below): a section may
+        be named "answer: reprise", and a decision for its question also begins with the identifier of the section
+        "answer" and a colon.  It answered both (the review of 0.7's code, F04)."""
+        raised.append((qid,text))
+    raised=[]
+    def resolve():
+        """Each decision answers the question with the longest identifier it begins with, of those this review asks;
+        the first such decision is the one kept.  Two questions with one identifier are answered together, as before."""
+        asked={qid for qid,_ in raised};reason_of={}
         for d in reasons:
-            if d.startswith(qid+': ') and d[len(qid)+2:].strip():
-                answered.append({'id':qid,'text':text,'reason':d[len(qid)+2:].strip()});return
-        summary['prompts'].append(text);questions.append({'id':qid,'text':text})
+            mine=[qid for qid in asked if d.startswith(qid+': ') and d[len(qid)+2:].strip()]
+            if mine:
+                qid=max(mine,key=len);reason_of.setdefault(qid,d[len(qid)+2:].strip())
+        for qid,text in raised:
+            if qid in reason_of:answered.append({'id':qid,'text':text,'reason':reason_of[qid]})
+            else:summary['prompts'].append(text);questions.append({'id':qid,'text':text})
     # Each check's limits come from the style maps: the entry governing the check's axis, else the default, which is
     # marked 'ours' where the project set the number itself (styles.py; style-maps.json).
     from . import styles
@@ -747,6 +760,7 @@ def review(p,out,config=None):
     for qid,asked in score_plan.questions(compared):put(qid,asked)
     from . import association
     for qid,asked in association.questions(p):put(qid,asked)
+    resolve()
     # Everything is composed before the first file is written, and what was written is recorded whatever stops the
     # review, so clean can take it (a failure part way left two files and no record; found by GPT Pro's third review).
     lines=[f'# {p["title"]}', '',p.get('brief',''),'', '| Section | Bars (1-based) | Time | Function |','|---|---:|---:|---|']

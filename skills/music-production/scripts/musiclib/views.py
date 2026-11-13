@@ -93,8 +93,10 @@ def harmony_pace(p, clock=None):
     if not isinstance(entries, list) or not entries:
         return None
     bpb = clock.beats_per_bar
-    line = sorted(((h['bar'] - 1) * bpb + h.get('beat', 0), h['symbol'],
-                   harmony.parse(h['symbol'], h.get('transpose_semitones', 0))) for h in entries)
+    # Sorted by beat and symbol and no further: two entries at one beat with one symbol and different transpositions
+    # pass validate, and sorting the parsed chords themselves compared two dicts (the review of 0.7's code, F06).
+    line = sorted((((h['bar'] - 1) * bpb + h.get('beat', 0), h['symbol'],
+                    harmony.parse(h['symbol'], h.get('transpose_semitones', 0))) for h in entries), key=lambda e: e[:2])
     events, before = [], None
     for beat, symbol, chord in line:
         ident = _identity(chord, symbol)
@@ -153,7 +155,9 @@ def melody_rhythm(p, clock=None):
         onsets = sorted({round(n['on'], 4) for n in t['notes']})
         kinds = attack_kinds(onsets, bpb, meter, end)
         stretches = runs(t['notes'])
-        a, b = max(stretches, key=lambda r: r[1] - r[0])
+        # The longest in time: with a change of tempo the run of most beats is not the one that lasts longest, and
+        # its seconds were shown as the longest (the review of 0.7's code, F12).
+        a, b = max(stretches, key=lambda r: (clock.seconds(r[1]) - clock.seconds(r[0]), r[1] - r[0]))
         patterns = {}
         for on in onsets:
             patterns.setdefault(int(on // bpb + 1e-9), set()).add(tick(on % bpb))

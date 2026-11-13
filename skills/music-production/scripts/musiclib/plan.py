@@ -65,7 +65,9 @@ def compare(p, clock=None):
     span = {s[0]: s for s in spans}
     rows = {r['section']: r['parts'] for r in views.parts_by_section(p, clock)}
     pace = views.harmony_pace(p, clock)
-    pace_of = {s['section']: s['changes_per_bar'] for s in pace['sections']} if pace else None
+    # As counted: rounded to two places, 1/3 and 3/8 of a change a bar stood 0.05 apart, the step that counts as
+    # faster, where they are 0.042 apart (the review of 0.7's code, F11).
+    pace_of = {s['section']: s['changes'] / max(s['bars'], 1) for s in pace['sections']} if pace else None
     tracks = {t['id']: t for t in p['tracks']}
     out = {'identity': plan.get('identity'), 'high_point': None, 'sections': [], 'commitments': 0, 'kept': 0, 'differences': 0}
     hp = plan.get('high_point')
@@ -139,8 +141,8 @@ def compare(p, clock=None):
             else:
                 moved = pace_of[name] - pace_of[before]
                 settle(what, _moved(word, moved, PACE_STEP, 'faster', 'slower'), word, round(moved, 2),
-                       f'the harmony is planned {word} than in {before}; the chord changes {pace_of[before]:g} times a bar there '
-                       f'and {pace_of[name]:g} here')
+                       f'the harmony is planned {word} than in {before}; the chord changes {round(pace_of[before], 2):g} times a bar there '
+                       f'and {round(pace_of[name], 2):g} here')
         if 'dynamics' in entry:
             word, what = entry['dynamics'], f'dynamics {entry["dynamics"]}'
             if before is None:

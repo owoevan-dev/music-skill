@@ -107,7 +107,7 @@ The two columns count different things and are not to be set against each other.
 - **Roots move by fourth and fifth** in over half the changes, by step in a quarter.
 - **Mostly triads.** In the chart songs seven chords in ten are triads and two are sevenths; extended, added-note and altered chords together are one in fourteen.
 
-How they were taken: each song counts once, by its median or its share, and the table gives the median of the songs (for the shares, their mean). The rock corpus's timed chord lists hold one row for each change of root, so it counts changes of root; the chart annotations write every chord, so they count changes of chord. The rules were written down before the figures were computed, and the scripts are in the repository's `research/corpus-0.7`.
+How they were taken: each song counts once, by its median or its share, and the table gives the median of the songs (for the shares, their mean). The rock corpus's timed chord lists hold one row for each change of root, so it counts changes of root; the chart annotations write every chord, so they count changes of chord. The rules were written down before the figures were computed. The scripts that computed them are among the project's development records (`research/corpus-0.7`), which the published repository does not hold.
 
 ## Sources
 

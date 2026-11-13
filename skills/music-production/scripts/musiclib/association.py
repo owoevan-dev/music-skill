@@ -5,7 +5,7 @@ piece draws twelve words at random from a list of a thousand (references/associa
 the request and all twelve into one whole, a scene or a story or a chain of associations, which then decides what the
 request left open.  What the request asks for is settled first and the words change none of it.  Single words read one
 by one give one model the same associations each time; twelve linked into one whole do not (the trials are in
-research/association-0.7 of the repository).
+research/association-0.7 of the project's development records, which the published repository does not hold).
 
 The draw is uniform, without replacement, from a seed taken from the operating system, and it is made once for a
 piece: the seed, the list's hash and the words are kept beside the project, so the draw can be made again and a
@@ -60,9 +60,13 @@ def keep(folder, seed=None, own=None, none=None, path=LIST):
     if os.path.lexists(target):
         if files.linked(target):
             raise ValueError(f'{target} is a link; the record is a file of the project folder itself')
-        record = files.read_json(target)
-        if not isinstance(record, dict):
-            raise ValueError(f'{target}: not an association record')
+        try:
+            record = files.read_json(target)
+        except ValueError as error:
+            raise ValueError(f'{target} cannot be read as a record of the piece\'s words ({error}). It was changed or cut short '
+                             'after it was made. Put it back as it was; or, where the piece has not used its words yet, '
+                             'remove the file and run `words` again.') from None
+        check(record, target)
         return record, False
     if sum(x is not None for x in (seed, own, none)) > 1:
         raise ValueError('give one of --seed, --own and --none')
@@ -76,10 +80,26 @@ def keep(folder, seed=None, own=None, none=None, path=LIST):
             digest = hashlib.sha256(f.read()).hexdigest()
         record = {'source': 'draw', 'seed': seed, 'count': COUNT, 'list_words': len(words_of(path)), 'list_sha256': digest,
                   'words': draw(seed, COUNT, path)}
-    with open(target, 'x', encoding='utf-8', newline='\n') as f:
+    # Written whole beside its place and then given its name, and only while nothing holds that name: a write that
+    # failed part way left half a record, which every later run read and refused (the review of 0.7's code, F07).
+    with files.staged(target, 'w', encoding='utf-8', newline='\n', new=True) as f:
         json.dump(record, f, indent=1, ensure_ascii=True)
         f.write('\n')
     return record, True
+
+
+def check(record, target):
+    """A record that is there holds what one of the three kinds holds, or ValueError says what it lacks: `{}` was taken
+    for a record with words, and `words` that is no list of words stopped with a TypeError (the review, F10)."""
+    if not isinstance(record, dict):
+        raise ValueError(f'{target}: not a record of the piece\'s words')
+    source, words = record.get('source'), record.get('words')
+    if source not in ('draw', 'user', 'none'):
+        raise ValueError(f'{target}: its "source" is {source!r}; a record says "draw", "user" or "none"')
+    if not isinstance(words, list) or not all(isinstance(w, str) and w.strip() for w in words):
+        raise ValueError(f'{target}: its "words" is not a list of words')
+    if (source == 'none') != (not words):
+        raise ValueError(f'{target}: a record of source "none" holds no words, and every other holds some')
 
 
 def describe(record, made, target):

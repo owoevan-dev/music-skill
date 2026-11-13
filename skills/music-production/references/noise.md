@@ -156,8 +156,8 @@ note's early level, the Kawai's softest 30 and 47 dB (10 and 31 on its noisiest 
 keep 58 and 73, and a pedal adds the takes up. Reducing it take by take with a gain that follows the signal, each take
 its own print, was tried and set aside: what was left of the noise rose and fell with the playing. The builds now take
 it out in ways that move nothing with the playing. The Steinway's soft and middle dynamics are made from its loud one
-(`vcsl` b7), and the Osiris's bands are closed once each has come down to the hiss, its takes stored at full scale
-(`piano_osiris` b5): in a soft pedalled passage the floor at 12 to 20 kHz lay 75 dB under the music on both, where it
+(`vcsl` b7 and later), and the Osiris's bands are closed once each has come down to the hiss, its takes stored at full scale
+(`piano_osiris` b5 and later): in a soft pedalled passage the floor at 12 to 20 kHz lay 75 dB under the music on both, where it
 had lain 50 and 60 dB under it (measured on the builds before the closing was kept out of a note's first 0.06 s). For
 quiet, exposed piano choose the Steinway, or the Osiris for a closer and darker sound
 ([piano-and-chamber.md](piano-and-chamber.md), Instruments).
@@ -165,15 +165,24 @@ quiet, exposed piano choose the Steinway, or the Osiris for a closer and darker 
 A count of every decaying, unlooped take of the banks (the 6 to 16 kHz level over the later part of the take, against
 the 0.35 of a 16-bit step that dither alone leaves) then found hiss under the ringing notes of thirty-one more
 instruments, a few takes to all of them. Each was played softly, alone and dry, and heard; the bands of these are
-closed the same way: the nylon guitar (`iowa_guitar` b3), the folk harp (`vcsl_world` b2), the concert harp, the
-vibraphone, the tubular bells and the timpani (`vcsl` b7), the Kawai grand, the Yamaha and Knight uprights, the three
-TX81Z presets and the French and Flemish harpsichords (`vcsl_keys` b3), the VSCO upright (`vsco_colors` b4) and the
-glockenspiel (`vsco` b6). In the opening of a piece for
+closed the same way: the nylon guitar (`iowa_guitar` b4), the folk harp (`vcsl_world` b3), the concert harp, the
+vibraphone, the tubular bells and the timpani (`vcsl` b8), the Kawai grand, the Yamaha and Knight uprights, the three
+TX81Z presets and the French and Flemish harpsichords (`vcsl_keys` b4) and the VSCO upright (`vsco_colors` b5).
+An independent review of the code then showed that a partial can pass for hiss (one that dies slowly, or one in a
+voice whose top band holds partials too), and the builds named here close no band while a narrow component it would
+take from is still heard in the hiss ([soundbank-building.md](soundbank-building.md), `close_hiss`). Measured on
+them against the builds made before that rule: the hiss between 6 and 16 kHz over the later part of each take is
+what it was on the guitar, both harps, the Osiris and the VSCO upright (0.0 dB at the median), and the FM voices,
+the Knight upright, the Kawai, the vibraphone and the tubular bells keep more of it in the takes whose partials
+ring on (a third of the FM voices' takes, a sixth of the Knight's). The glockenspiel is as recorded (`vsco` b5):
+every band of its takes holds a partial of the bar that rings into the later part of the take, or a steady tone of
+the recording at 8 or 16 kHz. In the opening of a piece for
 guitar, harp and plucked basses, the quietest moments measured 18 dB less at 6 to 12 kHz and 27 dB less at 12 to
 20 kHz, the level and everything under 3 kHz as they were.
 
 What the closing leaves, so that it is not looked for in vain: the hiss of a band while its partials still sound
-(1 to 3 kHz rings long on a guitar or a harp); everything under 1 kHz, a mains hum included (49 Hz under one cello
+(1 to 3 kHz rings long on a guitar or a harp), and of a band in which a partial or a steady tone of the recording
+is heard into the later part of the take (most bands of a bell or a bar, the bands a sustaining FM voice reaches); everything under 1 kHz, a mains hum included (49 Hz under one cello
 pizzicato take, 60 and 120 Hz under the French harpsichord); sounds of the room that are no hiss (other players
 under a section's pizzicato, birdsong under the French harpsichord's long A sharp 4); a note's first 0.06 s; and takes
 under 2 s, which is most pizzicato. Every pizzicato preset was tried, heard to gain next to nothing, and is as

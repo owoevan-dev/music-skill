@@ -24,9 +24,9 @@ Nine steps, in order. Copy the checklist into the project's notes and tick it of
   - Without a configuration: the setup runs commands on the user's computer, downloads from GitHub and PyPI once and keeps a folder for later sessions (about 1 GB, about 12 GB with every bank). Where you cannot do that, say that the skill needs an agent such as Claude Code or Codex on the user's computer, and do not start the setup.
   - Otherwise tell the user what the setup installs, its size and how long it takes, and run it once they agree ([setup.md](references/setup.md)). Keep the configuration where the next session will find it (the user's choice, for example `~/.music-skill/`).
   - Install banks for the parts you plan, by group or name (`fetch_soundbanks.py --only`), not all thirty up front ([soundbanks.md](references/soundbanks.md)).
-- [ ] **1. Brief.** Duration, mood, style, the foreground instrument and the delivery format are settled from the request, and a brief and a revision log exist in the project folder. Ask only for what blocks the composition.
+- [ ] **1. Brief.** What the request says of duration, mood, style, the foreground instrument and the delivery format is written down as settled, what it leaves open is listed as open, and a brief and a revision log exist in the project folder. Nothing open is decided in this step: step 2 decides it, after the piece's words are drawn. Ask only for what blocks the composition.
   - Place the piece on the style maps: one entry, or a primary entry with others borrowed for some axes, each borrowing with its reason, written into the project's `style` ([style-maps.md](references/style-maps.md)).
-  - Read the guide for the kind of music and settle what it needs before composing:
+  - Read the guide for the kind of music and note what it needs settled before composing (where the request does not say, it is one more open point for step 2):
     - a game: the use (loop, one-shot or layers), how long a player stays and where the loop starts ([game-music.md](references/game-music.md));
     - an anime opening or a J-rock or J-pop band cue: the length (TV size is about 90 s) and the instrument that carries the vocal line ([anime-opening.md](references/anime-opening.md));
     - a scene in a visual novel or an RPG: the cue's place in the set, whether the lines are voiced, and the engine ([scene-music.md](references/scene-music.md));
@@ -37,7 +37,7 @@ Nine steps, in order. Copy the checklist into the project's notes and tick it of
     - film or video underscore, music timed to picture, a suspense or horror cue: [film-score.md](references/film-score.md);
     - instrumental pop or a ballad: [pop-and-ballad.md](references/pop-and-ballad.md); rock or metal: [rock-and-metal.md](references/rock-and-metal.md).
 - [ ] **2. The piece's words.** The project records twelve words and the whole made of them, or that the user wanted none. The request comes first, and nothing in this step changes what it asks for.
-  - Before anything the request leaves open is decided, `studio.py words <project>` draws twelve words at random for this piece and keeps them in `association.json`.
+  - Before anything step 1 listed as open is decided, `studio.py words <project>` draws twelve words at random for this piece and keeps them in `association.json`.
   - Link the request and all twelve into one connected whole: a scene, a story, a chain of associations, whatever form comes, with a place in it for every word. It need not be sensible and it need not be odd; the aim is a piece with an idea of its own.
   - That whole, and not the single words one by one, decides what the request leaves open, on at least three different levels of the music (form, harmony or key, melody, rhythm, sounds, mix). Where the user named no title, the title comes from the whole and still says what kind of piece it is.
   - Write the words, the whole and what it gave into the project's `association` ([schema.md](references/schema.md)), and tell the user in a sentence or two what the open parts were made of, so that they can ask for another.

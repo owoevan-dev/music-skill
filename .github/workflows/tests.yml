@@ -81,4 +81,7 @@ jobs:
           # Not on macOS: Homebrew's ffmpeg lacks the libvorbis encoder (ffmpeg-full has it), so there the loop test notes
           # the copy as skipped, as it does for users with that FFmpeg.
           MUSIC_SKILL_REQUIRE_OGG: ${{ runner.os != 'macOS' && '1' || '' }}
+          # Surge XT is optional for users too; the Windows job installs it, so there a setup that came out without it
+          # fails the run instead of passing on the built-in fallback.
+          MUSIC_SKILL_REQUIRE_SURGE: ${{ runner.os == 'Windows' && '1' || '' }}
         run: python -m pytest -q tests

@@ -17,7 +17,9 @@ there (the bass, the melody, a voicing made first), and the voicing keeps the sa
 can, leaves their pitches to them: a unison only doubles what already sounds, and the two hands of one piano cannot
 strike one key at once.  Voice the parts in dependency order, each avoiding what sounds before it.  A chord that
 cannot meet these rules in its range gives up the unisons first, then the distance from the other parts, then the
-spacing rules.  Voices never cross, since each keeps its rank.
+spacing rules.  Voices never cross, since each keeps its rank.  A chord whose spacing rules were given up is named in
+a warning with its range (`GivenUp`), since the result can then hold a minor second or a close interval below its
+limit: four voices of a ninth chord between G3 and A4 have no other voicing than a cluster.
 With `avoid_parallels`, voicings without consecutive perfect fifths or octaves between any two voices are chosen
 wherever the range allows one, at any cost in motion, as common-practice and choral writing ask; where it allows none
 (three voices for D then E between C4 and C5 have one voicing each), the fewest remain.  `review` lists parallels
@@ -37,6 +39,7 @@ under a melody that sings the root: the chord becomes a triad; the third stays),
 chord's bass note belongs to the bass part; the voicing uses the chord's own tones.
 """
 import itertools
+import warnings
 
 import numpy as np
 
@@ -49,6 +52,10 @@ LOW_INTERVAL_LIMITS = {1: 52, 2: 51, 3: 48, 4: 46, 5: 46, 6: 46, 7: 34, 8: 43, 9
                        13: 40, 14: 39, 15: 36, 16: 34}
 TOP_WEIGHT, LEAP_COST, DRIFT_COST = 1.5, 1.0, .3
 PARALLEL_COST = 1e6  # more than any motion can cost: parallels go first wherever the range allows
+
+
+class GivenUp(UserWarning):
+    """A chord's range left no voicing that keeps the spacing rules, and one that breaks them was taken."""
 
 
 def chord_tones(symbol, voices, rotation=0, omit=0, exclude=(), keep_root=False):
@@ -170,6 +177,13 @@ def voice_lead(symbols, voices=4, low=48, high=79, start=None, ceilings=None, av
                 break
         if not c:
             raise ValueError(f'No voicing of {symbol} in {voices} voices between {low} and {top}; widen the range')
+        if rules.get('limits') is False:
+            # Said, not silent: a session of the 0.7 baseline gave four voices fourteen semitones, got a cluster for
+            # its ninth chord and dropped the function for voicings written by hand.
+            warnings.warn(f'voice_lead: {symbol} (chord {k + 1}) has no voicing in {voices} voices between {low} and {top} that '
+                          'keeps the spacing rules (no minor second or ninth between two voices, no close interval under '
+                          'its low limit), so one that breaks them was taken. Widen the range, lower `low`, or give it '
+                          'fewer voices.', GivenUp, stacklevel=2)
         cands.append(np.array(c, dtype=float))
     centre = (low + high) / 2 if start is None else float(np.mean(start))
     drift = lambda c: DRIFT_COST * np.abs(c.mean(axis=1) - centre)

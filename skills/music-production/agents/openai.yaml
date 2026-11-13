@@ -3,7 +3,7 @@ interface:
   short_description: "Write, play and mix original instrumental music"
   icon_small: "./assets/icon-small.svg"
   icon_large: "./assets/icon-large.png"
-  brand_color: "#C8442F"
+  brand_color: "#111111"
   default_prompt: "Use $music-production to write an original 90-second instrumental in the style I describe, render it with sampled instruments, and give me the MP3, MIDI and stems."
 policy:
   allow_implicit_invocation: true

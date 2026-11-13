@@ -1,6 +1,6 @@
 {
  "name": "VSCO2 CE Colours (music-production build)",
- "comment": "Built from VSCO 2 Community Edition by Versilian Studios (recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote), CC0 1.0. Source: https://github.com/sgossner/VSCO-2-CE at 440300901dfe9275fd84e0b7763af1f8443ae62e. Articulations and instruments the vsco and vsco_extra banks leave out: muted horn (0:60), harmon- and straight-muted trumpet (0:59, 1:59), trombone with vibrato (0:57), falls (1:57) and growls (2:57), solo violin tremolo (0:44) and pizzicato (2:40), flute with vibrato and expressive vibrato (0:73, 1:73), oboe and bassoon with vibrato (0:68, 0:70), an upright piano (0:0), glockenspiel glissandi (128:9) and orchestral effects (128:50: gong and cymbal scrapes, bowed cymbal, rubbed bass drum). Sustained takes loop on their steady part. Changes as in the main VSCO build: pitch-checked against file names, small intonation offsets as fineTune, leading silence trimmed, levels matched per layer with set soft-layer offsets, 16-bit TPDF dither. Build b3 levels the upright piano's recorded dynamics and round robins (every dynamic and round robin of a note at one level, on a register slope the dynamics share, each take moved by up to 12 dB), so the velocity curve sets loudness and the layers set the tone.",
+ "comment": "Built from VSCO 2 Community Edition by Versilian Studios (recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote), CC0 1.0. Source: https://github.com/sgossner/VSCO-2-CE at 440300901dfe9275fd84e0b7763af1f8443ae62e. Articulations and instruments the vsco and vsco_extra banks leave out: muted horn (0:60), harmon- and straight-muted trumpet (0:59, 1:59), trombone with vibrato (0:57), falls (1:57) and growls (2:57), solo violin tremolo (0:44) and pizzicato (2:40), flute with vibrato and expressive vibrato (0:73, 1:73), oboe and bassoon with vibrato (0:68, 0:70), an upright piano (0:0), glockenspiel glissandi (128:9) and orchestral effects (128:50: gong and cymbal scrapes, bowed cymbal, rubbed bass drum). Sustained takes loop on their steady part. Changes as in the main VSCO build: pitch-checked against file names, small intonation offsets as fineTune, leading silence trimmed, levels matched per layer with set soft-layer offsets, 16-bit TPDF dither. Build b3 levels the upright piano's recorded dynamics and round robins (every dynamic and round robin of a note at one level, on a register slope the dynamics share, each take moved by up to 12 dB), so the velocity curve sets loudness and the layers set the tone. Build b4: on Upright Piano, each half-octave band of a take from 1 kHz up is taken out once it has come down to the recording's hiss, never in the first 0.06 s of a note and never where it would lower the take's peak or level (close_hiss); every other preset is as it was.",
  "copyright": "Source samples CC0 1.0 (Versilian Studios VSCO 2 CE)",
  "target_rms": 0.08,
  "presets": [
@@ -593,7 +593,8 @@
       "mf": 0,
       "f": 0
      },
-     "match_limit_db": 12
+     "match_limit_db": 12,
+     "close_hiss": {}
     }
    ]
   },

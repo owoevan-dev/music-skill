@@ -1,6 +1,6 @@
 {
  "name": "VSCO2 CE Orchestra (music-production build)",
- "comment": "Built from VSCO 2 Community Edition by Versilian Studios (recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote), CC0 1.0. Source: https://github.com/sgossner/VSCO-2-CE at 440300901dfe9275fd84e0b7763af1f8443ae62e. Section strings (sustain, slow, spiccato, tremolo, pizzicato), brass, horn, glockenspiel, flute, oboe, clarinet and bassoon (sustained and staccato). Changes: pitch-checked against file names, small intonation offsets as fineTune, leading silence trimmed, levels matched per layer with set soft-layer offsets (layer_levels_db), 16-bit TPDF dither, round robins alternated on neighbouring velocities. Build b4 adds a solo violin (vibrato sustain and spiccato) and a solo trumpet (straight sustain, vibrato sustain and staccato). Build b5: sustained presets also come as one preset per recorded dynamic, banks 16 and up on the same program and deaf to velocity, for crossfading along a dynamics curve; melodic ones also as legato presets, banks 32 and up, each take entered past its attack.",
+ "comment": "Built from VSCO 2 Community Edition by Versilian Studios (recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote), CC0 1.0. Source: https://github.com/sgossner/VSCO-2-CE at 440300901dfe9275fd84e0b7763af1f8443ae62e. Section strings (sustain, slow, spiccato, tremolo, pizzicato), brass, horn, glockenspiel, flute, oboe, clarinet and bassoon (sustained and staccato). Changes: pitch-checked against file names, small intonation offsets as fineTune, leading silence trimmed, levels matched per layer with set soft-layer offsets (layer_levels_db), 16-bit TPDF dither, round robins alternated on neighbouring velocities. Build b4 adds a solo violin (vibrato sustain and spiccato) and a solo trumpet (straight sustain, vibrato sustain and staccato). Build b5: sustained presets also come as one preset per recorded dynamic, banks 16 and up on the same program and deaf to velocity, for crossfading along a dynamics curve; melodic ones also as legato presets, banks 32 and up, each take entered past its attack. Build b6: on Glockenspiel, each half-octave band of a take from 1 kHz up is taken out once it has come down to the recording's hiss, never in the first 0.06 s of a note and never where it would lower the take's peak or level (close_hiss); every other preset is as it was.",
  "copyright": "Source samples CC0 1.0 (Versilian Studios VSCO 2 CE)",
  "target_rms": 0.08,
  "presets": [
@@ -666,7 +666,8 @@
      "envelope": {
       "attack": 0.001,
       "release": 2.5
-     }
+     },
+     "close_hiss": {}
     }
    ]
   },

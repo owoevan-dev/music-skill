@@ -1,6 +1,6 @@
 {
  "name": "VCSL (music-production build)",
- "comment": "Built from the Versilian Community Sample Library (VCSL) by Versilian Studios, CC0 1.0. Source: https://github.com/sgossner/VCSL at c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e. Concert harp, marimba, vibraphone (soft mallets), xylophone (medium mallets) and tubular bells, each cut at a few seconds; the mallets and bells keep recorded soft layers 4-8 dB under the loudest (layer_levels_db). Grand Piano, Steinway B, close position, no sustain pedal: 42 notes A#0-G#7 in whole tones serving A0-C8, 3 velocity layers. The library normalized every sample and asks for a velocity curve instead of layer gains, so layers are matched by peak and the synthesizer's velocity curve shapes the dynamics. Changes: pitch-checked against file names, small intonation offsets as fineTune, leading silence trimmed, notes cut at 14 s with a 50 ms fade, 16-bit TPDF dither. Build b3 adds timpani (17 tuning positions of VCSL Timpani 2, each pitch measured from its (1,1) mode and corrected by fine tune; 3 velocity layers, 2 round robins) and an orchestra kit on bank 128 program 48: concert bass drum, snare and snare roll, clash and suspended cymbals with timed swells, gong, tambourine, triangle, sleigh bells and mark tree, keeping the recorded balance between pieces except the small percussion, raised 6-10 dB so it carries in a band mix. Build b4 keeps each take of the harp, tubular bells, timpani, the Steinway and the struck gong, clash and suspended cymbals until its ring falls 60 dB under its peak (at most 30 s, the timpani 12 s) instead of a fixed cut: low piano notes had been cut while still 27-46 dB down, bells and harp 35-40 dB.",
+ "comment": "Built from the Versilian Community Sample Library (VCSL) by Versilian Studios, CC0 1.0. Source: https://github.com/sgossner/VCSL at c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e. Concert harp, marimba, vibraphone (soft mallets), xylophone (medium mallets) and tubular bells, each cut at a few seconds; the mallets and bells keep recorded soft layers 4-8 dB under the loudest (layer_levels_db). Grand Piano, Steinway B, close position, no sustain pedal: 42 notes A#0-G#7 in whole tones serving A0-C8, 3 velocity layers. The library normalized every sample and asks for a velocity curve instead of layer gains, so layers are matched by peak and the synthesizer's velocity curve shapes the dynamics. Changes: pitch-checked against file names, small intonation offsets as fineTune, leading silence trimmed, notes cut at 14 s with a 50 ms fade, 16-bit TPDF dither. Build b3 adds timpani (17 tuning positions of VCSL Timpani 2, each pitch measured from its (1,1) mode and corrected by fine tune; 3 velocity layers, 2 round robins) and an orchestra kit on bank 128 program 48: concert bass drum, snare and snare roll, clash and suspended cymbals with timed swells, gong, tambourine, triangle, sleigh bells and mark tree, keeping the recorded balance between pieces except the small percussion, raised 6-10 dB so it carries in a band mix. Build b4 keeps each take of the harp, tubular bells, timpani, the Steinway and the struck gong, clash and suspended cymbals until its ring falls 60 dB under its peak (at most 30 s, the timpani 12 s) instead of a fixed cut: low piano notes had been cut while still 27-46 dB down, bells and harp 35-40 dB. Build b6 makes the Steinway's soft and middle dynamics (vl2, vl3) from its loud one (vl4), key by key (soft_from): those takes were recorded little over the room, and the library's normalizing raised their hum and hiss with them (on C3 and C5 the hiss lies 56 to 60 dB under the note in the soft takes and 66 to 73 in the middle ones, where the loud takes keep 77 to 81). The loud dynamic and every other preset are bit for bit those of b4. (No b5 was released.) Build b7 (b6 was not released): on the concert harp, each half-octave band of a take from 1 kHz up is taken out once it has come down to the recording's hiss, never in the first 0.06 s of a note (close_hiss): a plucked string's upper partials die first, and what those bands held afterwards was hiss, heard under a soft passage played alone. Every other preset is as in b6. Also in b7: on Vibraphone, Tubular Bells, Timpani, each half-octave band of a take from 1 kHz up is taken out once it has come down to the recording's hiss, never in the first 0.06 s of a note and never where it would lower the take's peak or level (close_hiss); every other preset is as it was.",
  "copyright": "Source samples CC0 1.0 (Versilian Studios VCSL)",
  "target_rms": 0.08,
  "presets": [
@@ -39,7 +39,11 @@
      "envelope": {
       "release": 0.6
      },
-     "ring_db": -60
+     "ring_db": -60,
+     "soft_from": {
+      "2": "4",
+      "3": "4"
+     }
     }
    ]
   },
@@ -77,7 +81,8 @@
       "attack": 0.001,
       "release": 2.5
      },
-     "ring_db": -60
+     "ring_db": -60,
+     "close_hiss": {}
     }
    ]
   },
@@ -165,7 +170,8 @@
      "layer_levels_db": {
       "v1": -6,
       "v2": 0
-     }
+     },
+     "close_hiss": {}
     }
    ]
   },
@@ -249,7 +255,8 @@
       "v2": -6,
       "v4": 0
      },
-     "ring_db": -60
+     "ring_db": -60,
+     "close_hiss": {}
     }
    ]
   },
@@ -315,7 +322,8 @@
       "v3": -4.5,
       "v5": 0
      },
-     "ring_db": -60
+     "ring_db": -60,
+     "close_hiss": {}
     }
    ]
   },

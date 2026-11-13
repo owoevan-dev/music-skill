@@ -33,6 +33,53 @@ def render_folder(path):
     return inner
 
 
+def since(reviewed, before):
+    """The questions of this round that the round before did not ask, and those it asked that are gone, by
+    identifier: {'new', 'gone', 'previous'}.  A question asked twice of two places counts twice.  None where there is
+    no round before, where `before` is a render outside a round, or where that round's review has no identifiers (it
+    was made by 0.6 or earlier): text is never compared, since a reworded question would then look new."""
+    if before is None or Path(before).name != 'render':
+        return None
+    earlier = Path(before).parent / 'review' / 'score_review.json'
+    if not earlier.is_file():
+        return None
+    try:
+        old = files.read_json(earlier)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(old, dict) or not isinstance(old.get('questions'), list):
+        return None
+    from collections import Counter
+    was = Counter(q['id'] for q in old['questions'] if isinstance(q, dict) and isinstance(q.get('id'), str))
+    now = Counter(q['id'] for q in reviewed['questions'])
+    return {'new': sorted((now - was).elements()), 'gone': sorted((was - now).elements()), 'previous': Path(before).parent.name}
+
+
+def keep_plan(record, p, before):
+    """Put the round's plan into its record beside the plan as first written, which comes from the round before (its
+    `plan_first`, or its plan where that round was the first to have one), and return where the two differ.  A plan
+    changed after the score, to fit it, is not a plan carried out: the first one stays in every round's record, so it
+    outlives the earlier rounds' folders, and the change is shown."""
+    plan = p.get('plan')
+    if not isinstance(plan, dict):
+        return None
+    first = None
+    if before is not None and Path(before).name == 'render':
+        try:
+            old = files.read_json(Path(before).parent / 'round.json')
+        except (OSError, ValueError):
+            old = None
+        if isinstance(old, dict):
+            first = old.get('plan_first') if isinstance(old.get('plan_first'), dict) else old.get('plan')
+    from .plan import changed
+    record['plan'] = plan
+    record['plan_first'] = first if isinstance(first, dict) else plan
+    moved = [m['where'] for m in changed(record['plan_first'], plan)]
+    if moved:
+        record['plan_changed'] = moved
+    return moved
+
+
 def revision_round(project_file, output, config_file, previous=None, cache=None, spans=(), reference=None, jobs=None,
                    show=print, clip=None):
     """Run a round into the new folder `output`, passing each step's summary to `show` as soon as the step is done (a
@@ -90,8 +137,12 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
         try:
             reviewed = review(p, output / 'review', cfg)
             record['questions'] = len(reviewed['prompts'])
+            changed = since(reviewed, before)
+            if changed is not None:
+                record['new_questions'], record['gone_questions'] = changed['new'], changed['gone']
+            moved = keep_plan(record, p, before)
             lap('review')
-            show(summary.review(reviewed, output / 'review'))
+            show(summary.review(reviewed, output / 'review', changed, moved))
             step = 'render'
             rendered = render(project_file, output / 'render', config_file,
                               Path(cache) if cache else output.parent / 'cache', jobs=jobs, draft=True)

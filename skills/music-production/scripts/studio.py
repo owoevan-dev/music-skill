@@ -6,6 +6,11 @@ import math
 import os
 from pathlib import Path
 import sys
+try:
+    import numpy  # noqa: F401
+except ImportError:
+    sys.exit(f'NumPy is missing from this Python ({sys.executable}). Install it for this interpreter (python -m pip install numpy) '
+             'or run the scripts with the Python the setup used (references/setup.md).')
 from musiclib.model import load_project, validate, save_json, file_hash
 from musiclib import files,midi,summary
 
@@ -76,6 +81,12 @@ def main():
     cln.add_argument('--keep',type=Path,action='append',required=True,help='a render or round folder that stays (repeatable): the final render and the previous round')
     cln.add_argument('--remove',action='store_true',help='remove what the list names (without it, nothing is removed)')
     cln.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
+    wrd=sub.add_parser('words',help="Draw the twelve words a piece associates from, once, and keep them beside the project (association.json); with --own, the user's words in their place")
+    wrd.add_argument('folder',type=Path,help='the project folder')
+    wrd.add_argument('--seed',type=int,help='make a given draw again')
+    wrd.add_argument('--own',help="the user's own words or short phrases, separated by commas, in place of a draw")
+    wrd.add_argument('--none',metavar='REASON',help='record that this piece associates from no words, and why (the user asked for none)')
+    wrd.add_argument('--json',action='store_true',help='print the record instead of the summary')
     configure=sub.add_parser('configure')
     for arg in ('fluidsynth','ffmpeg','soundfont','output'):configure.add_argument('--'+arg,type=Path,required=True)
     args=parser.parse_args()
@@ -116,7 +127,20 @@ def main():
         print('Ogg Vorbis for game loops:','yes' if has_vorbis(c) else 'no, this FFmpeg has no libvorbis encoder (references/setup.md)')
         for name,entry in [('default',c['soundfont'])]+sorted(c.get('soundfonts',{}).items()):
             print('SoundFont',name,'|',entry.get('version',''),'|',entry.get('license',''))
+        # Surge XT is optional: without it a synth part plays its patch's built-in fallback, and nothing said so here.
+        surge,host=c.get('surge'),c.get('pedalboard')
+        if surge and host:
+            catalog=surge.get('catalog') or surge.get('patches')
+            count=sum(1 for _,_,names in os.walk(catalog) for n in names if n.lower().endswith('.fxp')) if catalog and os.path.isdir(catalog) else 0
+            print('Surge XT',surge.get('version',''),'|',surge.get('license',''),'|',f'{count} patches' if count else 'no patch folder found','| host: pedalboard',host.get('version',''))
+        else:
+            print('Surge XT: not set up; synth parts written for it play their built-in fallbacks (references/setup.md)')
         print('PASS: paths and pinned checksums verified; no malware scan implied');return
+    if args.command=='words':
+        from musiclib import association
+        if not args.folder.is_dir():raise ValueError(f'{args.folder}: the project folder (it holds the draw; make it first)')
+        record,made=association.keep(str(args.folder),seed=args.seed,own=args.own,none=args.none)
+        print(json.dumps(record,ensure_ascii=True) if args.json else association.describe(record,made,str(args.folder/'association.json')));return
     if args.command=='clean':
         from musiclib.clean import clean,describe
         r=clean(args.folder,args.keep,remove=args.remove)

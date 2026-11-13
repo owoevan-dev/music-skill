@@ -48,12 +48,37 @@ def _more(items, shown=EXAMPLES, count=None):
     return f'; and {total - listed} more' if total > listed else ''
 
 
-def review(r, folder):
-    """Every review question in full, then where each counted finding is (its first examples)."""
+def review(r, folder, since=None, plan_changed=None):
+    """The score at a glance (views.describe), how much of the plan the score holds (plan.describe), every review
+    question in full, the questions a decision answers, the questions new since the round before and those gone
+    (`since`, from revision.since), what the plan no longer says as it first did (`plan_changed`, from the rounds),
+    then where each counted finding is (its first examples)."""
     count = lambda n, word: f'{n} {word}{"s" if n != 1 else ""}'
     lines = [f'Review of {r["title"]}: {count(len(r["tracks"]), "part")}, {count(len(r["sections"]), "section")}, '
              f'{count(len(r["prompts"]), "question")}.']
+    if r.get('views'):
+        from .views import describe
+        glance = describe(r['views'])
+        if glance:
+            lines += glance.split('\n')  # line by line: `joined` prints a line break inside a line as its escape
+    if r.get('plan'):
+        from .plan import describe as plan_line
+        lines.append(plan_line(r['plan']))
+    if plan_changed:
+        lines.append('The plan no longer says what it first said of: ' + ', '.join(plan_changed[:8])
+                     + (f', and {len(plan_changed) - 8} more' if len(plan_changed) > 8 else '')
+                     + '. The plan as first written is kept in round.json (plan_first).')
     lines += [f'{k}. {q}' for k, q in enumerate(r['prompts'], 1)] or ['No questions.']
+    kept = r.get('answered') or []
+    if kept:
+        lines.append(f'Answered in decisions, not asked again ({len(kept)}): '
+                     + '; '.join(f'{a["id"]} ({a["reason"][:90]})' for a in kept[:EXAMPLES]) + _more(kept)
+                     + '. Each is in score_review.json under `answered` with what it counts now.')
+    if since:
+        was = f' since {since["previous"]}' if since.get('previous') else ' since the round before'
+        ids = lambda xs: ', '.join(xs[:8]) + (f', and {len(xs) - 8} more' if len(xs) > 8 else '')
+        lines.append(f'New{was}: ' + (ids(since['new']) if since['new'] else 'none') + '. Gone: ' + (ids(since['gone']) if since['gone'] else 'none')
+                     + '. (By question identifier; a fix that raises a new question shows here.)')
     st, lim = r.get('style'), r.get('limits') or {}
     if st:
         lent = ', '.join(f'{a} from {e}' for a, e in st['borrow'].items())
@@ -72,13 +97,13 @@ def review(r, folder):
     if v.get('count'):
         ex = v['examples']
         where.append(f'vertical_minor_seconds_ninths ({v["count"]}, {v["foreground_count"]} touching the foreground): ' + '; '.join(
-            f'{x["at"]} {"+".join(x["parts"])} {notes(x)}{" (foreground)" if x.get("involves_foreground") else ""}'
+            f'{x["at"]} {"+".join(x["parts"])} {notes(x)}{" [" + ", ".join(i for i in x["ids"] if i) + "]" if any(x.get("ids") or []) else ""}{" (foreground)" if x.get("involves_foreground") else ""}'
             for x in ex[:EXAMPLES]) + _more(ex, count=v['count']))
     oc = r.get('outside_chord') or {}
     if oc.get('count'):
         ex = oc['examples']
         where.append(f'outside_chord ({oc["count"]}): ' + '; '.join(
-            f'{x["at"]} {x["track"]} {x["note"]} on {x["chord"]} ({x.get("approach")}, {x.get("departure")})' for x in ex[:EXAMPLES]) + _more(ex, count=oc['count']))
+            f'{x["at"]} {x["track"]} {x["note"]}{" [" + x["id"] + "]" if x.get("id") else ""} on {x["chord"]} ({x.get("approach")}, {x.get("departure")})' for x in ex[:EXAMPLES]) + _more(ex, count=oc['count']))
     par = r.get('parallel_fifths_octaves') or {}
     if par.get('count'):
         ex = par['examples']
@@ -97,7 +122,8 @@ def review(r, folder):
     if where:
         lines += ['Where (first examples):'] + [f'- {w}' for w in where]
     lines.append(f'Full figures: {_rel(Path(folder) / "score_review.json")}: examples under the keys above, and '
-                 'tracks, sections, repetition, stiffness, melody_sections, loop_seam; notes.csv lists every note.')
+                 'tracks, sections, repetition, stiffness, melody_sections, loop_seam, views (the tables above in full) and '
+                 'questions (each question with its identifier); notes.csv lists every note.')
     return joined(lines)
 
 

@@ -15,8 +15,8 @@
 
 <p align="center">
   <a href="https://github.com/owoevan-dev/music-skill/actions/workflows/tests.yml"><img src="https://github.com/owoevan-dev/music-skill/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-1f1c1a" alt="Licence: MIT"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-1f1c1a" alt="Python 3.10 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-111111" alt="Licence: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-111111" alt="Python 3.10 or newer">
 </p>
 
 <p align="center"><strong>Don't generate it. Compose it.</strong></p>

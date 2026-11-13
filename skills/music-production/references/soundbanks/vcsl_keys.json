@@ -1,6 +1,6 @@
 {
  "name": "VCSL Keys (music-production build)",
- "comment": "Built from the Versilian Community Sample Library (VCSL) by Versilian Studios, CC0 1.0. Source: https://github.com/sgossner/VCSL at c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e. Harpsichords (French 0:6; Flemish 8-foot 1:6 and 8+4-foot 2:6; English lute stop 3:6; velocity sets no level, as on the instrument), a Kawai grand (0:1, four dynamics), two upright pianos (Yamaha 0:3, Knight 1:3) and three Yamaha TX81Z FM voices (FM piano 0:4, piano 1:4, clavinet 0:7). Takes ring until they fall 60 dB under their peak. Changes: pitch-checked against file names, small intonation offsets as fineTune, leading silence trimmed, levels matched per layer, 16-bit TPDF dither; the release samples are not used. Build b2 levels the three acoustic pianos' recorded dynamics and round robins (every dynamic and round robin of a note at one level, on a register slope the dynamics share, each take moved by up to 12 dB), so the velocity curve sets loudness and the layers set the tone.",
+ "comment": "Built from the Versilian Community Sample Library (VCSL) by Versilian Studios, CC0 1.0. Source: https://github.com/sgossner/VCSL at c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e. Harpsichords (French 0:6; Flemish 8-foot 1:6 and 8+4-foot 2:6; English lute stop 3:6; velocity sets no level, as on the instrument), a Kawai grand (0:1, four dynamics), two upright pianos (Yamaha 0:3, Knight 1:3) and three Yamaha TX81Z FM voices (FM piano 0:4, piano 1:4, clavinet 0:7). Takes ring until they fall 60 dB under their peak. Changes: pitch-checked against file names, small intonation offsets as fineTune, leading silence trimmed, levels matched per layer, 16-bit TPDF dither; the release samples are not used. Build b2 levels the three acoustic pianos' recorded dynamics and round robins (every dynamic and round robin of a note at one level, on a register slope the dynamics share, each take moved by up to 12 dB), so the velocity curve sets loudness and the layers set the tone. Build b3: on Harpsichord French, Harpsichord Flemish 8, Harpsichord Flemish 8+4, Grand Kawai, Upright Yamaha, Upright Knight, FM Piano TX81Z, FM Piano 1 TX81Z, Clavisynth TX81Z, each half-octave band of a take from 1 kHz up is taken out once it has come down to the recording's hiss, never in the first 0.06 s of a note and never where it would lower the take's peak or level (close_hiss); every other preset is as it was.",
  "copyright": "Source samples CC0 1.0 (Versilian Studios VCSL)",
  "target_rms": 0.08,
  "presets": [
@@ -31,7 +31,8 @@
      "max_seconds": 10,
      "ring_db": -60,
      "velocity_attenuation_cb": 0,
-     "velocity_curve": "linear"
+     "velocity_curve": "linear",
+     "close_hiss": {}
     }
    ]
   },
@@ -62,7 +63,8 @@
      "max_seconds": 10,
      "ring_db": -60,
      "velocity_attenuation_cb": 0,
-     "velocity_curve": "linear"
+     "velocity_curve": "linear",
+     "close_hiss": {}
     }
    ],
    "bank": 1
@@ -94,7 +96,8 @@
      "max_seconds": 10,
      "ring_db": -60,
      "velocity_attenuation_cb": 0,
-     "velocity_curve": "linear"
+     "velocity_curve": "linear",
+     "close_hiss": {}
     },
     {
      "dir": "Chordophones/Zithers/Harpsichord, Flemish/Sustains/High",
@@ -119,7 +122,8 @@
      "max_seconds": 10,
      "ring_db": -60,
      "velocity_attenuation_cb": 0,
-     "velocity_curve": "linear"
+     "velocity_curve": "linear",
+     "close_hiss": {}
     }
    ],
    "bank": 2
@@ -203,7 +207,8 @@
       "3": 0,
       "4": 0
      },
-     "match_limit_db": 12
+     "match_limit_db": 12,
+     "close_hiss": {}
     }
    ]
   },
@@ -248,7 +253,8 @@
       "2": 0,
       "3": 0
      },
-     "match_limit_db": 12
+     "match_limit_db": 12,
+     "close_hiss": {}
     }
    ]
   },
@@ -287,7 +293,8 @@
       "1": 0,
       "2": 0
      },
-     "match_limit_db": 12
+     "match_limit_db": 12,
+     "close_hiss": {}
     }
    ],
    "bank": 1
@@ -327,7 +334,8 @@
      },
      "match_notes": true,
      "max_seconds": 12,
-     "ring_db": -60
+     "ring_db": -60,
+     "close_hiss": {}
     }
    ]
   },
@@ -366,7 +374,8 @@
      },
      "match_notes": true,
      "max_seconds": 12,
-     "ring_db": -60
+     "ring_db": -60,
+     "close_hiss": {}
     }
    ],
    "bank": 1
@@ -406,7 +415,8 @@
      },
      "match_notes": true,
      "max_seconds": 8,
-     "ring_db": -60
+     "ring_db": -60,
+     "close_hiss": {}
     }
    ]
   }

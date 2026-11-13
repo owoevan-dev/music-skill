@@ -1,6 +1,6 @@
 {
  "name": "Osiris Piano (music-production build)",
- "comment": "Built from Osiris Piano by Karoryfer Samples, CC0 1.0. Source: https://github.com/sfzinstruments/Osiris_Piano at 18c6afccb60cff458edbf7c394571783e074e1e9. A grand piano sampled on all 52 white keys A0-C8 in two velocity layers, once with the dampers down (UC) and once with the sustain pedal held (UC-Sus), each take recorded by three microphone pairs. As in the library's own program, the three pairs are summed at full level, here sample-aligned into one stereo take. A SoundFont cannot change recordings with the pedal, so there are two presets: pedal up (program 0) and pedal down (bank 1, program 0). The library names notes an octave below standard pitch (its A3 sounds A4). Kept from the library: its tuning (the treble is stretched sharp, as pianos are tuned, so no intonation correction is applied) and its damper release by register, 1.0 s in the bass to 0.42 s in the treble, with no dampers from F#6. Changes: the key noise before each hammer strike (about 25 ms) is trimmed to the last few milliseconds so the piano plays on the beat; the two velocity layers are levelled to the same early RMS so the velocity curve, not a step at 64, sets loudness; a take louder or softer than its neighbours is pulled toward them (at most 6 dB); the pedal-up soft B4 that the library lacks is covered by its neighbours; the bank sits 6 dB lower than the others so no take is limited at full scale; notes cut at 12 s (pedal up) or 15 s (pedal down) with a 50 ms fade; 16-bit TPDF dither. Build b2 keeps each take until its ring falls 60 dB under its peak (at most 30 s) instead of a fixed cut at 12 s (pedal up) or 15 s (pedal down). Build b3 repairs the short knocks from the piano's action that 38 takes, most of them soft pedal takes, recorded while the note rang on.",
+ "comment": "Built from Osiris Piano by Karoryfer Samples, CC0 1.0. Source: https://github.com/sfzinstruments/Osiris_Piano at 18c6afccb60cff458edbf7c394571783e074e1e9. A grand piano sampled on all 52 white keys A0-C8 in two velocity layers, once with the dampers down (UC) and once with the sustain pedal held (UC-Sus), each take recorded by three microphone pairs. As in the library's own program, the three pairs are summed at full level, here sample-aligned into one stereo take. A SoundFont cannot change recordings with the pedal, so there are two presets: pedal up (program 0) and pedal down (bank 1, program 0). The library names notes an octave below standard pitch (its A3 sounds A4). Kept from the library: its tuning (the treble is stretched sharp, as pianos are tuned, so no intonation correction is applied) and its damper release by register, 1.0 s in the bass to 0.42 s in the treble, with no dampers from F#6. Changes: the key noise before each hammer strike (about 25 ms) is trimmed to the last few milliseconds so the piano plays on the beat; the two velocity layers are levelled to the same early RMS so the velocity curve, not a step at 64, sets loudness; a take louder or softer than its neighbours is pulled toward them (at most 6 dB); the pedal-up soft B4 that the library lacks is covered by its neighbours; the bank sits 6 dB lower than the others so no take is limited at full scale; notes cut at 12 s (pedal up) or 15 s (pedal down) with a 50 ms fade; 16-bit TPDF dither. Build b2 keeps each take until its ring falls 60 dB under its peak (at most 30 s) instead of a fixed cut at 12 s (pedal up) or 15 s (pedal down). Build b3 repairs the short knocks from the piano's action that 38 takes, most of them soft pedal takes, recorded while the note rang on. Build b4 takes each band of a take from 1 kHz up out from the moment it has come down to the recording's hiss (close_hiss) and stores every take at full scale, attenuated as much in its zone (full_scale): in a soft pedalled passage the hiss and the 16-bit dither were about as loud as each other, 60 dB under the music together, and 76 dB under it with both steps. Levels are as in b3. Build b5 (b4 was not released): no band closes in the first 0.06 s of a note, where b4 closed the bands over 8 kHz through the hammer's blow (up to 9 dB of its top in the first 30 ms).",
  "copyright": "Source samples CC0 1.0 (Karoryfer Samples, Osiris Piano)",
  "target_rms": 0.04,
  "presets": [
@@ -53,7 +53,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl1 41-64",
@@ -100,7 +102,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl1 65-89",
@@ -147,7 +151,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl1 90-108",
@@ -194,7 +200,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl2 21-40",
@@ -241,7 +249,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl2 41-64",
@@ -288,7 +298,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl2 65-89",
@@ -335,7 +347,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl2 90-108",
@@ -382,7 +396,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     }
    ]
   },
@@ -436,7 +452,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl1 41-64",
@@ -483,7 +501,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl1 65-89",
@@ -530,7 +550,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl1 90-108",
@@ -577,7 +599,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl2 21-40",
@@ -624,7 +648,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl2 41-64",
@@ -671,7 +697,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl2 65-89",
@@ -718,7 +746,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     },
     {
      "name": "vl2 90-108",
@@ -765,7 +795,9 @@
      },
      "velocity_filter_cents": 0,
      "ring_db": -60,
-     "declick": {}
+     "declick": {},
+     "close_hiss": {},
+     "full_scale": true
     }
    ]
   }

@@ -106,7 +106,7 @@ Eighteenth-century composers built phrases from stock patterns of bass and melod
 
 ## Performance on the banks
 
-- **Harpsichord.** `vcsl_keys` 0:6 French, 1:6 Flemish 8′, 2:6 Flemish 8′+4′, 3:6 English lute stop. Velocity changes nothing, as on the instrument ([soundbank-measurements.md](soundbank-measurements.md)).
+- **Harpsichord.** Use the Flemish 8′ (`vcsl_keys` 1:6) unless the piece asks for another, and the Flemish 8′+4′ (2:6) where it wants the brighter, fuller sound of two registers together. The French (0:6) and the English lute stop (3:6) are other instruments, for another colour; the French is what program 6 gives with no bank named, and some of its takes carry sounds from outside the instrument late in their ring (birdsong under a long A♯4), so name the bank. Velocity changes nothing, as on the instrument ([soundbank-measurements.md](soundbank-measurements.md)).
   - Shape a line by timing and articulation instead, as organists and harpsichordists do: [organ.md](organ.md) gives the measured means, from Gingras et al.
   - Change registration for contrast: the bank has 8′, 8′+4′ and lute-stop presets.
 - **Ornaments.** Write them as notes.

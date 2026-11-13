@@ -617,7 +617,7 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
     a few hundredths of a second, less than the 0.1 s the levels are read over, and a band read as settled from
     the first frame would be closed through it.  A take whose peak or level the closing would lower by more than
     CLOSE_GUARD_DB stays as recorded: its bands held more than hiss.  So does every band that would take more
-    than CLOSE_NARROW_SHARE of the amplitude of a narrow component heard in the hiss of the take's later part (a
+    than CLOSE_NARROW_SHARE of the amplitude of a narrow component heard in the hiss into the take's last part (a
     partial that dies slowly holds as still as hiss does), and a band that would take as much of one heard only
     earlier closes after it ('after_a_partial').  Zero-phase band filters that add up exactly to the take
     above `from_hz`; a filter's skirt reaches a little under it (0.3 of the amplitude at 0.9 of `from_hz`), which
@@ -652,54 +652,49 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
     # F01, and the banks built after it).  A partial that dies slowly, under a decibel a second, holds as still
     # against the top band as hiss does, and it was removed from 0.06 s on.  And where the top band holds partials of
     # its own that fall as the others do (an FM voice), a band read against it is settled from the first frame
-    # while its partial still sounds far over the hiss.  So the take is also read for narrow components, in frames
-    # of about 85 ms: over its later part as a whole, the one the settled level is read from, and before it in
-    # windows of a quarter second.  A bin that stands CLOSE_NARROW_OVER_DB over the floor of the half octave it
-    # lies in, and whose power (its lobe less the floor) is within CLOSE_NARROW_TO_HISS_DB of all that half octave's
-    # hiss, is a tone heard in that hiss.  The floor is that of the later part, the lower of the median bin and the
-    # tenth percentile over 0.55, so that a half octave crowded with a bass note's partials still shows its hiss
-    # between them.  A band's filter reaches into its neighbours (at a band's upper edge the band above passes 0.7
-    # of the amplitude), so a band is held by every tone it would take more than CLOSE_NARROW_SHARE of.  One heard
-    # in the later part keeps the band as recorded, the tone with its hiss: a tone left alone where the hiss around
-    # it was taken out is heard more than before.  One heard only earlier moves the closing to after the last
-    # window that holds it.
+    # while its partial still sounds far over the hiss.  So the whole take is also read for narrow components, in
+    # frames of about 85 ms averaged over windows of a quarter second.  A bin that stands CLOSE_NARROW_OVER_DB over
+    # the floor of the half octave it lies in, and whose power (its lobe less the floor) is within
+    # CLOSE_NARROW_TO_HISS_DB of all that half octave's hiss, is a tone heard in that hiss.  The floor is the
+    # window's own, the lower of its median bin and its tenth percentile over 0.55, so that a half octave crowded
+    # with a bass note's partials still shows its hiss between them: a floor taken from the later part of the take
+    # made the earlier hiss of a faded recording stand over it, and its chance peaks pass for tones (the second
+    # review, R2).  Every window is read, to the end of the take: read as one average, the later part hid a tone
+    # that lasts a quarter second in it (R1).  A band's filter reaches into its neighbours (at a band's upper edge
+    # the band above passes 0.7 of the amplitude), so a band is held by every tone it would take more than
+    # CLOSE_NARROW_SHARE of, and it closes after the last window that holds one.  Where that is in the take's last
+    # 15 per cent the band stays as recorded, the tone with its hiss: a tone left alone where the hiss around it
+    # was taken out is heard more than before.
     nfft = 1 << int(round(math.log2(0.085 * rate)))
     step = nfft // 2
-    first_late, end_late = -(-(a * hop) // step), max(0, (b * hop - nfft) // step + 1)   # the frames of the later part
-    holds_late = holds_from = None        # per band: a tone in the later part (Hz, share), the frame its last earlier tone ends at
-    if end_late - first_late >= 4:
+    span = max(4, int(round(0.25 * rate / step)))
+    total = max(0, (frames * hop - nfft) // step + 1)
+    holds_from = None                     # per band: the frame at which the last window that holds a tone of it ends
+    if total >= span:
         taper = np.hanning(nfft)[:, None]
         power = np.stack([(np.abs(np.fft.rfft(y[on + i * step:on + i * step + nfft] * taper, axis=0)) ** 2).mean(axis=1)
-                          for i in range(end_late)])
+                          for i in range(total)])
         bins = np.fft.rfftfreq(nfft, 1 / rate)
-        floor, width = np.zeros(len(bins)), np.ones(len(bins))
-        late = power[first_late:].mean(axis=0)
+        run = np.concatenate([np.zeros((1, len(bins))), np.cumsum(power, axis=0)])
+        windows = (run[span:] - run[:-span]) / span                                # window i: frames i to i + span
+        floor, width = np.zeros_like(windows), np.ones(len(bins))
         limits = [from_hz / 2, from_hz / 2 ** 0.5] + edges + [rate / 2]
         for lo, hi in zip(limits, limits[1:]):
             sel = np.flatnonzero((bins >= lo) & (bins < hi) & (bins > 0))
             if len(sel) >= 8:
-                floor[sel] = min(float(np.median(late[sel])), float(np.percentile(late[sel], 10)) / 0.55)
+                part = windows[:, sel]
+                floor[:, sel] = np.minimum(np.median(part, axis=1), np.percentile(part, 10, axis=1) / 0.55)[:, None]
                 width[sel] = len(sel)
-        def tones(spectra):
-            """Per row of spectra, the bins that hold a tone heard in the hiss."""
-            edge = np.pad(spectra, ((0, 0), (1, 1)), mode='edge')
-            over = np.pad(np.where(floor > 0, spectra - floor, 0.0), ((0, 0), (2, 2)))
-            lobe = over[:, :-4] + over[:, 1:-3] + over[:, 2:-2] + over[:, 3:-1] + over[:, 4:]
-            return ((floor > 0) & (spectra >= floor * 10 ** (CLOSE_NARROW_OVER_DB / 10)) & (spectra >= edge[:, :-2])
-                    & (spectra >= edge[:, 2:]) & (lobe >= floor * width * 10 ** (CLOSE_NARROW_TO_HISS_DB / 10)))
-        span = min(max(4, int(round(0.25 * rate / step))), end_late - first_late)
-        run = np.concatenate([np.zeros((1, len(bins))), np.cumsum(power, axis=0)])
-        windows = (run[span:first_late + span] - run[:first_late]) / span          # window i: frames i to i + span
-        heard_late, heard = tones(late[None, :])[0], tones(windows)
-        through = lambda edge: 1 / np.sqrt(1 + (edge / np.maximum(bins, 1.0)) ** 24)   # the filters of hp(), order 12
-        holds_late, holds_from = [], []
+        edge = np.pad(windows, ((0, 0), (1, 1)), mode='edge')
+        over = np.pad(np.where(floor > 0, windows - floor, 0.0), ((0, 0), (2, 2)))
+        lobe = over[:, :-4] + over[:, 1:-3] + over[:, 2:-2] + over[:, 3:-1] + over[:, 4:]
+        heard = ((floor > 0) & (windows >= floor * 10 ** (CLOSE_NARROW_OVER_DB / 10)) & (windows >= edge[:, :-2])
+                 & (windows >= edge[:, 2:]) & (lobe >= floor * width * 10 ** (CLOSE_NARROW_TO_HISS_DB / 10)))
+        through = lambda edge_hz: 1 / np.sqrt(1 + (edge_hz / np.maximum(bins, 1.0)) ** 24)   # the filters of hp(), order 12
+        holds_from = []
         for k in range(len(edges)):
             share = through(edges[k]) - (through(edges[k + 1]) if k + 1 < len(edges) else 0.0)
-            takes = share > CLOSE_NARROW_SHARE
-            in_late = np.flatnonzero(heard_late & takes)
-            j = int(in_late[np.argmax(late[in_late])]) if len(in_late) else None
-            holds_late.append(None if j is None else (float(bins[j]), float(share[j])))
-            rows = np.flatnonzero((heard & takes).any(axis=1))
+            rows = np.flatnonzero((heard & (share > CLOSE_NARROW_SHARE)).any(axis=1))
             holds_from.append(int(rows[-1]) + span if len(rows) else 0)
     def closing(settle):
         start = on + settle * hop if settle else 0
@@ -719,10 +714,6 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
         return None
     for k in range(len(edges)):
         band = [round(edges[k]), round(edges[k + 1] if k + 1 < len(edges) else rate / 2)]
-        if holds_late and holds_late[k]:
-            report.append({'band': band, 'left': f'closing it would take {holds_late[k][1]:.0%} of a narrow component at '
-                                                 f'{holds_late[k][0]:.0f} Hz that is heard in the hiss of the take\'s later part: a partial'})
-            continue
         if k == len(edges) - 1:
             early = float(np.median(top[int(0.5 / 0.02):int(1.5 / 0.02)]))
             settle = first_held(top[:b] <= early + settled_db)
@@ -741,10 +732,10 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
         waited = False
         if holds_from and holds_from[k]:
             # A tone the band would take from is heard up to this frame: the band closes after it, or not at all
-            # where that reaches the later part.
+            # where that reaches the take's last 15 per cent.
             after = -(-(holds_from[k] * step) // hop)
-            if after >= a:
-                report.append({'band': band, 'left': 'a narrow component is heard in it up to the later part of the take: a partial'})
+            if after >= b:
+                report.append({'band': band, 'left': 'a narrow component is heard in it into the last part of the take: a partial'})
                 continue
             waited, settle = after > settle, max(settle, after)
         out -= closing(settle)[:, None] * parts[k]

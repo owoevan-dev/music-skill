@@ -547,19 +547,38 @@ OTHER_PIANOS={('piano_osiris',0,0):'the Osiris piano',('piano_osiris',1,0):'the 
               ('vcsl_keys',0,1):'the Kawai grand',('vcsl_keys',0,3):'the Yamaha upright',('vcsl_keys',1,3):'the Knight upright',
               ('vsco_colors',0,0):'the VSCO upright',('default',0,0):"the default bank's Acoustic Grand",
               ('default',0,1):"the default bank's Bright Acoustic"}
+def identifier(qid):
+    """A question's identifier as it is recorded: no colon followed by white space (a name with one, as in the section
+    "answer: reprise", loses the space), so that the text before a decision's first colon and space is one identifier."""
+    import re
+    return re.sub(r':\s+',':',qid)
+def own_banks(config):
+    """The names of a configuration's banks that are the project's own, whose presets are known: a named bank that is
+    one of the project's builds (its `version` says `build b...`, as fetch_soundbanks.py and soundbank.py write it),
+    and 'default' where the default bank is the one the setup installs (runtime-lock.json), a General MIDI bank.  A
+    bank someone configured themselves may hold anything at any program."""
+    names={name for name,e in (config.get('soundfonts') or {}).items() if isinstance(e,dict) and str(e.get('version','')).startswith('build b')}
+    lock=Path(__file__).resolve().parents[2]/'references'/'runtime-lock.json'
+    try:pinned={d.get('sha256') for d in json.loads(lock.read_text(encoding='utf-8'))['downloads'] if d.get('id')=='soundfont'}
+    except (OSError,ValueError,KeyError,TypeError,AttributeError):pinned=set()
+    default=config.get('soundfont')
+    if isinstance(default,dict) and default.get('sha256') in pinned:names.add('default')
+    return names
 def piano_choice(p,installed):
     """A question for each piano part played on another piano than the Steinway grand, where `installed` (the names of
     the configured banks) has the Steinway's bank: [(identifier, text)].  The Steinway is the piano for every piano
     part (piano-and-chamber.md); another is kept on the user's word or for a sound the piece is built on, and a
     decision beginning with the identifier says which.  Parts without notes, drum parts and parts with a key map are
-    left out, and so is everything where the bank is not installed: there is nothing to move the part to."""
+    left out, and so is everything where the bank is not installed: there is nothing to move the part to.  `installed`
+    is own_banks(config): program 0 of a default bank that someone configured themselves may be an organ, and was
+    asked about as the Acoustic Grand (the second review, R5)."""
     if 'vcsl' not in installed:return []
     asked=[]
     for t in p['tracks']:
         if t['engine']!='soundfont' or t.get('drums') or t.get('key_map') or not t['notes']:continue
         patch=t.get('patch') or {'bank':t.get('bank',0),'program':t.get('program',0)}
         bank,b,pr=t.get('soundfont','default'),patch.get('bank',0),patch.get('program',0)
-        name=OTHER_PIANOS.get((bank,b,pr))
+        name=OTHER_PIANOS.get((bank,b,pr)) if bank in installed else None   # a bank that is not the project's own may hold anything there
         if name:asked.append((f'piano:{t["id"]}',f'{t["id"]}: plays {name} ({bank} {b}:{pr}). The piano for every piano part is the Steinway grand ("soundfont": "vcsl", bank 0, program 0; piano-and-chamber.md): move the part to it, and make it brighter or closer in the mix, not by changing the piano. Keep this one only where the user asked for it or the piece is built on its own sound (a worn upright for lo-fi or a bar room, the closeness of the Osiris in slow, sparse music), and say which in a decision that begins "piano:{t["id"]}: ".'))
     return asked
 def review(p,out,config=None):
@@ -577,22 +596,19 @@ def review(p,out,config=None):
         that question: it is listed under `answered` with its reason and is not asked again, for as long as it keeps
         its identifier.  Its text is kept there with its current figures, so a change in what it counts is still seen.
 
-        Which decision answers which question is settled once every question is known (resolve, below): a section may
-        be named "answer: reprise", and a decision for its question also begins with the identifier of the section
-        "answer" and a colon.  It answered both (the review of 0.7's code, F04)."""
-        raised.append((qid,text))
-    raised=[]
-    def resolve():
-        """Each decision answers the question with the longest identifier it begins with, of those this review asks;
-        the first such decision is the one kept.  Two questions with one identifier are answered together, as before."""
-        asked={qid for qid,_ in raised};reason_of={}
-        for d in reasons:
-            mine=[qid for qid in asked if d.startswith(qid+': ') and d[len(qid)+2:].strip()]
-            if mine:
-                qid=max(mine,key=len);reason_of.setdefault(qid,d[len(qid)+2:].strip())
-        for qid,text in raised:
-            if qid in reason_of:answered.append({'id':qid,'text':text,'reason':reason_of[qid]})
-            else:summary['prompts'].append(text);questions.append({'id':qid,'text':text})
+        An identifier holds no colon followed by a space: a section named "answer: reprise" gives
+        "plan:answer:reprise".  So the identifier a decision answers is the text before its first colon and space, that
+        one and no other, in this round and in every later one.  Matched by how a decision begins, one for the
+        section "answer: reprise" also answered the question of the section "answer" (the review of 0.7's code, F04);
+        matched by the longest identifier the review asks, it moved to "answer" in the round where the longer
+        question had gone (the second review, R3)."""
+        qid=identifier(qid)
+        if qid in reason_of:answered.append({'id':qid,'text':text,'reason':reason_of[qid]})
+        else:summary['prompts'].append(text);questions.append({'id':qid,'text':text})
+    reason_of={}
+    for d in reasons:
+        head,colon,reason=d.partition(': ')
+        if colon and reason.strip():reason_of.setdefault(head,reason.strip())   # the first decision for an identifier is the one kept
     # Each check's limits come from the style maps: the entry governing the check's axis, else the default, which is
     # marked 'ours' where the project set the number itself (styles.py; style-maps.json).
     from . import styles
@@ -740,7 +756,7 @@ def review(p,out,config=None):
         from . import audio,layered
         cannot=summary['cannot_render']=[m for t in p['tracks'] if t['engine']=='soundfont' for m in [layered.unsupported(t,audio.soundfont_for(config,t)[1]['path'])] if m]
         for m in cannot:put('cannot_render','Cannot render: '+m)
-        for qid,text in piano_choice(p,set(config.get('soundfonts') or {})):put(qid,text)
+        for qid,text in piano_choice(p,own_banks(config)):put(qid,text)
     if 'loop' in p:
         from . import loop
         s=summary['loop_seam']=loop.seam(p,clock)
@@ -760,7 +776,6 @@ def review(p,out,config=None):
     for qid,asked in score_plan.questions(compared):put(qid,asked)
     from . import association
     for qid,asked in association.questions(p):put(qid,asked)
-    resolve()
     # Everything is composed before the first file is written, and what was written is recorded whatever stops the
     # review, so clean can take it (a failure part way left two files and no record; found by GPT Pro's third review).
     lines=[f'# {p["title"]}', '',p.get('brief',''),'', '| Section | Bars (1-based) | Time | Function |','|---|---:|---:|---|']

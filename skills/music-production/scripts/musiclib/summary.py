@@ -68,7 +68,9 @@ def review(r, folder, since=None, plan_changed=None):
         lines.append('The plan no longer says what it first said of: ' + ', '.join(plan_changed[:8])
                      + (f', and {len(plan_changed) - 8} more' if len(plan_changed) > 8 else '')
                      + '. The plan as first written is kept in round.json (plan_first).')
-    lines += [f'{k}. {q}' for k, q in enumerate(r['prompts'], 1)] or ['No questions.']
+    # Each question with its identifier, which is what a decision that answers it begins with.
+    asked = r.get('questions') or [{'id': '', 'text': q} for q in r['prompts']]
+    lines += [f'{k}. ' + (f'[{q["id"]}] ' if q.get('id') else '') + q['text'] for k, q in enumerate(asked, 1)] or ['No questions.']
     kept = r.get('answered') or []
     if kept:
         lines.append(f'Answered in decisions, not asked again ({len(kept)}): '

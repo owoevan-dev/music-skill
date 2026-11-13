@@ -100,6 +100,24 @@ def check(record, target):
         raise ValueError(f'{target}: its "words" is not a list of words')
     if (source == 'none') != (not words):
         raise ValueError(f'{target}: a record of source "none" holds no words, and every other holds some')
+    if source == 'draw':
+        # A draw says how it was made, and is what its seed draws from the list it names (the second review, R6: a
+        # record of one word, or of twelve times one word under a seed, passed for a draw).
+        seed, count, digest = record.get('seed'), record.get('count'), record.get('list_sha256')
+        if not isinstance(seed, int) or isinstance(seed, bool) or seed < 0:
+            raise ValueError(f'{target}: a draw records its "seed", a whole number')
+        if not isinstance(count, int) or isinstance(count, bool) or count != len(words):
+            raise ValueError(f'{target}: a draw records its "count", the number of its words ({len(words)})')
+        if len(set(words)) != len(words):
+            raise ValueError(f'{target}: a draw holds no word twice')
+        if not isinstance(digest, str) or len(digest) != 64 or set(digest) - set('0123456789abcdef'):
+            raise ValueError(f'{target}: a draw records "list_sha256", the SHA-256 of the list it was drawn from')
+        with open(LIST, 'rb') as f:
+            current = hashlib.sha256(f.read()).hexdigest()
+        if digest == current and words != draw(seed, count):
+            raise ValueError(f'{target}: its words are not what seed {seed} draws from the list it names. The record was '
+                             'changed after it was made; put it back as it was. (A piece whose words the user chose records '
+                             '"source": "user".)')
 
 
 def describe(record, made, target):

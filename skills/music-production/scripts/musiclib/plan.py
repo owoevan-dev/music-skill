@@ -162,6 +162,7 @@ def compare(p, clock=None):
 def questions(compared):
     """The questions a comparison raises, as (identifier, text): one for a project without a plan, one for a high
     point without its means or outside the piece, one for each section where plan and score differ."""
+    from .review import identifier
     if compared is None:
         return [('plan.missing',
                  'The project has no plan. A plan says, before the notes, what identifies the piece, where its high point is and '
@@ -182,9 +183,9 @@ def questions(compared):
                     'that thins while the line climbs); say which this piece uses, so that the score can be read against it.'))
     for s in compared['sections']:
         if not s['in_piece']:
-            out.append((f'plan:{s["section"]}', f'The plan has a section {s["section"]}, which the piece does not have.'))
+            out.append((identifier('plan', s['section']), f'The plan has a section {s["section"]}, which the piece does not have.'))
         elif s['differs']:
-            out.append((f'plan:{s["section"]}',
+            out.append((identifier('plan', s['section']),
                         f'Plan and score differ in {s["section"]}: ' + '; '.join(d['text'] for d in s['differs'])
                         + '. Change the score, or change the plan and say why in decisions (the plan as first written stays in '
                           'the rounds\' records).'))

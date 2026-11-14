@@ -1943,8 +1943,20 @@ def checks(work,config=None):
         # The third review, N3: every name keeps an identifier of its own.  The sections "answer: reprise",
         # "answer:reprise" and "answer:%20reprise" are three, and a decision for one answers that one.
         from musiclib.review import identifier
-        three=[identifier(f'plan:{n}') for n in ('answer: reprise','answer:reprise','answer:%20reprise')]
-        assert three==['plan:answer:%20reprise','plan:answer:reprise','plan:answer:%2520reprise'] and identifier('a:  b: c')=='a:%20 b:%20c',three
+        three=[identifier('plan',n) for n in ('answer: reprise','answer:reprise','answer:%20reprise')]
+        assert three==['plan:answer:%20reprise','plan:answer:reprise','plan:answer:%2520reprise'] and identifier('plan','a:  b: c')=='plan:a:%20 b:%20c',three
+        # The fourth review, T1: an identifier of two names keeps them apart.  Sections named "a+b", "c", "a" and
+        # "b+c", alike in pairs: the pairs ("a+b", "c") and ("a", "b+c") have an identifier each, where both were
+        # sections_alike:a+b+c, and a decision for one pair leaves the other asked.
+        assert identifier('sections_alike','a+b','c')=='sections_alike:a%2Bb+c' and identifier('sections_alike','a','b+c')=='sections_alike:a+b%2Bc'
+        four=example();four.pop('harmony',None);four.pop('style',None);four['clock']={'bars':8,'meter':[4,4],'tempo':[[0,100]],'tail_seconds':1}
+        four['sections']=[{'id':n,'start_bar':i*2,'bars':2} for i,n in enumerate(('a+b','c','a','b+c'))]
+        only=four['tracks'][0];only['notes']=[{'id':f'n{i}','on':i*4,'duration':2,'pitch':60} for i in range(8)]
+        only['performance']={'notes':{m['id']:{'velocity':80} for m in only['notes']}};four['tracks']=[only];four['decisions']=[]
+        alike=[i for i in ids(review(four,work/'review_pairs')) if i.startswith('sections_alike')]
+        assert {'sections_alike:a%2Bb+c','sections_alike:a+b%2Bc'}<=set(alike) and len(alike)==len(set(alike)),alike
+        four['decisions']=['sections_alike:a%2Bb+c: only these two keep one texture, by design'];r=review(four,work/'review_pairs_decided')
+        assert 'sections_alike:a+b%2Bc' in ids(r) and [a['id'] for a in r['answered']]==['sections_alike:a%2Bb+c'],(ids(r),r['answered'])
         twins=example();twins['plan']={'identity':'x','sections':[{'section':'answer: reprise','sounds':['piano']},{'section':'answer:reprise','sounds':['piano']}]}
         twins['decisions']=twins['decisions']+['plan:answer:reprise: only this one is planned for later']
         r=review(twins,work/'review_twins')
@@ -2057,6 +2069,18 @@ def checks(work,config=None):
         q['tracks'][0]['notes']=[{'id':f'l{i}','on':o,'duration':(on+[9])[i+1]-o,'pitch':60} for i,o in enumerate(on)]
         q['tracks'][0]['performance']={'notes':{f'l{i}':{'velocity':70} for i in range(len(on))}}
         m=views.views(q)['melody_rhythm'][0];assert (m['attacks'],m['syncopated_pct'],m['pushes_pct'])==(8,12.5,12.5),m
+        assert [x['rests'] for x in m['sections']]==[0,0],m['sections']                # one run from the first note to the last: no rest
+        # The fourth review, T2: the rests have known answers too (a count of nought in every section passed).  A
+        # note of one beat at the start of each bar leaves three beats of rest after it: in two sections of two bars,
+        # two rests begin in the first, and one in the second, whose last note has nothing after it; a gap of half a
+        # beat is a rest and a shorter one is not.
+        q['tracks'][0]['notes']=[{'id':f'l{i}','on':4*i,'duration':1,'pitch':60} for i in range(4)]
+        q['tracks'][0]['performance']={'notes':{f'l{i}':{'velocity':70} for i in range(4)}}
+        assert [x['rests'] for x in views.views(q)['melody_rhythm'][0]['sections']]==[2,1]
+        for gap,want in ((0.5,[1,0]),(0.4,[0,0])):
+            q['tracks'][0]['notes']=[{'id':'l0','on':0,'duration':1,'pitch':60},{'id':'l1','on':1+gap,'duration':1,'pitch':60}]
+            q['tracks'][0]['performance']={'notes':{'l0':{'velocity':70},'l1':{'velocity':70}}}
+            assert [x['rests'] for x in views.views(q)['melody_rhythm'][0]['sections']]==want,(gap,views.views(q)['melody_rhythm'][0]['sections'])
         # F12.  With a change of tempo the run of most beats is not the longest: eight beats at 240 BPM last 2 s, four
         # at 30 BPM last 8 s, and the longest run is the one of 8 s.
         q=piece(2,2,1,1);q['clock']['tempo']=[[0,240],[8,30]]

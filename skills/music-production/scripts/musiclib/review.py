@@ -547,12 +547,15 @@ OTHER_PIANOS={('piano_osiris',0,0):'the Osiris piano',('piano_osiris',1,0):'the 
               ('vcsl_keys',0,1):'the Kawai grand',('vcsl_keys',0,3):'the Yamaha upright',('vcsl_keys',1,3):'the Knight upright',
               ('vsco_colors',0,0):'the VSCO upright',('default',0,0):"the default bank's Acoustic Grand",
               ('default',0,1):"the default bank's Bright Acoustic"}
-def identifier(qid):
-    """A question's identifier as it is recorded: no colon followed by a space, so that the text before a decision's
-    first colon and space is one identifier.  A name that holds one keeps it written as %20, and a per cent sign as
-    %25, so two names never share an identifier: the section "answer: reprise" gives "plan:answer:%20reprise" and
-    "answer:reprise" gives "plan:answer:reprise" (with the space taken out the two were one: the third review, N3)."""
-    qid=qid.replace('%','%25')
+def identifier(kind,*names):
+    """A question's identifier: its kind and, after a colon, the names it is about (a part, a section, two sections),
+    joined by plus signs.  In a name a per cent sign is written %25 and a plus sign %2B, and in the whole a space
+    after a colon is written %20, so that no two questions about different names share an identifier and none holds
+    a colon followed by a space: the text before a decision's first colon and space is one identifier.  The section
+    "answer: reprise" gives "plan:answer:%20reprise" and "answer:reprise" gives "plan:answer:reprise" (with the space
+    taken out the two were one: the third review, N3); the pairs ("a+b", "c") and ("a", "b+c") give
+    "sections_alike:a%2Bb+c" and "sections_alike:a+b%2Bc" (escaped after joining, both were a+b+c: the fourth, T1)."""
+    qid=kind+(':'+'+'.join(str(n).replace('%','%25').replace('+','%2B') for n in names) if names else '')
     while ': ' in qid:qid=qid.replace(': ',':%20')
     return qid
 def own_banks(config):
@@ -582,7 +585,7 @@ def piano_choice(p,installed):
         patch=t.get('patch') or {'bank':t.get('bank',0),'program':t.get('program',0)}
         bank,b,pr=t.get('soundfont','default'),patch.get('bank',0),patch.get('program',0)
         name=OTHER_PIANOS.get((bank,b,pr)) if bank in installed else None   # a bank that is not the project's own may hold anything there
-        if name:asked.append((f'piano:{t["id"]}',f'{t["id"]}: plays {name} ({bank} {b}:{pr}). The piano for every piano part is the Steinway grand ("soundfont": "vcsl", bank 0, program 0; piano-and-chamber.md): move the part to it, and make it brighter or closer in the mix, not by changing the piano. Keep this one only where the user asked for it or the piece is built on its own sound (a worn upright for lo-fi or a bar room, the closeness of the Osiris in slow, sparse music), and say which in a decision that begins "piano:{t["id"]}: ".'))
+        if name:asked.append((identifier('piano',t['id']),f'{t["id"]}: plays {name} ({bank} {b}:{pr}). The piano for every piano part is the Steinway grand ("soundfont": "vcsl", bank 0, program 0; piano-and-chamber.md): move the part to it, and make it brighter or closer in the mix, not by changing the piano. Keep this one only where the user asked for it or the piece is built on its own sound (a worn upright for lo-fi or a bar room, the closeness of the Osiris in slow, sparse music), and say which in a decision that begins "{identifier("piano",t["id"])}: ".'))
     return asked
 def review(p,out,config=None):
     out=Path(out);out.mkdir(parents=True,exist_ok=True);clock=Clock(p)
@@ -600,12 +603,11 @@ def review(p,out,config=None):
         its identifier.  Its text is kept there with its current figures, so a change in what it counts is still seen.
 
         An identifier holds no colon followed by a space: a section named "answer: reprise" gives
-        "plan:answer:%20reprise" (identifier()).  So the identifier a decision answers is the text before its first colon and space, that
+        "plan:answer:%20reprise" (identifier(), which every question about a named part or section is given by).  So the identifier a decision answers is the text before its first colon and space, that
         one and no other, in this round and in every later one.  Matched by how a decision begins, one for the
         section "answer: reprise" also answered the question of the section "answer" (the review of 0.7's code, F04);
         matched by the longest identifier the review asks, it moved to "answer" in the round where the longer
         question had gone (the second review, R3)."""
-        qid=identifier(qid)
         if qid in reason_of:answered.append({'id':qid,'text':text,'reason':reason_of[qid]})
         else:summary['prompts'].append(text);questions.append({'id':qid,'text':text})
     reason_of={}
@@ -629,15 +631,15 @@ def review(p,out,config=None):
         info={'id':t['id'],'role':t.get('role'),'engine':t['engine'],'notes':len(notes),'pitch_range':[min((n['pitch'] for n in notes),default=None),max((n['pitch'] for n in notes),default=None)],'duration_values':dict(hist),'velocity_range':[min(vel,default=None),max(vel,default=None)],'median_performed_key_gap_ms':round(statistics.median(gaps),2) if gaps else None,'step_or_repeat_fraction':round(sum(x<=2 for x in interval)/len(interval),3) if interval else None,'phrase_labels':dict(phrases),'same_key_retrigger_trims':sum(n.get('retrigger_trimmed',False) for n in actual)}
         summary['tracks'].append(info)
         if t.get('role') in ('melody','countermelody') and notes:
-            if ask('melody_durations') and len(hist)<L('melody_durations')['min_categories']:put(f'melody_durations:{t["id"]}',f'{t["id"]}: few duration categories; inspect whether the intended line has phrase direction and space.')
-            if ask('melody_velocities') and len(set(vel))<L('melody_velocities')['min_values']:put(f'melody_velocities:{t["id"]}',f'{t["id"]}: nearly flat MIDI velocity; inspect instrument response before adding expression.')
+            if ask('melody_durations') and len(hist)<L('melody_durations')['min_categories']:put(identifier('melody_durations',t["id"]),f'{t["id"]}: few duration categories; inspect whether the intended line has phrase direction and space.')
+            if ask('melody_velocities') and len(set(vel))<L('melody_velocities')['min_values']:put(identifier('melody_velocities',t["id"]),f'{t["id"]}: nearly flat MIDI velocity; inspect instrument response before adding expression.')
         bank=(t.get('patch') or t).get('bank',0)
         if t['engine']=='soundfont' and t.get('soundfont','default')=='default' and bank in (17,18) and not any(c==2 for _,c,_ in t['performance'].get('cc',[])):
-            put(f'expression_preset:{t["id"]}',f'{t["id"]}: MuseScore "Expr." presets (bank 17/18) are near-silent until CC2 is written.')
+            put(identifier('expression_preset',t["id"]),f'{t["id"]}: MuseScore "Expr." presets (bank 17/18) are near-silent until CC2 is written.')
         cut=highpass_cut(t)
         if cut and cut[0]>L('highpass')['loss_db'] and ask('highpass'):
             low,keeps=highpass_floor(cut[2]);where='an octave under that note' if low>15 else 'the lowest a part may have'
-            put(f'highpass:{t["id"]}',f'{t["id"]}: its high-pass at {t["mix"].get("highpass",30):g} Hz takes {cut[0]:.1f} dB from the fundamental of its lowest note ({NAMES[cut[1]%12]}{cut[1]//12-1}, {cut[2]:.0f} Hz); at {low:.0f} Hz, {where}, it takes {keeps:.1f} dB.')
+            put(identifier('highpass',t["id"]),f'{t["id"]}: its high-pass at {t["mix"].get("highpass",30):g} Hz takes {cut[0]:.1f} dB from the fundamental of its lowest note ({NAMES[cut[1]%12]}{cut[1]//12-1}, {cut[2]:.0f} Hz); at {low:.0f} Hz, {where}, it takes {keeps:.1f} dB.')
         for n in notes:
             e=t['performance']['notes'][n['id']];a=a_by_id[n['id']]
             csv_rows.append({'track':t['id'],'role':t.get('role'),'note_id':n['id'],'bar_1_based':int(n['on']//clock.beats_per_bar)+1,'beat_in_bar':round(n['on']%clock.beats_per_bar,4),'pitch':n['pitch'],'duration_q':n['duration'],'phrase':n.get('phrase',''),'articulation':n.get('articulation',''),'velocity':e['velocity'],'timing_ms':e.get('timing_ms',0),'gate':e.get('gate',1),'start_seconds':round(a['start_seconds'],6),'end_seconds':round(a['end_seconds'],6)})
@@ -680,13 +682,13 @@ def review(p,out,config=None):
             put('static_texture.still',f'Bars {w["from_bar"]}-{w["to_bar"]}: every part repeats the same {s["block_bars"]}-bar block note for note ({w["bars"]} bars) and nothing moves its sound, no filter sweep, automation or controller curve. Dance music changes its loops by adding and taking away layers at phrase downbeats and by continuous processes, filter sweeps, crescendos, fades (Garcia 2005; Smith 2021): add one, or change a layer (electronic.md, Techno).')
     for l in rep['part_loops'] if ask('repetition') else ():
         who=', '.join(l['tracks']);cyc='/'.join(map(str,l['cycle_bars']))
-        put(f'repetition:{"+".join(l["tracks"])}',f'Bars {l["from_bar"]}-{l["to_bar"]}: {who} {"repeat" if len(l["tracks"])>1 else "repeats"} a {cyc}-bar pattern unchanged for {l["bars"]} bars. Dance music brings new sounds in at the downbeats of its phrases (Smith 2021): at an 8- or 16-bar edge try a fill, a dropout and return, or a variation of the pattern (development-and-groove.md).')
+        put(identifier('repetition',*l['tracks']),f'Bars {l["from_bar"]}-{l["to_bar"]}: {who} {"repeat" if len(l["tracks"])>1 else "repeats"} a {cyc}-bar pattern unchanged for {l["bars"]} bars. Dance music brings new sounds in at the downbeats of its phrases (Smith 2021): at an 8- or 16-bar edge try a fill, a dropout and return, or a variation of the pattern (development-and-groove.md).')
     for r in rep['literal_returns'] if ask('literal_returns') else ():
-        put(f'literal_returns:{r["section"]}',f'{r["section"]} repeats {r["repeats"]} note for note in every part; if the return should develop, change one thing: the melody, the harmony under it, the texture or the register (development-and-groove.md).')
+        put(identifier('literal_returns',r["section"]),f'{r["section"]} repeats {r["repeats"]} note for note in every part; if the return should develop, change one thing: the melody, the harmony under it, the texture or the register (development-and-groove.md).')
     for w in rep['arrivals_thinner_than_before'] if ask('arrivals_thinner') else ():
-        put(f'arrivals_thinner:{w["section"]}',f'{w["section"]} arrives thinner than {w["after"]} (notes per bar {w["notes_per_bar"][0]:g} -> {w["notes_per_bar"][1]:g}, parts {w["parts"][0]} -> {w["parts"][1]}, velocity {w["mean_velocity"][0]:g} -> {w["mean_velocity"][1]:g}); confirm the drop in energy is meant.')
+        put(identifier('arrivals_thinner',w["section"]),f'{w["section"]} arrives thinner than {w["after"]} (notes per bar {w["notes_per_bar"][0]:g} -> {w["notes_per_bar"][1]:g}, parts {w["parts"][0]} -> {w["parts"][1]}, velocity {w["mean_velocity"][0]:g} -> {w["mean_velocity"][1]:g}); confirm the drop in energy is meant.')
     for f in rep['sections_alike'] if ask('sections_alike') else ():
-        put(f'sections_alike:{f["sections"][0]}+{f["sections"][1]}',f'{f["sections"][0]} and {f["sections"][1]} have the same parts and nearly the same density and dynamics; decide what changes between them.')
+        put(identifier('sections_alike',*f['sections'][:2]),f'{f["sections"][0]} and {f["sections"][1]} have the same parts and nearly the same density and dynamics; decide what changes between them.')
     entry=styles.governing(summary['style'],'tempo');spec=(styles.registry()['styles'].get(entry) or {}).get('tempo_bpm') if entry else None
     if spec:
         tr=summary['tempo_range']=tempo_range(p,entry,spec);lo,hi=tr['range']
@@ -698,7 +700,7 @@ def review(p,out,config=None):
         put('widespread_lowpass',f'{len(lp["under"])} of the {lp["parts"]} parts other than the bass are low-passed at or under {lp["below_hz"]/1000:g} kHz ({named}): together they take the top octave out of the mix, where most mixing books put air (10-20 kHz; Moffat, De Man and Reiss 2022). Widespread low-pass filtering seldom helps, because the harmonics and noise of most instruments reach up the spectrum, and it easily dulls a mix (Senior 2012). Keep a low-pass where the highs of a part must go for the balance, such as the noise of an amplified guitar; for the others remove `mix.lowpass` (18 kHz by default) unless the style wants a muffled top (performance-and-mix.md, Brightness and air).')
     stiff=summary['stiffness']=stiffness(p,clock,**L('stiffness'))
     for b in stiff['block_chord_parts'] if ask('stiffness') else ():
-        put(f'stiffness:{b["track"]}',f'{b["track"]}: {b["block_share"]:.0%} of its {b["chords"]} chords are struck and released as one block. Hold a common tone over the change, move an inner voice, break the chord or vary its rhythm (development-and-groove.md; musiclib.voicing voices chords to move smoothly).')
+        put(identifier('stiffness',b["track"]),f'{b["track"]}: {b["block_share"]:.0%} of its {b["chords"]} chords are struck and released as one block. Hold a common tone over the change, move an inner voice, break the chord or vary its rhythm (development-and-groove.md; musiclib.voicing voices chords to move smoothly).')
     from .profile import melody_in, top_line
     line=top_line([n for t in p['tracks'] if t.get('role')=='melody' for n in t['notes']])
     summary['melody_sections']=[]
@@ -706,7 +708,7 @@ def review(p,out,config=None):
         m=melody_in(line,s['start_bar']*clock.beats_per_bar,(s['start_bar']+s['bars'])*clock.beats_per_bar,clock)
         summary['melody_sections'].append({'section':s['id'],**(m or {})})
         if m and ask('restatement') and m['bars_compared']>=L('restatement')['min_bars'] and m['bars_restated']==0:
-            put(f'restatement:{s["id"]}',f'{s["id"]}: none of its {m["bars_compared"]} melody bars restates the rhythm and shape of an earlier one. Pop sections often state an idea and restate it before departing (Summach 2011), as a classical sentence repeats its basic idea (Caplin 1998); if this section should have such an idea, state it and restate it, varied or sequenced (climax-and-melody.md).')
+            put(identifier('restatement',s["id"]),f'{s["id"]}: none of its {m["bars_compared"]} melody bars restates the rhythm and shape of an earlier one. Pop sections often state an idea and restate it before departing (Summach 2011), as a classical sentence repeats its basic idea (Caplin 1998); if this section should have such an idea, state it and restate it, varied or sequenced (climax-and-melody.md).')
     if stiff['no_pushes_anywhere'] and ask('pushes'):
         put('pushes','No melody or accompaniment attack anticipates a downbeat or half-bar. Rock and pop melodies anticipate strong beats (Tan, Lustig and Temperley 2019), and moderate syncopation goes with the most groove (Witek et al. 2014; development-and-groove.md); if the style calls for drive, try a few pushes.')
     # Surge XT's mono single-trigger legato keeps the velocity of the note a slide starts from: SurgeVoice::legato (Surge
@@ -723,7 +725,7 @@ def review(p,out,config=None):
                 while began and began[0][0]+1e-6<n['start_seconds']:down=max(down,began.pop(0)[1])
                 if n['start_seconds']<down-1e-6:slid.append(n['id'])
                 began.append((n['start_seconds'],n['end_seconds']))
-            if slid:put(f'glide_accent:{t["id"]}',f'{t["id"]}: {len(slid)} note{"s" if len(slid)>1 else ""} glide{"" if len(slid)>1 else "s"} in from a note still sounding ({", ".join(slid[:3])}{", ..." if len(slid)>3 else ""}); Surge XT keeps the velocity of the note a slide starts from, so velocity_to_cutoff does not accent them. End every note still sounding before one that must be accented (it then attacks), or let it slide unaccented.')
+            if slid:put(identifier('glide_accent',t["id"]),f'{t["id"]}: {len(slid)} note{"s" if len(slid)>1 else ""} glide{"" if len(slid)>1 else "s"} in from a note still sounding ({", ".join(slid[:3])}{", ..." if len(slid)>3 else ""}); Surge XT keeps the velocity of the note a slide starts from, so velocity_to_cutoff does not accent them. End every note still sounding before one that must be accented (it then attacks), or let it slide unaccented.')
     if config is not None:
         from . import surge
         if surge.installed(config):
@@ -741,16 +743,16 @@ def review(p,out,config=None):
                     from .blocks import seed as piece_seed
                     from .sounds import search
                     s=piece_seed(p['title']);picks=[r['id'] for r in search(role,limit=3,seed=s)['shown']]
-                    put(f'builtin_preset:{t["id"]}',f'{t["id"]}: plays the built-in {preset}; Surge XT is installed with its full patch set: studio.py sounds --role {role} --seed {s} lists patches for this role spread over the range (three for this piece: {", ".join(picks)}). Hear two to four on the part: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+x for x in picks)} --bars FIRST-LAST (sound-selection.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
+                    put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed with its full patch set: studio.py sounds --role {role} --seed {s} lists patches for this role spread over the range (three for this piece: {", ".join(picks)}). Hear two to four on the part: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+x for x in picks)} --bars FIRST-LAST (sound-selection.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
                 elif full and surge.measured_counterparts(preset) and t['notes']:
                     # The 808's slide and the acid line's accents and slides: the patches measured to play them as the
                     # score asks, with the settings that do it (surge-roles.json), not every patch so named.
                     measured=surge.measured_counterparts(preset)
                     listed='; '.join(pid+(' with '+', '.join(k if v is True else f'{k} {v:g}' for k,v in s.items()) if s else '') for pid,s in measured)
-                    put(f'builtin_preset:{t["id"]}',f'{t["id"]}: plays the built-in {preset}; Surge XT is installed with its full patch set, and these patches were measured to play this part as the score asks (surge-roles.json): {listed}. Hear them on the part with those settings: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+pid+"".join("+"+k if v is True else f"+{k}={v:g}" for k,v in s.items()) for pid,s in measured[:3])} --bars FIRST-LAST (electronic-sounds.md). Keep the built-in preset where none suits, where a render must repeat exactly, or where Surge XT is missing.')
+                    put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed with its full patch set, and these patches were measured to play this part as the score asks (surge-roles.json): {listed}. Hear them on the part with those settings: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+pid+"".join("+"+k if v is True else f"+{k}={v:g}" for k,v in s.items()) for pid,s in measured[:3])} --bars FIRST-LAST (electronic-sounds.md). Keep the built-in preset where none suits, where a render must repeat exactly, or where Surge XT is missing.')
                 elif (options or named) and t['notes']:
                     which=f'its patches for this role include {", ".join(options[:4])}' if options else f'its full patch set has patches named for this sound: {", ".join(named[:4])}'
-                    put(f'builtin_preset:{t["id"]}',f'{t["id"]}: plays the built-in {preset}; Surge XT is installed, and {which}. Hear them on the part: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+x for x in (options or named)[:3])} --bars FIRST-LAST (electronic-sounds.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
+                    put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed, and {which}. Hear them on the part: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+x for x in (options or named)[:3])} --bars FIRST-LAST (electronic-sounds.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
         st=summary['transposed_samples']=stretched(p,clock,sample_maps(p,config),limit=L('transposed_samples')['limit_semitones'])
         if st['count'] and ask('transposed_samples'):
             worst=next(iter(st['by_track']))

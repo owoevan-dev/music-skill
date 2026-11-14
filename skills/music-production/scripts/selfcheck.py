@@ -1799,6 +1799,23 @@ def checks(work,config=None):
             z=np.stack([z,z],axis=1).astype(np.float32);kept,rep=close_settled_bands(z,rate);r={q['band'][0]:q for q in rep}
             assert all(r[b].get('closed_s')==0.06 and not r[b].get('after_a_partial') for b in (8000,11314)),(fade,rep)
             assert band(kept,8000,16000,1,2)<band(z,8000,16000,1,2)-30,fade
+        # Found after the last review, on the Osiris piano, whose recordings fade out at their end: a window that lies
+        # over a fade inside the take is ruled by its loudest frame, whose chance peaks then pass for a tone (R2 within
+        # one window).  Ten takes of a note and hiss, two channels, the last half second faded out: none holds a band
+        # over 8 kHz for a narrow component (four in ten did), and each loses its hiss there.
+        t10=np.arange(10*44100)/44100;out_fade=np.clip((10.0-t10)/0.5,0,1)**3
+        for seed in range(10):
+            g2=np.random.default_rng(seed)
+            z=np.stack([0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-75/20)*g2.standard_normal(len(t10)) for _ in range(2)],axis=1)
+            z=(z*out_fade[:,None]).astype(np.float32);_,rep=close_settled_bands(z,44100)
+            assert all(q.get('closed_s')==0.06 and not q.get('after_a_partial') for q in rep if q['band'][0]>=8000),(seed,rep)
+        # And what is left where a take has faded to nothing is not a tone: a 12 kHz component 120 dB under the take's
+        # peak, lost in the hiss until the hiss fades away under it, holds no band (it held the Osiris's: such
+        # 'components' lie under anything 16 bits store).
+        g2=np.random.default_rng(1);dust=10**(-120/20)*0.3*np.sin(2*np.pi*12000*t10)
+        z=np.stack([(0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-75/20)*g2.standard_normal(len(t10)))*out_fade+dust for _ in range(2)],axis=1)
+        _,rep=close_settled_bands(z,44100)
+        assert all(q.get('closed_s')==0.06 for q in rep if q['band'][0]>=8000),rep
         # The third review, N1: each channel is read on its own.  A 5 kHz tone in the left channel alone, 8 dB over the
         # hiss of its half octave there, under a right channel whose hiss is 30 dB louder: in the two channels' average
         # it stands 2 dB over the floor and went unseen; its bands now wait for it, and the left channel keeps it.
@@ -2062,6 +2079,45 @@ def checks(work,config=None):
         pace={s['section']:(s['changes'],s['bars']) for s in views.harmony_pace(near)['sections']}
         assert pace=={'a':(1,3),'b':(3,8)},pace
         assert reads(near,harmony='faster')==(0,1) and reads(near,harmony='same')==(1,0)
+        # The fifth review, U2: what counts as a change of chord has known answers (with every symbol its own chord, and
+        # with the transposition left out, every check passed).  Three spellings of one chord are no change; one symbol
+        # under two transpositions is one; a chord and its first inversion are one.
+        def changes(*entries):
+            q=piece(len(entries),1,0,0);q['harmony']=[{'bar':k+1,**e} for k,e in enumerate(entries)]
+            return views.harmony_pace(q)['changes']
+        assert changes({'symbol':'C#maj7'},{'symbol':'Dbmaj7'},{'symbol':'C#M7'})==0
+        assert changes({'symbol':'C','transpose_semitones':0},{'symbol':'C','transpose_semitones':2})==1
+        assert changes({'symbol':'C'},{'symbol':'C/E'})==1 and changes({'symbol':'C'},{'symbol':'C'})==0
+        # U3: and a review with a configuration asks the piano question, not only the function that words it (with the
+        # call taken out of review, every check passed).  A bank built above stands in for the default bank, under the
+        # hash of the one the setup installs, and for the Steinway's: the part on the default bank's program 0 is asked
+        # about, a decision answers it, and without the Steinway's bank nothing is asked.
+        bank_file=work/'review_recorded.sf2';own_hash=hashlib.sha256(bank_file.read_bytes()).hexdigest()
+        cfg={'soundfont':{'path':str(bank_file),'sha256':pinned},'soundfonts':{'vcsl':{'path':str(bank_file),'sha256':own_hash,'version':'build b10'}}}
+        solo=example();solo.pop('harmony',None);solo.pop('style',None);keys=solo['tracks'][0]
+        keys['notes']=[{'id':f'n{i}','on':i*2,'duration':1,'pitch':57+i%3} for i in range(8)]
+        keys['performance']={'notes':{m['id']:{'velocity':80} for m in keys['notes']}};solo['tracks']=[keys];solo['decisions']=[]
+        asked=identifier('piano',keys['id']);r=review(solo,work/'review_piano',cfg)
+        assert asked in ids(r),ids(r)
+        solo['decisions']=[asked+': the user asked for this piano'];r=review(solo,work/'review_piano_decided',cfg)
+        assert asked not in ids(r) and [a['id'] for a in r['answered']]==[asked],(ids(r),r['answered'])
+        solo['decisions']=[];assert asked not in ids(review(solo,work/'review_piano_alone',{'soundfont':cfg['soundfont']}))
+        # U1: a passage cut from a piece carries the plan of what it holds whole.  The first two bars of the example,
+        # whose plan puts the high point in its second section: the passage's review asks nothing of the plan, where
+        # it asked for the section left out and for the high point; its plan names what lies outside; and a section
+        # it does hold, planned to sound a part the project lacks, is still asked about.  The piece's plan is untouched.
+        from excerpt import extract
+        whole=example();whole['plan']={'identity':'a question and its answer','high_point':{'section':'answer','means':'the lead has more notes there'},
+                                       'sections':[{'section':'question','sounds':['piano','bass','lead','drums','fx']},{'section':'answer','sounds':['piano','bass','lead','drums']}]}
+        kept_plan=copy.deepcopy(whole['plan'])
+        assert not [i for i in ids(review(whole,work/'review_whole')) if i.startswith('plan')]
+        part=extract(whole,1,2);r=review(part,work/'review_part')
+        assert validate(part)['warnings']==[] and whole['plan']==kept_plan
+        assert not [i for i in ids(r) if i.startswith('plan')],ids(r)
+        assert [s['section'] for s in part['plan']['sections']]==['question'] and part['plan']['outside_passage']=={'sections':['answer'],'high_point':kept_plan['high_point']},part['plan']
+        cut_in=extract(whole,2,2);assert cut_in['plan']['sections']==[] and cut_in['plan']['outside_passage']['sections']==['question','answer']   # both sections cut into
+        whole['plan']['sections'][0]['sounds']=['piano','bass','lead','drums','fx','brass'];r=review(extract(whole,1,2),work/'review_part_differs')
+        assert [i for i in ids(r) if i.startswith('plan')]==['plan:question'],ids(r)
         # The melody's rhythm has known answers (figures of nought throughout passed): attacks on 1, 2 and 3, one half
         # a beat before the next bar and held over it, then 2, 3 and 4 and the next downbeat: one attack in eight is
         # syncopated, and it is a push.

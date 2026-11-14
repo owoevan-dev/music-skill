@@ -165,18 +165,24 @@ quiet, exposed piano choose the Steinway, or the Osiris for a closer and darker 
 A count of every decaying, unlooped take of the banks (the 6 to 16 kHz level over the later part of the take, against
 the 0.35 of a 16-bit step that dither alone leaves) then found hiss under the ringing notes of thirty-one more
 instruments, a few takes to all of them. Each was played softly, alone and dry, and heard; the bands of these are
-closed the same way: the nylon guitar (`iowa_guitar` b6), the folk harp (`vcsl_world` b5), the concert harp, the
-vibraphone, the tubular bells and the timpani (`vcsl` b10), the Kawai grand, the Yamaha and Knight uprights, the three
-TX81Z presets and the French and Flemish harpsichords (`vcsl_keys` b6) and the VSCO upright (`vsco_colors` b7).
-Two independent reviews of the code then showed that a partial can pass for hiss (one that dies slowly, one in a
-voice whose top band holds partials too, a short one late in a take), and the builds named here close no band
-while a narrow component it would take from is still heard in the hiss
+closed the same way: the nylon guitar (`iowa_guitar` b7), the folk harp (`vcsl_world` b6), the concert harp, the
+vibraphone, the tubular bells and the timpani (`vcsl` b11), the Kawai grand, the Yamaha and Knight uprights, the three
+TX81Z presets and the French and Flemish harpsichords (`vcsl_keys` b7) and the VSCO upright (`vsco_colors` b8).
+Independent reviews of the code then showed that a partial can pass for hiss (one that dies slowly, one in a
+voice whose top band holds partials too, a short one late in a take, one in one channel only), and the builds
+named here close no band while a narrow component it would take from is still heard in the hiss
 ([soundbank-building.md](soundbank-building.md), `close_hiss`). Measured on them against the builds made before
-that rule: the level between 6 and 16 kHz over the later part of each take is what it was at the median on the
-guitar, both harps, the Osiris, the VSCO upright, the Kawai and the vibraphone, with single takes that keep more
-(6 of the concert harp's 26, 16 of the VSCO upright's 150). The FM voices and the Knight upright keep most of
-it: three in five of the FM voices' takes and two in five of the Knight's ring on with partials in those bands,
-which the earlier builds had removed with the hiss. The glockenspiel is as recorded (`vsco` b5):
+that rule (`iowa_guitar` b3, `vcsl_world` b2, `piano_osiris` b5, `vcsl` b7, `vcsl_keys` b3, `vsco_colors` b4),
+every stored channel of two seconds or more, the level between 6 and 16 kHz from half to four fifths of the
+take, the gain of the first 30 ms taken out: the median is what it was (within 0.1 dB) on the guitar, both
+harps, both Osiris presets, the Kawai, the Yamaha upright, the VSCO upright, the vibraphone, the tubular bells,
+the timpani and the harpsichords, with single channels that keep 3 dB or more of what the earlier builds took:
+22 of the concert harp's 76, 26 of the VSCO upright's 156, 14 of the Osiris's 388, 9 of the Kawai's 274. The
+Knight upright keeps 0.7 dB more at the median (15 of 178 channels over 3 dB), and the FM voices keep most of
+what they held there, 8 and 13 dB at the median: partials that ring on, which the earlier builds had removed
+with the hiss. Under the soft pedalled passage the pianos were first measured by, the Osiris's floor at 12 to
+20 kHz lies 71 dB under the music (76 on its build before the rule, 60 untreated): its bands now close when
+the blow's own top has gone, 0.3 to 1 s after the onset, and no longer 0.06 s after it. The glockenspiel is as recorded (`vsco` b5):
 every band of its takes holds a partial of the bar that rings into the later part of the take, or a steady tone of
 the recording at 8 or 16 kHz. In the opening of a piece for
 guitar, harp and plucked basses, the quietest moments measured 18 dB less at 6 to 12 kHz and 27 dB less at 12 to

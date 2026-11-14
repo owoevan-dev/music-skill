@@ -62,7 +62,7 @@ KNOWN = {
                 'authorship', 'revision_history', 'description', 'comment', 'style', 'plan', 'association'},
     'association': {'source', 'seed', 'count', 'list_words', 'list_sha256', 'words', 'whole', 'gives', 'none', 'reason', 'comment'},
     'association gives': {'level', 'what', 'where'},
-    'plan': {'identity', 'high_point', 'sections', 'comment'},
+    'plan': {'identity', 'high_point', 'sections', 'comment', 'outside_passage'},
     'plan high point': {'section', 'means'},
     'plan section': {'section', 'sounds', 'leads', 'answers', 'register', 'harmony', 'dynamics', 'differs', 'comment'},
     'clock': {'bars', 'meter', 'tempo', 'tail_seconds', 'rubato'},
@@ -125,6 +125,8 @@ def plan_shape(plan, warnings):
         for key in ('section', 'means'):
             if key in hp:
                 text(hp[key], f'plan.high_point.{key}')
+    if 'outside_passage' in plan:        # written by excerpt.py: what the piece's plan says of the bars a passage leaves out
+        shape(plan['outside_passage'], dict, 'plan.outside_passage')
     seen = set()
     sections = shape(plan.get('sections', []), list, 'plan.sections')
     if len(sections) > 512:

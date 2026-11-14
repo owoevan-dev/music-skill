@@ -681,16 +681,33 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
         taper = np.hanning(nfft)[:, None]
         power = np.stack([np.abs(np.fft.rfft(y[on + i:on + i + nfft] * taper, axis=0)) ** 2 for i in starts])   # frame, bin, channel
         bins = np.fft.rfftfreq(nfft, 1 / rate)
+        limits = [from_hz / 2, from_hz / 2 ** 0.5] + edges + [rate / 2]
+        halves = [sel for sel in (np.flatnonzero((bins >= lo) & (bins < hi) & (bins > 0)) for lo, hi in zip(limits, limits[1:])) if len(sel) >= 8]
+        # Each frame is first set against its own level in each half octave (its median bin there), and the frames of
+        # a window are averaged after that.  Averaged as they stood, a window that lies over a fade inside the take
+        # (a recording's own fade-out at its end) was ruled by its loudest frame or two, whose chance peaks then
+        # stood over the window's floor as a tone does: on the Osiris piano seven takes in ten kept their bands
+        # over 8 kHz for such a peak in their last quarter second.  It is the second review's R2 within one window.
+        # And against no less than the floor a stored sample carries: 16 bits under the take's peak, since a take
+        # is stored at full scale at most, with its dither and its rounding (a quarter of a step squared).  The end
+        # of a take that fades to nothing holds 'components' 140 to 200 dB under its peak, which are what
+        # arithmetic leaves and not sound; set against the frame's own level they were tones, in the last window
+        # of the take, and held the band.
+        stored = (float(np.abs(y).max()) / 32767.0) ** 2 / 4 * float((taper ** 2).sum())
+        level = np.zeros_like(power)
+        for sel in halves:
+            level[:, sel] = np.maximum(np.median(power[:, sel], axis=1)[:, None], stored)
+        power = np.divide(power, level, out=np.zeros_like(power), where=level > 0)
         run = np.concatenate([np.zeros((1,) + power.shape[1:]), np.cumsum(power, axis=0)])
         windows = (run[span:] - run[:-span]) / span                                # window i: frames i to i + span - 1
         ends = np.array([starts[i + span - 1] + nfft for i in range(len(windows))])
         floor, width = np.zeros_like(windows), np.ones(len(bins))
-        limits = [from_hz / 2, from_hz / 2 ** 0.5] + edges + [rate / 2]
-        for lo, hi in zip(limits, limits[1:]):
-            sel = np.flatnonzero((bins >= lo) & (bins < hi) & (bins > 0))
-            if len(sel) >= 8:
+        for sel in halves:
+            if True:
                 part = windows[:, sel]
-                floor[:, sel] = np.minimum(np.median(part, axis=1), np.percentile(part, 10, axis=1) / 0.55)[:, None]
+                # No lower than 1, the level each frame was set against: where that was the stored sample's floor
+                # and the frame lay far under it, the window's own floor would be as far under it again.
+                floor[:, sel] = np.maximum(np.minimum(np.median(part, axis=1), np.percentile(part, 10, axis=1) / 0.55), 1.0)[:, None]
                 width[sel] = len(sel)
         edge = np.pad(windows, ((0, 0), (1, 1), (0, 0)), mode='edge')
         over = np.pad(np.where(floor > 0, windows - floor, 0.0), ((0, 0), (2, 2), (0, 0)))

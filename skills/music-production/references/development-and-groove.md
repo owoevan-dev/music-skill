@@ -28,7 +28,7 @@ For each section write down its notes per bar, the parts that play, the register
 where it builds, where it breathes, where the high point is ([climax-and-melody.md](climax-and-melody.md)). `profile`
 shows the plan against the score; `review` reports the same figures per section under `repetition.energy`.
 
-Decide in step 1 how much the music should change; its use and the brief say how much. Moderate novelty is liked
+Decide how much the music should change before any of it is written: what the request and its use say of that is settled in step 1, and what they leave open in step 2. Moderate novelty is liked
 best: across 57 studies of music preference, most fit an inverted U between novelty or complexity and liking (Chmiel
 and Schubert 2017). Keep what gives identity (the motif, the groove, the harmony) and change one or two dimensions at
 a time. In a song, the prechorus builds toward the chorus through register, phrasing, the length of units and harmonic

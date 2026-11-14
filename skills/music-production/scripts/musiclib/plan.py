@@ -70,6 +70,9 @@ def compare(p, clock=None):
     pace_of = {s['section']: s['changes'] / max(s['bars'], 1) for s in pace['sections']} if pace else None
     tracks = {t['id']: t for t in p['tracks']}
     out = {'identity': plan.get('identity'), 'high_point': None, 'sections': [], 'commitments': 0, 'kept': 0, 'differences': 0}
+    outside = plan.get('outside_passage')
+    if isinstance(outside, dict):          # a passage cut from a piece (excerpt.py): what its plan leaves to the piece
+        out['outside_passage'] = outside
     hp = plan.get('high_point')
     if isinstance(hp, dict):
         out['high_point'] = {'section': hp.get('section'), 'means': hp.get('means'), 'in_piece': hp.get('section') in span}
@@ -171,7 +174,9 @@ def questions(compared):
                  'needs none.')]
     out = []
     hp = compared['high_point']
-    if hp is None or not hp.get('section'):
+    if hp is None and isinstance((compared.get('outside_passage') or {}).get('high_point'), dict):
+        pass                                   # the piece's high point lies in bars the passage leaves out: nothing to ask of the passage
+    elif hp is None or not hp.get('section'):
         out.append(('plan.high_point', 'The plan names no high point. Say where it is and by what means it is one, or say in '
                                        'decisions that the piece has none (a loop that holds one level has none to name).'))
     elif not hp['in_piece']:

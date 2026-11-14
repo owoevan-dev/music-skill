@@ -548,10 +548,13 @@ OTHER_PIANOS={('piano_osiris',0,0):'the Osiris piano',('piano_osiris',1,0):'the 
               ('vsco_colors',0,0):'the VSCO upright',('default',0,0):"the default bank's Acoustic Grand",
               ('default',0,1):"the default bank's Bright Acoustic"}
 def identifier(qid):
-    """A question's identifier as it is recorded: no colon followed by white space (a name with one, as in the section
-    "answer: reprise", loses the space), so that the text before a decision's first colon and space is one identifier."""
-    import re
-    return re.sub(r':\s+',':',qid)
+    """A question's identifier as it is recorded: no colon followed by a space, so that the text before a decision's
+    first colon and space is one identifier.  A name that holds one keeps it written as %20, and a per cent sign as
+    %25, so two names never share an identifier: the section "answer: reprise" gives "plan:answer:%20reprise" and
+    "answer:reprise" gives "plan:answer:reprise" (with the space taken out the two were one: the third review, N3)."""
+    qid=qid.replace('%','%25')
+    while ': ' in qid:qid=qid.replace(': ',':%20')
+    return qid
 def own_banks(config):
     """The names of a configuration's banks that are the project's own, whose presets are known: a named bank that is
     one of the project's builds (its `version` says `build b...`, as fetch_soundbanks.py and soundbank.py write it),
@@ -597,7 +600,7 @@ def review(p,out,config=None):
         its identifier.  Its text is kept there with its current figures, so a change in what it counts is still seen.
 
         An identifier holds no colon followed by a space: a section named "answer: reprise" gives
-        "plan:answer:reprise".  So the identifier a decision answers is the text before its first colon and space, that
+        "plan:answer:%20reprise" (identifier()).  So the identifier a decision answers is the text before its first colon and space, that
         one and no other, in this round and in every later one.  Matched by how a decision begins, one for the
         section "answer: reprise" also answered the question of the section "answer" (the review of 0.7's code, F04);
         matched by the longest identifier the review asks, it moved to "answer" in the round where the longer

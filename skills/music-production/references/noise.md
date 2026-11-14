@@ -165,9 +165,9 @@ quiet, exposed piano choose the Steinway, or the Osiris for a closer and darker 
 A count of every decaying, unlooped take of the banks (the 6 to 16 kHz level over the later part of the take, against
 the 0.35 of a 16-bit step that dither alone leaves) then found hiss under the ringing notes of thirty-one more
 instruments, a few takes to all of them. Each was played softly, alone and dry, and heard; the bands of these are
-closed the same way: the nylon guitar (`iowa_guitar` b5), the folk harp (`vcsl_world` b4), the concert harp, the
-vibraphone, the tubular bells and the timpani (`vcsl` b9), the Kawai grand, the Yamaha and Knight uprights, the three
-TX81Z presets and the French and Flemish harpsichords (`vcsl_keys` b5) and the VSCO upright (`vsco_colors` b6).
+closed the same way: the nylon guitar (`iowa_guitar` b6), the folk harp (`vcsl_world` b5), the concert harp, the
+vibraphone, the tubular bells and the timpani (`vcsl` b10), the Kawai grand, the Yamaha and Knight uprights, the three
+TX81Z presets and the French and Flemish harpsichords (`vcsl_keys` b6) and the VSCO upright (`vsco_colors` b7).
 Two independent reviews of the code then showed that a partial can pass for hiss (one that dies slowly, one in a
 voice whose top band holds partials too, a short one late in a take), and the builds named here close no band
 while a narrow component it would take from is still heard in the hiss

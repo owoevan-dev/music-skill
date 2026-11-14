@@ -665,18 +665,25 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
     # CLOSE_NARROW_SHARE of, and it closes after the last window that holds one.  Where that is in the take's last
     # 15 per cent the band stays as recorded, the tone with its hiss: a tone left alone where the hiss around it
     # was taken out is heard more than before.
+    # Each channel is read on its own, and a tone in either holds the band: with the channels' powers averaged, a
+    # tone in one channel lay under the other's noise and was removed from both (the third review, N1).  The frames
+    # run to the end of the take, the last one anchored there, and a window ends where its last frame ends: the
+    # frames had stopped up to 85 ms short of the end, and a window was taken to end one step early (N2).
     nfft = 1 << int(round(math.log2(0.085 * rate)))
     step = nfft // 2
     span = max(4, int(round(0.25 * rate / step)))
-    total = max(0, (frames * hop - nfft) // step + 1)
-    holds_from = None                     # per band: the frame at which the last window that holds a tone of it ends
-    if total >= span:
+    length = len(y) - on
+    starts = list(range(0, length - nfft + 1, step))
+    if starts and starts[-1] + nfft < length:
+        starts.append(length - nfft)
+    holds_until = None                    # per band: the sample, from the onset, at which the last window that holds a tone of it ends
+    if len(starts) >= span:
         taper = np.hanning(nfft)[:, None]
-        power = np.stack([(np.abs(np.fft.rfft(y[on + i * step:on + i * step + nfft] * taper, axis=0)) ** 2).mean(axis=1)
-                          for i in range(total)])
+        power = np.stack([np.abs(np.fft.rfft(y[on + i:on + i + nfft] * taper, axis=0)) ** 2 for i in starts])   # frame, bin, channel
         bins = np.fft.rfftfreq(nfft, 1 / rate)
-        run = np.concatenate([np.zeros((1, len(bins))), np.cumsum(power, axis=0)])
-        windows = (run[span:] - run[:-span]) / span                                # window i: frames i to i + span
+        run = np.concatenate([np.zeros((1,) + power.shape[1:]), np.cumsum(power, axis=0)])
+        windows = (run[span:] - run[:-span]) / span                                # window i: frames i to i + span - 1
+        ends = np.array([starts[i + span - 1] + nfft for i in range(len(windows))])
         floor, width = np.zeros_like(windows), np.ones(len(bins))
         limits = [from_hz / 2, from_hz / 2 ** 0.5] + edges + [rate / 2]
         for lo, hi in zip(limits, limits[1:]):
@@ -685,17 +692,17 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
                 part = windows[:, sel]
                 floor[:, sel] = np.minimum(np.median(part, axis=1), np.percentile(part, 10, axis=1) / 0.55)[:, None]
                 width[sel] = len(sel)
-        edge = np.pad(windows, ((0, 0), (1, 1)), mode='edge')
-        over = np.pad(np.where(floor > 0, windows - floor, 0.0), ((0, 0), (2, 2)))
+        edge = np.pad(windows, ((0, 0), (1, 1), (0, 0)), mode='edge')
+        over = np.pad(np.where(floor > 0, windows - floor, 0.0), ((0, 0), (2, 2), (0, 0)))
         lobe = over[:, :-4] + over[:, 1:-3] + over[:, 2:-2] + over[:, 3:-1] + over[:, 4:]
         heard = ((floor > 0) & (windows >= floor * 10 ** (CLOSE_NARROW_OVER_DB / 10)) & (windows >= edge[:, :-2])
-                 & (windows >= edge[:, 2:]) & (lobe >= floor * width * 10 ** (CLOSE_NARROW_TO_HISS_DB / 10)))
+                 & (windows >= edge[:, 2:]) & (lobe >= floor * width[None, :, None] * 10 ** (CLOSE_NARROW_TO_HISS_DB / 10))).any(axis=2)
         through = lambda edge_hz: 1 / np.sqrt(1 + (edge_hz / np.maximum(bins, 1.0)) ** 24)   # the filters of hp(), order 12
-        holds_from = []
+        holds_until = []
         for k in range(len(edges)):
             share = through(edges[k]) - (through(edges[k + 1]) if k + 1 < len(edges) else 0.0)
             rows = np.flatnonzero((heard & (share > CLOSE_NARROW_SHARE)).any(axis=1))
-            holds_from.append(int(rows[-1]) + span if len(rows) else 0)
+            holds_until.append(int(ends[rows[-1]]) if len(rows) else 0)
     def closing(settle):
         start = on + settle * hop if settle else 0
         fade = int(min(0.3, max(0.03, 0.5 * settle * 0.02)) * rate)
@@ -730,10 +737,10 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
             continue
         settle = max(settle, int(math.ceil(not_before_s / 0.02 - 1e-9)))
         waited = False
-        if holds_from and holds_from[k]:
-            # A tone the band would take from is heard up to this frame: the band closes after it, or not at all
+        if holds_until and holds_until[k]:
+            # A tone the band would take from is heard up to this sample: the band closes after it, or not at all
             # where that reaches the take's last 15 per cent.
-            after = -(-(holds_from[k] * step) // hop)
+            after = -(-holds_until[k] // hop)
             if after >= b:
                 report.append({'band': band, 'left': 'a narrow component is heard in it into the last part of the take: a partial'})
                 continue

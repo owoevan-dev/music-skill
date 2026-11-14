@@ -104,7 +104,7 @@ def check(record, target):
         # A draw says how it was made, and is what its seed draws from the list it names (the second review, R6: a
         # record of one word, or of twelve times one word under a seed, passed for a draw).
         seed, count, digest = record.get('seed'), record.get('count'), record.get('list_sha256')
-        if not isinstance(seed, int) or isinstance(seed, bool) or seed < 0:
+        if not isinstance(seed, int) or isinstance(seed, bool):   # any whole number, as `words --seed` takes it (the third review, N5: -7 was written and then refused)
             raise ValueError(f'{target}: a draw records its "seed", a whole number')
         if not isinstance(count, int) or isinstance(count, bool) or count != len(words):
             raise ValueError(f'{target}: a draw records its "count", the number of its words ({len(words)})')

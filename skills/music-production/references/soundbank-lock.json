@@ -4169,17 +4169,19 @@
     ],
     "examples": [
       "vsco",
+      "vsco_colors",
       "vsco_extra",
       "vsco_strings",
       "vcsl",
       "cello_bigcat",
       "iowa_brass",
+      "iowa_perc",
       "iowa_strings",
-      "organ_vcsl",
+      "iowa_winds",
       "rusty",
-      "fsbs_clean",
       "bass_darkblack",
       "bass_sneaky",
+      "guitar_shiny",
       "vcsl_keys",
       "vcsl_world"
     ]

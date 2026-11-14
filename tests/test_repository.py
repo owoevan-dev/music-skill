@@ -16,16 +16,15 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / 'skills' / 'music-production'
 SCRIPTS = SKILL / 'scripts'
 BEFORE_AFTER = ROOT / 'examples' / 'before-after'
-AGENT_PIECES = {  # folder: the arguments of the agent's compose.py as the example's README gives them
-    'stormglass-gambit': [],
-    'cairnfire': [],
-    'glass-towers-low-gear': [],
-    'the-stone-vault-turns-to-light': [],
-    'paper-lantern-hours': ['--round', '3'],
-    'fughetta-in-d-minor': [],
-    'skybutton-speedway': ['--revision', '3'],
+AGENT_PIECES = {  # folder: the agent's script and its arguments, as the example's README gives them
+    'the-lamp-on-the-wire': ('compose.py', []),
+    'battle-reel-of-the-stork-rider': ('build_song.py', []),
+    'fughetta-of-the-paper-paddock': ('compose.py', []),
+    'fjord-stopwatch': ('compose.py', []),
+    'the-cork-boat-keeps-our-evening': ('compose.py', ['--revision', '2']),
+    'noon-raccoon-rooftop-run': ('compose.py', []),
 }
-BESIDE_ITS_PROJECT = {'skybutton-speedway'}  # this script takes each note's id from the project of the round before, beside it
+BESIDE_ITS_PROJECT = set()  # scripts that take each note's id from the project of the round before, beside it (none now)
 CONFIG = os.environ.get('MUSIC_SKILL_CONFIG')
 
 
@@ -206,14 +205,18 @@ def test_example_projects():
 @pytest.mark.parametrize('folder', AGENT_PIECES)
 def test_agent_piece_script_writes_the_published_project(tmp_path, folder):
     """Each agent's script, run as its example's README says, writes a valid project equal to the published one.  It
-    runs on a copy in an empty folder, with the skill's scripts on PYTHONPATH, since most of the scripts write
-    song.json beside themselves.  One script reads the project of the round before to keep each note's id: it runs
-    beside the published project and writes the same notes, with one more entry in the project's revision history."""
+    runs on a copy in an empty folder, with the files it reads beside it (every file of the example but its page and
+    its project) and the skill's scripts on PYTHONPATH, since the scripts write song.json beside themselves.  A script
+    that reads the project of the round before to keep each note's id runs beside the published project and writes the
+    same notes, with one more entry in the project's revision history."""
     published = load(ROOT / 'examples' / folder / 'song.json')
-    shutil.copyfile(ROOT / 'examples' / folder / 'compose.py', tmp_path / 'compose.py')
+    script, args = AGENT_PIECES[folder]
+    for p in (ROOT / 'examples' / folder).iterdir():
+        if p.is_file() and p.name not in ('README.md', 'song.json'):
+            shutil.copyfile(p, tmp_path / p.name)
     if folder in BESIDE_ITS_PROJECT:
         shutil.copyfile(ROOT / 'examples' / folder / 'song.json', tmp_path / 'song.json')
-    r = subprocess.run([sys.executable, 'compose.py', *AGENT_PIECES[folder]], capture_output=True, text=True, encoding='utf-8', errors='replace',
+    r = subprocess.run([sys.executable, script, *args], capture_output=True, text=True, encoding='utf-8', errors='replace',
                        cwd=tmp_path, env={**os.environ, 'PYTHONPATH': str(SCRIPTS), 'PYTHONDONTWRITEBYTECODE': '1'})
     assert r.returncode == 0, r.stderr[-2000:]
     sys.path.insert(0, str(SCRIPTS))
@@ -229,22 +232,23 @@ def test_agent_piece_script_writes_the_published_project(tmp_path, folder):
 def test_examples_group_installs_the_examples_banks():
     """`fetch_soundbanks.py --only examples`, as each example's README says, installs the sound banks the examples'
     projects name, and only those."""
-    named = {t['soundfont'] for f in (ROOT / 'examples').glob('*/*.json') for t in load(f).get('tracks', [])
-             if t.get('soundfont') not in (None, 'default')}
+    projects = [p for p in map(load, (ROOT / 'examples').glob('*/*.json')) if isinstance(p, dict)]  # beside a project: lists of decisions, words
+    named = {t['soundfont'] for p in projects for t in p.get('tracks', []) if t.get('soundfont') not in (None, 'default')}
     assert set(load(SKILL / 'references' / 'soundbank-lock.json')['groups']['examples']) == named
 
 
-RECORDINGS = 'https://github.com/owoevan-dev/music-skill/releases/download/examples-4/'
+RECORDINGS = 'https://github.com/owoevan-dev/music-skill/releases/download/examples-5/'
 
 
 def test_recordings_are_release_assets():
-    """The example recordings are assets of the release examples-4: each language's README links the seven pieces there,
+    """The example recordings are assets of the release examples-5: each language's README links the six pieces there,
     each example folder its own piece, and no recording is a repository file."""
     pieces = {f'{folder}.mp3' for folder in AGENT_PIECES}
     expected = {**{f'README{s}.md': pieces for s in ('', '.ja', '.ko', '.zh-CN', '.zh-TW')},
                 **{f'examples/{folder}/README.md': {f'{folder}.mp3'} for folder in AGENT_PIECES}}
     for name, recordings in expected.items():
-        links = re.findall(r'\]\(([^)\s]+\.mp3)\)', (ROOT / name).read_text(encoding='utf-8'))
+        text = (ROOT / name).read_text(encoding='utf-8')
+        links = re.findall(r'\]\(([^)\s]+\.mp3)\)', text) + re.findall(r'href="([^"\s]+\.mp3)"', text)  # Markdown links and HTML ones
         assert all(link.startswith(RECORDINGS) for link in links) and {link[len(RECORDINGS):] for link in links} == recordings, name
     assert not [p for p in repository_files() if p.is_file() and p.suffix.lower() in ('.mp3', '.wav', '.flac', '.ogg')]
 

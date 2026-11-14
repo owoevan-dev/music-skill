@@ -1,0 +1,21 @@
+{
+ "source": "draw",
+ "seed": 529893823,
+ "count": 12,
+ "list_words": 1000,
+ "list_sha256": "775bc710dc88fe8e1626a75c6ea4fdc48420e6cfc9f3dd1bfa740e9af2caa727",
+ "words": [
+  "drip",
+  "prickly",
+  "papaya",
+  "chisel",
+  "stork",
+  "snail",
+  "licorice",
+  "bracelet",
+  "cot",
+  "waddle",
+  "hover",
+  "melt"
+ ]
+}

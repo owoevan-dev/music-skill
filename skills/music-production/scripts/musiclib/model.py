@@ -125,6 +125,13 @@ def plan_shape(plan, warnings):
         for key in ('section', 'means'):
             if key in hp:
                 text(hp[key], f'plan.high_point.{key}')
+    if 'outside_passage' in plan:
+        # A passage cut by a form of excerpt.py that no version shipped (one commit of 0.7's development): its plan
+        # holds part of the piece's and no record of where it was cut, and read as a plan it is asked for what the
+        # cut took away.  What it lacks is not in it, so it is refused, with what to do.
+        raise ValueError('plan.outside_passage: this passage was cut by an unreleased form of excerpt.py, which kept part of the '
+                         'piece\'s plan. Cut it again from the piece with this version (excerpt.py), or take `plan` out of this '
+                         'project; the piece\'s own plan is in the piece.')
     if 'passage' in plan:                # written by excerpt.py: the project is these bars of the piece the plan is of
         cut = shape(plan['passage'], dict, 'plan.passage')
         for key in ('first_bar', 'bars'):

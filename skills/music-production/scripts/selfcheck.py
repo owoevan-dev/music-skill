@@ -1817,6 +1817,14 @@ def checks(work,config=None):
         z=np.stack([(0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-75/20)*g2.standard_normal(len(t10)))*gone+dust for _ in range(2)],axis=1)
         _,rep=close_settled_bands(z,44100)
         assert all(q.get('closed_s')==0.06 for q in rep if q['band'][0]>=8000),rep
+        # The focused round, R2: each channel has its own floor.  One channel keeps its hiss to the end while the other
+        # fades to nothing and leaves such a component: the leavings of the faded channel hold no band, whichever
+        # channel it is (with one channel's floor used for both, they held every band and the hiss stayed).
+        steady=0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-70/20)*np.random.default_rng(4).standard_normal(len(t10))
+        faded=(0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-75/20)*np.random.default_rng(5).standard_normal(len(t10)))*gone+10**(-120/20)*0.3*np.sin(2*np.pi*12000*t10)
+        for pair in ((steady,faded),(faded,steady)):
+            z=np.stack(pair,axis=1);_,rep=close_settled_bands(z,44100)
+            assert all(q.get('closed_s')==0.06 for q in rep if q['band'][0]>=8000),rep
         # The final review, FR01: the floor that keeps those leavings out is the stored sample's, in the window's own
         # units, and not the level the frames were set against.  A low note of 290 partials (55 Hz, each a k-th of
         # the first, dying slowly) over very little hiss fills every half octave with partials; held at that level,
@@ -1977,6 +1985,14 @@ def checks(work,config=None):
             for (p0,a0),(p1,a1) in zip(a,b):
                 # A peak of n steps of 16 bits is known to half a step: 8.7/n dB at most.
                 assert p1>p0*4 and abs((20*np.log10(p1)-a1)-(20*np.log10(p0)-a0))<0.05+8.7/(p0*32768),(k,p0,a0,p1,a1)
+        # The focused round, R4: where the step is used is part of what ships.  The specs name it on the instruments a
+        # piece leaves alone and on no other (with `close_hiss` put back on the Kawai, every check passed).
+        specs=Path(association.LIST).parent/'soundbanks';closing=set()
+        for spec_file in sorted(specs.glob('*.json')):
+            for preset in json.loads(spec_file.read_text(encoding='utf-8')).get('presets',[]):
+                if any('close_hiss' in l for l in preset.get('layers',[])):closing.add((spec_file.stem,preset['name']))
+        assert closing=={('iowa_guitar','Nylon Guitar'),('vcsl_world','Folk Harp'),('vcsl','Concert Harp'),('vcsl','Vibraphone'),('vcsl','Tubular Bells'),
+                         ('osiris_piano','Osiris Piano'),('osiris_piano','Osiris Piano Pedal')},sorted(closing)
         # F04.  A decision for the question of a section named "answer: reprise" does not answer the question of the
         # section "answer", whose identifier it also begins with.
         p=example()
@@ -2164,6 +2180,28 @@ def checks(work,config=None):
         whole['plan']['sections'][0]['sounds']=['keys','brass']
         assert plans(whole,'review_six_differs')==['plan:b'] and plans(extract(whole,3,2),'review_six_differs_cut')==[]
         bad=extract(whole,3,2);bad['plan']['passage']={'first_bar':0,'bars':2};assert rejects(lambda:validate(bad))
+        # The focused round, R3: both fields of `passage` are checked, and the rounds' record of the first plan reads a
+        # passage's plan as what it is.  A first round made from a passage keeps the whole plan of the piece; the
+        # piece and its passage differ in nothing the plan says; a commitment changed in the passage is a change; and
+        # another cut changes nothing.
+        from musiclib.plan import changed as plan_changed
+        for field,value in (('bars','two'),('bars',0),('bars',True),('first_bar','1'),('first_bar',None)):
+            bad=extract(whole,3,2);bad['plan']['passage'][field]=value;assert rejects(lambda:validate(bad)),(field,value)
+        bad=extract(whole,3,2);del bad['plan']['passage']['bars'];assert rejects(lambda:validate(bad))
+        piece_plan=copy.deepcopy(whole['plan']);cut=extract(whole,1,2)
+        first=work/'review_passage_round1';(first/'render').mkdir(parents=True);rec={};assert keep_plan(rec,cut,None)==[]
+        assert rec['plan_first']['sections']==piece_plan['sections'] and rec['plan_first']['high_point']==piece_plan['high_point'],rec['plan_first']
+        save_json(first/'round.json',rec)
+        assert plan_changed(piece_plan,cut['plan'])==[] and plan_changed(cut['plan'],extract(whole,3,2)['plan'])==[]
+        rec2={};assert keep_plan(rec2,extract(whole,3,4),first/'render')==[] and 'plan_changed' not in rec2
+        edited=extract(whole,1,2);edited['plan']['sections'][0]['sounds']=['keys']
+        rec3={};assert keep_plan(rec3,edited,first/'render')==['section b'] and rec3['plan_first']['sections']==piece_plan['sections'],rec3.get('plan_changed')
+        rec4={};assert keep_plan(rec4,whole,first/'render')==[]                    # and back to the piece: nothing changed
+        # R1: a plan cut by the unreleased form that kept part of the piece's plan is refused, with what to do.
+        legacy=extract(whole,1,2);legacy['plan'].pop('passage');legacy['plan']['sections']=[];legacy['plan'].pop('high_point',None)
+        legacy['plan']['outside_passage']={'sections':['b'],'high_point':{'section':'c','means':'the highest notes'}}
+        try:validate(legacy);raise AssertionError('a plan with outside_passage was read')
+        except ValueError as e:assert 'Cut it again from the piece' in str(e),e
         # The melody's rhythm has known answers (figures of nought throughout passed): attacks on 1, 2 and 3, one half
         # a beat before the next bar and held over it, then 2, 3 and 4 and the next downbeat: one attack in eight is
         # syncopated, and it is a push.

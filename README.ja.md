@@ -15,8 +15,8 @@
 
 <p align="center">
   <a href="https://github.com/owoevan-dev/music-skill/actions/workflows/tests.yml"><img src="https://github.com/owoevan-dev/music-skill/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-1f1c1a" alt="Licence: MIT"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-1f1c1a" alt="Python 3.10 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-111111" alt="Licence: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-111111" alt="Python 3.10 or newer">
 </p>
 
 <p align="center"><strong>生成せず、作曲する。</strong></p>
@@ -25,25 +25,28 @@ music-skill は、作曲家と小さなスタジオのやり方でオリジナ�
 
 音声生成モデルは一切使いません。MP3 と WAV に加えて、MIDI、パートごとのステム、そしてどの音でも書き換えて作り直せるプロジェクトファイルが手に入ります。
 
-<p align="center">
-  <img src="docs/images/cairnfire.png" alt="『Cairnfire』（管弦楽のための序曲）の一場面を、プロジェクトファイルからそのまま描いた図。すべての音がピアノロール上の一本の線で、弦楽器は青、木管は緑、金管はオレンジ。上に曲のセクション、下に各パートの名前があり、演奏中のパートが明るく表示される">
-</p>
+どの曲も、無作為に引いた 12 の単語から始まります。エージェントがその単語と依頼を一つの場面に結びつけ、依頼で決めていないことはその場面が決めるので、同じ依頼から作った 2 曲も似にくくなります。自分で単語を渡すことも、単語なしにすることもできます。
+
+https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 
 ## 試聴
 
-ここにある曲はどれも、このスキルのバージョン 0.6.0 を使い、記載のモデルが一回の実行で作りました。与えたのはメッセージ一通だけで、[七曲共通の冒頭部分](examples/prompt.md)に三、四文の依頼文を続けたものです。曲名、形式、楽器、音色をエージェントが自分で決め、すべての音を書き、レビュー、レンダリング、手直しまで自分で行っています。作業中に誰も返信しておらず、完成品に人の手は入っていません。七曲はこれで全部で、複数の中から選んだものではありません。各サンプルフォルダには、依頼文、エージェントのスクリプト、レンダリングしたときのプロジェクトがあります。
+6 つのモデルが 1 曲ずつ、いずれも xhigh effort で作った 6 曲です。どれも一回の実行で、与えたのはメッセージ一通だけでした。[6 曲共通の冒頭部分](examples/prompt.md)に数文の依頼文を続けたものです。曲名、形式、音色をエージェントが自分で決め、すべての音を書き、レビューと手直しまで自分で行っています。作業中に誰も返信しておらず、書かれた音符に人の手は入っていません。各曲のページには、引いた 12 の単語と、エージェントがそこから作った場面を載せています。
 
-- [『Stormglass Gambit』](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/stormglass-gambit.mp3)（3:07）。Claude Fable 5.2、xhigh effort。ループするシンセ主体のゲーム戦闘曲（[サンプル](examples/stormglass-gambit)）
-- [『Cairnfire』](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/cairnfire.mp3)（4:29）。Claude Fable 5.2、xhigh effort。フルオーケストラのための演奏会用序曲、36 パート（[サンプル](examples/cairnfire)）
-- [『Glass Towers, Low Gear』](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/glass-towers-low-gear.mp3)（3:03）。Claude Opus 5.5、xhigh effort。シティポップ、明かりのともる街を走る夜のドライブ（[サンプル](examples/glass-towers-low-gear)）
-- [『The Stone Vault Turns to Light』](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/the-stone-vault-turns-to-light.mp3)（3:56）。GPT-6 Astra、xhigh effort。パイプオルガンのためのトッカータ（[サンプル](examples/the-stone-vault-turns-to-light)）
-- [『Paper Lantern Hours』](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/paper-lantern-hours.mp3)（2:10）。Claude Sonnet 5.5、medium effort。ループする lo-fi ヒップホップ（[サンプル](examples/paper-lantern-hours)）
-- [『Fughetta in D minor』](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/fughetta-in-d-minor.mp3)（2:00）。Claude Opus 5.5、medium effort。チェンバロと弦楽のためのバロック風フゲッタ（[サンプル](examples/fughetta-in-d-minor)）
-- [『Skybutton Speedway』](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/skybutton-speedway.mp3)（1:31）。GPT-6 Luna、max effort。タイトル画面用の 8 ビット・チップチューン、90 秒のループ（[サンプル](examples/skybutton-speedway)）
+<table>
+<tr>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-lamp-on-the-wire.mp3"><img src="docs/images/the-lamp-on-the-wire.jpg" alt="『The Lamp on the Wire』のピアノロールの一場面"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-lamp-on-the-wire.mp3">『The Lamp on the Wire』</a></b><br>アニメ映画のクライマックス、フルオーケストラ、4:43<br><sub>Claude Fable 5.2 · <a href="examples/the-lamp-on-the-wire">作り方</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/battle-reel-of-the-stork-rider.mp3"><img src="docs/images/battle-reel-of-the-stork-rider.jpg" alt="『Battle Reel of the Stork-Rider』のピアノロールの一場面"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/battle-reel-of-the-stork-rider.mp3">『Battle Reel of the Stork-Rider』</a></b><br>ファンタジーの戦闘曲、フォークバンド編成、2:58<br><sub>Claude Opus 5.5 · <a href="examples/battle-reel-of-the-stork-rider">作り方</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fughetta-of-the-paper-paddock.mp3"><img src="docs/images/fughetta-of-the-paper-paddock.jpg" alt="『Fughetta of the Paper Paddock』のピアノロールの一場面"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fughetta-of-the-paper-paddock.mp3">『Fughetta of the Paper Paddock』</a></b><br>チェンバロと弦楽のバロック風フゲッタ、2:28<br><sub>Claude Sonnet 5.5 · <a href="examples/fughetta-of-the-paper-paddock">作り方</a></sub></td>
+</tr>
+<tr>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fjord-stopwatch.mp3"><img src="docs/images/fjord-stopwatch.jpg" alt="『Fjord Stopwatch』のピアノロールの一場面"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fjord-stopwatch.mp3">『Fjord Stopwatch』</a></b><br>夜の読書のための lo-fi、ループ、2:32<br><sub>Claude Haiku 5.5 · <a href="examples/fjord-stopwatch">作り方</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-cork-boat-keeps-our-evening.mp3"><img src="docs/images/the-cork-boat-keeps-our-evening.jpg" alt="『The Cork Boat Keeps Our Evening』のピアノロールの一場面"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-cork-boat-keeps-our-evening.mp3">『The Cork Boat Keeps Our Evening』</a></b><br>歌のないスローバラード、3:33<br><sub>GPT-6 Astra · <a href="examples/the-cork-boat-keeps-our-evening">作り方</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/noon-raccoon-rooftop-run.mp3"><img src="docs/images/noon-raccoon-rooftop-run.jpg" alt="『Noon Raccoon Rooftop Run』のピアノロールの一場面"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/noon-raccoon-rooftop-run.mp3">『Noon Raccoon Rooftop Run』</a></b><br>アクションゲーム 1 面の 8 ビット、ループ、1:31<br><sub>GPT-6 Luna · <a href="examples/noon-raccoon-rooftop-run">作り方</a></sub></td>
+</tr>
+</table>
 
-[Before and after](examples/before-after) は短い曲の音を一つ変え、レンダリングの中で一緒に変わったものを `compare` ですべて示します。そのパート、そのバス、リバーブの残響、マスターです。
-
-録音は MP3 ファイルで、リリース [examples-4](https://github.com/owoevan-dev/music-skill/releases/tag/examples-4) からダウンロードできます。
+楽曲と録音は CC0 です。録音は MP3 ファイルで、リリース [examples-5](https://github.com/owoevan-dev/music-skill/releases/tag/examples-5) にあります。[Before and after](examples/before-after) は短い曲の音を一つ変え、レンダリングの中で一緒に変わったものを `compare` ですべて示します。そのパート、そのバス、リバーブの残響、マスターです。
 
 ## クイックスタート
 
@@ -55,25 +58,39 @@ music-skill は、作曲家と小さなスタジオのやり方でオリジナ�
    ```
 
    Codex などほかのエージェントでは `npx skills add owoevan-dev/music-skill`。
-2. レンダリング用のツールと音源のセットアップをエージェントに頼みます。[インストール](#インストール)のコマンドを実行し、ダウンロードは約 3.7 GB、私たちのテスト環境ではそのあと約 5 分かかりました。
+2. レンダリング用のツールと音源のセットアップをエージェントに頼みます。[インストール](#install)のコマンドを実行し、ダウンロードは約 3.7 GB、私たちのテスト環境ではそのあと約 5 分かかりました。
 3. ふだんの言葉で曲を頼みます。
 
    > RPG の町のテーマを 1 分のループで書いて。リコーダーとハープに、やわらかい弦を添えて。
 
-MP3 と WAV、MIDI、パートごとのステム、足し合わせるとミックスになるバスとリバーブのリターン、プロジェクトファイルが手に入ります。24 スレッドのノート PC では、上のサンプル曲を一からレンダリングして、1 曲あたり 22 秒（フゲッタ）から 108 秒（36 パートの序曲）でした。
+MP3 と WAV、MIDI、パートごとのステム、足し合わせるとミックスになるバスとリバーブのリターン、プロジェクトファイルが手に入ります。24 スレッドのノート PC では、上のサンプル曲を一からレンダリングして、1 曲あたり 25 秒（フゲッタとチップチューン）から 156 秒（57 パートの映画音楽）でした。
 
 ## 生成すればいいのでは？
 
-テキストから音楽を作るモデルが返すのは、完成した音声ファイルです。一部分だけ作り直せるものもありますが、開いて音を一つ動かすことはできませんし、その音がどこから来たのかも説明できません。
-
-ここではエージェントが譜面を書くので、音楽は読んで変えられる判断の積み重ねになります。33 小節目のメロディー、和音のボイシング、ドラマーがクラッシュを叩く強さ。音を一つ変えれば、合成し直すのはそのパートだけで、ミックスはまるごと作り直されます。音色は実在の楽器をマルチサンプリングした録音（ライセンスはすべて確認できます）か、スキル内蔵のシンセサイザーです。他人の録音で学習したモデルも使っていません。
+| | テキストから音楽を作るモデル | music-skill |
+|---|---|---|
+| 音を一つ変える | 曲全体か一部分を生成し直す | その音を書き換え、そのパートだけを演奏し直す |
+| 手に入るもの | 音声ファイル | 音声、MIDI、パートごとのステム、プロジェクト |
+| 音の出どころ | モデルの内部 | 録音された実在の楽器とシンセサイザー、それぞれライセンスを明記 |
+| シーンやステージに合わせる | おおよそ | 小節単位：ループ位置、ヒットポイント、正確な長さ |
+| 同じ曲をもう一度 | 新しく生成し直す | 同じプロジェクトから同じ音（Surge XT のパートを除く） |
 
 Claude などのエージェントがすでに動画を編集したりゲームを作ったりしているなら、音楽が何に合わせるべきかはもう分かっています。各シーンの長さ、カットの位置、ナレーションの入り、ステージのループの仕方です。その数字に合わせて書けます。見せ場の瞬間に盛り上がりの頂点を置き、ナレーションの下では音量を控え、ループをステージと同じ長さにする。編集が変われば、動いた小節だけを書き直します。
 
 ## しくみ
 
-1. **書く**：エージェントが曲の構成とテーマを決め、プロジェクトファイルを書きます。各音の音高と長さは譜面に、弾き方（ベロシティ、タイミング、離すタイミング）は別に記録します。長めの曲は、エージェントが書く短い Python スクリプトで生成するのが普通です。ボイシングやベースライン、ドラムのパターンが読みやすく、直しやすくなります。
-2. **譜面をチェックする**：`review` は、パート同士で鳴り続ける短二度・短九度を一覧にし、書かれたコードから外れた音には経過音や掛留音などの非和声音の名前を付けて、順次進行で解決しないものを尋ねます。独立した声部間の連続五度・八度と、低すぎる音域の狭い音程も挙げます。どれも偶然ではなく、意図した選択になります。
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/pipeline.ja-dark.svg">
+    <img src="docs/images/pipeline.ja.svg" alt="書く、チェック、演奏、レンダリング、ミックス、計測" width="900">
+  </picture>
+</p>
+
+<details>
+<summary><b>6 つのステップの詳細</b></summary>
+
+1. **書く**：エージェントはまず依頼の内容を確定し、それからこの曲のために 12 の単語を無作為に引いて、依頼と 12 語すべてを一つのまとまり（ひとつの場面や物語）に結びつけます。依頼が決めていないこと、つまり曲名、形式、音色は、このまとまりが決めます。次に計画（何がこの曲らしさか、山場はどこで何によって作るか、各セクションで何をするか）を書き、それからプロジェクトファイルを書きます。各音の音高と長さは譜面に、弾き方（ベロシティ、タイミング、離すタイミング）は別に記録します。長めの曲は、エージェントが書く短い Python スクリプトで生成するのが普通です。ボイシングやベースライン、ドラムのパターンが読みやすく、直しやすくなります。
+2. **譜面をチェックする**：`review` はまず譜面から数えた三つの表（セクションごとに鳴るパート、コードが変わる頻度、メロディーのリズム）を示し、譜面を計画と照らし合わせて、食い違うところを尋ねます。パート同士で鳴り続ける短二度・短九度を一覧にし、書かれたコードから外れた音には経過音や掛留音などの非和声音の名前を付けて、順次進行で解決しないものを尋ねます。独立した声部間の連続五度・八度と、低すぎる音域の狭い音程も挙げます。どの質問にも識別子があり、それで始まる書面の判断がその質問への答えになります。どれも偶然ではなく、意図した選択になります。
 3. **演奏する**：演奏モデルが、人が弾くときに生まれるずれを加えます。奏者ごとのタイミングと音量のゆるやかな揺れ、少し後ろに置いたベース、フレーズの山なりの抑揚、そして同時には押されず同時には離されない和音。サンプリングのメロディーはレガートでつなぐことも、ベンドさせることもできます。
 4. **レンダリングする**：FluidSynth が、ライセンスの明確な SoundFont 音源で、サンプル音源のパートをそれぞれの楽器で鳴らします。エレクトロニックのパートは、内蔵のシンセサイザーとドラムマシン、または Surge XT シンセサイザーのプリセットで鳴らします。
 5. **ミックスとマスタリング**：各パートはドラム、ベース、リズム、アンサンブル、メロディーのバスと、自動生成した四種類のリバーブを通り、マスター処理で プロジェクトの目標ラウドネス（標準は −16 LUFS、配信向けなら −14 LUFS）、トゥルーピーク −1 dBTP 以下に仕上がります。新しいミックス規則では、メロディーは書いた音量の近くに保たれ、マスターはトゥルーピークリミッターで仕上がります。オーケストラ曲では、奏者のすぐそばからホールの客席まで、どれくらい近くで聴こえるかを指定できます。オーケストラやオルガンの曲は、コンプレッサーを通さずに強弱の幅をそのまま残せます。エレクトロニックな曲には、サイドチェインのダッキング、テンポに合わせたディレイ、フィルタースイープ、クラブ向けの大音量マスターを加えられます。
@@ -83,7 +100,14 @@ Claude などのエージェントがすでに動画を編集したりゲーム�
 
 ゲーム用のプロジェクトはループにできます。レンダリング時に残響の尾をループの頭へ折り返し、Godot や RPG Maker が読む形式でループ位置を WAV と Ogg に書き込み、各セクションの頭にはキューポイントを付けます。ループをいくつかのレイヤーに分けることもでき、すべてを重ねると元のミックスになるので、ゲームの盛り上がりに合わせて音を重ねていけます。
 
-## インストール
+</details>
+
+## 詳しく
+
+<a id="install"></a>
+
+<details>
+<summary><b>インストール</b></summary>
 
 **動作する場所。** 自分のコンピューター上で、そこでコマンドを実行できるエージェントを通して使います。Claude Code と Codex で動作を確認しています。セットアップには一度だけインターネット接続が必要で、そのフォルダーは以後のセッションのために残ります。サイズは約 1 GB から、すべての音源を入れた場合の約 12 GB までです。claude.ai のチャットと Cowork では確認していません。オフラインのサンドボックスや、会話ごとにリセットされるサンドボックスでは、セットアップを保持できません。
 
@@ -136,7 +160,10 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 
 **実行するもの・取得するもの・送信するもの**：スキルが実行するのは Python スクリプト、FluidSynth、FFmpeg、インストールされていれば Surge XT で、すべてお使いのコンピューター上で動き、レンダリングはオフラインです。スキル自身のダウンローダーがツールと音源を取得するのは github.com と GitHub のダウンロード用ホスト（api.github.com、raw.githubusercontent.com、objects.githubusercontent.com、release-assets.githubusercontent.com）、そして音源を元の録音からビルドするときだけアイオワ大学の theremin.music.uiowa.edu からだけで、ほかのホストへのリダイレクトは拒否します。Python パッケージ（NumPy と、Surge XT 用の pedalboard）は pip を通して取得し、pip に別のパッケージインデックスを設定していなければ PyPI から入ります。その場合も pedalboard の wheel は固定した SHA-256 で照合します。何も送信しません。テレメトリーもアカウントもアップロードもありません（[PRIVACY.md](PRIVACY.md)）。
 
-## 使い方
+</details>
+
+<details>
+<summary><b>使い方</b></summary>
 
 エージェントに普段の言葉で頼んでください。
 
@@ -152,13 +179,20 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 
 > 雨のカフェの場面にボサノヴァを書いて。ナイロン弦ギター、フルート、やわらかいドラムで。
 
+> ランダムな単語の代わりに、この言葉から始めて：灯台、フェリー、霜。
+
+> 今回は単語なしで。
+
 > 33 小節目のサビのメロディーが忙しすぎる。シンプルにして作り直して。
 
 > 前のバージョンから何が変わった？違いを聴かせて。
 
 > MIDI とステムもちょうだい。
 
-## 音源
+</details>
+
+<details>
+<summary><b>音源</b></summary>
 
 | 楽器 | 音源 | ライセンス |
 |---|---|---|
@@ -171,13 +205,19 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 
 収録音源はすべて CC0、用途を問わず制限なく使えるもの（アイオワ大学の録音）、またはパブリックドメインに供されたもの（スチールパン）なので、それで作った音楽にクレジットは要りません。Surge XT は GPL-3.0 で、このプロジェクトの独立した GPL プログラム（`surge_host.py`）の中だけで動きます。GPL が及ぶのはプログラム自体で、それが鳴らした音楽ではありません。MS Basic はほかのパートが代わりに使う General MIDI 音源で、ライセンスは MIT です。その表示は音源そのものの複製や改変に付けておくもので、それで演奏した音楽にクレジットは要りません。出典と、各ライセンスの私たちの読み方は [THIRD_PARTY.md](THIRD_PARTY.md) にあります。
 
-## どこまでできるか
+</details>
 
-`selfcheck.py` には 152 項目のチェック（レンダリング用の設定がなければ 122 項目）があり、MIDI の往復変換やアーカイブの安全性から、実際のレンダリングまで含みます。たとえば、音を一つ直したときに合成し直すのはそのパートだけで、`compare` がその音から先の、影響の届いたファイルにだけ違いを見つけること、旧来の単一リバーブのミックスが以前のリリースをビット単位で再現すること、ラウドネス計測が BS.1770 の基準音を −3.01 LUFS と読むこと。CI では、Ubuntu（FluidSynth 2.3、FFmpeg 6.1）と macOS（FluidSynth 2.6、FFmpeg 9.0）で、レンダリングも含めた全チェックを実行しています。
+<details>
+<summary><b>どこまでできるか</b></summary>
+
+`selfcheck.py` には 160 項目のチェック（レンダリング用の設定がなければ 130 項目）があり、MIDI の往復変換やアーカイブの安全性から、実際のレンダリングまで含みます。たとえば、音を一つ直したときに合成し直すのはそのパートだけで、`compare` がその音から先の、影響の届いたファイルにだけ違いを見つけること、旧来の単一リバーブのミックスが以前のリリースをビット単位で再現すること、ラウドネス計測が BS.1770 の基準音を −3.01 LUFS と読むこと。CI では、Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）、Windows（固定版の FluidSynth 2.6.1、FFmpeg 9.0.2 と Surge XT）で、レンダリングも含めた全チェックを実行しています。
 
 音楽として良いかどうかは別の話で、聴いてみるしかありません。上の曲が、このリポジトリで示せるいちばんの証拠です。
 
-## よくある質問
+</details>
+
+<details>
+<summary><b>よくある質問</b></summary>
 
 **作った音楽を動画やゲーム、商用作品に使えますか？** ツールの側に妨げはありません。音源はどれもクレジット不要です。追加の音源は CC0 か用途を問わず使えるもので、MS Basic の MIT ライセンスも、それで演奏した音楽には何も求めません。GPL のプログラム（FFmpeg、Surge XT）が及ぶのはプログラム自体で、通った音楽ではありません。エージェントが書いた音楽にあなたの著作権が生じるかどうかは、お住まいの国の法律と、あなたがどこまで手を加えたかによります。
 
@@ -187,7 +227,10 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 
 **自分の音源は使えますか？** SF2 の音源なら使えます。`studio.py add-soundfont` で設定に加え、パートで指定します（[soundbanks.md](skills/music-production/references/soundbanks.md)）。加えた音源はそれぞれのライセンスに従うので、作品を公開する前に確認してください。
 
-## できないこと
+</details>
+
+<details>
+<summary><b>できないこと</b></summary>
 
 - 歌うことや作詞はできません。プラグインは Surge XT だけに対応し、お手持ちの VST プラグインはまだ使えません。
 - 音の質は無料の音源で決まります。YR ベースのベロシティレイヤーは一層だけ、ストリングスは立ち上がりが遅めで、マリンバ、シロフォン、ピッコロはサンプルがまばらです。サンプリングしたギターのベンドはサンプル全体の音程を変えるだけなので、本物の弦のような音色の変化はありません。
@@ -196,6 +239,8 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 - エージェントには音が聞こえません。`review` と `analyze` は問題の場所を見つけるだけで、結果は人が聴く必要があります。スキルは、聴いたとは決して言わないようエージェントに求めています。
 - シンセやエフェクトのパートが多い長い曲はメモリを使います。同時にレンダリングするパートごとに最大約 2 GB で、空きメモリが少ないときは同時に処理するパートを自動で減らします（`--jobs` で指定もできます）。
 - Linux と macOS ではシステムの FluidSynth と FFmpeg を使うため、固定バージョンの Windows 版とはサンプル単位でわずかに違う場合があります。
+
+</details>
 
 ## ドキュメント
 
@@ -220,4 +265,4 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 
 ## ライセンス
 
-このプロジェクト自身のコードとドキュメントは [MIT](LICENSE) です。サードパーティのデータ、その測定値、引用した抜粋はそれぞれの条件のままで、[THIRD_PARTY.md](THIRD_PARTY.md) にまとめています。サンプル曲の録音と楽曲は [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) でパブリックドメインに提供しています。サードパーティのツールと音源はそれぞれのライセンスのままで、このリポジトリには含めていません。ツールは配布元から、30 の音源はすべてこのプロジェクトのリリースからダウンロードします（25 は配布元のサンプルから構築したもの、5 は FreePats のファイルをそのまま詰め直したもの）。`skills/music-production/scripts/surge_host.py` は、動かす Surge XT と pedalboard と同じ GPL-3.0-or-later です。序曲の図はそのプロジェクトファイルからコードで描いたもので、ロゴの文字は Noto Serif TC（SIL Open Font License）をアウトライン化したものです。
+このプロジェクト自身のコードとドキュメントは [MIT](LICENSE) です。サードパーティのデータ、その測定値、引用した抜粋はそれぞれの条件のままで、[THIRD_PARTY.md](THIRD_PARTY.md) にまとめています。サンプル曲の録音と楽曲は [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) でパブリックドメインに提供しています。サードパーティのツールと音源はそれぞれのライセンスのままで、このリポジトリには含めていません。ツールは配布元から、30 の音源はすべてこのプロジェクトのリリースからダウンロードします（25 は配布元のサンプルから構築したもの、5 は FreePats のファイルをそのまま詰め直したもの）。`skills/music-production/scripts/surge_host.py` は、動かす Surge XT と pedalboard と同じ GPL-3.0-or-later です。サンプル曲の図はそれぞれのプロジェクトファイルからコードで描いたもので（図の文字は Noto Sans TC、SIL Open Font License）、ロゴの文字は Noto Serif TC（SIL Open Font License）をアウトライン化したものです。

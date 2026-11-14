@@ -33,6 +33,76 @@ def render_folder(path):
     return inner
 
 
+def since(reviewed, before):
+    """The questions of this round that the round before did not ask, and those it asked that are gone, by
+    identifier: {'new', 'gone', 'previous'}.  A question asked twice of two places counts twice.  None where there is
+    no round before, where `before` is a render outside a round, or where that round's review has no identifiers (it
+    was made by 0.6 or earlier): text is never compared, since a reworded question would then look new."""
+    if before is None or Path(before).name != 'render':
+        return None
+    earlier = Path(before).parent / 'review' / 'score_review.json'
+    if not earlier.is_file():
+        return None
+    try:
+        old = files.read_json(earlier)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(old, dict) or not isinstance(old.get('questions'), list):
+        return None
+    from collections import Counter
+    was = Counter(q['id'] for q in old['questions'] if isinstance(q, dict) and isinstance(q.get('id'), str))
+    now = Counter(q['id'] for q in reviewed['questions'])
+    return {'new': sorted((now - was).elements()), 'gone': sorted((was - now).elements()), 'previous': Path(before).parent.name}
+
+
+def first_plan(before):
+    """The plan as first written, from the round of the render `before`: its `plan_first`, or its plan where that
+    round was the first to have one; None where there is none.  A plan cut by an unreleased form of excerpt.py (it
+    carries `outside_passage`) lost part of the piece's plan, so no round is carried on from it: taken for the first
+    plan, it reported commitments as changed that the cut had dropped, round after round (the final review's second
+    look, SR01)."""
+    if before is None or Path(before).name != 'render':
+        return None
+    try:
+        old = files.read_json(Path(before).parent / 'round.json')
+    except (OSError, ValueError):
+        return None
+    if not isinstance(old, dict):
+        return None
+    first = old.get('plan_first') if isinstance(old.get('plan_first'), dict) else old.get('plan')
+    if not isinstance(first, dict):
+        return None
+    if 'outside_passage' in first:
+        raise ValueError(f'{Path(before).parent.name}: that round keeps a plan cut by an unreleased form of excerpt.py, which '
+                         'lost part of the piece\'s plan, so no round is carried on from it. Start the rounds again without '
+                         '--previous, or give a round of the whole piece as --previous.')
+    return first
+
+
+def keep_plan(record, p, before):
+    """Put the round's plan into its record beside the plan as first written, which comes from the round before (its
+    `plan_first`, or its plan where that round was the first to have one), and return where the two differ.  A plan
+    changed after the score, to fit it, is not a plan carried out: the first one stays in every round's record, so it
+    outlives the earlier rounds' folders, and the change is shown."""
+    plan = p.get('plan')
+    first = first_plan(before)
+    if not isinstance(plan, dict):
+        # A round whose project has no plan still carries the first one on: without it the plan written again a
+        # round later was taken for the first (the review of 0.7's code, F05).  That the plan is gone is shown.
+        if not isinstance(first, dict):
+            return None
+        record['plan_first'] = first
+        record['plan_changed'] = ['the whole plan (the project has none now)']
+        return record['plan_changed']
+    from .plan import changed
+    record['plan'] = plan
+    record['plan_first'] = first if isinstance(first, dict) else plan
+    moved = [m['where'] for m in changed(record['plan_first'], plan)]
+    if moved:
+        record['plan_changed'] = moved
+    return moved
+
+
 def revision_round(project_file, output, config_file, previous=None, cache=None, spans=(), reference=None, jobs=None,
                    show=print, clip=None):
     """Run a round into the new folder `output`, passing each step's summary to `show` as soon as the step is done (a
@@ -50,6 +120,7 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
         raise ValueError(f'--previous {previous}: no render there (a round folder or a render folder)')
     if before is not None and stopped(before):
         raise ValueError(f'--previous {previous}: that render stopped before it finished ({stopped(before)}); name one that finished')
+    first_plan(before)  # a round no round may be carried on from is refused before anything is written
     if clip is not None and (before is None or files.occupied(clip)):
         raise ValueError('--clip needs --previous: the clip plays the previous round, then this one' if before is None
                          else f'{clip} exists; outputs never overwrite, so choose a new path')
@@ -90,8 +161,12 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
         try:
             reviewed = review(p, output / 'review', cfg)
             record['questions'] = len(reviewed['prompts'])
+            changed = since(reviewed, before)
+            if changed is not None:
+                record['new_questions'], record['gone_questions'] = changed['new'], changed['gone']
+            moved = keep_plan(record, p, before)
             lap('review')
-            show(summary.review(reviewed, output / 'review'))
+            show(summary.review(reviewed, output / 'review', changed, moved))
             step = 'render'
             rendered = render(project_file, output / 'render', config_file,
                               Path(cache) if cache else output.parent / 'cache', jobs=jobs, draft=True)

@@ -504,6 +504,283 @@ def cut_sources(manifest, src_root, out_root):
         raise
     return len(manifest['notes'])
 
+SOFT_CLEAR_DB, SOFT_PARTIALS = 12.0, 4
+CLOSE_GUARD_DB = 0.5
+CLOSE_NARROW_OVER_DB, CLOSE_NARROW_TO_HISS_DB, CLOSE_NARROW_SHARE = 12.0, -10.0, 0.03   # all ours: close_settled_bands
+
+def _onset(x):
+    env = np.abs(np.asarray(x, dtype=np.float64)).max(axis=1)
+    return int(np.argmax(env > 0.1 * env.max())) if len(env) and env.max() > 0 else 0
+
+def soft_curve(soft, loud, rate, f0):
+    """How a soft blow on a key differs from a loud one, partial by partial: {'hz', 'db', 'slope', 'clear'}, or None
+    where the takes are too short to read.
+
+    Once the hammer has left the string, string and soundboard ring as a linear system: how each partial decays does
+    not depend on how hard the key was struck.  What the blow's strength changes is how much each partial gets at the
+    start, the upper ones more from a harder blow, whose felt is stiffer (Hall and Askenfelt 1988; Askenfelt and
+    Jansson 1993).  So both takes' partials are read over their first 0.3 s (twelve periods of a low note, which a
+    partial needs to stand apart from its neighbours), before two blows' decays have drifted apart, following the
+    loud take's own spacing, since a piano's partials lie wider than whole multiples.  `db` is the soft partial's
+    level over the loud one's wherever the soft partial stands SOFT_CLEAR_DB over the noise between partials in its
+    own take; a median of three takes out one misread partial, the first and the last keeping their own value.
+    `slope` is the fall of those ratios per octave, never a rise: above the last clear partial the soft take shows
+    its noise and not its partials, and the trend is all there is to go on.  `clear` counts the partials used."""
+    def early(x):
+        m = np.asarray(x, dtype=np.float64).mean(axis=1)
+        on = _onset(x)
+        part = m[on + int(0.03 * rate):on + int((0.03 + max(0.3, 12 / f0)) * rate)]
+        if len(part) < 512:
+            return None
+        w = np.hanning(len(part))
+        n = 4 * len(part)
+        return np.fft.rfftfreq(n, 1 / rate), 20 * np.log10(np.abs(np.fft.rfft(part * w, n)) / w.sum() * 2 + 1e-12)
+    a, b = early(loud), early(soft)
+    if a is None or b is None or len(a[0]) != len(b[0]):
+        if a is None or b is None:
+            return None
+        b = (a[0], np.interp(a[0], b[0], b[1]))
+    f, loud_db = a
+    soft_db = b[1]
+    top = min(16000.0, 0.45 * rate)
+    rows, last, step = [], 0.0, f0
+    while last + step <= top:
+        guess = last + step
+        # The window widens with frequency, as the partials stray further from whole multiples, and never reaches
+        # back to the partial before: on the lowest keys, 29 Hz apart, a window of 0.4 per cent of 8 kHz did, the
+        # search found the same peak again and never ended.
+        half = min(0.06 * f0 + 0.004 * guess, 0.45 * f0)
+        sel = (f > guess - half) & (f < guess + half)
+        if not sel.any():
+            break
+        k = int(np.argmax(loud_db[sel]))
+        peak = float(f[sel][k])
+        if peak <= last:
+            break
+        near = (f > peak * 0.995) & (f < peak * 1.005)
+        between = ((f > peak - 0.6 * f0) & (f < peak - 0.3 * f0)) | ((f > peak + 0.3 * f0) & (f < peak + 0.6 * f0))
+        if not near.any() or not between.any():
+            break
+        # A peak of noise lies about 9 dB over the noise's median.
+        rows.append((peak, float(loud_db[sel][k]), float(soft_db[near].max()), float(np.median(soft_db[between])) + 9.0))
+        step = min(max(peak - last if len(rows) > 1 else f0, 0.9 * f0), 1.25 * f0)
+        last = peak
+    clear = [(hz, s - l) for hz, l, s, noise in rows if s > noise + SOFT_CLEAR_DB]
+    while len(clear) > 2 and clear[-1][1] > clear[-2][1] + 6:      # a last partial that jumps up is noise read as one
+        clear.pop()
+    if len(clear) < 2:
+        return {'hz': [], 'db': [], 'slope': 0.0, 'clear': len(clear)}
+    hz = np.array([c[0] for c in clear])
+    db = np.array([c[1] for c in clear])
+    smooth = np.array([db[i] if i in (0, len(db) - 1) else float(np.median(db[i - 1:i + 2])) for i in range(len(db))])
+    slope = min(float(np.polyfit(np.log2(hz), smooth, 1)[0]), 0.0)
+    return {'hz': [float(v) for v in hz], 'db': [float(v) for v in smooth], 'slope': slope, 'clear': len(clear)}
+
+def soft_from_loud(soft, loud, rate, curve):
+    """The loud take with each partial brought to the level `curve` gives it, at the soft take's level: a soft note
+    that carries the loud take's noise, lowered with it, in place of its own.  One zero-phase gain, the same for both
+    channels and for the whole take, so nothing moves in time; below the first partial read the gain is that
+    partial's, above the last it follows the curve's slope.  The level is the soft take's over its first 0.3 s."""
+    y = np.asarray(loud, dtype=np.float64)
+    pad = int(0.2 * rate)
+    n = len(y) + 2 * pad
+    f = np.fft.rfftfreq(n, 1 / rate)
+    lf = np.log2(np.maximum(f, 1.0))
+    hz, db = np.array(curve['hz']), np.array(curve['db'])
+    gain = np.interp(lf, np.log2(hz), db)
+    above = f > hz[-1]
+    gain[above] = db[-1] + curve['slope'] * (lf[above] - np.log2(hz[-1]))
+    out = np.fft.irfft(np.fft.rfft(np.pad(y, ((pad, pad), (0, 0))), axis=0) * (10 ** (gain / 20))[:, None], n=n, axis=0)[pad:pad + len(y)]
+    def early(z):
+        on = _onset(z)
+        return float(np.sqrt(np.mean(np.asarray(z, dtype=np.float64)[on:on + int(0.3 * rate)] ** 2)))
+    return (out * (early(soft) / max(early(out), 1e-12))).astype(np.float32)
+
+def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.06):
+    """A take with each half-octave band from `from_hz` up taken out from the moment it has come down to the
+    recording's hiss, and what was done: [{'band': [lo, hi], 'closed_s': seconds after the onset} or {'band', 'left'}].
+
+    A struck string's upper partials die first, so a take's bands reach the recording's hiss from the top down, and a
+    softly struck one never sounds above a few kHz at all; what those bands hold from then on is hiss, which a held
+    pedal adds up over every note that rings.  A band's gain moves once, from all to nothing, and never back, so
+    nothing rises and falls with the playing (a gain that follows the signal did: soundbank-building.md, denoise).
+
+    Whether a band is down at the hiss is read against the top band, which holds hiss alone once the blow has passed:
+    a publisher's slow fade lowers every band alike, so the level itself keeps falling, and the difference to the top
+    band does not.  Over the later part of the take (from half of it to 85 per cent) that difference may not move by
+    more than 1.5 dB from its first half to its second, nor span more than 4 dB: then the band is at the hiss there,
+    and it is closed from the first moment the difference stays within `settled_db` of that for 0.2 s.  A band that
+    does not hold still against the top band holds partials and is left as recorded, as is a take under 2 s.  The top
+    band itself closes when it first comes within `settled_db` of its own level between 0.5 and 1.5 s.  The fade of a
+    band is half its settling time, between 0.03 and 0.3 s: a band only the blow reaches closes as fast as the blow
+    went.  No band closes sooner than `not_before_s` after the onset: a pluck's or a blow's own top lasts
+    a few hundredths of a second, less than the 0.1 s the levels are read over, and a band read as settled from
+    the first frame would be closed through it.  A take whose peak or level the closing would lower by more than
+    CLOSE_GUARD_DB stays as recorded: its bands held more than hiss.  So does every band that would take more
+    than CLOSE_NARROW_SHARE of the amplitude of a narrow component heard in the hiss into the take's last part (a
+    partial that dies slowly holds as still as hiss does), and a band that would take as much of one heard only
+    earlier closes after it ('after_a_partial').  Zero-phase band filters that add up exactly to the take
+    above `from_hz`; a filter's skirt reaches a little under it (0.3 of the amplitude at 0.9 of `from_hz`), which
+    is why the narrow components are read from an octave under it."""
+    y = np.asarray(x, dtype=np.float64)
+    pad = int(0.2 * rate)
+    n = len(y) + 2 * pad
+    f = np.fft.rfftfreq(n, 1 / rate)
+    def hp(hz, order=12):
+        h = np.zeros(len(f))
+        h[1:] = 1 / np.sqrt(1 + (hz / f[1:]) ** (2 * order))
+        return h
+    edges = [from_hz * 2 ** (k / 2) for k in range(24) if from_hz * 2 ** (k / 2) < 0.4 * rate]
+    hop = int(0.02 * rate)
+    on = _onset(x)
+    frames = (len(y) - on) // hop
+    if len(edges) < 2 or frames < int(2.0 / 0.02):
+        return np.asarray(x), [{'band': [round(from_hz), round(rate / 2)], 'left': 'the take is under 2 s'}]
+    X = np.fft.rfft(np.pad(y, ((pad, pad), (0, 0))), axis=0)
+    parts, envs = [], []
+    for k, e in enumerate(edges):
+        mask = hp(e) - (hp(edges[k + 1]) if k + 1 < len(edges) else 0.0)
+        part = np.fft.irfft(X * mask[:, None], n=n, axis=0)[pad:pad + len(y)]
+        p = (part ** 2).mean(axis=1)[on:on + frames * hop].reshape(frames, hop).mean(axis=1)
+        parts.append(part)
+        envs.append(np.convolve(10 * np.log10(np.maximum(p, 1e-20)), np.ones(5) / 5, mode='same'))
+    top = envs[-1]
+    a, b = frames // 2, int(frames * 0.85)
+    hold = int(0.2 / 0.02)
+    out, report = y.copy(), []
+    # Hiss is broad and a partial is narrow.  Two things passed for hiss that were partials (the review of 0.7's code,
+    # F01, and the banks built after it).  A partial that dies slowly, under a decibel a second, holds as still
+    # against the top band as hiss does, and it was removed from 0.06 s on.  And where the top band holds partials of
+    # its own that fall as the others do (an FM voice), a band read against it is settled from the first frame
+    # while its partial still sounds far over the hiss.  So the whole take is also read for narrow components, in
+    # frames of about 85 ms averaged over windows of a quarter second.  A bin that stands CLOSE_NARROW_OVER_DB over
+    # the floor of the half octave it lies in, and whose power (its lobe less the floor) is within
+    # CLOSE_NARROW_TO_HISS_DB of all that half octave's hiss, is a tone heard in that hiss.  The floor is the
+    # window's own, the lower of its median bin and its tenth percentile over 0.55, so that a half octave crowded
+    # with a bass note's partials still shows its hiss between them: a floor taken from the later part of the take
+    # made the earlier hiss of a faded recording stand over it, and its chance peaks pass for tones (the second
+    # review, R2).  Every window is read, to the end of the take: read as one average, the later part hid a tone
+    # that lasts a quarter second in it (R1).  A band's filter reaches into its neighbours (at a band's upper edge
+    # the band above passes 0.7 of the amplitude), so a band is held by every tone it would take more than
+    # CLOSE_NARROW_SHARE of, and it closes after the last window that holds one.  Where that is in the take's last
+    # 15 per cent the band stays as recorded, the tone with its hiss: a tone left alone where the hiss around it
+    # was taken out is heard more than before.
+    # Each channel is read on its own, and a tone in either holds the band: with the channels' powers averaged, a
+    # tone in one channel lay under the other's noise and was removed from both (the third review, N1).  The frames
+    # run to the end of the take, the last one anchored there, and a window ends where its last frame ends: the
+    # frames had stopped up to 85 ms short of the end, and a window was taken to end one step early (N2).
+    nfft = 1 << int(round(math.log2(0.085 * rate)))
+    step = nfft // 2
+    span = max(4, int(round(0.25 * rate / step)))
+    length = len(y) - on
+    starts = list(range(0, length - nfft + 1, step))
+    if starts and starts[-1] + nfft < length:
+        starts.append(length - nfft)
+    holds_until = None                    # per band: the sample, from the onset, at which the last window that holds a tone of it ends
+    if len(starts) >= span:
+        taper = np.hanning(nfft)[:, None]
+        power = np.stack([np.abs(np.fft.rfft(y[on + i:on + i + nfft] * taper, axis=0)) ** 2 for i in starts])   # frame, bin, channel
+        bins = np.fft.rfftfreq(nfft, 1 / rate)
+        limits = [from_hz / 2, from_hz / 2 ** 0.5] + edges + [rate / 2]
+        halves = [sel for sel in (np.flatnonzero((bins >= lo) & (bins < hi) & (bins > 0)) for lo, hi in zip(limits, limits[1:])) if len(sel) >= 8]
+        # Each frame is first set against its own level in each half octave (its median bin there), and the frames of
+        # a window are averaged after that.  Averaged as they stood, a window that lies over a fade inside the take
+        # (a recording's own fade-out at its end) was ruled by its loudest frame or two, whose chance peaks then
+        # stood over the window's floor as a tone does: on the Osiris piano seven takes in ten kept their bands
+        # over 8 kHz for such a peak in their last quarter second.  It is the second review's R2 within one window.
+        # And against no less than the floor a stored sample carries: 16 bits under the take's peak, since a take
+        # is stored at full scale at most, with its dither and its rounding (a quarter of a step squared).  The end
+        # of a take that fades to nothing holds 'components' 140 to 200 dB under its peak, which are what
+        # arithmetic leaves and not sound; set against the frame's own level they were tones, in the last window
+        # of the take, and held the band.
+        stored = (float(np.abs(y).max()) / 32767.0) ** 2 / 4 * float((taper ** 2).sum())
+        level = np.zeros_like(power)
+        for sel in halves:
+            level[:, sel] = np.maximum(np.median(power[:, sel], axis=1)[:, None], stored)
+        power = np.divide(power, level, out=np.zeros_like(power), where=level > 0)
+        run = np.concatenate([np.zeros((1,) + power.shape[1:]), np.cumsum(power, axis=0)])
+        windows = (run[span:] - run[:-span]) / span                                # window i: frames i to i + span - 1
+        # The stored sample's floor in each window's own units: the mean over its frames of that floor over the
+        # frame's level.  It is 1 where a take has faded to nothing and next to nothing where it sounds.
+        share = np.divide(stored, level, out=np.zeros_like(level), where=level > 0)
+        run = np.concatenate([np.zeros((1,) + share.shape[1:]), np.cumsum(share, axis=0)])
+        least = (run[span:] - run[:-span]) / span
+        ends = np.array([starts[i + span - 1] + nfft for i in range(len(windows))])
+        floor, width = np.zeros_like(windows), np.ones(len(bins))
+        for sel in halves:
+            if True:
+                part = windows[:, sel]
+                # No lower than the stored sample's floor in the window's units (`least`): where a frame lay far
+                # under that floor, the window's own floor would be as far under it again.  Held at 1, the level
+                # the frames were set against, it hid the partials of a low note, whose median bin in a crowded
+                # half octave is itself partials and whose hiss lies far under it (the final review, FR01).
+                floor[:, sel] = np.maximum(np.minimum(np.median(part, axis=1), np.percentile(part, 10, axis=1) / 0.55)[:, None], least[:, sel])
+                width[sel] = len(sel)
+        edge = np.pad(windows, ((0, 0), (1, 1), (0, 0)), mode='edge')
+        over = np.pad(np.where(floor > 0, windows - floor, 0.0), ((0, 0), (2, 2), (0, 0)))
+        lobe = over[:, :-4] + over[:, 1:-3] + over[:, 2:-2] + over[:, 3:-1] + over[:, 4:]
+        heard = ((floor > 0) & (windows >= floor * 10 ** (CLOSE_NARROW_OVER_DB / 10)) & (windows >= edge[:, :-2])
+                 & (windows >= edge[:, 2:]) & (lobe >= floor * width[None, :, None] * 10 ** (CLOSE_NARROW_TO_HISS_DB / 10))).any(axis=2)
+        through = lambda edge_hz: 1 / np.sqrt(1 + (edge_hz / np.maximum(bins, 1.0)) ** 24)   # the filters of hp(), order 12
+        holds_until = []
+        for k in range(len(edges)):
+            share = through(edges[k]) - (through(edges[k + 1]) if k + 1 < len(edges) else 0.0)
+            rows = np.flatnonzero((heard & (share > CLOSE_NARROW_SHARE)).any(axis=1))
+            holds_until.append(int(ends[rows[-1]]) if len(rows) else 0)
+    def closing(settle):
+        start = on + settle * hop if settle else 0
+        fade = int(min(0.3, max(0.03, 0.5 * settle * 0.02)) * rate)
+        gain = np.ones(len(y))
+        gain[:start] = 0.0
+        if settle:
+            m = min(fade, len(y) - start)
+            gain[start:start + m] = 0.5 - 0.5 * np.cos(np.pi * np.arange(m) / fade)
+        return gain
+    def first_held(under):
+        run = 0
+        for i, ok in enumerate(under):
+            run = run + 1 if ok else 0
+            if run >= hold:
+                return i - hold + 1
+        return None
+    for k in range(len(edges)):
+        band = [round(edges[k]), round(edges[k + 1] if k + 1 < len(edges) else rate / 2)]
+        if k == len(edges) - 1:
+            early = float(np.median(top[int(0.5 / 0.02):int(1.5 / 0.02)]))
+            settle = first_held(top[:b] <= early + settled_db)
+        else:
+            d = envs[k] - top
+            window = d[a:b]
+            drift = float(np.median(window[:len(window) // 2]) - np.median(window[len(window) // 2:]))
+            if abs(drift) > 1.5 or float(np.percentile(window, 95) - np.percentile(window, 5)) > 4.0:
+                report.append({'band': band, 'left': 'it does not hold still against the top band: partials'})
+                continue
+            settle = first_held(d[:b] <= float(np.median(window)) + settled_db)
+        if settle is None:
+            report.append({'band': band, 'left': 'it never settles before the later part of the take'})
+            continue
+        settle = max(settle, int(math.ceil(not_before_s / 0.02 - 1e-9)))
+        waited = False
+        if holds_until and holds_until[k]:
+            # A tone the band would take from is heard up to this sample: the band closes after it, or not at all
+            # where that reaches the take's last 15 per cent.
+            after = -(-holds_until[k] // hop)
+            if after >= b:
+                report.append({'band': band, 'left': 'a narrow component is heard in it into the last part of the take: a partial'})
+                continue
+            waited, settle = after > settle, max(settle, after)
+        out -= closing(settle)[:, None] * parts[k]
+        report.append({'band': band, 'closed_s': round(settle * 0.02, 2), **({'after_a_partial': True} if waited else {})})
+    # Hiss holds no part of a take's peak or of its level.  Where taking the bands out lowers either by more than
+    # CLOSE_GUARD_DB, a band read as settled held the note after all: a take that begins with a knock or a touch of
+    # the string and sounds its note 0.3 s later reads as settled in between.  Such a take stays as recorded.
+    rms = lambda v: float(np.sqrt(np.mean(v ** 2))) + 1e-30
+    lost = max(20 * math.log10((float(np.abs(y).max()) + 1e-30) / (float(np.abs(out).max()) + 1e-30)), 20 * math.log10(rms(y) / rms(out)))
+    if lost > CLOSE_GUARD_DB:
+        return np.asarray(x), [{'band': [round(from_hz), round(rate / 2)],
+                                'left': f'closing its bands would take {lost:.1f} dB from the take: they hold more than hiss'}]
+    return out.astype(np.asarray(x).dtype), report
+
 def highpass(x, rate, hz, order=6):
     """A zero-phase high-pass by FFT with a Butterworth magnitude, |H| = 1 / sqrt(1 + (hz / f) ** (2 * order)): no
     phase shift, so a note keeps its attack; 0.2 s of zero padding each side keeps the circular wrap out of the take.
@@ -1075,7 +1352,7 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
                     group = sorted(by[(note, src)], key=lambda e: str(e['rr']))
                     quieter = _borrowed_cb(layer, src, dyn)
                     for pos, e in enumerate(group):
-                        ids = stored[(e['take'], round(e['gain'], 6), e['named'])][0]
+                        ids, _, lift_cb = stored[(e['take'], round(e['gain'], 6), e['named'], bool(layer.get('full_scale')))]
                         fine = 0 if e['cents'] is None or abs(e['cents']) > layer.get('max_correction_cents', 45) else -int(round(e['cents']))
                         spans = [(v, min(127, v + 15)) for v in range(1, 128, 16) if ((v - 1) // 16) % len(group) == pos] if len(group) > 1 else [(1, 127)]
                         offset = attack_end(e['x'], e['rate'], e.get('loop')) if kind == 'legato' else 0
@@ -1086,8 +1363,8 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
                                 z = {43: (lo_key, hi_key), 44: span, 58: e['named']}
                                 if fine:
                                     z[52] = fine
-                                if quieter:
-                                    z[48] = c['gens'].get(48, 0) + quieter
+                                if quieter or lift_cb:
+                                    z[48] = c['gens'].get(48, 0) + quieter + lift_cb
                                 if offset:
                                     z[0], z[4] = offset % 32768, offset // 32768
                                 if e.get('loop'):
@@ -1178,6 +1455,7 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
     # `highpass`: {"ratio", "max_hz"}, a zero-phase high-pass at that fraction of each take's fundamental, at most
     # max_hz, before anything else: a room's rumble under soft plucked notes, which a stationary denoiser cannot follow.
     hpf = layer.get('highpass')
+    close = layer.get('close_hiss')
     noise, per_take, profile_from = {}, {}, {}
     if dn and (root / 'split.json').is_file():
         # Notes cut from longer recordings: each take uses its recording's own noise, measured between its notes when
@@ -1229,12 +1507,16 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
         key = json.dumps([[str(f) for f in e['files']], mics, layer.get('onset_db'), layer.get('max_seconds'), layer.get('ring_db'),
                           layer.get('level'), layer.get('loop'), layer.get('loop_window'), layer.get('loop_repair'), dn, cleaned_with, dc, hpf,
                           e['named'] if looped or hpf else None,
-                          e['measured'] if dn and dn.get('keep_partials_below') else None])
+                          e['measured'] if dn and dn.get('keep_partials_below') else None] + ([['close_hiss', close]] if close is not None else []))
         if key not in loaded:
             x, info = mic_mix(e['files'], mics, ffmpeg) if mics else read_audio(e['file'], ffmpeg)
             if hpf:
                 f0 = 440.0 * 2 ** ((e['named'] - 69) / 12)
                 x = highpass(x, info['rate'], min(hpf.get('max_hz', 120.0), hpf.get('ratio', 0.73) * f0))
+            closed = None
+            if close is not None:           # `{}` asks for it with its defaults
+                x, closed = close_settled_bands(x, info['rate'], float(close.get('from_hz', 1000.0)), float(close.get('settled_db', 6.0)),
+                                                float(close.get('not_before_s', 0.06)))
             noise_db = noise_from = None
             keep = (partial_bins(e['measured'], dn['keep_partials_below'], info['rate'])
                     if dn and dn.get('keep_partials_below') and e['measured'] is not None else None)
@@ -1307,6 +1589,7 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
                      else float(np.sqrt(np.mean(body ** 2))))
             hashes = [file_hash(f) for f in e['files']]
             loaded[key] = {'x': x, 'rate': info['rate'], 'loop': loop, 'loop_match': match, 'noise_db': noise_db, 'noise_from': noise_from,
+                           'closed_bands': closed,
                            'trim_ms': round(1000 * start / info['rate'], 1),
                            'clicks_ms': [[round(1000 * a / info['rate'], 1), round(1000 * b / info['rate'], 1), s] for a, b, s in clicks],
                            'rms': level, 'sha256': hashes[0] if not mics else hashlib.sha256(''.join(hashes).encode()).hexdigest(),
@@ -1349,6 +1632,69 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
         for e in entries:
             if e['cents'] is not None and abs(e['cents']) > 600:
                 e['cents'] -= 1200 * round(e['cents'] / 1200)
+    made = layer.get('soft_from')
+    if made:
+        # `soft_from`: {"<soft dynamic>": "<louder dynamic>"}.  Each take of the soft dynamic is replaced by the take
+        # of the louder one on the same key (the same round robin where there is one), filtered to the soft blow's
+        # partial levels and brought to the soft take's level (soft_curve, soft_from_loud): a soft layer whose
+        # recording stands only a little over the room and the microphones then carries the loud take's noise,
+        # lowered, in place of its own.  A key whose soft take shows fewer than SOFT_PARTIALS clear partials borrows
+        # the curve of the nearest key that showed them; with none to borrow, or no louder take, it stays as recorded.
+        if layer.get('loop'):
+            raise ValueError('soft_from is for takes that ring out, not for looped layers')
+        if not isinstance(made, dict) or any(k not in layer['dynamics'] or v not in layer['dynamics'] or k == v for k, v in made.items()):
+            raise ValueError('soft_from maps a recorded dynamic to another recorded dynamic of the layer')
+        if any(v in made for v in made.values()):
+            raise ValueError('soft_from: a dynamic that is itself made cannot be the one another is made from; name a recorded one')
+        by = {}
+        for e in entries:
+            by.setdefault((e['dyn'], e['named']), []).append(e)
+        todo = sorted((e for e in entries if e['dyn'] in made), key=lambda e: (e['named'], str(e['rr'])))
+        pairs, good = {}, {}
+        for e in todo:
+            louds = by.get((made[e['dyn']], e['named']))
+            if not louds:
+                e['soft_from'] = {'kept': 'recorded', 'why': 'no take of the louder dynamic on this key'}
+                continue
+            loud = next((l for l in louds if l['rr'] == e['rr']), louds[0])
+            if loud['rate'] != e['rate']:
+                raise ValueError(f'{e["file"].name}: its louder take has another sample rate')
+            curve = soft_curve(e['x'], loud['x'], e['rate'], 440 * 2 ** ((e['named'] - 69) / 12))
+            pairs[id(e)] = (loud, curve)
+            if curve and curve['clear'] >= SOFT_PARTIALS:
+                good.setdefault((e['dyn'], e['named']), curve)
+        for e in todo:
+            if id(e) not in pairs:
+                continue
+            loud, curve = pairs[id(e)]
+            borrowed = None
+            if not curve or curve['clear'] < SOFT_PARTIALS:
+                near = [n for d, n in good if d == e['dyn']]
+                if not near:
+                    e['soft_from'] = {'kept': 'recorded', 'why': 'too few clear partials, and no key to borrow a curve from'}
+                    continue
+                borrowed = min(near, key=lambda n: (abs(n - e['named']), n))
+                own = curve['clear'] if curve else 0
+                curve = good[(e['dyn'], borrowed)]
+            else:
+                own = curve['clear']
+            e['x'] = soft_from_loud(e['x'], loud['x'], e['rate'], curve)
+            body = e['x'][:int(1.0 * e['rate'])]
+            e['rms'] = (float(np.abs(e['x']).max()) * 0.115 if layer.get('level') == 'peak'
+                        else float(np.sqrt(np.mean(body.astype(np.float64) ** 2))))
+            e['f0'], e['cents'], e['trim_ms'] = loud['f0'], loud['cents'], loud['trim_ms']
+            # Named by what it was made from: two layers that make the same soft take from different loud ones, or
+            # with another key's curve, store two samples.
+            # The curve itself is part of the name: another layer may borrow that key's curve from another round
+            # robin, which is another curve (the review of 0.7's code, F03: both layers stored the first one's take).
+            shape = hashlib.sha256(json.dumps([curve['hz'], curve['db'], curve['slope']]).encode()).hexdigest()[:16]
+            e['take'] = json.dumps([e['take'], 'soft_from', loud['take'], borrowed, shape])
+            for field in ('noise_db', 'noise_from', 'clicks_ms', 'closed_bands'):   # the repairs its samples carry
+                e[field] = loud.get(field)
+            e['soft_from'] = {'made_from': str(loud['file'].relative_to(root)), 'made_from_sha256': loud['sha256'],
+                              'clear_partials': own, **({'curve_of_key': borrowed} if borrowed is not None else {}),
+                              'last_clear_hz': round(curve['hz'][-1]), 'gain_db_first_partial': round(curve['db'][0], 1),
+                              'gain_db_last_clear': round(curve['db'][-1], 1), 'db_per_octave_above': round(curve['slope'], 1)}
     layer_med = {d: float(np.median([e['rms'] for e in entries if e['dyn'] == d])) for d in layer['dynamics']
                  if any(e['dyn'] == d for e in entries)}
     return entries, octave_fix, layer_med
@@ -1455,15 +1801,29 @@ def build(spec, root, output, ffmpeg=None, new=False):
                 mods += sf2.override(sf2.VELOCITY_TO_FILTER, layer['velocity_filter_cents'])
             def store(e):
                 """Write one source file once (stereo as a linked pair) and return its sample ids."""
-                skey = (e['take'], round(e['gain'], 6), e['named'])
+                # How the layer stores is part of the key: a take a `full_scale` layer and a plain one share was
+                # stored once, as whichever layer came first in the spec (the review of 0.7's code, F08).
+                skey = (e['take'], round(e['gain'], 6), e['named'], bool(layer.get('full_scale')))
                 if skey in stored:
-                    e['effective_gain_db'] = stored[skey][1]
+                    e['effective_gain_db'], e['stored_lift_cb'] = stored[skey][1], stored[skey][2]
                     return stored[skey][0]
                 x = e['x'] * e['gain']
                 peak = float(np.abs(x).max())
                 if peak > 0.98:
                     x = x * (0.98 / peak)
                 e['effective_gain_db'] = round(20 * math.log10(e['gain'] * min(1.0, 0.98 / max(peak, 1e-12))), 2)
+                # `full_scale`: a sample is 16 bits, and its dither lies a fixed 93 dB under full scale whatever the
+                # take's level.  A take stored 20 dB under full scale carries that floor 20 dB nearer its note, and a
+                # soft piece raised 30 dB in the mix brings it up with the music.  So the take is stored as loud as
+                # 16 bits hold and its zone attenuates it by the same amount: the level heard is the same and the
+                # floor lies that much lower.  The lift is a whole number of the file's attenuation steps (0.04 dB
+                # heard, sf2.EMU_ATTENUATION), at most 36 dB.
+                lift_cb = 0.0
+                if layer.get('full_scale') and 0 < peak < 0.98:
+                    steps = int(min(36.0, 20 * math.log10(0.98 / peak)) * 10 / sf2.EMU_ATTENUATION)
+                    lift_cb = steps * sf2.EMU_ATTENUATION
+                    x = x * 10 ** (lift_cb / 200)
+                e['stored_lift_cb'] = lift_cb
                 rng = np.random.default_rng(int(e['sha256'][:8], 16))  # TPDF dither to 16-bit
                 q = np.clip(np.round(x * 32767 + rng.random(x.shape) - rng.random(x.shape)), -32768, 32767).astype(np.int16)
                 ids = []
@@ -1474,7 +1834,7 @@ def build(spec, root, output, ffmpeg=None, new=False):
                                     'type': (4 if ch == 0 else 2) if q.shape[1] == 2 else 1})
                 if len(ids) == 2:
                     samples[ids[0]]['link'], samples[ids[1]]['link'] = ids[1], ids[0]
-                stored[skey] = (ids, e['effective_gain_db'])
+                stored[skey] = (ids, e['effective_gain_db'], lift_cb)
                 return ids
 
             order = list(layer['dynamics'])
@@ -1506,8 +1866,8 @@ def build(spec, root, output, ffmpeg=None, new=False):
                                 z = {43: (lo_key, hi_key), 44: span, 58: e['named']}
                                 if fine:
                                     z[52] = fine
-                                if quieter:
-                                    z[48] = gens.get(48, 0) + quieter
+                                if quieter or e.get('stored_lift_cb'):
+                                    z[48] = gens.get(48, 0) + quieter + e.get('stored_lift_cb', 0.0)
                                 if e.get('loop'):
                                     z[54] = 1  # loop continuously; the release envelope ends the note
                                 if layer.get('exclusive_class'):
@@ -1535,6 +1895,12 @@ def build(spec, root, output, ffmpeg=None, new=False):
                             row['noise_measured_from'] = e['noise_from']
                         if e.get('clicks_ms'):
                             row['declicked_ms'] = e['clicks_ms']    # [start, end, 3-12 kHz rise in dB] after the onset
+                        if e.get('soft_from'):
+                            row['soft_from'] = e['soft_from']
+                        if e.get('closed_bands'):
+                            row['closed_bands'] = e['closed_bands']
+                        if e.get('stored_lift_cb'):
+                            row['stored_lift_db'] = round(e['stored_lift_cb'] / 10, 2)   # stored this much louder, attenuated as much in the zone
                         receipt['files'].append(row)
             contexts.append({'layer': layer, 'entries': entries, 'notes': notes, 'keymap': keymap, 'gens': dict(gens)})
             instrument = {'name': f'{pspec["name"][:16]} {len(instruments) - first_instrument + 1}', 'global': gens,
@@ -1553,7 +1919,15 @@ def build(spec, root, output, ffmpeg=None, new=False):
     for item in instruments + presets:
         for gens in [item.get('global') or {}] + [z['gens'] for z in item.get('zones', [])]:
             if id(gens) not in seen and gens.get(48):
-                gens[48] = min(1440, int(round(gens[48] / sf2.EMU_ATTENUATION)))
+                field = int(round(gens[48] / sf2.EMU_ATTENUATION))
+                if field > 1440:
+                    # The file holds 144 dB in this field and FluidSynth plays 0.4 of it: 57.6 dB heard.  Cut to
+                    # the limit, a take stored louder (`full_scale`) under a large `attenuation_db` played louder
+                    # than the spec asks, by up to 18 dB (the review of 0.7's code, F02).
+                    raise ValueError(f'{item.get("name", "a zone")}: an attenuation of {gens[48] / 10:.1f} dB cannot be written '
+                                     '(the file holds 57.6 dB as heard). Lower attenuation_db or the velocity attenuation, '
+                                     'or build the layer without full_scale.')
+                gens[48] = field
             seen.add(id(gens))
     sf2.write(output, spec['name'], samples, instruments, presets, comment=spec.get('comment', ''),
               copyright_notice=spec.get('copyright', ''), new=new)

@@ -1,10 +1,10 @@
 # Development and groove: music that keeps changing and moves
 
-Read this when planning the form (step 2), when writing the accompaniment (step 3) and when `review` asks about loops,
-returns, arrivals, block chords or pushes (step 5). It builds on [arrangement.md](arrangement.md) (form, roles, vertical
+Read this when planning the form (step 3), when writing the accompaniment (step 4) and when `review` asks about loops,
+returns, arrivals, block chords or pushes (step 6). It builds on [arrangement.md](arrangement.md) (form, roles, vertical
 hygiene) and [climax-and-melody.md](climax-and-melody.md) (the high point, melodic shape).
 
-Contents: [Diagnose "dull" and "stiff"](#diagnose-dull-and-stiff) · [Plan the energy (step 2)](#plan-the-energy-step-2) · [Groove (steps 3 and 4)](#groove-steps-3-and-4) · [Voicings that move: musiclib.voicing](#voicings-that-move-musiclibvoicing) · [Sources](#sources)
+Contents: [Diagnose "dull" and "stiff"](#diagnose-dull-and-stiff) · [Plan the energy (step 3)](#plan-the-energy-step-3) · [Groove (steps 4 and 5)](#groove-steps-4-and-5) · [Voicings that move: musiclib.voicing](#voicings-that-move-musiclibvoicing) · [Sources](#sources)
 
 ## Diagnose "dull" and "stiff"
 
@@ -22,13 +22,13 @@ not wrong, but at times dull or stiff. Measured on their scores:
 
 The ballad, the film cue and the horror cue had a clear arc and moving parts; `review` asks nothing about them.
 
-## Plan the energy (step 2)
+## Plan the energy (step 3)
 
 For each section write down its notes per bar, the parts that play, the register and the dynamics, and draw the curve:
 where it builds, where it breathes, where the high point is ([climax-and-melody.md](climax-and-melody.md)). `profile`
 shows the plan against the score; `review` reports the same figures per section under `repetition.energy`.
 
-Decide in step 1 how much the music should change; its use and the brief say how much. Moderate novelty is liked
+Decide how much the music should change before any of it is written: what the request and its use say of that is settled in step 1, and what they leave open in step 2. Moderate novelty is liked
 best: across 57 studies of music preference, most fit an inverted U between novelty or complexity and liking (Chmiel
 and Schubert 2017). Keep what gives identity (the motif, the groove, the harmony) and change one or two dimensions at
 a time. In a song, the prechorus builds toward the chorus through register, phrasing, the length of units and harmonic
@@ -69,7 +69,7 @@ question is whether anything else moves. The three counts are this project's own
 from a source; a style's map entry may give its own ([style-maps.md](style-maps.md)), and review's record lists every
 limit with its origin.
 
-## Groove (steps 3 and 4)
+## Groove (steps 4 and 5)
 
 - **Syncopation, in moderation.** Medium syncopation made listeners most want to move and gave the most pleasure;
   heavy syncopation keeps them from finding the beat (Witek et al. 2014, on funk drum breaks). Rhythm drives groove, and

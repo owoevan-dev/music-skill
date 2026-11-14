@@ -59,7 +59,12 @@ def number(value, lo, hi, name, integer=False):
 # can go on sections and notes, which are not checked.
 KNOWN = {
     'project': {'schema', 'title', 'version', 'clock', 'sections', 'tracks', 'mix', 'harmony', 'loop', 'brief', 'decisions',
-                'authorship', 'revision_history', 'description', 'comment', 'style'},
+                'authorship', 'revision_history', 'description', 'comment', 'style', 'plan', 'association'},
+    'association': {'source', 'seed', 'count', 'list_words', 'list_sha256', 'words', 'whole', 'gives', 'none', 'reason', 'comment'},
+    'association gives': {'level', 'what', 'where'},
+    'plan': {'identity', 'high_point', 'sections', 'comment', 'passage'},
+    'plan high point': {'section', 'means'},
+    'plan section': {'section', 'sounds', 'leads', 'answers', 'register', 'harmony', 'dynamics', 'differs', 'comment'},
     'clock': {'bars', 'meter', 'tempo', 'tail_seconds', 'rubato'},
     'mix': {'chain', 'dynamics', 'loudness', 'target_lufs', 'peak_ceiling_db', 'max_limit_db', 'room_seconds', 'range_lu',
             'mono_below_hz', 'wow_flutter', 'rules', 'c80_db'},
@@ -76,6 +81,92 @@ KNOWN = {
     'synth': {'preset', 'oscillators', 'amp', 'filter', 'filter_env', 'lfo', 'pitch_env', 'arpeggio', 'glide_ms', 'mono', 'drive',
               'velocity_curve', 'gain_db'},
 }
+
+# The words a plan compares a section by (schema.md, plan; musiclib/plan.py reads them against the score).
+PLAN_WORDS = {'register': ('higher', 'lower', 'same'), 'harmony': ('faster', 'slower', 'same'),
+              'dynamics': ('louder', 'softer', 'same')}
+
+
+def association_shape(a, warnings):
+    """The frame of a project's `association`: words as text, the whole as text, what it gave as a list of
+    {level, what, where}.  Whether the whole holds every word is for a reader, not for a check."""
+    shape(a, dict, 'association')
+    unknown_fields(a, 'association', 'association', warnings)
+    words = shape(a.get('words', []), list, 'association.words')
+    if len(words) > 64:
+        raise ValueError('association.words: at most 64')
+    for w in words:
+        text(w, 'each of association.words')
+    for key in ('whole', 'none', 'reason', 'source'):
+        if key in a:
+            text(a[key], f'association.{key}')
+    gives = shape(a.get('gives', []), list, 'association.gives')
+    if len(gives) > 64:
+        raise ValueError('association.gives: at most 64')
+    for g in gives:
+        shape(g, dict, 'each of association.gives')
+        unknown_fields(g, 'association gives', 'association.gives', warnings)
+        for key in ('level', 'what', 'where'):
+            if key in g:
+                text(g[key], f'association.gives.{key}')
+
+
+def plan_shape(plan, warnings):
+    """A plan's frame: text where text belongs, lists of part names, one of its three words for each comparison.
+    That a section or a part it names exists is not checked here: a plan is written before the notes and may name
+    what the score does not have yet, and review says so (musiclib/plan.py)."""
+    shape(plan, dict, 'plan')
+    unknown_fields(plan, 'plan', 'plan', warnings)
+    if 'identity' in plan:
+        text(plan['identity'], 'plan.identity')
+    if 'high_point' in plan:
+        hp = shape(plan['high_point'], dict, 'plan.high_point')
+        unknown_fields(hp, 'plan high point', 'plan.high_point', warnings)
+        for key in ('section', 'means'):
+            if key in hp:
+                text(hp[key], f'plan.high_point.{key}')
+    if 'outside_passage' in plan:
+        # A passage cut by a form of excerpt.py that no version shipped (one commit of 0.7's development): its plan
+        # holds part of the piece's and no record of where it was cut, and read as a plan it is asked for what the
+        # cut took away.  What it lacks is not in it, so it is refused, with what to do.
+        raise ValueError('plan.outside_passage: this passage was cut by an unreleased form of excerpt.py, which kept part of the '
+                         'piece\'s plan. Cut it again from the piece with this version (excerpt.py), or take `plan` out of this '
+                         'project; the piece\'s own plan is in the piece.')
+    if 'passage' in plan:                # written by excerpt.py: the project is these bars of the piece the plan is of
+        cut = shape(plan['passage'], dict, 'plan.passage')
+        for key in ('first_bar', 'bars'):
+            if not isinstance(cut.get(key), int) or isinstance(cut.get(key), bool) or cut[key] < 1:
+                raise ValueError(f'plan.passage.{key}: a whole number of bars, 1 or more (excerpt.py writes it)')
+    seen = set()
+    sections = shape(plan.get('sections', []), list, 'plan.sections')
+    if len(sections) > 512:
+        raise ValueError('plan.sections: at most 512')
+    for s in sections:
+        shape(s, dict, 'each section of the plan')
+        if not isinstance(s.get('section'), str) or not s['section']:
+            raise ValueError('each section of the plan names its `section` (the id of a section of the piece)')
+        where = f'plan section {s["section"]}'
+        if s['section'] in seen:
+            raise ValueError(f'{where}: planned twice')
+        seen.add(s['section'])
+        unknown_fields(s, 'plan section', where, warnings)
+        for key in ('sounds', 'answers'):
+            if key in s:
+                if len(shape(s[key], list, f'{where} {key}')) > 128:
+                    raise ValueError(f'{where} {key}: at most 128 parts')
+                for part in s[key]:
+                    text(part, f'{where} {key}: each part')
+        for key in ('leads', 'differs'):
+            if key in s:
+                text(s[key], f'{where} {key}')
+        if 'register' in s:
+            for part, word in shape(s['register'], dict, f'{where} register').items():
+                if word not in PLAN_WORDS['register']:
+                    raise ValueError(f'{where} register of {part}: one of {", ".join(PLAN_WORDS["register"])}, got {word!r}')
+        for key in ('harmony', 'dynamics'):
+            if key in s and s[key] not in PLAN_WORDS[key]:
+                raise ValueError(f'{where} {key}: one of {", ".join(PLAN_WORDS[key])}, got {s[key]!r}')
+
 
 # Track and layer ids name files (stems, part MIDIs, layer loops): Windows reserves these names, with any extension.
 RESERVED = {'con', 'prn', 'aux', 'nul', *(f'com{i}' for i in range(1, 10)), *(f'lpt{i}' for i in range(1, 10))}
@@ -218,6 +309,8 @@ def _validate(p):
     if 'decisions' in p:
         if not isinstance(p['decisions'],list):raise ValueError('decisions is a list of text')
         for d in p['decisions']:text(d,'each decision')
+    if 'plan' in p:plan_shape(p['plan'],warnings)
+    if 'association' in p:association_shape(p['association'],warnings)
     # revise adds to it: as another type it passed here and stopped revise (found by GPT Pro's fifth review of 0.4.0).
     if 'revision_history' in p and not isinstance(p['revision_history'],list):raise ValueError('revision_history is a list of the revisions made')
     c=p['clock'];unknown_fields(c,'clock','clock',warnings);unknown_fields(p['mix'],'mix','mix',warnings)

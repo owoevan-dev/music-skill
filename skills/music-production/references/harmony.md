@@ -7,7 +7,7 @@ Read this when choosing chords for a phrase, giving a return new harmony, changi
 - jazz voicings and substitutions in practice: [jazz-and-funk.md](jazz-and-funk.md);
 - the baroque rule of the octave and schemata: [baroque.md](baroque.md).
 
-Contents: [Function and the phrase](#function-and-the-phrase) · [Colour: tonicization and mixture](#colour-tonicization-and-mixture) · [Sequences](#sequences) · [Changing key](#changing-key) · [Reharmonizing a return](#reharmonizing-a-return) · [Developing a motive](#developing-a-motive) · [Sources](#sources)
+Contents: [Function and the phrase](#function-and-the-phrase) · [Colour: tonicization and mixture](#colour-tonicization-and-mixture) · [Sequences](#sequences) · [Changing key](#changing-key) · [Reharmonizing a return](#reharmonizing-a-return) · [Developing a motive](#developing-a-motive) · [How much harmony chart songs use](#how-much-harmony-chart-songs-use) · [Sources](#sources)
 
 ## Function and the phrase
 
@@ -87,7 +87,32 @@ Keep the melody's notes as chord tones or treated embellishing tones (passing, n
 - **Contour.** A varied repetition that keeps the contour is heard as the same idea; a new contour is heard as a contrasting idea (Open Music Theory, The Phrase).
 - **In a phrase.** The sentence presents a basic idea twice, then fragments it, with faster harmonic rhythm and often a sequence, toward the cadence ([climax-and-melody.md](climax-and-melody.md), Writing a melody that sounds composed).
 
+## How much harmony chart songs use
+
+Two collections of chord annotations give a measure of how much harmony rock and chart songs use. They are counts of what those songs do, not targets: they say nothing of orchestral music, jazz, game music or electronic styles, and a piece may lie outside them for a reason of its own. Read `review`'s harmonic pace (chord changes a bar, by section) beside them when a piece in these families seems to have too little harmony or too much.
+
+| | Rock songs (200, two analysts averaged) | Chart songs (739) |
+|---|---|---|
+| What counts as a change | a change of root | a change of chord: root, degrees or bass |
+| Changes a bar: median (quartiles) | 0.85 (0.50 to 1.18) | 0.97 (0.69 to 1.33) |
+| The same, 10th to 90th percentile | 0.33 to 1.59 | 0.47 to 1.71 |
+| Different chords in a song, the bass left out | 5 (3.5 to 6.1), by root and major or minor | 9 (6 to 12), by root and degrees |
+| Different roots in a song | 4.5 (3 to 6) | 6 (4 to 7) |
+| Root motion, share of a song's changes of root | up a fourth 30, up a fifth 26, up a second 14, down a second 11 | up a fourth 31, up a fifth 23, up a second 15, down a second 11 |
+| Kinds of chord, share of a song's chords | not counted | triads 70, sevenths 23, extended 3, added-note 3, altered 1 |
+
+The two columns count different things and are not to be set against each other. What they have in common:
+- **About one change a bar, and often fewer.** A quarter of these songs change chord in fewer than every other bar (rock) or two bars in three (charts).
+- **A handful of chords.** Half the rock songs use five or fewer, by root and quality; in them I, IV, V, ♭VII and VI are 88 per cent of the chords. A small vocabulary is what this music has, not a fault to correct.
+- **Roots move by fourth and fifth** in over half the changes, by step in a quarter.
+- **Mostly triads.** In the chart songs seven chords in ten are triads and two are sevenths; extended, added-note and altered chords together are one in fourteen.
+
+How they were taken: each song counts once, by its median or its share, and the table gives the median of the songs (for the shares, their mean). The rock corpus's timed chord lists hold one row for each change of root, so it counts changes of root; the chart annotations write every chord, so they count changes of chord. The rules were written down before the figures were computed. The scripts that computed them are among the project's development records (`research/corpus-0.7`), which the published repository does not hold.
+
 ## Sources
+
+- de Clercq, T. and Temperley, D. (2011). [A corpus analysis of rock harmony](https://rockcorpus.midside.com/2011_paper/declercq_temperley_2011.pdf). *Popular Music* 30(1), 47–70. The annotations: [A Corpus Study of Rock Music](https://rockcorpus.midside.com/), version 2.1 (the RS 200), CC BY 4.0; the counts above are this skill's, from the harmonic analyses alone.
+- Burgoyne, J. A., Wild, J. and Fujinaga, I. (2011). An Expert Ground Truth Set for Audio Chord Recognition and Music Analysis. *ISMIR 2011*. The annotations: [The McGill Billboard Project](https://ddmal.ca/research/The_McGill_Billboard_Project_(Chord_Analysis_Dataset)/), DDMAL, CC0; the counts above are this skill's.
 
 - Gotham, M., Gullings, K., Hamm, C., Hughes, B., Jarvis, B., Lavengood, M. and Peterson, J. *Open Music Theory*, version 2. VIVA Pressbooks, read 7 November 2026:
   - [Introduction to Harmony, Cadences, and Phrase Endings](https://viva.pressbooks.pub/openmusictheory/chapter/intro-to-harmony/)

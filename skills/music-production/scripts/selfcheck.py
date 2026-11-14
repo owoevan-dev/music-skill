@@ -476,7 +476,10 @@ def checks(work,config=None):
         p['tracks'][0]['notes'][0].update(on=lead['on'],duration=max(2,lead['duration']),pitch=lead['pitch']-13)
         r=review(p,work/'review_summary');text=summary.review(r,work/'review_summary')
         assert r['prompts'] and all(q in text for q in r['prompts']),text
-        assert 'vertical_minor_seconds_ninths (' in text and 'B3/C5 (foreground)' in text and text.splitlines()[-1].startswith('Full figures: ') and 'score_review.json' in text.splitlines()[-1],text
+        # The collision is named with its two notes' ids, so the place can be found in the project by them.
+        clash=r['vertical_minor_seconds_ninths']['examples'][0];by_id={n['id'] for t in p['tracks'] for n in t['notes']}
+        assert len(clash['ids'])==2 and set(clash['ids'])<=by_id and f'B3/C5 [{", ".join(clash["ids"])}] (foreground)' in text,(clash,text)
+        assert 'vertical_minor_seconds_ninths (' in text and text.splitlines()[-1].startswith('Full figures: ') and 'score_review.json' in text.splitlines()[-1],text
         # Text from the project stays on the line that prints it: a title's line break, an escape character or a Unicode
         # line separator is written as its escape, so it cannot pass for a line of the tool's own (CWE-150; the title
         # began lines of the summary: GPT's security audit of 0.5, L05).  Other text is printed as it is.
@@ -494,6 +497,166 @@ def checks(work,config=None):
         assert out.returncode==0 and json.loads(out.stdout)['prompts']==r['prompts'],out.stderr[-600:]
         return {'questions':len(r['prompts']),'summary_characters':len(text),'full_json_characters':len(out.stdout)}
     check('review_summary_keeps_every_question',review_summary)
+    def review_views_and_identifiers():
+        # A review records the score at a glance (the parts that sound in each section, the harmony's pace, the melody's
+        # rhythm: musiclib.views) and prints it before its questions; every question has an identifier that does not
+        # depend on its wording; and a round says which questions are new since the round before and which are gone,
+        # by those identifiers.  (0.7, stage 1: the baseline's sessions fixed what was asked and could not always find
+        # the place, and a fix brought new questions unseen.)
+        from musiclib import summary,views
+        from musiclib.review import review
+        from musiclib.revision import since
+        p=example();lead=min(p['tracks'][2]['notes'],key=lambda n:n['on'])
+        p['tracks'][0]['notes'][0].update(on=lead['on'],duration=max(2,lead['duration']),pitch=lead['pitch']-13)
+        r=review(p,work/'review_views');text=summary.review(r,work/'review_views').splitlines()
+        assert [q['text'] for q in r['questions']]==r['prompts'] and all(isinstance(q['id'],str) and q['id'] for q in r['questions']),r['questions']
+        assert 'vertical' in [q['id'] for q in r['questions']],[q['id'] for q in r['questions']]
+        v=r['views'];rows=v['parts_by_section']
+        assert [x['section'] for x in rows]==[x['id'] for x in p['sections']] and v['part_sets']==len(set(views.part_sets(rows)))
+        # A part sounds in a section when a note of it does, attacked there or held into it: the first section's parts
+        # are the tracks with a note that begins before its end.
+        bpb=p['clock']['meter'][0]*4/p['clock']['meter'][1];first_end=p['sections'][0]['bars']*bpb
+        assert set(rows[0]['parts'])=={t['id'] for t in p['tracks'] if any(n['on']<first_end for n in t['notes'])},rows[0]['parts'].keys()
+        h=v['harmony_pace'];assert h is None or 0<=h['changes']<h['entries'] or h['entries']==1,h
+        assert all(m['attacks']>0 and 0<=m['pushes_pct']<=m['syncopated_pct']<=100 and m['longest_run']['beats']>0 for m in v['melody_rhythm']),v['melody_rhythm']
+        glance=next(i for i,x in enumerate(text) if x.startswith('The score at a glance'));asked=next(i for i,x in enumerate(text) if x.startswith('1. '))
+        assert 0<glance<asked and any(x.startswith('Parts by section') for x in text[glance:asked]),text[:6]
+        # A held pad begun in one section sounds in the next though it has no attack there, and four notes of two beats
+        # end to end are one run of eight beats, which profile's rule would end four times.
+        q={'title':'v','clock':{'bars':4,'meter':[4,4],'tempo':[[0,120]]},'sections':[{'id':'a','start_bar':0,'bars':2},{'id':'b','start_bar':2,'bars':2}],
+           'tracks':[{'id':'pad','role':'harmony','engine':'synth','notes':[{'id':'p0','on':4,'duration':8,'pitch':48}],'performance':{'notes':{'p0':{'velocity':70}}}},
+                     {'id':'lead','role':'melody','engine':'synth','notes':[{'id':f'l{i}','on':2*i,'duration':2,'pitch':72} for i in range(4)],'performance':{'notes':{f'l{i}':{'velocity':80} for i in range(4)}}}],
+           'harmony':[{'bar':1,'symbol':'C'},{'bar':2,'symbol':'C'},{'bar':3,'symbol':'F'},{'bar':3,'beat':2,'symbol':'F/A'},{'bar':4,'symbol':'Fmaj'}]}
+        w=views.views(q);second=w['parts_by_section'][1]['parts']
+        assert second['pad']['attacks']==0 and second['pad']['held_in']==1 and 'lead' not in second,second
+        assert w['harmony_pace']['entries']==5 and w['harmony_pace']['changes']==3,w['harmony_pace']
+        assert views.runs(q['tracks'][1]['notes'])==[(0,8)] and w['melody_rhythm'][0]['longest_run']['seconds']==4.0,w['melody_rhythm']
+        # What is new since the round before: by identifier, a question asked twice counting twice; none where the
+        # earlier review has no identifiers (a round of 0.6), and none for a render that is no round's.
+        prev=work/'round_before';(prev/'review').mkdir(parents=True);(prev/'render').mkdir()
+        earlier={'questions':[{'id':'asked_then_only','text':'x'},{'id':'vertical','text':'worded otherwise then'}]}
+        save_json(prev/'review'/'score_review.json',earlier)
+        got=since(r,prev/'render');want_new=sorted(q['id'] for q in r['questions']);want_new.remove('vertical')
+        assert got=={'new':want_new,'gone':['asked_then_only'],'previous':'round_before'},got
+        told=summary.review(r,work/'review_views',got)
+        assert 'Gone: asked_then_only.' in told and ('New since round_before: '+(', '.join(want_new[:8]) if want_new else 'none')) in told,told
+        old=work/'round_of_06';(old/'review').mkdir(parents=True);(old/'render').mkdir();save_json(old/'review'/'score_review.json',{'prompts':['a question']})
+        assert since(r,old/'render') is None and since(r,work/'review_views') is None and since(r,None) is None
+        return {'questions':[q['id'] for q in r['questions']],'part_sets':v['part_sets'],'summary_lines':len(text)}
+    check('review_views_and_identifiers',review_views_and_identifiers)
+    def plan_read_against_score():
+        # A project can carry its plan as data, written before the notes: review reads the score against what the plan
+        # states and asks where they differ; a project without a plan is asked for one and refused by nothing; a
+        # decision that begins with a question's identifier answers it; and the rounds keep the plan as first
+        # written and say where a later one departs from it.  (0.7, stage 2: the baseline's sessions wrote a sentence
+        # of intent for each section, which nothing read; one said the kick dropped out of a bridge where it played
+        # in every bar.)  The comparison's own figures have known answers in the_code_review_of_0_7_stays_fixed, below.
+        from musiclib import summary
+        from musiclib.plan import changed
+        from musiclib.review import review
+        from musiclib.revision import keep_plan
+        ids=lambda r:[q['id'] for q in r['questions']]
+        p=example();r=review(p,work/'plan_none')
+        assert r['plan'] is None and 'plan.missing' in ids(r) and r['answered']==[],ids(r)
+        p['decisions']=p['decisions']+['plan.missing: a fixture of the tools, not a piece','plan.missing:no space after the colon','vertical']
+        r=review(p,work/'plan_answered')
+        assert 'plan.missing' not in ids(r) and r['answered']==[{'id':'plan.missing','text':r['answered'][0]['text'],'reason':'a fixture of the tools, not a piece'}],r['answered']
+        assert r['answered'][0]['text'].startswith('The project has no plan.')
+        assert 'Answered in decisions, not asked again (1): plan.missing (a fixture of the tools, not a piece)' in summary.review(r,work/'plan_answered')
+        # A plan that states what the score holds raises no question.  The lead plays in both sections and the noise
+        # part only in the first; nothing is before the first section, so what it says of register cannot be read.
+        p=example()
+        p['plan']={'identity':'a question and its answer','high_point':{'section':'answer','means':'the lead has more notes there'},
+                   'sections':[{'section':'question','sounds':['piano','bass','lead','drums','fx'],'leads':'lead','register':{'lead':'same'}},
+                               {'section':'answer','sounds':['piano','bass','lead','drums'],'leads':'lead','answers':['piano'],'differs':'the noise is gone'}]}
+        assert validate(p)['warnings']==[],validate(p)['warnings']
+        r=review(p,work/'plan_kept');c=r['plan']
+        assert not [i for i in ids(r) if i.startswith('plan')] and (c['commitments'],c['kept'],c['differences'])==(5,5,0),(ids(r),c)
+        assert [u['what'] for u in c['sections'][0]['unread']]==['register lead same'] and c['sections'][1]['what_differs']=='the noise is gone'
+        said=summary.review(r,work/'plan_kept')
+        assert 'Plan: the score holds 5 of the 5 commitments the plan states; 1 cannot be read. High point: answer, by the lead has more notes there (shown, not judged).' in said,said
+        # Where the score differs the section is asked about, with what was found; a part the project does not have is
+        # named as that; a high point without its means is asked for them; a section the piece does not have is named.
+        q=copy.deepcopy(p);q['plan']['sections'][1].update(sounds=['piano','bass','lead','drums','fx','brass'],leads='fx');q['plan']['high_point']={'section':'answer'}
+        q['plan']['sections'].append({'section':'coda','sounds':['piano']})
+        r=review(q,work/'plan_differs');c=r['plan']
+        assert [i for i in ids(r) if i.startswith('plan')]==['plan.high_point','plan:answer','plan:coda'],ids(r)
+        asked=next(x['text'] for x in r['questions'] if x['id']=='plan:answer')
+        assert 'planned to sound and silent: fx, brass (not a part of the project)' in asked and 'fx is planned to lead and has no attack in the section (fx is silent)' in asked,asked
+        assert (c['commitments'],c['kept'],c['differences'])==(5,3,2) and c['sections'][2]['in_piece'] is False,c
+        # The frame is checked and the names are not: a word that is not one of the three is refused, an unknown field
+        # is a warning with the nearest name, and a part or a section the score lacks passes validation.
+        bad=copy.deepcopy(p);bad['plan']['sections'][0]['dynamics']='bigger'
+        assert rejects(lambda:validate(bad))
+        typo=copy.deepcopy(p);typo['plan']['sections'][0]['lead']=typo['plan']['sections'][0].pop('leads')
+        assert any("unknown field 'lead'" in w and "did you mean 'leads'" in w for w in validate(typo)['warnings']),validate(typo)['warnings']
+        assert validate(q)['warnings']==[]
+        # The rounds: the first round with a plan keeps it as the first; a later round with another plan keeps the
+        # first one still and says where the two differ, and so does the round after that from the record alone.
+        one=work/'plan_round_1';(one/'render').mkdir(parents=True);rec={}
+        assert keep_plan(rec,p,None)==[] and rec['plan_first']==p['plan'] and 'plan_changed' not in rec
+        save_json(one/'round.json',rec)
+        later=copy.deepcopy(p);later['plan']['identity']='another idea';later['plan']['sections'][1]['leads']='piano'
+        rec2={};moved=keep_plan(rec2,later,one/'render')
+        assert moved==['identity','section answer']==rec2['plan_changed'] and rec2['plan_first']==p['plan'] and rec2['plan']==later['plan'],rec2
+        two=work/'plan_round_2';(two/'render').mkdir(parents=True);save_json(two/'round.json',rec2)
+        rec3={};assert keep_plan(rec3,later,two/'render')==['identity','section answer'] and rec3['plan_first']==p['plan']
+        assert keep_plan({},example(),None) is None and changed(p['plan'],p['plan'])==[]
+        told=summary.review(review(later,work/'plan_later'),work/'plan_later',None,moved)
+        assert 'The plan no longer says what it first said of: identity, section answer. The plan as first written is kept in round.json (plan_first).' in told,told
+        return {'commitments':c['commitments'],'differences':c['differences'],'changed':moved}
+    check('plan_read_against_score',plan_read_against_score)
+    def association_drawn_once():
+        # A piece draws twelve words once and keeps them: the same seed gives the same words, a second call draws
+        # nothing, the user's own words or their wish for none are recorded in a draw's place, and review asks for
+        # the record, then for the whole, then for three levels, and no further.  (0.7: three pieces made from one
+        # sentence on 0.6 shared a form, a key plan and a word of their titles; research/symphony-0.7.)
+        from musiclib import association
+        from musiclib.model import validate
+        from musiclib.review import review
+        words=association.words_of()
+        assert len(words)==1000 and len(set(words))==1000 and all(w==w.strip() and w for w in words),len(words)
+        assert association.draw(7)==association.draw(7) and association.draw(7)!=association.draw(8)
+        assert len(set(association.draw(7)))==association.COUNT==12 and set(association.draw(7))<=set(words)
+        a=work/'assoc_a';a.mkdir();record,made=association.keep(str(a),seed=7)
+        assert made and record['source']=='draw' and record['words']==association.draw(7) and record['list_words']==1000
+        again,made=association.keep(str(a));assert not made and again==record          # nothing drawn the second time
+        again,made=association.keep(str(a),seed=8);assert not made and again==record   # nor with another seed
+        b=work/'assoc_b';b.mkdir();own,made=association.keep(str(b),own='rust, a harbour at night')
+        assert made and own=={'source':'user','words':['rust','a harbour at night']},own
+        c=work/'assoc_c';c.mkdir();none,made=association.keep(str(c),none='the user asked for none')
+        assert made and none['source']=='none' and none['words']==[]
+        for bad in ({'own':''},{'own':','.join(['w']*25)},{'seed':1,'own':'a'}):
+            d=work/f'assoc_bad{len(bad)}{len(str(bad))}';d.mkdir()
+            try:association.keep(str(d),**bad);raise AssertionError(bad)
+            except ValueError:pass
+            assert not (d/'association.json').exists()
+        ids=lambda p,name:[q['id'] for q in review(p,work/name)['questions'] if q['id'].startswith('association')]
+        p=example();assert ids(p,'assoc_r0')==['association.missing']
+        p['association']={'source':'draw','seed':7,'words':record['words']};assert validate(p)['warnings']==[],validate(p)['warnings']
+        assert ids(p,'assoc_r1')==['association.whole']
+        p['association']['whole']='One scene that holds them all.'
+        p['association']['gives']=[{'level':'form','what':'a','where':'all'},{'level':'form','what':'b','where':'bar 3'}]
+        assert ids(p,'assoc_r2')==['association.gives']                                # two entries, one level
+        p['association']['gives']+=[{'level':'rhythm','what':'c','where':'bar 1'},{'level':'sounds','what':'d','where':'bar 2'}]
+        assert ids(p,'assoc_r3')==[]
+        p['association']={'none':'the user asked for none'};assert ids(p,'assoc_r4')==[]
+        p['association']={'whole':'A scene made of no words.'};assert ids(p,'assoc_r5')==['association.missing']   # no words and no `none`: no record
+        import os
+        if hasattr(os,'symlink'):
+            e=work/'assoc_link';e.mkdir()
+            try:os.symlink(a/'association.json',e/'association.json')
+            except OSError:pass                                                         # Windows without the right to make links
+            else:
+                try:association.keep(str(e));raise AssertionError('the record was read through a link')
+                except ValueError:pass
+        p['association']={'words':'scarlet'}
+        try:validate(p);raise AssertionError('words must be a list')
+        except ValueError:pass
+        p['association']={'words':['scarlet'],'hole':'x'}                               # a misspelt field is named
+        assert any("unknown field 'hole'" in w and "did you mean 'whole'" in w for w in validate(p)['warnings']),validate(p)['warnings']
+        return {'list':len(words),'draw':record['words'][:3]}
+    check('association_drawn_once',association_drawn_once)
     def surge_catalog():
         # Any patch of the measured catalog is a Surge preset by its id: found by role and measured character (flagged
         # patches left out, dark to bright), falling back by its role, and played only from the full patch set, which
@@ -1447,6 +1610,657 @@ def checks(work,config=None):
         cents=1200*np.log2(f/440);assert abs(cents+20)<1,cents
         return {'gain_db_at_50_100_400_hz':g,'notes':len(got),'hum_in_cut':round(hum,3),'spectral_cents':round(float(cents),2)}
     check('split_reads_a_high_passed_copy_and_leaves_out_takes',split_highpass)
+    def soft_take_from_the_loud_one():
+        # `soft_from` (0.7): a soft dynamic whose recording stands little over its own noise is made from the louder
+        # take of the same key.  Known answers on a made-up key: twenty partials that decay as a string's do, a loud
+        # take, and a soft take whose partials are 3 dB lower for each one up, under hiss 30 dB louder than the loud
+        # take's.  The curve read from the two must be that fall; the take made from it must hold the soft take's
+        # partials, its level, and the loud take's hiss lowered, not the soft take's.  The lowest keys once never
+        # ended: at 29 Hz between partials the search window reached back to the partial before.
+        from soundbank import soft_curve,soft_from_loud,SOFT_PARTIALS
+        rate,f0,n=44100,220.0,3*44100
+        t=np.arange(n)/rate
+        rng=np.random.default_rng(7)
+        def take(fall_db,noise_db):
+            x=sum(10**((-2.0*k-fall_db*k)/20)*np.exp(-t*(1.0+0.5*k))*np.sin(2*np.pi*f0*(k+1)*np.sqrt(1+0.0004*(k+1)**2)*t) for k in range(20))
+            x=np.concatenate([np.zeros(200),x])[:n]*0.25+10**(noise_db/20)*rng.standard_normal(n)
+            return np.stack([x,x],axis=1).astype(np.float32)
+        loud,soft=take(0.0,-90.0),take(3.0,-60.0)
+        c=soft_curve(soft,loud,rate,f0)
+        assert c['clear']>=SOFT_PARTIALS,c['clear']
+        fall=[c['db'][k]-c['db'][0] for k in range(min(5,c['clear']))]
+        assert all(abs(got+3.0*k)<1.0 for k,got in enumerate(fall)),fall          # 3 dB a partial, within 1 dB
+        assert c['slope']<0 and abs(c['hz'][0]-f0)<3,(c['slope'],c['hz'][0])
+        made=soft_from_loud(soft,loud,rate,c)
+        assert made.shape==loud.shape and made.dtype==np.float32
+        early=lambda z:float(np.sqrt(np.mean(z[200:200+int(0.3*rate)].astype(np.float64)**2)))
+        assert abs(20*np.log10(early(made)/early(soft)))<0.1                        # the soft take's level
+        def band(z,lo,hi):
+            w=np.hanning(n);p=np.abs(np.fft.rfft(z[:,0]*w))**2;f=np.fft.rfftfreq(n,1/rate)
+            return 10*np.log10(p[(f>=lo)&(f<hi)].sum()+1e-30)
+        hiss=lambda z:band(z,12000,18000)                                           # no partial of this key lies there
+        assert hiss(made)<hiss(soft)-20,(hiss(made),hiss(soft))                     # the loud take's hiss, lowered
+        for k in (0,2,4):                                                           # each partial where the soft blow put it
+            lo,hi=f0*(k+1)*0.97,f0*(k+1)*1.04
+            assert abs(band(made,lo,hi)-band(soft,lo,hi))<1.5,(k,band(made,lo,hi),band(soft,lo,hi))
+        low=soft_curve(take(3.0,-60.0),take(0.0,-90.0),rate,29.14)                 # ends, whatever it reads
+        assert low is None or isinstance(low['clear'],int)
+        quiet=soft_curve((soft*0+1e-4*rng.standard_normal(soft.shape)).astype(np.float32),loud,rate,f0)
+        assert quiet['clear']<SOFT_PARTIALS,quiet                                    # noise alone shows no partials
+        return {'clear':c['clear'],'fall_db':[round(v,2) for v in fall],'slope':round(c['slope'],1)}
+    check('a_soft_take_made_from_the_loud_one',soft_take_from_the_loud_one)
+    def settled_bands_are_closed_once():
+        # `close_hiss` (0.7): a band of a take that has come down to the recording's hiss is taken out from then on,
+        # once.  Known answers on a made-up take: two low partials that ring for seconds, one at 5 kHz gone within half
+        # a second, steady hiss, and a publisher's fade over the second half, which lowers every band alike.  The bands
+        # of the ringing partials stay as recorded, the 5 kHz band closes after its partial and not before, the bands
+        # above close at once, nothing under 1 kHz moves, and the hiss is gone from the later part.
+        from soundbank import close_settled_bands
+        rate,n=48000,6*48000
+        t=np.arange(n)/rate
+        rng=np.random.default_rng(11)
+        tone=0.3*np.exp(-t*0.6)*np.sin(2*np.pi*440*t)+0.1*np.exp(-t*0.9)*np.sin(2*np.pi*1500*t)+0.05*np.exp(-t*12)*np.sin(2*np.pi*5000*t)
+        fade=np.where(t<3,1.0,10**(-(t-3)*4/20))                      # 4 dB a second from the third second
+        x=((tone+10**(-70/20)*rng.standard_normal(n))*fade)
+        x=np.concatenate([np.zeros(300),x])[:n]
+        x=np.stack([x,x],axis=1).astype(np.float32)
+        y,report=close_settled_bands(x,rate)
+        got={r['band'][0]:r for r in report}
+        assert y.shape==x.shape and y.dtype==x.dtype
+        assert 'left' in got[1000] and 'left' in got[1414],report      # the 1.5 kHz partial still rings there
+        five=got[4000]                                                 # 4000-5657 Hz holds the 5 kHz partial
+        assert 'closed_s' in five and 0.15<five['closed_s']<1.2,five    # after the partial has gone (it is 6 dB over the hiss at about 0.3 s)
+        assert all('closed_s' in got[b] and got[b]['closed_s']<0.3 for b in got if b>=8000),report
+        # No band closes through the blow: nothing is touched in the first 0.05 s after the onset, though the bands
+        # over 8 kHz read as settled from the first frame (their levels are read over 0.1 s, the blow's top lasts
+        # less; the first Osiris and guitar builds lost up to 9 dB above 8 kHz in a note's first 30 ms).
+        assert all(got[b]['closed_s']>=0.06 for b in got if 'closed_s' in got[b]),report
+        assert np.array_equal(y[:300+int(0.05*rate)],x[:300+int(0.05*rate)])
+        z,_=close_settled_bands(x,rate,not_before_s=0.0);assert not np.array_equal(z[:300+int(0.05*rate)],x[:300+int(0.05*rate)])
+        def band(z,lo,hi,a,b):
+            seg=z[int(a*rate):int(b*rate),0].astype(np.float64);w=np.hanning(len(seg))
+            p=np.abs(np.fft.rfft(seg*w))**2;f=np.fft.rfftfreq(len(seg),1/rate)
+            return 10*np.log10(p[(f>=lo)&(f<hi)].sum()+1e-30)
+        assert band(y,8000,20000,1.5,2.5)<band(x,8000,20000,1.5,2.5)-30                 # the hiss, gone
+        assert abs(band(y,4800,5200,0.01,0.12)-band(x,4800,5200,0.01,0.12))<1.0           # the blow's own 5 kHz, kept
+        assert abs(band(y,300,900,0.0,5.0)-band(x,300,900,0.0,5.0))<0.01                  # nothing under 1 kHz moves
+        assert abs(band(y,1400,1600,0.0,5.0)-band(x,1400,1600,0.0,5.0))<0.05              # nor a band that was left
+        short,rep=close_settled_bands(x[:rate],rate);assert np.array_equal(short,x[:rate]) and 'left' in rep[0]
+        # A take that begins with a knock and sounds its note 0.4 s later reads as settled in between; closing its
+        # bands there would take the note's own top, so the take stays as recorded and says why (the nylon guitar's
+        # soft D sharp 3 lost 1.6 dB of its peak that way in a trial build).
+        late=np.concatenate([np.zeros(300),0.12*np.exp(-np.arange(960)/96)*np.sin(2*np.pi*3000*np.arange(960)/rate),np.zeros(int(0.4*rate)),
+                             0.3*(np.exp(-t*0.6)*np.sin(2*np.pi*440*t)+np.exp(-t*12)*np.sin(2*np.pi*2500*t))])[:n]+10**(-70/20)*rng.standard_normal(n)
+        late=np.stack([late,late],axis=1).astype(np.float32)
+        # Since the take is read for partials (the review of 0.7's code, F01), the bands the late note's 2.5 kHz
+        # reaches wait for it and close after it: the note keeps its top and the take loses its hiss.  The guard is
+        # what is left where that reading finds nothing, shown here with the reading switched off.
+        import soundbank
+        kept,rep=close_settled_bands(late,rate);waited={r['band'][0]:r for r in rep}
+        assert waited[2000].get('after_a_partial') and waited[2000]['closed_s']>0.7,rep
+        assert abs(band(kept,2300,2700,0.42,0.7)-band(late,2300,2700,0.42,0.7))<0.2 and band(kept,8000,20000,2,4)<band(late,8000,20000,2,4)-30
+        share,soundbank.CLOSE_NARROW_SHARE=soundbank.CLOSE_NARROW_SHARE,9.0
+        try:kept,rep=close_settled_bands(late,rate)
+        finally:soundbank.CLOSE_NARROW_SHARE=share
+        assert np.array_equal(kept,late) and 'more than hiss' in rep[0].get('left',''),rep
+        return {'closed':{b:got[b].get('closed_s') for b in sorted(got)}}
+    check('settled_bands_are_closed_once',settled_bands_are_closed_once)
+    def full_scale_keeps_the_level():
+        # `full_scale` (0.7): a take is stored as loud as 16 bits hold and its zone attenuates it by as much, so the
+        # level heard is the one it had and the dither lies that much lower under the note.  Two small banks from the
+        # same two takes, one built with it: every stored sample then peaks at full scale, give or take one step of
+        # attenuation, and its peak less its zone's attenuation is the peak the plain build stored; a bank without the
+        # option is bit for bit what it was (the Osiris, rebuilt with this code, kept its file hash).
+        from musiclib import sf2
+        from musiclib.loop import write_wav
+        from soundbank import build
+        root=work/'full_scale_source';root.mkdir(parents=True,exist_ok=True);rate=48000;t=np.arange(2*rate)/rate
+        for name,f0,amp in (('A3',220.0,.5),('C4',261.63,.03)):
+            x=amp*np.exp(-t*2)*np.sin(2*np.pi*f0*t);write_wav(root/f'p_{name}.wav',np.repeat(x[:,None],2,1),rate,len(x))
+        layer={'dir':'.','pattern':r'p_(?P<note>[A-G]#?\d)\.wav','dynamics':['default'],'velocity':{'default':[1,127]},'keys':[55,62],
+               'pitch_check':False}
+        def made(name,extra):
+            build({'name':name,'target_rms':0.05,'presets':[{'name':'p','program':0,'layers':[{**layer,**extra}]}]},root,work/f'{name}.sf2')   # under the 36 dB the lift stops at
+            bank=sf2.read(work/f'{name}.sf2');out={}
+            for z in bank['instruments'][0]['zones'][1:]:
+                i=z['gens'][53];out[bank['samples'][i]['name']]=(float(np.max(np.abs(sf2.load_sample(bank,i)))),z['gens'].get(48,0)*sf2.EMU_ATTENUATION/10)
+            return out
+        plain,full=made('plain',{}),made('full',{'full_scale':True})
+        assert set(plain)==set(full) and len(plain)==4,(sorted(plain),sorted(full))
+        lifts={}
+        for name in plain:
+            (p0,a0),(p1,a1)=plain[name],full[name]
+            assert a0==0 and p0<0.5,(name,p0,a0)                                   # stored under full scale, no attenuation
+            assert 0.98*10**(-0.05/20)<=p1<=0.981,(name,p1)                        # as loud as 16 bits hold
+            assert abs(20*np.log10(p1/p0)-a1)<0.02,(name,p0,p1,a1)                 # and attenuated by as much
+            lifts[name]=round(a1,2)
+        assert all(v>3 for v in lifts.values()),lifts                               # each take had room to be raised
+        return {'stored_lift_db':lifts}
+    check('full_scale_storage_keeps_the_level_heard',full_scale_keeps_the_level)
+    def code_review_of_0_7():
+        # The independent review of 0.7's code (pull request 14) found twelve defects by running inputs the checks
+        # above did not, and showed by breaking the code that several of those checks passed with a function disabled.
+        # Each finding's input is here with its known answer, and each gap it named has a case that fails when the
+        # code is broken the way the review broke it.
+        import hashlib
+        from musiclib import association,sf2,views
+        from musiclib.loop import write_wav
+        from musiclib.plan import _moved,compare
+        from musiclib.review import review
+        from musiclib.revision import keep_plan
+        from soundbank import build,close_settled_bands
+        ids=lambda r:[q['id'] for q in r['questions']]
+        # F01.  A take of 440 Hz with a small partial at 5 kHz that loses under a decibel a second: it holds as still
+        # against the top band as hiss does, and it was removed from 0.06 s on.  Its band and the band above, whose
+        # filter passes a fifth of it, stay as recorded; the bands further up, which hold hiss alone, close.
+        rate=48000;t=np.arange(6*rate)/rate;rng=np.random.default_rng(17)
+        def band(z,lo,hi,a,b):
+            seg=z[int(a*rate):int(b*rate),0].astype(np.float64);w=np.hanning(len(seg))
+            s=np.abs(np.fft.rfft(seg*w))**2;f=np.fft.rfftfreq(len(seg),1/rate)
+            return 10*np.log10(s[(f>=lo)&(f<hi)].sum()+1e-30)
+        low=0.3*np.exp(-0.6*t)*np.sin(2*np.pi*440*t)
+        x=low+0.03*np.exp(-0.1*t)*np.sin(2*np.pi*5000*t)+1e-5*rng.standard_normal(len(t))
+        x=np.stack([x,x],axis=1).astype(np.float32);y,report=close_settled_bands(x,rate);got={r['band'][0]:r for r in report}
+        assert 'narrow component' in got[4000].get('left','') and 'narrow component' in got[5657].get('left',''),report
+        assert abs(band(y,4000,5657,1,2)-band(x,4000,5657,1,2))<0.2,(band(y,4000,5657,1,2),band(x,4000,5657,1,2))
+        assert all('closed_s' in got[b] for b in got if b>=8000),report
+        # A tone 20 dB under the hiss of its band is not heard in it and does not keep the band: hiss at -70 dB of full
+        # scale puts 8.3e-5 into 4000-5657 Hz, and the tone is a tenth of that.
+        hiss=10**(-70/20)*rng.standard_normal(len(t));masked=low+hiss+1.2e-5*np.sin(2*np.pi*5000*t)
+        masked=np.stack([masked,masked],axis=1).astype(np.float32);cleared,rep=close_settled_bands(masked,rate)
+        assert 'closed_s' in {r['band'][0]:r for r in rep}[4000] and band(cleared,8000,20000,1,2)<band(masked,8000,20000,1,2)-30,rep
+        # Where the top band holds a partial of its own that falls as the others do (an FM voice: 3 kHz and 18 kHz dying
+        # at one rate), a band read against it is settled from the first frame, and the top band is read against its
+        # own level at one second, where its partial still sounds.  Both close after their partials have gone (they
+        # reach a tenth of their band's hiss at about 1.7 s), not through them; a band no partial reaches closes at once.
+        fm=low+0.05*np.exp(-5*t)*np.sin(2*np.pi*3000*t)+0.15*np.exp(-5*t)*np.sin(2*np.pi*18000*t)+10**(-80/20)*rng.standard_normal(len(t))
+        fm=np.stack([fm,fm],axis=1).astype(np.float32);kept,rep=close_settled_bands(fm,rate);voice={r['band'][0]:r for r in rep}
+        assert all(voice[b].get('after_a_partial') and 1.4<voice[b]['closed_s']<2.4 for b in (2828,16000)) and voice[8000]=={'band':[8000,11314],'closed_s':0.06},rep
+        assert abs(band(kept,2828,4000,0.1,1.0)-band(fm,2828,4000,0.1,1.0))<0.1 and abs(band(kept,16000,24000,0.1,1.0)-band(fm,16000,24000,0.1,1.0))<0.4
+        assert band(kept,2828,4000,3.5,5)<band(fm,2828,4000,3.5,5)-30 and band(kept,8000,11314,3.5,5)<band(fm,8000,11314,3.5,5)-30
+        # The second review, R1: read as one average, the later part of a take hid a tone that lasts part of it, and the
+        # last 15 per cent was not read.  A 5 kHz tone of 0.6 s at the seventh second of eight keeps its bands as
+        # recorded; the same tone at the first second only moves their closing to after it.
+        t8=np.arange(8*rate)/rate;note=0.3*np.exp(-0.6*t8)*np.sin(2*np.pi*440*t8)
+        def with_tone(at):
+            z=note+10**(-70/20)*rng.standard_normal(len(t8))+((t8>=at)&(t8<at+0.6))*3e-3*np.sin(2*np.pi*5000*t8)
+            return np.stack([z,z],axis=1).astype(np.float32)
+        z=with_tone(7.0);kept,rep=close_settled_bands(z,rate);r={q['band'][0]:q for q in rep}
+        assert 'narrow component' in r[4000].get('left','') and 'left' in r[5657] and abs(band(kept,4800,5200,7.0,7.6)-band(z,4800,5200,7.0,7.6))<0.1,rep
+        z=with_tone(1.0);kept,rep=close_settled_bands(z,rate);r={q['band'][0]:q for q in rep}
+        assert r[4000].get('after_a_partial') and 1.86<r[4000]['closed_s']<2.3 and abs(band(kept,4800,5200,1.0,1.6)-band(z,4800,5200,1.0,1.6))<0.2,rep
+        assert band(kept,4000,5657,4,6)<band(z,4000,5657,4,6)-30
+        # R2: a fade of the whole recording does not make tones of its hiss.  Each window is read against its own
+        # floor, so under a fade of 0, 4, 8 or 12 dB a second the bands over 8 kHz close at once, as they did before
+        # the take was read for partials, and their hiss is gone (read against the later part's floor, the earlier
+        # hiss stood over it and its chance peaks held the bands).
+        for fade in (0,4,8,12):
+            z=(note+10**(-70/20)*rng.standard_normal(len(t8)))*10**(-fade*t8/20)
+            z=np.stack([z,z],axis=1).astype(np.float32);kept,rep=close_settled_bands(z,rate);r={q['band'][0]:q for q in rep}
+            assert all(r[b].get('closed_s')==0.06 and not r[b].get('after_a_partial') for b in (8000,11314)),(fade,rep)
+            assert band(kept,8000,16000,1,2)<band(z,8000,16000,1,2)-30,fade
+        # Found after the last review, on the Osiris piano, whose recordings fade out at their end: a window that lies
+        # over a fade inside the take is ruled by its loudest frame, whose chance peaks then pass for a tone (R2 within
+        # one window).  Ten takes of a note and hiss, two channels, the last half second faded out: none holds a band
+        # over 8 kHz for a narrow component (four in ten did), and each loses its hiss there.
+        t10=np.arange(10*44100)/44100;out_fade=np.clip((10.0-t10)/0.5,0,1)**3
+        for seed in range(10):
+            g2=np.random.default_rng(seed)
+            z=np.stack([0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-75/20)*g2.standard_normal(len(t10)) for _ in range(2)],axis=1)
+            z=(z*out_fade[:,None]).astype(np.float32);_,rep=close_settled_bands(z,44100)
+            assert all(q.get('closed_s')==0.06 and not q.get('after_a_partial') for q in rep if q['band'][0]>=8000),(seed,rep)
+        # And what is left where a take has faded to nothing is not a tone: a 12 kHz component 120 dB under the take's
+        # peak, lost in the hiss until the hiss fades away under it, holds no band (it held the Osiris's: such
+        # 'components' lie under anything 16 bits store).
+        g2=np.random.default_rng(1);dust=10**(-120/20)*0.3*np.sin(2*np.pi*12000*t10)
+        gone=np.clip((9.4-t10)/0.5,0,1)**3                                              # nothing but that component in the last 0.6 s
+        z=np.stack([(0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-75/20)*g2.standard_normal(len(t10)))*gone+dust for _ in range(2)],axis=1)
+        _,rep=close_settled_bands(z,44100)
+        assert all(q.get('closed_s')==0.06 for q in rep if q['band'][0]>=8000),rep
+        # The focused round, R2: each channel has its own floor.  One channel keeps its hiss to the end while the other
+        # fades to nothing and leaves such a component: the leavings of the faded channel hold no band, whichever
+        # channel it is (with one channel's floor used for both, they held every band and the hiss stayed).
+        steady=0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-70/20)*np.random.default_rng(4).standard_normal(len(t10))
+        faded=(0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-75/20)*np.random.default_rng(5).standard_normal(len(t10)))*gone+10**(-120/20)*0.3*np.sin(2*np.pi*12000*t10)
+        for pair in ((steady,faded),(faded,steady)):
+            z=np.stack(pair,axis=1);_,rep=close_settled_bands(z,44100)
+            assert all(q.get('closed_s')==0.06 for q in rep if q['band'][0]>=8000),rep
+        # The final review, FR01: the floor that keeps those leavings out is the stored sample's, in the window's own
+        # units, and not the level the frames were set against.  A low note of 290 partials (55 Hz, each a k-th of
+        # the first, dying slowly) over very little hiss fills every half octave with partials; held at that level,
+        # the floor hid them and the band from 4 to 5.7 kHz lost 89 dB.  Its partials stay, with their phases as
+        # they are, at random, and where the upper ones are as strong as each other.
+        t4=np.arange(4*44100)/44100;g3=np.random.default_rng(913)
+        def low_note(amp,phase):
+            z=sum(amp(k)*np.sin(2*np.pi*55*k*t4+phase(k)) for k in range(1,291))*np.exp(-0.1*t4)+1e-6*g3.standard_normal(len(t4))
+            return np.repeat(z[:,None],2,1).astype(np.float32)
+        def band44(z,lo,hi,a,b):
+            seg=z[int(a*44100):int(b*44100),0].astype(np.float64);s=np.abs(np.fft.rfft(seg*np.hanning(len(seg))))**2;f=np.fft.rfftfreq(len(seg),1/44100)
+            return 10*np.log10(s[(f>=lo)&(f<hi)].sum()+1e-30)
+        turns=np.random.default_rng(7).uniform(0,2*np.pi,291)
+        for amp,phase in ((lambda k:0.3/k,lambda k:0.0),(lambda k:0.3/k,lambda k:turns[k]),(lambda k:0.3 if k==1 else 0.003,lambda k:turns[k])):
+            z=low_note(amp,phase);kept,rep=close_settled_bands(z,44100)
+            for lo,hi in ((2828,4000),(4000,5657),(8000,11314)):
+                assert abs(band44(kept,lo,hi,1,3)-band44(z,lo,hi,1,3))<0.5,(lo,band44(kept,lo,hi,1,3)-band44(z,lo,hi,1,3),rep)
+        # The final review's second look, SR02: two cases the check passed without.  A short 5 kHz tone with a burst of
+        # noise over a very quiet background: each frame's level is held no lower than the stored floor, or the quiet
+        # frames outweigh the loud ones in the window and the tone went (89 dB); its band closes after it.
+        t4b=np.arange(4*44100)/44100;g4=np.random.default_rng(328)
+        burst=np.where((t4b>=1.0)&(t4b<1.15),np.sin(np.pi*(t4b-1.0)/0.15)**2,0.0)
+        z=0.3*np.exp(-0.6*t4b)*np.sin(2*np.pi*262*t4b)+3e-5*burst*np.sin(2*np.pi*5000*t4b)+(1e-6+1e-4*burst)*g4.standard_normal(len(t4b))
+        z=np.repeat(z[:,None],2,1);kept,rep=close_settled_bands(z,44100);r={q['band'][0]:q for q in rep}
+        assert abs(band44(kept,4800,5200,1.0,1.15)-band44(z,4800,5200,1.0,1.15))<0.2 and ('left' in r[4000] or r[4000]['closed_s']>1.15),rep
+        # And each channel keeps its own floor to the end: a low note of crowded partials in one channel and a bare
+        # one under louder hiss in the other, either way round; with one channel's floor for both the crowded
+        # channel lost 89 dB between 4 and 5.7 kHz.
+        g5=np.random.default_rng(913)
+        crowded=sum((0.3/k)*np.sin(2*np.pi*55*k*t4b) for k in range(1,291))*np.exp(-0.1*t4b)+1e-6*g5.standard_normal(len(t4b))
+        bare=0.3*np.sin(2*np.pi*55*t4b)*np.exp(-0.1*t4b)+1e-4*g5.standard_normal(len(t4b))
+        for pair,ch in (((crowded,bare),0),((bare,crowded),1)):
+            z=np.stack(pair,axis=1);kept,_=close_settled_bands(z,44100)
+            def upper_of(v):
+                s=np.abs(np.fft.rfft(v[44100:3*44100,ch]*np.hanning(2*44100)))**2;f=np.fft.rfftfreq(2*44100,1/44100)
+                return 10*np.log10(s[(f>=4000)&(f<5657)].sum()+1e-30)
+            assert abs(upper_of(kept)-upper_of(z))<0.5,(ch,upper_of(kept)-upper_of(z))
+        # The third review, N1: each channel is read on its own.  A 5 kHz tone in the left channel alone, 8 dB over the
+        # hiss of its half octave there, under a right channel whose hiss is 30 dB louder: in the two channels' average
+        # it stands 2 dB over the floor and went unseen; its bands now wait for it, and the left channel keeps it.
+        left=note+10**(-70/20)*rng.standard_normal(len(t8))+((t8>=1.0)&(t8<1.6))*3e-4*np.sin(2*np.pi*5000*t8)
+        right=note+10**(-40/20)*rng.standard_normal(len(t8))
+        z=np.stack([left,right],axis=1).astype(np.float32);kept,rep=close_settled_bands(z,rate);r={q['band'][0]:q for q in rep}
+        assert (r[4000].get('after_a_partial') and r[4000]['closed_s']>=1.6) or 'left' in r[4000],rep
+        assert abs(band(kept,4900,5100,1.0,1.6)-band(z,4900,5100,1.0,1.6))<0.3,(band(kept,4900,5100,1.0,1.6),band(z,4900,5100,1.0,1.6))
+        # N2: the take is read to its end, whatever its length, and a window ends where its last frame ends.  A take
+        # of 8.075 s whose last 50 ms hold a 5 kHz tone keeps that tone's bands (the frames had stopped 54 ms short of
+        # the end); and the bands of a tone that ends at 1.6 s close no sooner than its last window ends, 1.88 s
+        # (they closed at 1.84 s, one step of the frames early).
+        # (The frames are 4096 samples every 2048 at this rate; the take is cut so that they stop 2040 samples before
+        # its end, and the tone lies in the last 1900.)
+        from soundbank import _onset
+        t9=np.arange(9*rate)/rate;z=0.3*np.exp(-0.6*t9)*np.sin(2*np.pi*440*t9)+10**(-70/20)*rng.standard_normal(len(t9))
+        cut=_onset(np.stack([z,z],axis=1).astype(np.float32))+4096+187*2048+2040;z=z[:cut].copy();k=np.arange(1900)
+        z[-1900:]+=np.clip(k/200,0,1)*0.01*np.sin(2*np.pi*5000*k/rate)
+        z=np.stack([z,z],axis=1).astype(np.float32);kept,rep=close_settled_bands(z,rate);r={q['band'][0]:q for q in rep}
+        end=cut/rate;assert 'left' in r[4000] and 'left' in r[5657] and abs(band(kept,4800,5200,end-0.035,end)-band(z,4800,5200,end-0.035,end))<0.1,rep
+        z=with_tone(1.0);kept,rep=close_settled_bands(z,rate);r={q['band'][0]:q for q in rep}
+        assert 1.86<r[4000]['closed_s']<2.3 and 1.86<r[5657]['closed_s']<2.3,rep
+        # F02, F03, F08 and the gap around soft_from: banks built from made-up takes.  Two keys, three round robins, a
+        # loud dynamic (2) and a soft one (1) whose takes are noise, except C4's first (each partial 2 dB under the
+        # one before, against the loud take) and third (6 dB).
+        root=work/'review_source';root.mkdir(parents=True,exist_ok=True);r2=44100;n=3*r2;u=np.arange(n)/r2;g=np.random.default_rng(5)
+        def take(f0,fall_db,scale,noise_db):
+            z=sum(10**((-2.0*k-fall_db*k)/20)*np.exp(-u*(1.0+0.5*k))*np.sin(2*np.pi*f0*(k+1)*u) for k in range(16))
+            z=np.concatenate([np.zeros(200),z])[:n]*0.25*scale+(10**(noise_db/20)*g.standard_normal(n) if noise_db is not None else 0.0)
+            return np.repeat(z[:,None],2,1)
+        for note,f0 in (('A3',220.0),('C4',261.63)):
+            for rr in (1,2,3):
+                write_wav(root/f'p_{note}_vl2_rr{rr}.wav',take(f0,0.0,1.0,None),r2,n)   # one loud take, in every round robin
+                fall={('C4',1):2.0,('C4',3):6.0}.get((note,rr))
+                write_wav(root/f'p_{note}_vl1_rr{rr}.wav',take(f0,fall or 0.0,0.3 if fall else 0.0,-60.0),r2,n)
+        layer={'dir':'.','pattern':r'p_(?P<note>[A-G]#?\d)_vl(?P<dyn>\d)_rr(?P<rr>\d)\.wav','dynamics':['1','2'],'velocity':{'1':[1,64],'2':[65,127]},
+               'keys':[55,62],'pitch_check':False,'match_notes':False}   # no take pulled toward another: one gain for all
+        def bank(name,presets,target=0.05):
+            build({'name':name,'target_rms':target,'presets':[{'name':f'p{k}','program':k,'layers':[l]} for k,l in enumerate(presets)]},root,work/f'{name}.sf2')
+            return sf2.read(work/f'{name}.sf2')
+        used=lambda b,k:{z['gens'][53] for z in b['instruments'][k]['zones'] if 53 in z['gens']}
+        def hissy(b,i):                                       # the share of a stored sample's power between 12 and 18 kHz, dB
+            z=np.asarray(sf2.load_sample(b,i),dtype=np.float64);s=np.abs(np.fft.rfft(z*np.hanning(len(z))))**2;f=np.fft.rfftfreq(len(z),1/r2)
+            return 10*np.log10(s[(f>=12000)&(f<18000)].sum()/s.sum())
+        recorded=bank('review_recorded',[{**layer,'round_robins':[1,2]}])
+        made=bank('review_made',[{**layer,'round_robins':[1,2],'soft_from':{'1':'2'}},{**layer,'round_robins':[2,3],'soft_from':{'1':'2'}}])
+        # soft_from in a build, not only its two functions: three of the recorded soft takes are hiss and nothing else
+        # (a quarter of white noise lies between 12 and 18 kHz, -6 dB), and no take a build stores in their place is
+        # (a build that skipped soft_from passed every check before this one).
+        assert sum(hissy(recorded,i)>-10 for i in used(recorded,0))==6,[round(hissy(recorded,i)) for i in used(recorded,0)]
+        assert all(hissy(made,i)<-15 for i in used(made,0)|used(made,1)),[round(hissy(made,i)) for i in used(made,0)|used(made,1)]
+        # F03.  The second round robin's soft A3 belongs to both presets and borrows C4's curve: the first preset's
+        # from the first round robin (2 dB a partial), the second's from the third (6 dB).  They are two takes and
+        # are stored as two; named by the borrowed key alone they were one, the second preset playing the first's.
+        def stored_as(k,name):
+            return next(z['gens'][53] for z in made['instruments'][k]['zones'] if 53 in z['gens'] and made['samples'][z['gens'][53]]['name']==name)
+        first,second=stored_as(0,'p_A3_vl1_rr2L'),stored_as(1,'p_A3_vl1_rr2L')
+        assert first!=second and not np.array_equal(sf2.load_sample(made,first),sf2.load_sample(made,second)),(first,second)
+        both=used(made,0)&used(made,1);assert both,'the loud take is one take in both presets'
+        # F02.  Stored 36 dB louder under an attenuation of 40 dB, a take needs 76 dB of attenuation, and the file
+        # holds 57.6: the build stops and says so, where it wrote 57.6 and played 18 dB too loud.  Under 15 dB it
+        # builds, and what is heard (the stored peak less the zone's attenuation) is what the plain build gives.
+        plain_layer={k:v for k,v in layer.items()};plain_layer.update(dynamics=['2'],velocity={'2':[1,127]},round_robins=[1])
+        try:bank('review_over',[{**plain_layer,'full_scale':True,'attenuation_db':40}],target=0.005);raise AssertionError('an attenuation the file cannot hold was written')
+        except ValueError as e:assert 'cannot be written' in str(e),e
+        def heard(b,k):                                       # per stored sample: its peak, and its zone's attenuation as heard
+            zones=b['instruments'][k]['zones'];out={}
+            everywhere=next((z['gens'].get(48,0) for z in zones if 53 not in z['gens']),0)   # the instrument's global zone, which a zone's own value replaces
+            for z in zones:
+                if 53 in z['gens']:
+                    i=z['gens'][53];att=z['gens'].get(48,everywhere)*sf2.EMU_ATTENUATION/10
+                    out[b['samples'][i]['name']]=(float(np.max(np.abs(sf2.load_sample(b,i)))),att)
+            return out
+        quiet=heard(bank('review_quiet',[{**plain_layer,'attenuation_db':15}],target=0.005),0)
+        lifted=heard(bank('review_lifted',[{**plain_layer,'full_scale':True,'attenuation_db':15}],target=0.005),0)
+        assert set(quiet)==set(lifted) and len(quiet)==4,(sorted(quiet),sorted(lifted))
+        for name in quiet:
+            (p0,a0),(p1,a1)=quiet[name],lifted[name]
+            assert p1>0.9 and p0<0.1 and abs((20*np.log10(p1)-a1)-(20*np.log10(p0)-a0))<0.05,(name,quiet[name],lifted[name])
+        # F08.  A take that a plain preset and a full-scale one share is stored once for each, whichever comes first:
+        # the plain one's under full scale with no lift, the other's at full scale.
+        for order in ((False,True),(True,False)):
+            b=bank(f'review_mixed{int(order[0])}',[{**plain_layer,**({'full_scale':True} if full else {})} for full in order])
+            for k,full in enumerate(order):
+                peaks=[p for p,_ in heard(b,k).values()]
+                assert all((p>0.9) is full for p in peaks),(order,k,peaks)
+        # The second review, R4: with `close_hiss` skipped by the builder every check passed, since only the function
+        # was checked.  One take of 440 Hz under hiss, built with the option and without: the stored sample of the
+        # first holds 20 dB less between 8 and 20 kHz, and the build's record says which bands it closed.
+        hroot=work/'review_hiss_source';hroot.mkdir(parents=True,exist_ok=True)
+        hz=0.3*np.exp(-0.6*t)*np.sin(2*np.pi*440*t)+10**(-60/20)*np.random.default_rng(3).standard_normal(len(t))
+        write_wav(hroot/'p_A4.wav',np.repeat(hz[:,None],2,1),rate,len(hz))
+        hlayer={'dir':'.','pattern':r'p_(?P<note>[A-G]#?\d)\.wav','dynamics':['default'],'velocity':{'default':[1,127]},'keys':[69,69],'pitch_check':False}
+        def top_share(name,extra):
+            record=build({'name':name,'target_rms':0.05,'presets':[{'name':'p','program':0,'layers':[{**hlayer,**extra}]}]},hroot,work/f'{name}.sf2')
+            b=sf2.read(work/f'{name}.sf2');z=np.asarray(sf2.load_sample(b,0),dtype=np.float64)
+            s=np.abs(np.fft.rfft(z*np.hanning(len(z))))**2;f=np.fft.rfftfreq(len(z),1/rate)
+            return 10*np.log10(s[(f>=8000)&(f<20000)].sum()/s.sum()),[x.get('closed_bands') for x in record['files']]
+        (open_db,open_rows),(closed_db,closed_rows)=top_share('review_hiss_open',{}),top_share('review_hiss_closed',{'close_hiss':{}})
+        assert closed_db<open_db-20 and not any(open_rows) and any('closed_s' in c for c in closed_rows[0]),(open_db,closed_db,closed_rows)
+        # FR01 in a bank as it is stored: the low note of 290 partials, built at full scale with `close_hiss` and
+        # without, keeps what it holds between 4 and 5.7 kHz against its first partial (it stood 73 dB lower).
+        froot=work/'review_low_source';froot.mkdir(parents=True,exist_ok=True)
+        fz=sum((0.3/k)*np.sin(2*np.pi*55*k*np.arange(4*rate)/rate) for k in range(1,291))*np.exp(-0.1*np.arange(4*rate)/rate)+1e-6*np.random.default_rng(913).standard_normal(4*rate)
+        write_wav(froot/'p_A1.wav',np.repeat((fz/np.abs(fz).max()*0.5)[:,None],2,1),rate,len(fz))
+        flayer={'dir':'.','pattern':r'p_(?P<note>[A-G]#?\d)\.wav','dynamics':['default'],'velocity':{'default':[1,127]},'keys':[33,33],'pitch_check':False,'full_scale':True}
+        def upper(name,extra):
+            build({'name':name,'target_rms':0.05,'presets':[{'name':'p','program':0,'layers':[{**flayer,**extra}]}]},froot,work/f'{name}.sf2')
+            b=sf2.read(work/f'{name}.sf2');z=np.asarray(sf2.load_sample(b,0),dtype=np.float64)[rate:3*rate]
+            s=np.abs(np.fft.rfft(z*np.hanning(len(z))))**2;f=np.fft.rfftfreq(len(z),1/rate)
+            return 10*np.log10(s[(f>=4000)&(f<5657)].sum()/s[(f>=40)&(f<70)].sum())
+        assert abs(upper('review_low_closed',{'close_hiss':{}})-upper('review_low_open',{}))<0.5
+        # The third review, N4: and in one bank, where a take is loaded once for the presets that treat it alike.  Two
+        # presets on that take, one with `close_hiss`, in either order: each stores its own sample, the closed one
+        # 20 dB lower up there, and only its rows of the record name closed bands (with the option left out of the
+        # loaded take's key, the second preset played the first one's sample, and every check passed).
+        for order in ((False,True),(True,False)):
+            name=f'review_hiss_both{int(order[0])}'
+            record=build({'name':name,'target_rms':0.05,'presets':[{'name':f'p{k}','program':k,'layers':[{**hlayer,**({'close_hiss':{}} if closes else {})}]} for k,closes in enumerate(order)]},hroot,work/f'{name}.sf2')
+            b=sf2.read(work/f'{name}.sf2');shares=[]
+            for k in range(2):
+                i=next(z['gens'][53] for z in b['instruments'][k]['zones'] if 53 in z['gens']);z=np.asarray(sf2.load_sample(b,i),dtype=np.float64)
+                s=np.abs(np.fft.rfft(z*np.hanning(len(z))))**2;f=np.fft.rfftfreq(len(z),1/rate);shares.append(10*np.log10(s[(f>=8000)&(f<20000)].sum()/s.sum()))
+            closed_k=order.index(True)
+            assert shares[closed_k]<shares[1-closed_k]-20,(order,shares)
+            assert sum(1 for x in record['files'] if x.get('closed_bands'))==1,(order,[bool(x.get('closed_bands')) for x in record['files']])
+        # And the derived presets of a full-scale layer (one for each dynamic, and their legato forms) attenuate by the
+        # lift as the ordinary preset does: zone by zone, what is heard (the stored peak less the attenuation) is what
+        # the same spec gives without `full_scale`, under an attenuation of the layer's own.
+        def heard_everywhere(name,full):
+            l={**layer,'round_robins':[1],'attenuation_db':6,**({'full_scale':True} if full else {})}
+            build({'name':name,'target_rms':0.01,'presets':[{'name':'p','program':0,'layers':[l],'dynamic_layers':{'bank':16},'legato':{'bank':32,'attack':0.01}}]},root,work/f'{name}.sf2')
+            b=sf2.read(work/f'{name}.sf2');out=[]
+            for inst in b['instruments']:
+                everywhere=next((z['gens'].get(48,0) for z in inst['zones'] if 53 not in z['gens']),0)
+                out.append([(float(np.max(np.abs(sf2.load_sample(b,z['gens'][53])))),z['gens'].get(48,everywhere)*sf2.EMU_ATTENUATION/10) for z in inst['zones'] if 53 in z['gens']])
+            return out
+        plain_all,full_all=heard_everywhere('review_derived_plain',False),heard_everywhere('review_derived_full',True)
+        assert len(plain_all)==len(full_all)>=5 and all(len(a)==len(b)>0 for a,b in zip(plain_all,full_all)),(len(plain_all),len(full_all))
+        for k,(a,b) in enumerate(zip(plain_all,full_all)):
+            for (p0,a0),(p1,a1) in zip(a,b):
+                # A peak of n steps of 16 bits is known to half a step: 8.7/n dB at most.
+                assert p1>p0*4 and abs((20*np.log10(p1)-a1)-(20*np.log10(p0)-a0))<0.05+8.7/(p0*32768),(k,p0,a0,p1,a1)
+        # The focused round, R4: where the step is used is part of what ships.  The specs name it on the instruments a
+        # piece leaves alone and on no other (with `close_hiss` put back on the Kawai, every check passed).
+        specs=Path(association.LIST).parent/'soundbanks';closing=set()
+        for spec_file in sorted(specs.glob('*.json')):
+            for preset in json.loads(spec_file.read_text(encoding='utf-8')).get('presets',[]):
+                if any('close_hiss' in l for l in preset.get('layers',[])):closing.add((spec_file.stem,preset['name']))
+        assert closing=={('iowa_guitar','Nylon Guitar'),('vcsl_world','Folk Harp'),('vcsl','Concert Harp'),('vcsl','Vibraphone'),('vcsl','Tubular Bells'),
+                         ('osiris_piano','Osiris Piano'),('osiris_piano','Osiris Piano Pedal')},sorted(closing)
+        # F04.  A decision for the question of a section named "answer: reprise" does not answer the question of the
+        # section "answer", whose identifier it also begins with.
+        p=example()
+        p['plan']={'identity':'a question and its answer','sections':[{'section':'answer','sounds':['piano','bass','lead','drums','brass']},
+                                                                 {'section':'answer: reprise','sounds':['piano']}]}
+        r=review(p,work/'review_f04a');assert {'plan:answer','plan:answer:%20reprise'}<=set(ids(r)) and not any(': ' in i for i in ids(r)),ids(r)
+        p['decisions']=p['decisions']+['plan:answer:%20reprise: planned for a later version, not in this piece']
+        r=review(p,work/'review_f04b')
+        assert 'plan:answer' in ids(r) and 'plan:answer:%20reprise' not in ids(r),ids(r)
+        assert [(a['id'],a['reason']) for a in r['answered']]==[('plan:answer:%20reprise','planned for a later version, not in this piece')],r['answered']
+        # The third review, N3: every name keeps an identifier of its own.  The sections "answer: reprise",
+        # "answer:reprise" and "answer:%20reprise" are three, and a decision for one answers that one.
+        from musiclib.review import identifier
+        three=[identifier('plan',n) for n in ('answer: reprise','answer:reprise','answer:%20reprise')]
+        assert three==['plan:answer:%20reprise','plan:answer:reprise','plan:answer:%2520reprise'] and identifier('plan','a:  b: c')=='plan:a:%20 b:%20c',three
+        # The fourth review, T1: an identifier of two names keeps them apart.  Sections named "a+b", "c", "a" and
+        # "b+c", alike in pairs: the pairs ("a+b", "c") and ("a", "b+c") have an identifier each, where both were
+        # sections_alike:a+b+c, and a decision for one pair leaves the other asked.
+        assert identifier('sections_alike','a+b','c')=='sections_alike:a%2Bb+c' and identifier('sections_alike','a','b+c')=='sections_alike:a+b%2Bc'
+        four=example();four.pop('harmony',None);four.pop('style',None);four['clock']={'bars':8,'meter':[4,4],'tempo':[[0,100]],'tail_seconds':1}
+        four['sections']=[{'id':n,'start_bar':i*2,'bars':2} for i,n in enumerate(('a+b','c','a','b+c'))]
+        only=four['tracks'][0];only['notes']=[{'id':f'n{i}','on':i*4,'duration':2,'pitch':60} for i in range(8)]
+        only['performance']={'notes':{m['id']:{'velocity':80} for m in only['notes']}};four['tracks']=[only];four['decisions']=[]
+        alike=[i for i in ids(review(four,work/'review_pairs')) if i.startswith('sections_alike')]
+        assert {'sections_alike:a%2Bb+c','sections_alike:a+b%2Bc'}<=set(alike) and len(alike)==len(set(alike)),alike
+        four['decisions']=['sections_alike:a%2Bb+c: only these two keep one texture, by design'];r=review(four,work/'review_pairs_decided')
+        assert 'sections_alike:a+b%2Bc' in ids(r) and [a['id'] for a in r['answered']]==['sections_alike:a%2Bb+c'],(ids(r),r['answered'])
+        twins=example();twins['plan']={'identity':'x','sections':[{'section':'answer: reprise','sounds':['piano']},{'section':'answer:reprise','sounds':['piano']}]}
+        twins['decisions']=twins['decisions']+['plan:answer:reprise: only this one is planned for later']
+        r=review(twins,work/'review_twins')
+        assert 'plan:answer:%20reprise' in ids(r) and [a['id'] for a in r['answered']]==['plan:answer:reprise'],(ids(r),r['answered'])
+        # The second review, R3: when the plan no longer names the reprise, that decision answers nothing; it does not
+        # move to the question of "answer", which is still asked.  An identifier is the text before a decision's first
+        # colon and space, so the same decision written with a space after "answer:" is a decision for "answer".
+        p['plan']['sections'].pop();r=review(p,work/'review_f04c')
+        assert 'plan:answer' in ids(r) and r['answered']==[],(ids(r),r['answered'])
+        p['decisions'][-1]='plan:answer: reprise: planned for a later version';r=review(p,work/'review_f04d')
+        assert 'plan:answer' not in ids(r) and [(a['id'],a['reason']) for a in r['answered']]==[('plan:answer','reprise: planned for a later version')],r['answered']
+        from musiclib import summary as said
+        assert any(line.startswith('1. [') and '] ' in line for line in said.review(review(example(),work/'review_ids'),work/'review_ids').splitlines())
+        # The second review, R5: the question about a piano on another piano is asked of the project's own banks.  A
+        # default bank is General MIDI where it is the one the setup installs; one that someone configured themselves
+        # may hold an organ at program 0, and was asked about as the Acoustic Grand.
+        from musiclib.review import own_banks,piano_choice
+        pinned=next(d['sha256'] for d in json.loads((Path(association.LIST).parent/'runtime-lock.json').read_text(encoding='utf-8'))['downloads'] if d.get('id')=='soundfont')
+        ours={'soundfont':{'sha256':pinned},'soundfonts':{'vcsl':{'version':'build b8'},'vcsl_keys':{'version':'build b4'},'mine':{'version':'1.0'}}}
+        theirs={'soundfont':{'sha256':'0'*64},'soundfonts':{'vcsl':{'version':'build b8'}}}
+        assert own_banks(ours)=={'default','vcsl','vcsl_keys'} and own_banks(theirs)=={'vcsl'} and own_banks({})==set()
+        q=example();assert [i for i,_ in piano_choice(q,own_banks(ours))]==[f'piano:{q["tracks"][0]["id"]}'] and piano_choice(q,own_banks(theirs))==[]
+        # F05.  A round whose project has no plan carries the first plan on and says the plan is gone; the plan written
+        # again a round later is read against the first, not taken for it.
+        plan_a={'identity':'first','sections':[{'section':'question','sounds':['piano']}]};plan_b={'identity':'second','sections':[{'section':'question','sounds':['bass']}]}
+        with_a=example();with_a['plan']=plan_a;with_b=example();with_b['plan']=plan_b
+        one=work/'review_round1';(one/'render').mkdir(parents=True);rec1={};keep_plan(rec1,with_a,None);save_json(one/'round.json',rec1)
+        two=work/'review_round2';(two/'render').mkdir(parents=True);rec2={};gone=keep_plan(rec2,example(),one/'render');save_json(two/'round.json',rec2)
+        assert rec2['plan_first']==plan_a and 'plan' not in rec2 and gone==rec2['plan_changed'] and 'the whole plan' in gone[0],rec2
+        rec3={};moved=keep_plan(rec3,with_b,two/'render')
+        assert rec3['plan_first']==plan_a and rec3['plan']==plan_b and moved and 'identity' in moved,rec3
+        assert keep_plan({},example(),None) is None                                   # no plan and none before: nothing to keep
+        # F06.  Two harmony entries at one beat with one symbol and different transpositions pass validate, and review
+        # reads them (sorting the parsed chords compared two dicts).
+        p=example();p['harmony']=[{'bar':1,'symbol':'C','transpose_semitones':0},{'bar':1,'symbol':'C','transpose_semitones':2},{'bar':3,'symbol':'G'}]
+        assert validate(p)['warnings']==[] and review(p,work/'review_f06')['views']['harmony_pace']['entries']==3
+        # F07, F10.  A write that fails part way leaves no record, so the next run draws; a record that is there and is
+        # not one is refused with what it lacks, and never read as a record with words.
+        d=work/'review_assoc';d.mkdir();real_dump=json.dump
+        def failing(value,f,**k):
+            f.write('{"source":');f.flush();raise OSError('disk full')
+        json.dump=failing
+        try:
+            try:association.keep(str(d),seed=7);raise AssertionError('the write did not fail')
+            except OSError:pass
+        finally:json.dump=real_dump
+        assert not (d/'association.json').exists() and [x.name for x in d.iterdir()]==[],[x.name for x in d.iterdir()]
+        record,was_made=association.keep(str(d),seed=7);assert was_made and record['words']==association.draw(7)
+        # The third review, N5: what `words` writes it reads again, a seed under nought included (-7 was written, and
+        # the next run refused the record).
+        neg=work/'review_assoc_negative';neg.mkdir();first,was=association.keep(str(neg),seed=-7)
+        assert was and first['seed']==-7 and association.keep(str(neg))==(first,False)
+        # The record says how it was drawn: the seed given and the hash of the list as it is.
+        assert record['seed']==7 and record['list_sha256']==hashlib.sha256(Path(association.LIST).read_bytes()).hexdigest() and record['count']==12
+        for k,bad in enumerate(({}, {'source':'draw','words':None}, {'source':'draw','words':[7]}, {'source':'draw','words':[]}, {'source':'none','words':['x']}, {'source':'other','words':['x']})):
+            e=work/f'review_assoc_bad{k}';e.mkdir();(e/'association.json').write_text(json.dumps(bad),encoding='utf-8')
+            assert rejects(lambda:association.keep(str(e))),bad
+        # The second review, R6: a record that says it is a draw is one.  One word, twelve times one word, a draw whose
+        # words are not its seed's: each is refused.  A draw from a list this copy no longer has cannot be checked and is kept.
+        good=dict(record);other='zebra' if 'zebra' not in record['words'] else 'yak'
+        for k,change in enumerate(({'words':['one'],'count':1,'seed':None},{'words':['wrong']*12},{'words':record['words'][:11]+[other]},
+                                   {'seed':8},{'count':11},{'list_sha256':'0'*63},{'seed':True})):
+            e=work/f'review_assoc_draw{k}';e.mkdir();(e/'association.json').write_text(json.dumps({**good,**change}),encoding='utf-8')
+            assert rejects(lambda:association.keep(str(e))),change
+        e=work/'review_assoc_old_list';e.mkdir();(e/'association.json').write_text(json.dumps({**good,'list_sha256':'0'*64,'words':['a','b','c'],'count':3}),encoding='utf-8')
+        assert association.keep(str(e))[1] is False
+        e=work/'review_assoc_old_count';e.mkdir();(e/'association.json').write_text(json.dumps({**good,'list_sha256':'0'*64,'words':['a','b','c'],'count':2}),encoding='utf-8')
+        assert rejects(lambda:association.keep(str(e)))                            # its count is not the number of its words
+        cut=work/'review_assoc_cut';cut.mkdir();(cut/'association.json').write_text('{"source":',encoding='utf-8')
+        try:association.keep(str(cut));raise AssertionError('half a record was read')
+        except ValueError as e:assert 'cut short' in str(e) and 'words' in str(e),e
+        # Three things said of one level are one level: the count is of levels, not of entries.
+        p=example();p['association']={'source':'draw','seed':7,'words':record['words'],'whole':'One scene.',
+                                      'gives':[{'level':'form','what':w,'where':'all'} for w in 'abc']}
+        assert [i for i in ids(review(p,work/'review_levels')) if i.startswith('association')]==['association.gives']
+        # The plan's words have known answers at their steps (a function that always said yes, or always no, passed):
+        # a move of the step counts, less does not, and `same` is neither.
+        assert _moved('higher',2,2,'higher','lower') and not _moved('higher',1.9,2,'higher','lower') and not _moved('higher',-2,2,'higher','lower')
+        assert _moved('lower',-2,2,'higher','lower') and not _moved('lower',-1.9,2,'higher','lower') and not _moved('lower',2,2,'higher','lower')
+        assert _moved('same',1.9,2,'higher','lower') and not _moved('same',2,2,'higher','lower') and not _moved('same',-2,2,'higher','lower')
+        # Register, dynamics and the harmony's pace read from a score: the second section's lead an octave up and 20
+        # louder, with two chord changes where the first has one.  F11: sections that change chord once in three bars
+        # and three times in eight are 0.042 apart, under the step of 0.05, where their rounded figures stood 0.05 apart.
+        def piece(bars_a,bars_b,changes_a,changes_b,lift=12,louder=20):
+            notes=[{'id':f'l{i}','on':4.0*i,'duration':2,'pitch':60+(lift if i>=bars_a else 0)} for i in range(bars_a+bars_b)]
+            harmony=[{'bar':1,'symbol':'C'}]+[{'bar':2+k,'symbol':('F','C')[k%2]} for k in range(changes_a)]
+            harmony+=[{'bar':bars_a+1+k,'symbol':('G','Am')[k%2]} for k in range(changes_b)]
+            return {'title':'v','clock':{'bars':bars_a+bars_b,'meter':[4,4],'tempo':[[0,120]]},
+                    'sections':[{'id':'a','start_bar':0,'bars':bars_a},{'id':'b','start_bar':bars_a,'bars':bars_b}],
+                    'tracks':[{'id':'lead','role':'melody','engine':'synth','notes':notes,
+                               'performance':{'notes':{m['id']:{'velocity':60+(louder if i>=bars_a else 0)} for i,m in enumerate(notes)}}}],
+                    'harmony':harmony}
+        def reads(q,**said):
+            q=dict(q);q['plan']={'identity':'x','sections':[{'section':'a'},{'section':'b',**said}]};c=compare(q)
+            return c['kept'],c['differences']
+        q=piece(4,4,1,2)
+        assert reads(q,register={'lead':'higher'},dynamics='louder',harmony='faster')==(3,0)
+        assert reads(q,register={'lead':'lower'},dynamics='softer',harmony='slower')==(0,3)
+        assert reads(q,register={'lead':'same'},dynamics='same',harmony='same')==(0,3)
+        flat=piece(4,4,1,1,lift=0,louder=0)                     # the second section's first chord is a change too: 1 and 1
+        assert reads(flat,register={'lead':'same'},dynamics='same',harmony='same')==(3,0) and reads(flat,register={'lead':'higher'},dynamics='louder',harmony='faster')==(0,3)
+        near=piece(3,8,1,3,lift=0,louder=0)                     # 1/3 and 3/8 of a change a bar
+        pace={s['section']:(s['changes'],s['bars']) for s in views.harmony_pace(near)['sections']}
+        assert pace=={'a':(1,3),'b':(3,8)},pace
+        assert reads(near,harmony='faster')==(0,1) and reads(near,harmony='same')==(1,0)
+        # The fifth review, U2: what counts as a change of chord has known answers (with every symbol its own chord, and
+        # with the transposition left out, every check passed).  Three spellings of one chord are no change; one symbol
+        # under two transpositions is one; a chord and its first inversion are one.
+        def changes(*entries):
+            q=piece(len(entries),1,0,0);q['harmony']=[{'bar':k+1,**e} for k,e in enumerate(entries)]
+            return views.harmony_pace(q)['changes']
+        assert changes({'symbol':'C#maj7'},{'symbol':'Dbmaj7'},{'symbol':'C#M7'})==0
+        assert changes({'symbol':'C','transpose_semitones':0},{'symbol':'C','transpose_semitones':2})==1
+        assert changes({'symbol':'C'},{'symbol':'C/E'})==1 and changes({'symbol':'C'},{'symbol':'C'})==0
+        # U3: and a review with a configuration asks the piano question, not only the function that words it (with the
+        # call taken out of review, every check passed).  A bank built above stands in for the default bank, under the
+        # hash of the one the setup installs, and for the Steinway's: the part on the default bank's program 0 is asked
+        # about, a decision answers it, and without the Steinway's bank nothing is asked.
+        bank_file=work/'review_recorded.sf2';own_hash=hashlib.sha256(bank_file.read_bytes()).hexdigest()
+        cfg={'soundfont':{'path':str(bank_file),'sha256':pinned},'soundfonts':{'vcsl':{'path':str(bank_file),'sha256':own_hash,'version':'build b10'}}}
+        solo=example();solo.pop('harmony',None);solo.pop('style',None);keys=solo['tracks'][0]
+        keys['notes']=[{'id':f'n{i}','on':i*2,'duration':1,'pitch':57+i%3} for i in range(8)]
+        keys['performance']={'notes':{m['id']:{'velocity':80} for m in keys['notes']}};solo['tracks']=[keys];solo['decisions']=[]
+        asked=identifier('piano',keys['id']);r=review(solo,work/'review_piano',cfg)
+        assert asked in ids(r),ids(r)
+        solo['decisions']=[asked+': the user asked for this piano'];r=review(solo,work/'review_piano_decided',cfg)
+        assert asked not in ids(r) and [a['id'] for a in r['answered']]==[asked],(ids(r),r['answered'])
+        solo['decisions']=[];assert asked not in ids(review(solo,work/'review_piano_alone',{'soundfont':cfg['soundfont']}))
+        # U1, and the final review's FR02 to FR04: a passage cut from a piece keeps the piece's plan whole and says
+        # that it is a passage; the plan is read against the piece, and the review of a passage asks nothing of it
+        # and says why.  (A plan of the passage's own, tried for one round, read a commitment against what the cut
+        # had left of the section before, hid a section the score does not have yet, and lost the high point at a
+        # second cut.)  Six bars in three sections; the second is planned higher and louder than the first, which
+        # holds: its two notes are a low one and a high one, a soft one and a loud one.
+        from excerpt import extract
+        from musiclib import summary as told
+        def six():
+            q=example();q.pop('harmony',None);q.pop('style',None);q['clock']={'bars':6,'meter':[4,4],'tempo':[[0,100]],'tail_seconds':1}
+            q['sections']=[{'id':n,'start_bar':2*i,'bars':2} for i,n in enumerate('abc')];k=q['tracks'][0];k['id']=k['name']='keys'
+            k['notes']=[{'id':f'n{i}','on':4*i,'duration':2,'pitch':x} for i,x in enumerate((48,72,64,64,67,67))]
+            k['performance']={'notes':{f'n{i}':{'velocity':v} for i,v in enumerate((40,100,80,80,85,85))}};q['tracks']=[k];q['decisions']=[];return q
+        plans=lambda q,name:[i for i in ids(review(q,work/name)) if i.startswith('plan')]
+        whole=six();whole['plan']={'identity':'x','high_point':{'section':'c','means':'the highest notes'},
+                                   'sections':[{'section':'b','register':{'keys':'higher'},'dynamics':'louder'}]}
+        kept_plan=copy.deepcopy(whole['plan']);assert plans(whole,'review_six')==[]
+        part=extract(whole,2,5);r=review(part,work/'review_six_cut')            # FR02: cut into the section b is compared with
+        assert validate(part)['warnings']==[] and whole['plan']==kept_plan and part['plan']=={**kept_plan,'passage':{'first_bar':2,'bars':5}},part['plan']
+        assert not [i for i in ids(r) if i.startswith('plan')] and r['plan']['passage']=={'first_bar':2,'bars':5},(ids(r),r['plan'])
+        assert 'Plan: this project is a passage of the piece (its bars 2 to 6)' in told.review(r,work/'review_six_cut')
+        # FR03: a passage of every bar is the piece, and what the piece is asked it is asked: a section the score
+        # does not have yet, and the high point planned in it.
+        unwritten=six();unwritten['plan']={'identity':'x','high_point':{'section':'coda','means':'everything'},'sections':[{'section':'a','sounds':['keys']},{'section':'coda','sounds':['keys']}]}
+        every=extract(unwritten,1,6);assert 'passage' not in every['plan'] and plans(every,'review_six_all')==plans(unwritten,'review_six_unwritten')==['plan.high_point','plan:coda']
+        # FR04: a passage of a passage is the same passage of the piece as the one cut at once.
+        assert extract(extract(whole,1,4),1,2)['plan']==extract(whole,1,2)['plan'] and extract(extract(whole,2,4),2,2)['plan']['passage']=={'first_bar':3,'bars':2}
+        assert plans(extract(extract(whole,1,4),1,2),'review_six_twice')==[]
+        # And the piece itself is still read: with a part planned that the project lacks, it is asked, and its passage is not.
+        whole['plan']['sections'][0]['sounds']=['keys','brass']
+        assert plans(whole,'review_six_differs')==['plan:b'] and plans(extract(whole,3,2),'review_six_differs_cut')==[]
+        bad=extract(whole,3,2);bad['plan']['passage']={'first_bar':0,'bars':2};assert rejects(lambda:validate(bad))
+        # The focused round, R3: both fields of `passage` are checked, and the rounds' record of the first plan reads a
+        # passage's plan as what it is.  A first round made from a passage keeps the whole plan of the piece; the
+        # piece and its passage differ in nothing the plan says; a commitment changed in the passage is a change; and
+        # another cut changes nothing.
+        from musiclib.plan import changed as plan_changed
+        for field,value in (('bars','two'),('bars',0),('bars',True),('first_bar','1'),('first_bar',None)):
+            bad=extract(whole,3,2);bad['plan']['passage'][field]=value;assert rejects(lambda:validate(bad)),(field,value)
+        bad=extract(whole,3,2);del bad['plan']['passage']['bars'];assert rejects(lambda:validate(bad))
+        piece_plan=copy.deepcopy(whole['plan']);cut=extract(whole,1,2)
+        first=work/'review_passage_round1';(first/'render').mkdir(parents=True);rec={};assert keep_plan(rec,cut,None)==[]
+        assert rec['plan_first']['sections']==piece_plan['sections'] and rec['plan_first']['high_point']==piece_plan['high_point'],rec['plan_first']
+        save_json(first/'round.json',rec)
+        assert plan_changed(piece_plan,cut['plan'])==[] and plan_changed(cut['plan'],extract(whole,3,2)['plan'])==[]
+        rec2={};assert keep_plan(rec2,extract(whole,3,4),first/'render')==[] and 'plan_changed' not in rec2
+        edited=extract(whole,1,2);edited['plan']['sections'][0]['sounds']=['keys']
+        rec3={};assert keep_plan(rec3,edited,first/'render')==['section b'] and rec3['plan_first']['sections']==piece_plan['sections'],rec3.get('plan_changed')
+        rec4={};assert keep_plan(rec4,whole,first/'render')==[]                    # and back to the piece: nothing changed
+        # R1: a plan cut by the unreleased form that kept part of the piece's plan is refused, with what to do.
+        legacy=extract(whole,1,2);legacy['plan'].pop('passage');legacy['plan']['sections']=[];legacy['plan'].pop('high_point',None)
+        legacy['plan']['outside_passage']={'sections':['b'],'high_point':{'section':'c','means':'the highest notes'}}
+        try:validate(legacy);raise AssertionError('a plan with outside_passage was read')
+        except ValueError as e:assert 'Cut it again from the piece' in str(e),e
+        # The final review's second look, SR01: and a round of that form is not carried on, neither by its first plan
+        # nor, where it has none, by its plan; a round started from it stops before it writes anything.
+        from musiclib.revision import revision_round
+        for k,field in enumerate(('plan_first','plan')):
+            old_round=work/f'review_old_round{k}';(old_round/'render').mkdir(parents=True)
+            (old_round/'render'/'report.json').write_text('{}',encoding='utf-8');save_json(old_round/'round.json',{field:legacy['plan']})
+            try:keep_plan({},extract(whole,1,2),old_round/'render');raise AssertionError(f'a round was carried on from an old {field}')
+            except ValueError as e:assert 'Start the rounds again' in str(e),e
+            project_file=work/f'review_old_round{k}.json';save_json(project_file,extract(whole,1,2))
+            try:revision_round(project_file,work/f'review_new_round{k}','no-config.json',previous=old_round);raise AssertionError('a round was started from it')
+            except ValueError as e:assert 'Start the rounds again' in str(e),e
+            assert not (work/f'review_new_round{k}').exists()
+        # The melody's rhythm has known answers (figures of nought throughout passed): attacks on 1, 2 and 3, one half
+        # a beat before the next bar and held over it, then 2, 3 and 4 and the next downbeat: one attack in eight is
+        # syncopated, and it is a push.
+        on=[0,1,2,3.5,5,6,7,8];q=piece(2,2,1,1)
+        q['tracks'][0]['notes']=[{'id':f'l{i}','on':o,'duration':(on+[9])[i+1]-o,'pitch':60} for i,o in enumerate(on)]
+        q['tracks'][0]['performance']={'notes':{f'l{i}':{'velocity':70} for i in range(len(on))}}
+        m=views.views(q)['melody_rhythm'][0];assert (m['attacks'],m['syncopated_pct'],m['pushes_pct'])==(8,12.5,12.5),m
+        assert [x['rests'] for x in m['sections']]==[0,0],m['sections']                # one run from the first note to the last: no rest
+        # The fourth review, T2: the rests have known answers too (a count of nought in every section passed).  A
+        # note of one beat at the start of each bar leaves three beats of rest after it: in two sections of two bars,
+        # two rests begin in the first, and one in the second, whose last note has nothing after it; a gap of half a
+        # beat is a rest and a shorter one is not.
+        q['tracks'][0]['notes']=[{'id':f'l{i}','on':4*i,'duration':1,'pitch':60} for i in range(4)]
+        q['tracks'][0]['performance']={'notes':{f'l{i}':{'velocity':70} for i in range(4)}}
+        assert [x['rests'] for x in views.views(q)['melody_rhythm'][0]['sections']]==[2,1]
+        for gap,want in ((0.5,[1,0]),(0.4,[0,0])):
+            q['tracks'][0]['notes']=[{'id':'l0','on':0,'duration':1,'pitch':60},{'id':'l1','on':1+gap,'duration':1,'pitch':60}]
+            q['tracks'][0]['performance']={'notes':{'l0':{'velocity':70},'l1':{'velocity':70}}}
+            assert [x['rests'] for x in views.views(q)['melody_rhythm'][0]['sections']]==want,(gap,views.views(q)['melody_rhythm'][0]['sections'])
+        # F12.  With a change of tempo the run of most beats is not the longest: eight beats at 240 BPM last 2 s, four
+        # at 30 BPM last 8 s, and the longest run is the one of 8 s.
+        q=piece(2,2,1,1);q['clock']['tempo']=[[0,240],[8,30]]
+        q['tracks'][0]['notes']=[{'id':'l0','on':0,'duration':8,'pitch':60},{'id':'l1','on':9,'duration':4,'pitch':60}]
+        q['tracks'][0]['performance']={'notes':{'l0':{'velocity':70},'l1':{'velocity':70}}}
+        run=views.views(q)['melody_rhythm'][0]['longest_run'];assert (run['beats'],run['seconds'])==(4,8.0),run
+        return {'left_for_a_partial':[b for b in sorted(got) if 'narrow' in got[b].get('left','')],'shared_takes':len(both)}
+    check('the_code_review_of_0_7_stays_fixed',code_review_of_0_7)
     def split_bank():
         from soundbank import build
         from musiclib import sf2
@@ -1956,6 +2770,17 @@ def checks(work,config=None):
         alone=voice_lead(['Abmaj7','Bb7','Gm7','Cm7'],voices=3,low=48,high=67,keep_root=True)
         assert all(r in {p%12 for p in v} for v,r in zip(alone,(8,10,7,0))) and 8 not in chord_tones('Abmaj7',3),alone
         low=voice_lead(['C','F','G','C'],voices=4,low=36,high=60)
+        # A range too narrow for the rules gives a voicing that breaks them, and says so with the chord and the
+        # range: four voices of a ninth chord in fourteen semitones are a cluster (a session of the 0.7 baseline
+        # met that silently and dropped the function).  A range with room says nothing.
+        import warnings
+        from musiclib.voicing import GivenUp
+        with warnings.catch_warnings(record=True) as said:
+            warnings.simplefilter('always')
+            narrow=voice_lead(['Dm9','G7'],voices=4,low=55,high=69);roomy=voice_lead(['Dm9','G7'],voices=4,low=48,high=72)
+        told=[str(w.message) for w in said if issubclass(w.category,GivenUp)]
+        assert len(told)==1 and 'Dm9 (chord 1)' in told[0] and 'between 55 and 69' in told[0],told
+        assert any(rub(a,b) for a in narrow[0] for b in narrow[0]) and not any(rub(a,b) for v in roomy for a in v for b in v),(narrow,roomy)
         for v in jazz+smooth+strict+low+gb+apart:
             assert v==sorted(v) and all(0<b-a<=12 for a,b in zip(v,v[1:])) and all(a>=LOW_INTERVAL_LIMITS.get(b-a,0) for a,b in zip(v,v[1:])),v
             assert not any(rub(a,b) for i,a in enumerate(v) for b in v[i+1:]),v
@@ -2479,6 +3304,30 @@ def checks(work,config=None):
         fresh=example();fresh['tracks'][0]['mix']['highpass']=a0;validate(fresh)
         return {'flagged':st['count'],'outside':st['outside_count'],'highpass_cut_db':[round(c,2) for c in cuts]}
     check('review_flags_far_transposed_samples_and_missing_keys',transposed_samples)
+    def piano_on_another_piano():
+        from musiclib import review as rv
+        # Known answers: with the Steinway's bank installed, a part on the Kawai, on an upright, on the Osiris or on the
+        # default bank's grand is asked about by its own identifier; a part on the Steinway, a harpsichord of the same
+        # bank as the Kawai, a part without notes and a drum part are not; without the bank nothing is asked.
+        def piece(**fields):
+            q=example();t=q['tracks'][0]
+            for k in ('soundfont','patch','bank','program'):t.pop(k,None)
+            t.update(engine='soundfont',**fields);return q,t['id']
+        have={'vcsl','vcsl_keys','piano_osiris','vsco_colors','default'}   # the project's own banks (review.own_banks)
+        for fields,named in (({'soundfont':'vcsl_keys','patch':{'bank':0,'program':1}},'Kawai'),
+                             ({'soundfont':'vcsl_keys','patch':{'bank':1,'program':3}},'Knight'),
+                             ({'soundfont':'piano_osiris','program':0},'Osiris'),({'soundfont':'vsco_colors'},'VSCO upright'),
+                             ({},'Acoustic Grand'),({'program':1},'Bright Acoustic')):
+            q,tid=piece(**fields);asked=rv.piano_choice(q,have)
+            assert [i for i,_ in asked]==[f'piano:{tid}'] and named in asked[0][1] and '"vcsl"' in asked[0][1],(fields,asked)
+            assert rv.piano_choice(q,have-{'vcsl'})==[] and rv.piano_choice(q,have-{fields.get('soundfont','default')})==[],fields   # nor of a bank that is not the project's own
+        for fields in ({'soundfont':'vcsl','patch':{'bank':0,'program':0}},{'soundfont':'vcsl_keys','patch':{'bank':0,'program':6}},
+                       {'program':4},{'soundfont':'vcsl_keys','patch':{'bank':0,'program':1},'drums':True}):
+            assert rv.piano_choice(piece(**fields)[0],have)==[],fields
+        q,tid=piece(soundfont='vcsl_keys',patch={'bank':0,'program':1});q['tracks'][0]['notes']=[]
+        assert rv.piano_choice(q,have)==[]
+        return {'asked_of':6,'not_asked_of':5}
+    check('a_piano_part_on_another_piano_is_asked_about',piano_on_another_piano)
     def melody_group_and_balance():
         from musiclib import analysis
         q=example();q['tracks']=q['tracks'][:3]
@@ -4615,11 +5464,16 @@ def checks(work,config=None):
             # goes whole.  (Left for 0.5 by GPT Pro's third review of 0.4.0.)  The killed renders run their parts one at a
             # time: with two, the other part could be making a file at the moment of the kill, the one instant a render
             # leaves a file unproven (C01), and the check would hang on chance; the random-kill stress test covers
-            # parallel parts (research/checks-0.5/stress_kill.py).
+            # parallel parts (research/checks-0.5/stress_kill.py).  The files made from the master are made one at a time
+            # too (one_at_a_time): a render makes the MP3, the FLAC and a loop together, so a kill placed in the MP3's
+            # work could find the loop in that instant, and the resume then stops on the loop's file as it is meant to
+            # (a run on main failed so on 2026-11-12: killed after decode_mp3.log, .loop.wav.*.part unproven).
             import subprocess,sys
             from musiclib import files as fs
             from musiclib.clean import clean
-            child=('import os,sys;sys.path.insert(0,sys.argv[1]);from musiclib import files;from musiclib.render import render\n'
+            one_at_a_time=('import musiclib.render as R\nfrom concurrent.futures import ThreadPoolExecutor as T\n'
+                           'R.ThreadPoolExecutor=lambda max_workers=None,**k:T(max_workers=1,**k)\n')
+            child=('import os,sys;sys.path.insert(0,sys.argv[1]);from musiclib import files;from musiclib.render import render\n'+one_at_a_time+
                    'mode,k=sys.argv[6],int(sys.argv[7]);n={"line":0,"swap":0};append,swap=files._Journal.append,files._swap\n'
                    'def a(self,e):\n    append(self,e);n["line"]+=1\n    if mode=="line" and n["line"]==k:os._exit(9)\n'
                    'def s(x,y):\n    swap(x,y);n["swap"]+=1\n    if mode=="swap" and n["swap"]==k:os._exit(9)\n'
@@ -4649,7 +5503,7 @@ def checks(work,config=None):
             # Homebrew's FFmpeg lacks: there the render makes no Ogg decode to be stopped at, only the MP3's (macOS in CI).
             from musiclib import loop as loop_files
             q=copy.deepcopy(p);q['mix']['chain']='bus';q['loop']={'start_bar':0};save_json(work/'killed_bus_loop.json',q)
-            named=('import os,sys;sys.path.insert(0,sys.argv[1]);from musiclib import files;from musiclib.render import render\n'
+            named=('import os,sys;sys.path.insert(0,sys.argv[1]);from musiclib import files;from musiclib.render import render\n'+one_at_a_time+
                    'swap=files._swap\n'
                    'def s(x,y):\n    swap(x,y)\n    if os.path.basename(y)==sys.argv[6]:os._exit(9)\n'
                    'files._swap=s;render(*sys.argv[2:6],jobs=1)')
@@ -5336,6 +6190,10 @@ def checks(work,config=None):
             t['performance']={'notes':{n['id']:{'velocity':80,'gate':1.0} for n in t['notes']}}
             q['tracks']=[t];save_json(work/'surge.json',q)
             cfg=json.loads(Path(config).read_text(encoding='utf-8'));has=bool(cfg.get('surge') and cfg.get('pedalboard'))
+            # Surge XT is optional for users, and a setup without it passed here on the fallback alone.  With
+            # MUSIC_SKILL_REQUIRE_SURGE set (CI sets it where the setup installs Surge XT) it is required, so a setup
+            # that failed to install it fails here, as a missing Ogg encoder does.
+            assert has or not os.environ.get('MUSIC_SKILL_REQUIRE_SURGE'),'the configuration names no Surge XT (surge and pedalboard), and MUSIC_SKILL_REQUIRE_SURGE asks for it'
             for key in ('fluidsynth','ffmpeg','soundfont'):
                 value=Path(cfg[key]['path']);cfg[key]['path']=str(value if value.is_absolute() else Path(config).resolve().parent/value)
             cfg.pop('surge',None);cfg.pop('pedalboard',None);save_json(work/'no_surge_config.json',cfg)

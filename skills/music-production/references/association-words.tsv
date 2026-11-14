@@ -1,0 +1,1001 @@
+word	category
+ladle	kitchenware
+whisk	kitchenware
+colander	kitchenware
+spatula	kitchenware
+grater	kitchenware
+tongs	kitchenware
+kettle	kitchenware
+skillet	kitchenware
+saucer	kitchenware
+pestle	kitchenware
+peeler	kitchenware
+funnel	kitchenware
+toaster	kitchenware
+blender	kitchenware
+trivet	kitchenware
+wok	kitchenware
+pitcher	kitchenware
+saucepan	kitchenware
+skewer	kitchenware
+oven	kitchenware
+dumpling	savory food
+pretzel	savory food
+porridge	savory food
+waffle	savory food
+pancake	savory food
+noodle	savory food
+stew	savory food
+popcorn	savory food
+sushi	savory food
+taco	savory food
+bagel	savory food
+scone	savory food
+gravy	savory food
+risotto	savory food
+salad	savory food
+kebab	savory food
+pizza	savory food
+doughnut	savory food
+sandwich	savory food
+croissant	savory food
+curry	savory food
+custard	sweets
+toffee	sweets
+marmalade	sweets
+meringue	sweets
+sherbet	sweets
+fudge	sweets
+licorice	sweets
+lollipop	sweets
+sorbet	sweets
+nougat	sweets
+marshmallow	sweets
+sundae	sweets
+brownie	sweets
+cookie	sweets
+gingerbread	sweets
+truffle	sweets
+cobbler	sweets
+gumball	sweets
+chocolate	sweets
+lemon	fruit
+banana	fruit
+pineapple	fruit
+mango	fruit
+apricot	fruit
+plum	fruit
+grape	fruit
+fig	fruit
+olive	fruit
+pomegranate	fruit
+watermelon	fruit
+avocado	fruit
+rhubarb	fruit
+peach	fruit
+pear	fruit
+strawberry	fruit
+papaya	fruit
+turnip	vegetable
+radish	vegetable
+pumpkin	vegetable
+cabbage	vegetable
+artichoke	vegetable
+carrot	vegetable
+onion	vegetable
+garlic	vegetable
+celery	vegetable
+cucumber	vegetable
+potato	vegetable
+tomato	vegetable
+broccoli	vegetable
+asparagus	vegetable
+leek	vegetable
+mustard	condiment
+vinegar	condiment
+pepper	condiment
+cinnamon	condiment
+nutmeg	condiment
+clove	condiment
+saffron	condiment
+salt	condiment
+sugar	condiment
+pickle	condiment
+chutney	condiment
+wasabi	condiment
+pesto	condiment
+honey	condiment
+butter	condiment
+cheese	condiment
+cider	drink
+broth	drink
+milk	drink
+tea	drink
+soda	drink
+juice	drink
+chisel	workshop tool
+wrench	workshop tool
+pliers	workshop tool
+trowel	workshop tool
+shovel	workshop tool
+rake	workshop tool
+sandpaper	workshop tool
+clamp	workshop tool
+screwdriver	workshop tool
+lathe	workshop tool
+ladder	workshop tool
+toolbox	workshop tool
+rasp	workshop tool
+solder	workshop tool
+shears	workshop tool
+wheelbarrow	workshop tool
+hinge	machine part
+latch	machine part
+pulley	machine part
+lever	machine part
+cog	machine part
+piston	machine part
+axle	machine part
+flywheel	machine part
+bearing	machine part
+nozzle	machine part
+spindle	machine part
+rivet	machine part
+gasket	machine part
+magnet	machine part
+switch	machine part
+chain	machine part
+socket	machine part
+propeller	machine part
+coil	machine part
+gauge	machine part
+lamp	device
+flashlight	device
+hairdryer	device
+fridge	device
+radiator	device
+intercom	device
+fan	device
+telephone	device
+projector	device
+camera	device
+typewriter	device
+antenna	device
+dishwasher	device
+stopwatch	measuring
+hourglass	measuring
+thermometer	measuring
+periscope	measuring
+binoculars	measuring
+sundial	measuring
+microscope	measuring
+telescope	measuring
+abacus	measuring
+sponge	bathroom
+soap	bathroom
+towel	bathroom
+bathtub	bathroom
+faucet	bathroom
+drain	bathroom
+plunger	bathroom
+mop	bathroom
+bucket	bathroom
+broom	bathroom
+bleach	bathroom
+toothbrush	bathroom
+comb	bathroom
+dustpan	bathroom
+loofah	bathroom
+clothespin	bathroom
+lint	bathroom
+wardrobe	furniture
+cupboard	furniture
+drawer	furniture
+shelf	furniture
+hammock	furniture
+cradle	furniture
+bench	furniture
+footstool	furniture
+armchair	furniture
+sofa	furniture
+bookcase	furniture
+desk	furniture
+cot	furniture
+chest	furniture
+highchair	furniture
+cushion	soft furnishing
+napkin	soft furnishing
+rug	soft furnishing
+mattress	soft furnishing
+blanket	soft furnishing
+quilt	soft furnishing
+doormat	soft furnishing
+coaster	soft furnishing
+tablecloth	soft furnishing
+doily	soft furnishing
+curtain	soft furnishing
+wallpaper	soft furnishing
+jar	container
+vase	container
+basket	container
+barrel	container
+crate	container
+sack	container
+pouch	container
+trunk	container
+tin	container
+flask	container
+bottle	container
+tray	container
+bowl	container
+backpack	container
+lunchbox	container
+cage	container
+capsule	container
+suitcase	container
+tarpaulin	fabric
+burlap	fabric
+denim	fabric
+corduroy	fabric
+tweed	fabric
+linen	fabric
+wool	fabric
+felt	fabric
+lace	fabric
+gauze	fabric
+canvas	fabric
+fleece	fabric
+gingham	fabric
+tartan	fabric
+suede	fabric
+leather	fabric
+cotton	fabric
+yarn	sewing
+thread	sewing
+elastic	sewing
+button	sewing
+zipper	sewing
+buckle	sewing
+thimble	sewing
+spool	sewing
+stitch	sewing
+knot	sewing
+sequin	sewing
+hem	sewing
+pleat	sewing
+ruffle	sewing
+tassel	sewing
+fringe	sewing
+toggle	sewing
+collar	sewing
+sleeve	sewing
+pocket	sewing
+hood	sewing
+apron	garment
+mitten	garment
+scarf	garment
+sock	garment
+sandal	garment
+slipper	garment
+boot	garment
+clog	garment
+poncho	garment
+cardigan	garment
+hoodie	garment
+overalls	garment
+tuxedo	garment
+beret	garment
+bonnet	garment
+helmet	garment
+visor	garment
+suspenders	garment
+vest	garment
+bathrobe	garment
+parka	garment
+wetsuit	garment
+earmuffs	garment
+sneaker	garment
+jumpsuit	garment
+gravel	construction material
+cement	construction material
+asphalt	construction material
+tar	construction material
+plaster	construction material
+plywood	construction material
+brick	construction material
+tile	construction material
+wire	construction material
+mesh	construction material
+putty	construction material
+grout	construction material
+clay	craft material
+cork	craft material
+wax	craft material
+foil	craft material
+cardboard	craft material
+parchment	craft material
+bamboo	craft material
+wicker	craft material
+straw	craft material
+porcelain	craft material
+terracotta	craft material
+glue	craft material
+marble	stone and earth
+granite	stone and earth
+slate	stone and earth
+sandstone	stone and earth
+flint	stone and earth
+pebble	stone and earth
+boulder	stone and earth
+chalk	stone and earth
+charcoal	stone and earth
+soot	stone and earth
+mud	stone and earth
+silt	stone and earth
+gutter	house part
+chimney	house part
+shingle	house part
+attic	house part
+cellar	house part
+balcony	house part
+porch	house part
+patio	house part
+doorstep	house part
+windowsill	house part
+shutter	house part
+awning	house part
+pantry	house part
+doorknob	house part
+floorboard	house part
+alcove	house part
+corridor	building structure
+lobby	building structure
+archway	building structure
+pillar	building structure
+dome	building structure
+banister	building structure
+scaffold	building structure
+escalator	building structure
+ramp	building structure
+weathervane	building structure
+tricycle	land vehicle
+unicycle	land vehicle
+scooter	land vehicle
+tractor	land vehicle
+bulldozer	land vehicle
+forklift	land vehicle
+tram	land vehicle
+rickshaw	land vehicle
+sled	land vehicle
+wagon	land vehicle
+caravan	land vehicle
+taxi	land vehicle
+monorail	land vehicle
+limousine	land vehicle
+steamroller	land vehicle
+locomotive	land vehicle
+gondola	boat and aircraft
+canoe	boat and aircraft
+raft	boat and aircraft
+barge	boat and aircraft
+ferry	boat and aircraft
+tugboat	boat and aircraft
+rowboat	boat and aircraft
+hovercraft	boat and aircraft
+blimp	boat and aircraft
+glider	boat and aircraft
+helicopter	boat and aircraft
+submarine	boat and aircraft
+parachute	boat and aircraft
+canyon	landform
+cliff	landform
+mesa	landform
+ravine	landform
+marsh	landform
+paddock	landform
+tundra	landform
+peninsula	landform
+iceberg	landform
+crater	landform
+plateau	landform
+geyser	landform
+knoll	landform
+ridge	landform
+quarry	landform
+savanna	landform
+inlet	landform
+lagoon	landform
+fjord	landform
+reef	landform
+cove	landform
+slosh	water motion
+trickle	water motion
+gush	water motion
+drip	water motion
+ooze	water motion
+spill	water motion
+gurgle	water motion
+bubble	water motion
+swirl	water motion
+whirlpool	water motion
+squirt	water motion
+siphon	water motion
+soak	water motion
+pour	water motion
+melt	water motion
+dissolve	water motion
+steam	water motion
+fizz	water motion
+leak	water motion
+sizzle	cooking action
+simmer	cooking action
+roast	cooking action
+bake	cooking action
+fry	cooking action
+knead	cooking action
+stir	cooking action
+chop	cooking action
+mash	cooking action
+marinate	cooking action
+crumble	cooking action
+glaze	cooking action
+scramble	cooking action
+ferment	cooking action
+scorch	heat
+char	heat
+parch	heat
+warp	heat
+singe	heat
+sputter	heat
+flap	air motion
+waft	air motion
+billow	air motion
+flutter	air motion
+puff	air motion
+spray	air motion
+rustle	air motion
+hover	air motion
+plume	air motion
+draft	air motion
+vent	air motion
+inflate	air motion
+exhale	air motion
+teeter	gait
+lurch	gait
+waddle	gait
+trudge	gait
+stroll	gait
+tiptoe	gait
+prance	gait
+crawl	gait
+scurry	gait
+slither	gait
+pounce	gait
+skip	gait
+sprint	gait
+wade	gait
+climb	gait
+paddle	gait
+hike	gait
+wobble	object motion
+tumble	object motion
+skid	object motion
+zigzag	object motion
+jostle	object motion
+twirl	object motion
+pivot	object motion
+rebound	object motion
+dangle	object motion
+sag	object motion
+sprawl	object motion
+wriggle	object motion
+fidget	object motion
+swoop	object motion
+bob	object motion
+sink	object motion
+unfurl	object motion
+seesaw	object motion
+sift	hand action
+nudge	hand action
+poke	hand action
+pinch	hand action
+squeeze	hand action
+twist	hand action
+crimp	hand action
+fold	hand action
+crumple	hand action
+fling	hand action
+juggle	hand action
+tug	hand action
+hoist	hand action
+scoop	hand action
+stack	hand action
+tickle	hand action
+grip	hand action
+tangle	hand action
+smear	hand action
+scrub	hand action
+wipe	hand action
+sprinkle	hand action
+shrug	body movement
+nod	body movement
+wink	body movement
+yawn	body movement
+stretch	body movement
+hiccup	body movement
+shiver	body movement
+grin	body movement
+frown	body movement
+squint	body movement
+sniff	body movement
+slouch	body movement
+crouch	body movement
+curtsy	body movement
+hug	body movement
+nibble	body movement
+sip	body movement
+giggle	body movement
+snore	body movement
+piggyback	body movement
+hexagon	shape
+pyramid	shape
+cube	shape
+cone	shape
+cylinder	shape
+sphere	shape
+oval	shape
+diamond	shape
+lattice	shape
+mosaic	shape
+stripe	shape
+wedge	shape
+notch	shape
+dent	shape
+crease	shape
+herringbone	shape
+paisley	shape
+scallop	shape
+gritty	texture
+bumpy	texture
+prickly	texture
+sticky	texture
+glossy	texture
+matte	texture
+gnarled	texture
+brittle	texture
+soggy	texture
+crisp	texture
+flaky	texture
+slimy	texture
+greasy	texture
+jagged	texture
+powdery	texture
+frizzy	texture
+fluffy	texture
+squishy	texture
+wrinkled	texture
+tattered	texture
+lukewarm	texture
+rubbery	texture
+clammy	texture
+creak	sound
+squeak	sound
+clatter	sound
+thud	sound
+clank	sound
+clink	sound
+plop	sound
+squelch	sound
+ping	sound
+squawk	sound
+purr	sound
+chirp	sound
+cluck	sound
+quack	sound
+howl	sound
+hoot	sound
+croak	sound
+screech	sound
+whirr	sound
+babble	sound
+knock	sound
+slam	sound
+laundromat	shop and service
+kiosk	shop and service
+museum	shop and service
+library	shop and service
+warehouse	shop and service
+factory	shop and service
+diner	shop and service
+supermarket	shop and service
+sauna	shop and service
+florist	shop and service
+aquarium	shop and service
+airport	shop and service
+workshop	shop and service
+treehouse	dwelling
+igloo	dwelling
+tent	dwelling
+cabin	dwelling
+shack	dwelling
+bungalow	dwelling
+motel	dwelling
+boathouse	dwelling
+apartment	dwelling
+alley	outdoor place
+courtyard	outdoor place
+boardwalk	outdoor place
+playground	outdoor place
+campsite	outdoor place
+stadium	outdoor place
+junkyard	outdoor place
+shipyard	outdoor place
+orchard	outdoor place
+greenhouse	outdoor place
+zoo	outdoor place
+tunnel	infrastructure
+sewer	infrastructure
+canal	infrastructure
+aqueduct	infrastructure
+sidewalk	infrastructure
+lamppost	infrastructure
+culvert	infrastructure
+hydrant	infrastructure
+pylon	infrastructure
+mailbox	infrastructure
+pothole	infrastructure
+roundabout	infrastructure
+turnstile	infrastructure
+ditch	infrastructure
+dam	infrastructure
+haystack	farm and garden
+scarecrow	farm and garden
+trough	farm and garden
+furrow	farm and garden
+churn	farm and garden
+compost	farm and garden
+trellis	farm and garden
+hedge	farm and garden
+lawn	farm and garden
+birdbath	farm and garden
+beehive	farm and garden
+flowerpot	farm and garden
+silo	farm and garden
+watermill	farm and garden
+barn	farm and garden
+lichen	plant
+moss	plant
+fern	plant
+ivy	plant
+thistle	plant
+nettle	plant
+dandelion	plant
+clover	plant
+daisy	plant
+tulip	plant
+cactus	plant
+bramble	plant
+cedar	plant
+oak	plant
+birch	plant
+maple	plant
+palm	plant
+mushroom	plant
+kelp	plant
+vine	plant
+husk	plant part
+bark	plant part
+twig	plant part
+stump	plant part
+sapling	plant part
+bulb	plant part
+thorn	plant part
+pollen	plant part
+seed	plant part
+nectar	plant part
+pod	plant part
+sprout	plant part
+tendril	plant part
+leaf	plant part
+acorn	plant part
+pinecone	plant part
+wheat	grain and herb
+oat	grain and herb
+rice	grain and herb
+corn	grain and herb
+flax	grain and herb
+sesame	grain and herb
+mint	grain and herb
+basil	grain and herb
+parsley	grain and herb
+hamster	mammal
+hedgehog	mammal
+otter	mammal
+badger	mammal
+squirrel	mammal
+moose	mammal
+bison	mammal
+ferret	mammal
+armadillo	mammal
+kangaroo	mammal
+koala	mammal
+meerkat	mammal
+lemur	mammal
+giraffe	mammal
+zebra	mammal
+rhino	mammal
+hippo	mammal
+elephant	mammal
+camel	mammal
+walrus	mammal
+panda	mammal
+raccoon	mammal
+hare	mammal
+platypus	mammal
+heron	bird
+crane	bird
+pelican	bird
+flamingo	bird
+peacock	bird
+parrot	bird
+toucan	bird
+ostrich	bird
+penguin	bird
+puffin	bird
+magpie	bird
+wren	bird
+pigeon	bird
+owl	bird
+kingfisher	bird
+gull	bird
+rooster	bird
+duck	bird
+stork	bird
+beetle	insect
+moth	insect
+snail	insect
+caterpillar	insect
+ladybug	insect
+spider	insect
+centipede	insect
+ant	insect
+bee	insect
+cricket	insect
+cicada	insect
+mantis	insect
+silkworm	insect
+earwig	insect
+jellyfish	sea creature
+octopus	sea creature
+squid	sea creature
+whale	sea creature
+dolphin	sea creature
+eel	sea creature
+trout	sea creature
+minnow	sea creature
+oyster	sea creature
+mussel	sea creature
+lobster	sea creature
+barnacle	sea creature
+urchin	sea creature
+coral	sea creature
+anemone	sea creature
+stingray	sea creature
+manatee	sea creature
+pufferfish	sea creature
+seal	sea creature
+tadpole	reptile and amphibian
+newt	reptile and amphibian
+gecko	reptile and amphibian
+chameleon	reptile and amphibian
+tortoise	reptile and amphibian
+crocodile	reptile and amphibian
+kiln	craft
+loom	craft
+easel	craft
+palette	craft
+origami	craft
+collage	craft
+carpentry	craft
+calligraphy	craft
+bead	craft
+whittle	craft
+sculpt	craft
+embroider	craft
+knit	craft
+weave	craft
+braid	craft
+stencil	craft
+etch	craft
+dye	craft
+gild	craft
+weld	craft
+serve	sport
+volley	sport
+dunk	sport
+slalom	sport
+relay	sport
+hurdle	sport
+huddle	sport
+touchdown	sport
+goalpost	sport
+somersault	sport
+cartwheel	sport
+handstand	sport
+backflip	sport
+lasso	sport
+tightrope	sport
+trapeze	sport
+billiards	sport
+croquet	sport
+badminton	sport
+hockey	sport
+tennis	sport
+golf	sport
+snorkel	sport
+hoop	sport
+hopscotch	toy and game
+leapfrog	toy and game
+domino	toy and game
+puzzle	toy and game
+chess	toy and game
+dice	toy and game
+kite	toy and game
+yoyo	toy and game
+trampoline	toy and game
+pinball	toy and game
+bingo	toy and game
+sandbox	toy and game
+puppet	toy and game
+pinwheel	toy and game
+crossword	toy and game
+beanbag	toy and game
+teddy	toy and game
+stapler	stationery
+paperclip	stationery
+eraser	stationery
+thumbtack	stationery
+pencil	stationery
+crayon	stationery
+envelope	stationery
+postcard	stationery
+stamp	stationery
+ink	stationery
+quill	stationery
+notebook	stationery
+clipboard	stationery
+calendar	stationery
+decal	stationery
+receipt	stationery
+ticket	stationery
+map	stationery
+blueprint	stationery
+paperweight	stationery
+bookmark	stationery
+ruler	stationery
+scissors	stationery
+sharpener	stationery
+globe	stationery
+confetti	celebration
+glitter	celebration
+tinsel	celebration
+balloon	celebration
+pinata	celebration
+garland	celebration
+picnic	celebration
+parade	celebration
+circus	celebration
+rodeo	celebration
+auction	celebration
+sleepover	celebration
+barbecue	celebration
+bazaar	celebration
+marathon	celebration
+birthday	celebration
+noon	time
+afternoon	time
+teatime	time
+bedtime	time
+weekend	time
+halftime	time
+recess	time
+harvest	time
+thaw	time
+siesta	time
+puddle	weather
+sleet	weather
+hail	weather
+dew	weather
+icicle	weather
+slush	weather
+overcast	weather
+smog	weather
+muggy	weather
+whiteout	weather
+chilly	weather
+sweltering	weather
+glint	light
+glare	light
+flicker	light
+reflector	light
+spotlight	light
+headlight	light
+strobe	light
+blur	light
+speckle	light
+blackout	light
+turquoise	color
+maroon	color
+beige	color
+magenta	color
+khaki	color
+scarlet	color
+periwinkle	color
+cream	color
+lilac	color
+antler	animal part
+hoof	animal part
+paw	animal part
+claw	animal part
+beak	animal part
+feather	animal part
+fin	animal part
+gill	animal part
+tusk	animal part
+tentacle	animal part
+mane	animal part
+tail	animal part
+snout	animal part
+pelt	animal part
+cobweb	animal part
+nest	animal part
+burrow	animal part
+footprint	animal part
+cocoon	animal part
+shell	animal part
+elbow	human body
+knuckle	human body
+ankle	human body
+eyelash	human body
+freckle	human body
+earlobe	human body
+thumb	human body
+wrist	human body
+heel	human body
+chin	human body
+knee	human body
+shoulder	human body
+navel	human body
+tongue	human body
+nostril	human body
+cheek	human body
+beard	human body
+ponytail	human body
+curl	human body
+cowlick	human body
+locket	accessory
+brooch	accessory
+bracelet	accessory
+necklace	accessory
+cufflink	accessory
+hairpin	accessory
+monocle	accessory
+sunglasses	accessory
+wristwatch	accessory
+badge	accessory
+medal	accessory
+parasol	accessory
+handkerchief	accessory
+wallet	accessory
+turbine	machine
+conveyor	machine
+generator	machine
+boiler	machine
+furnace	machine
+girder	machine
+radar	machine
+printer	machine
+treadmill	machine
+jackhammer	machine
+winch	machine
+pump	machine

@@ -15,8 +15,8 @@
 
 <p align="center">
   <a href="https://github.com/owoevan-dev/music-skill/actions/workflows/tests.yml"><img src="https://github.com/owoevan-dev/music-skill/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-1f1c1a" alt="Licence: MIT"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-1f1c1a" alt="Python 3.10 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-111111" alt="Licence: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-111111" alt="Python 3.10 or newer">
 </p>
 
 <p align="center"><strong>생성하지 말고, 작곡하세요.</strong></p>
@@ -25,25 +25,28 @@ music-skill은 작곡가와 작은 스튜디오가 일하는 방식으로 오리
 
 오디오 생성 모델은 전혀 쓰지 않습니다. MP3와 WAV뿐 아니라 MIDI, 파트별 스템, 그리고 어떤 음이든 고쳐서 다시 렌더링할 수 있는 프로젝트 파일까지 받게 됩니다.
 
-<p align="center">
-  <img src="docs/images/cairnfire.png" alt="《Cairnfire》(관현악 서곡)의 한 순간을 프로젝트 파일에서 그대로 그린 그림. 모든 음이 피아노 롤 위의 막대 하나이며, 현악은 파란색, 목관은 초록색, 금관은 주황색. 위에는 곡의 구간, 아래에는 각 파트의 이름이 있고 연주 중인 파트가 밝게 표시됨">
-</p>
+모든 곡은 무작위로 뽑은 단어 열두 개에서 시작합니다. 에이전트가 그 단어들과 요청을 하나의 장면으로 엮고, 요청이 정하지 않은 것은 그 장면이 정하기 때문에, 같은 요청으로 만든 두 곡도 덜 비슷해집니다. 단어를 직접 주거나, 단어 없이 만들 수도 있습니다.
+
+https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 
 ## 들어 보기
 
-여기 있는 곡은 모두 이 스킬의 0.6.0 버전으로, 표기한 모델이 한 번의 실행에서 만들었습니다. 준 것은 메시지 하나뿐으로, [일곱 곡에 공통인 첫머리](examples/prompt.md)에 서너 문장의 의뢰문을 붙인 것입니다. 곡 제목, 형식, 악기, 음색을 에이전트가 스스로 정하고, 모든 음을 쓰고, 리뷰·렌더링·수정까지 직접 했습니다. 작업하는 동안 아무도 답하지 않았고, 결과물을 사람이 고치지 않았습니다. 일곱 곡이 전부이며, 여러 곡 가운데 고른 것이 아닙니다. 각 예제 폴더에는 의뢰문, 에이전트의 스크립트, 렌더링할 때의 프로젝트가 있습니다.
+여섯 모델이 한 곡씩, 모두 xhigh effort로 만든 여섯 곡입니다. 각 곡은 메시지 한 통으로 한 번에 만들었습니다. [여섯 곡 공통의 첫머리](examples/prompt.md)에 몇 문장의 요청을 붙인 것입니다. 곡 제목, 형식, 음색은 에이전트가 스스로 정했고, 모든 음을 직접 썼으며, 검토와 수정도 스스로 했습니다. 작업 중에 아무도 답하지 않았고, 에이전트가 쓴 음표는 아무도 고치지 않았습니다. 각 곡의 페이지에는 뽑은 단어 열두 개와 에이전트가 그것으로 엮은 장면이 실려 있습니다.
 
-- [《Stormglass Gambit》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/stormglass-gambit.mp3)(3:07). Claude Fable 5.2, xhigh effort. 반복 재생되는 신시사이저 중심의 게임 전투곡([예제](examples/stormglass-gambit))
-- [《Cairnfire》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/cairnfire.mp3)(4:29). Claude Fable 5.2, xhigh effort. 풀 오케스트라를 위한 연주회용 서곡, 36개 파트([예제](examples/cairnfire))
-- [《Glass Towers, Low Gear》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/glass-towers-low-gear.mp3)(3:03). Claude Opus 5.5, xhigh effort. 시티팝, 불 켜진 도시를 달리는 밤 드라이브([예제](examples/glass-towers-low-gear))
-- [《The Stone Vault Turns to Light》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/the-stone-vault-turns-to-light.mp3)(3:56). GPT-6 Astra, xhigh effort. 파이프 오르간을 위한 토카타([예제](examples/the-stone-vault-turns-to-light))
-- [《Paper Lantern Hours》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/paper-lantern-hours.mp3)(2:10). Claude Sonnet 5.5, medium effort. 반복 재생되는 lo-fi 힙합([예제](examples/paper-lantern-hours))
-- [《Fughetta in D minor》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/fughetta-in-d-minor.mp3)(2:00). Claude Opus 5.5, medium effort. 하프시코드와 현악을 위한 바로크풍 푸게타([예제](examples/fughetta-in-d-minor))
-- [《Skybutton Speedway》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/skybutton-speedway.mp3)(1:31). GPT-6 Luna, max effort. 타이틀 화면용 8비트 칩튠, 90초 루프([예제](examples/skybutton-speedway))
+<table>
+<tr>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-lamp-on-the-wire.mp3"><img src="docs/images/the-lamp-on-the-wire.jpg" alt="《The Lamp on the Wire》의 피아노 롤 한 장면"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-lamp-on-the-wire.mp3">《The Lamp on the Wire》</a></b><br>애니메이션 영화의 클라이맥스, 풀 오케스트라, 4:43<br><sub>Claude Fable 5.2 · <a href="examples/the-lamp-on-the-wire">만든 과정</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/battle-reel-of-the-stork-rider.mp3"><img src="docs/images/battle-reel-of-the-stork-rider.jpg" alt="《Battle Reel of the Stork-Rider》의 피아노 롤 한 장면"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/battle-reel-of-the-stork-rider.mp3">《Battle Reel of the Stork-Rider》</a></b><br>판타지 이야기의 전투 음악, 포크 밴드, 2:58<br><sub>Claude Opus 5.5 · <a href="examples/battle-reel-of-the-stork-rider">만든 과정</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fughetta-of-the-paper-paddock.mp3"><img src="docs/images/fughetta-of-the-paper-paddock.jpg" alt="《Fughetta of the Paper Paddock》의 피아노 롤 한 장면"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fughetta-of-the-paper-paddock.mp3">《Fughetta of the Paper Paddock》</a></b><br>하프시코드와 현악을 위한 바로크풍 푸게타, 2:28<br><sub>Claude Sonnet 5.5 · <a href="examples/fughetta-of-the-paper-paddock">만든 과정</a></sub></td>
+</tr>
+<tr>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fjord-stopwatch.mp3"><img src="docs/images/fjord-stopwatch.jpg" alt="《Fjord Stopwatch》의 피아노 롤 한 장면"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fjord-stopwatch.mp3">《Fjord Stopwatch》</a></b><br>늦은 밤 독서를 위한 로파이, 루프, 2:32<br><sub>Claude Haiku 5.5 · <a href="examples/fjord-stopwatch">만든 과정</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-cork-boat-keeps-our-evening.mp3"><img src="docs/images/the-cork-boat-keeps-our-evening.jpg" alt="《The Cork Boat Keeps Our Evening》의 피아노 롤 한 장면"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-cork-boat-keeps-our-evening.mp3">《The Cork Boat Keeps Our Evening》</a></b><br>노래 없는 느린 발라드, 3:33<br><sub>GPT-6 Astra · <a href="examples/the-cork-boat-keeps-our-evening">만든 과정</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/noon-raccoon-rooftop-run.mp3"><img src="docs/images/noon-raccoon-rooftop-run.jpg" alt="《Noon Raccoon Rooftop Run》의 피아노 롤 한 장면"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/noon-raccoon-rooftop-run.mp3">《Noon Raccoon Rooftop Run》</a></b><br>플랫폼 게임 1스테이지의 8비트, 루프, 1:31<br><sub>GPT-6 Luna · <a href="examples/noon-raccoon-rooftop-run">만든 과정</a></sub></td>
+</tr>
+</table>
 
-[Before and after](examples/before-after)는 짧은 곡의 음 하나를 바꾸고, 렌더링에서 함께 바뀐 모든 것을 `compare`로 보여 줍니다. 그 파트, 그 버스, 리버브 꼬리, 마스터입니다.
-
-녹음은 MP3 파일이며, 릴리스 [examples-4](https://github.com/owoevan-dev/music-skill/releases/tag/examples-4)에서 내려받을 수 있습니다.
+곡과 녹음은 CC0입니다. 녹음은 MP3 파일이며 릴리스 [examples-5](https://github.com/owoevan-dev/music-skill/releases/tag/examples-5)에 있습니다. [Before and after](examples/before-after)는 짧은 곡의 음 하나를 바꾸고, 렌더링에서 함께 바뀐 모든 것을 `compare`로 보여 줍니다. 그 파트, 그 버스, 리버브 꼬리, 마스터입니다.
 
 ## 빠른 시작
 
@@ -55,25 +58,39 @@ music-skill은 작곡가와 작은 스튜디오가 일하는 방식으로 오리
    ```
 
    Codex와 다른 에이전트에서는 `npx skills add owoevan-dev/music-skill`.
-2. 에이전트에게 렌더링 도구와 음원 설치를 부탁합니다. [설치](#설치)의 명령을 실행하며, 내려받기는 약 3.7 GB이고 저희 테스트 컴퓨터에서는 그 뒤로 약 5분 걸렸습니다.
+2. 에이전트에게 렌더링 도구와 음원 설치를 부탁합니다. [설치](#install)의 명령을 실행하며, 내려받기는 약 3.7 GB이고 저희 테스트 컴퓨터에서는 그 뒤로 약 5분 걸렸습니다.
 3. 평소 말투로 곡을 부탁합니다.
 
    > 내 RPG에 쓸 1분짜리 반복되는 마을 테마를 써 줘. 리코더, 하프, 부드러운 현악으로.
 
-MP3와 WAV, MIDI, 파트별 스템, 더하면 믹스가 되는 버스와 리버브 리턴, 프로젝트 파일을 받습니다. 24스레드 노트북에서 위의 예제 곡들을 처음부터 렌더링하는 데 한 곡에 22초(푸게타)에서 108초(36개 파트의 서곡)가 걸렸습니다.
+MP3와 WAV, MIDI, 파트별 스템, 더하면 믹스가 되는 버스와 리버브 리턴, 프로젝트 파일을 받습니다. 24스레드 노트북에서 위의 예제 곡들을 처음부터 렌더링하는 데 한 곡에 25초(푸게타와 칩튠)에서 156초(57개 파트의 영화 음악)가 걸렸습니다.
 
 ## 그냥 생성하면 안 되나요?
 
-텍스트로 음악을 만드는 모델이 건네주는 것은 완성된 오디오입니다. 일부 구간만 다시 생성할 수 있는 것도 있지만, 파일을 열어 음 하나를 옮길 수는 없고, 그 소리가 어디서 왔는지도 설명할 수 없습니다.
-
-여기서는 에이전트가 악보를 쓰기 때문에, 음악은 읽고 고칠 수 있는 결정들로 이루어집니다. 33마디의 멜로디, 화음의 보이싱, 드러머가 크래시를 치는 세기 같은 것들입니다. 음 하나를 바꾸면 그 파트만 다시 합성되고, 믹스는 통째로 다시 만들어집니다. 소리는 실제 악기를 멀티샘플링한 녹음(라이선스는 모두 확인할 수 있습니다)이거나 스킬에 내장된 신시사이저입니다. 다른 사람의 녹음으로 학습한 모델도 쓰지 않습니다.
+| | 텍스트로 음악을 만드는 모델 | music-skill |
+|---|---|---|
+| 음 하나 바꾸기 | 곡 전체나 일부를 다시 생성 | 그 음을 고치고, 그 파트만 다시 연주 |
+| 받는 것 | 오디오 파일 | 오디오, MIDI, 파트별 스템, 프로젝트 |
+| 소리의 출처 | 모델 내부 | 녹음된 실제 악기와 신시사이저, 각각 라이선스 명시 |
+| 장면이나 스테이지에 맞추기 | 대략 | 마디 단위: 루프 지점, 히트 포인트, 정확한 길이 |
+| 같은 곡을 다시 | 새로 생성 | 같은 프로젝트에서 같은 소리 (Surge XT 파트 제외) |
 
 Claude 같은 에이전트가 이미 영상을 편집하거나 게임을 만들고 있다면, 음악이 무엇에 맞춰야 하는지 이미 알고 있습니다. 장면마다의 길이, 컷이 바뀌는 지점, 내레이션이 시작되는 때, 스테이지가 반복되는 방식입니다. 그 숫자에 맞춰 곡을 씁니다. 공개되는 순간에 고조가 정점에 닿게 하고, 내레이션 아래에서는 음악을 낮추고, 루프를 스테이지 길이에 맞춥니다. 편집이 바뀌면 움직인 마디만 다시 씁니다.
 
 ## 작동 방식
 
-1. **쓰기**: 에이전트가 곡의 구성과 주제를 정한 뒤 프로젝트 파일을 씁니다. 각 음의 음높이와 길이는 악보에, 연주 방식(벨로시티, 타이밍, 떼는 시점)은 따로 기록합니다. 긴 곡은 보통 에이전트가 짧은 Python 스크립트를 써서 만들기 때문에, 보이싱과 베이스 라인, 드럼 패턴을 읽기도 고치기도 쉽습니다.
-2. **악보 검토**: `review`는 파트끼리 계속 울리는 단2도·단9도를 목록으로 보여 주고, 적힌 코드에서 벗어난 음에는 경과음·계류음 같은 비화성음의 이름을 붙여 순차 진행으로 해결되지 않는 음을 묻습니다. 독립된 성부 사이의 연속 5도·8도와 너무 낮은 음역의 좁은 음정도 짚어 줍니다. 그래서 하나하나가 우연이 아니라 의도한 선택이 됩니다.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/pipeline.ko-dark.svg">
+    <img src="docs/images/pipeline.ko.svg" alt="쓰기, 검토, 연주, 렌더링, 믹스, 측정" width="900">
+  </picture>
+</p>
+
+<details>
+<summary><b>여섯 단계 자세히</b></summary>
+
+1. **쓰기**: 에이전트는 먼저 요청이 무엇을 바라는지 확정한 뒤, 이 곡을 위해 단어 열두 개를 무작위로 뽑고 요청과 열두 단어를 모두 하나의 전체(하나의 장면이나 이야기)로 엮습니다. 요청이 정하지 않은 것, 곧 곡 제목과 형식과 음색은 이 전체가 정합니다. 이어서 계획(무엇이 이 곡을 알아보게 하는지, 절정은 어디에 무엇으로 두는지, 각 섹션에서 무엇을 하는지)을 쓰고, 그다음 프로젝트 파일을 씁니다. 각 음의 음높이와 길이는 악보에, 연주 방식(벨로시티, 타이밍, 떼는 시점)은 따로 기록합니다. 긴 곡은 보통 에이전트가 짧은 Python 스크립트를 써서 만들기 때문에, 보이싱과 베이스 라인, 드럼 패턴을 읽기도 고치기도 쉽습니다.
+2. **악보 검토**: `review`는 먼저 악보에서 센 표 세 개(섹션마다 울리는 파트, 코드가 바뀌는 빈도, 멜로디의 리듬)를 보여 주고, 악보를 계획과 맞대어 어긋나는 곳을 묻습니다. 파트끼리 계속 울리는 단2도·단9도를 목록으로 보여 주고, 적힌 코드에서 벗어난 음에는 경과음·계류음 같은 비화성음의 이름을 붙여 순차 진행으로 해결되지 않는 음을 묻습니다. 독립된 성부 사이의 연속 5도·8도와 너무 낮은 음역의 좁은 음정도 짚어 줍니다. 모든 질문에는 식별자가 있고, 그것으로 시작하는 서면 결정이 그 질문에 대한 답이 됩니다. 그래서 하나하나가 우연이 아니라 의도한 선택이 됩니다.
 3. **연주**: 연주 모델이 사람이 연주할 때 생기는 어긋남을 더합니다. 연주자마다 타이밍과 음량이 천천히 흔들리고, 베이스는 살짝 뒤에 붙고, 프레이즈에는 둥근 억양이 생기며, 화음의 음들은 동시에 눌리지도 동시에 떼어지지도 않습니다. 샘플링한 멜로디는 레가토로 잇거나 벤딩할 수 있습니다.
 4. **렌더링**: FluidSynth가 라이선스가 분명한 SoundFont 음원으로 샘플 음원 파트를 각자의 악기로 연주합니다. 일렉트로닉 파트는 내장 신시사이저와 드럼 머신, 또는 Surge XT 신시사이저의 프리셋으로 연주합니다.
 5. **믹싱과 마스터링**: 각 파트는 드럼, 베이스, 리듬, 앙상블, 멜로디 버스와 자동으로 만든 네 가지 리버브를 거쳐, 마스터 처리로 프로젝트의 목표 라우드니스(기본 −16 LUFS, 스트리밍용은 −14 LUFS), 트루 피크 −1 dBTP 이하로 마무리됩니다. 새 믹스 규칙에서는 멜로디가 적어 넣은 음량 가까이에 유지되고, 마스터는 트루 피크 리미터로 마무리됩니다. 관현악곡은 연주자 바로 곁에서 홀의 객석까지 얼마나 가까이 들릴지를 지정할 수 있습니다. 관현악과 오르간 음악은 컴프레서를 거치지 않고 셈여림의 폭을 그대로 살릴 수 있습니다. 일렉트로닉 음악에는 사이드체인 더킹, 템포에 맞춘 딜레이, 필터 스윕, 클럽용으로 크게 만든 마스터를 더할 수 있습니다.
@@ -83,7 +100,14 @@ Claude 같은 에이전트가 이미 영상을 편집하거나 게임을 만들�
 
 게임용 프로젝트는 루프로 만들 수 있습니다. 렌더링할 때 잔향 꼬리를 루프 시작 부분에 겹쳐 넣고, Godot와 RPG Maker가 읽는 형식으로 루프 지점을 WAV와 Ogg 파일에 기록하고, 섹션마다 큐 포인트를 붙입니다. 루프를 여러 레이어로 나눌 수도 있으며, 모든 레이어를 더하면 원래 믹스가 되므로 게임의 긴장감에 따라 소리를 겹쳐 쌓을 수 있습니다.
 
-## 설치
+</details>
+
+## 더 알아보기
+
+<a id="install"></a>
+
+<details>
+<summary><b>설치</b></summary>
 
 **실행되는 곳.** 자신의 컴퓨터에서, 그곳에서 명령을 실행할 수 있는 에이전트를 통해 사용합니다. Claude Code와 Codex에서 테스트했습니다. 설정에는 인터넷 연결이 한 번 필요하고, 그 폴더는 이후 세션을 위해 남습니다. 크기는 약 1 GB부터 모든 음원을 설치했을 때의 약 12 GB까지입니다. claude.ai 채팅과 Cowork에서는 테스트하지 않았습니다. 오프라인이거나 대화마다 초기화되는 샌드박스에서는 설정을 유지할 수 없습니다.
 
@@ -136,7 +160,10 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 
 **실행하는 것, 가져오는 것, 보내는 것**: 스킬은 Python 스크립트, FluidSynth, FFmpeg와 설치되어 있다면 Surge XT를 실행하며, 모두 사용자의 컴퓨터에서 동작하고 렌더링은 오프라인으로 합니다. 스킬 자체의 다운로더는 도구와 음원을 github.com과 GitHub의 다운로드 호스트(api.github.com, raw.githubusercontent.com, objects.githubusercontent.com, release-assets.githubusercontent.com), 그리고 음원을 원본 녹음에서 빌드할 때만 아이오와 대학교의 theremin.music.uiowa.edu에서만 받으며, 다른 호스트로의 리디렉션은 거부합니다. Python 패키지(NumPy, 그리고 Surge XT용 pedalboard)는 pip로 받으며, pip에 다른 패키지 인덱스를 설정하지 않았다면 PyPI에서 받습니다. 이때도 pedalboard wheel은 고정된 SHA-256으로 확인합니다. 아무것도 보내지 않습니다. 텔레메트리도, 계정도, 업로드도 없습니다([PRIVACY.md](PRIVACY.md)).
 
-## 사용법
+</details>
+
+<details>
+<summary><b>사용법</b></summary>
 
 에이전트에게 평소 말투로 부탁하면 됩니다.
 
@@ -152,13 +179,20 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 
 > 비 오는 카페 장면에 보사노바를 써 줘. 나일론 줄 기타, 플루트, 부드러운 드럼으로.
 
+> 무작위 단어 대신 이 단어들로 시작해 줘: 등대, 여객선, 서리.
+
+> 이번 곡은 단어 없이 만들어 줘.
+
 > 33마디 후렴 멜로디가 너무 바빠. 단순하게 바꿔서 다시 렌더링해 줘.
 
 > 지난 버전에서 뭐가 바뀌었어? 차이를 들려줘.
 
 > MIDI랑 스템도 줘.
 
-## 음원
+</details>
+
+<details>
+<summary><b>음원</b></summary>
 
 | 악기 | 음원 | 라이선스 |
 |---|---|---|
@@ -171,13 +205,19 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 
 녹음 음원은 모두 CC0이거나, 용도에 제한 없이 자유롭게 쓸 수 있거나(아이오와 대학교 녹음), 퍼블릭 도메인으로 공개된 것(스틸 팬)이라서, 이 음원으로 만든 음악에는 출처 표기가 필요 없습니다. Surge XT는 GPL-3.0이며, 이 프로젝트의 별도 GPL 프로그램(`surge_host.py`) 안에서만 실행됩니다. GPL이 적용되는 것은 프로그램 자체이지, 그것이 연주한 음악이 아닙니다. MS Basic은 다른 파트가 대신 쓰는 General MIDI 음원으로 MIT입니다. 그 고지는 음원 자체의 복제나 개작에 함께 두는 것이며, 그것으로 연주한 음악에는 출처 표기가 필요 없습니다. 출처와 각 라이선스에 대한 저희의 해석은 [THIRD_PARTY.md](THIRD_PARTY.md)에 있습니다.
 
-## 어디까지 되나요
+</details>
 
-`selfcheck.py`에는 152가지 검사(렌더링 설정이 없으면 122가지)가 있으며, MIDI 왕복 변환과 압축 파일 안전성부터 실제 렌더링까지 포함합니다. 예를 들어 음 하나를 고치면 그 파트만 다시 합성되고 `compare`가 그 음부터, 영향이 닿은 파일에서만 차이를 찾는지, 예전의 단일 리버브 믹스가 이전 릴리스를 비트 단위로 재현하는지, 라우드니스 측정이 BS.1770 기준 음을 −3.01 LUFS로 읽는지 확인합니다. CI에서는 Ubuntu(FluidSynth 2.3, FFmpeg 6.1)와 macOS(FluidSynth 2.6, FFmpeg 9.0)에서 렌더링을 포함한 모든 검사를 실행합니다.
+<details>
+<summary><b>어디까지 되나요</b></summary>
+
+`selfcheck.py`에는 160가지 검사(렌더링 설정이 없으면 130가지)가 있으며, MIDI 왕복 변환과 압축 파일 안전성부터 실제 렌더링까지 포함합니다. 예를 들어 음 하나를 고치면 그 파트만 다시 합성되고 `compare`가 그 음부터, 영향이 닿은 파일에서만 차이를 찾는지, 예전의 단일 리버브 믹스가 이전 릴리스를 비트 단위로 재현하는지, 라우드니스 측정이 BS.1770 기준 음을 −3.01 LUFS로 읽는지 확인합니다. CI에서는 Ubuntu(FluidSynth 2.3, FFmpeg 6.1), macOS(FluidSynth 2.6, FFmpeg 9.0), Windows(고정 버전 FluidSynth 2.6.1, FFmpeg 9.0.2와 Surge XT)에서 렌더링을 포함한 모든 검사를 실행합니다.
 
 음악으로서 좋은지는 다른 문제이고, 직접 들어 봐야만 알 수 있습니다. 위의 곡들이 이 저장소가 보여 줄 수 있는 가장 좋은 증거입니다.
 
-## 자주 묻는 질문
+</details>
+
+<details>
+<summary><b>자주 묻는 질문</b></summary>
 
 **만든 음악을 영상, 게임, 상업 작품에 써도 되나요?** 도구 쪽에는 걸림돌이 없습니다. 음원은 모두 출처 표기가 필요 없습니다. 추가 음원은 CC0이거나 용도 제한 없이 쓸 수 있고, MS Basic의 MIT 라이선스도 그것으로 연주한 음악에는 아무것도 요구하지 않습니다. GPL 프로그램(FFmpeg, Surge XT)이 적용되는 것은 프로그램 자체이지 그것을 거친 음악이 아닙니다. 에이전트가 써 준 음악에 당신의 저작권이 생기는지는 사는 나라의 법과 당신이 얼마나 손을 댔는지에 달려 있습니다.
 
@@ -187,7 +227,10 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 
 **내 악기를 쓸 수 있나요?** SF2 음원이면 됩니다. `studio.py add-soundfont`로 설정에 추가하고 파트에서 지정합니다([soundbanks.md](skills/music-production/references/soundbanks.md)). 추가한 음원은 각자의 라이선스를 따르니, 작품을 공개하기 전에 확인하세요.
 
-## 한계
+</details>
+
+<details>
+<summary><b>한계</b></summary>
 
 - 노래를 부르거나 가사를 쓰지 못합니다. 플러그인은 Surge XT만 지원하며, 가지고 있는 VST 플러그인은 아직 쓸 수 없습니다.
 - 소리의 수준은 무료 음원에 달려 있습니다. YR 베이스는 벨로시티 레이어가 하나뿐이고, 스트링은 어택이 느린 편이며, 마림바·실로폰·피콜로는 샘플이 듬성듬성합니다. 샘플링한 기타의 벤딩은 샘플 전체의 음정만 바꾸기 때문에 실제 줄처럼 음색이 변하지는 않습니다.
@@ -196,6 +239,8 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 - 에이전트는 소리를 듣지 못합니다. `review`와 `analyze`는 문제가 있는 곳을 찾을 뿐이고, 결과는 사람이 들어야 합니다. 스킬은 들었다고 절대 말하지 않도록 에이전트에게 요구합니다.
 - 신시사이저나 이펙트 파트가 많은 긴 곡은 메모리를 많이 씁니다. 동시에 렌더링하는 파트마다 최대 약 2 GB이며, 여유 메모리가 부족하면 렌더러가 동시에 처리하는 파트 수를 자동으로 줄입니다(`--jobs`로 지정할 수도 있습니다).
 - Linux와 macOS에서는 시스템의 FluidSynth와 FFmpeg를 쓰기 때문에, 고정 버전을 쓰는 Windows와 샘플 단위로 조금 다를 수 있습니다.
+
+</details>
 
 ## 문서
 
@@ -220,4 +265,4 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 
 ## 라이선스
 
-이 프로젝트 자체의 코드와 문서는 [MIT](LICENSE)입니다. 서드파티 데이터, 그 측정값, 인용한 발췌문은 각자의 조건을 따르며 [THIRD_PARTY.md](THIRD_PARTY.md)에 정리되어 있습니다. 예제 녹음과 곡은 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)으로 퍼블릭 도메인에 공개합니다. 서드파티 도구와 음원은 각자의 라이선스를 따르며 이 저장소에는 포함하지 않습니다. 도구는 배포처에서, 음원 30종은 모두 이 프로젝트의 릴리스에서 내려받습니다(25종은 배포처의 샘플로 구성, 5종은 FreePats 파일을 그대로 다시 묶은 것). `skills/music-production/scripts/surge_host.py`는 그것이 실행하는 Surge XT, pedalboard와 같은 GPL-3.0-or-later입니다. 서곡 그림은 그 프로젝트 파일에서 코드로 그린 것이고, 로고의 글자는 Noto Serif TC(SIL Open Font License)를 아웃라인으로 바꾼 것입니다.
+이 프로젝트 자체의 코드와 문서는 [MIT](LICENSE)입니다. 서드파티 데이터, 그 측정값, 인용한 발췌문은 각자의 조건을 따르며 [THIRD_PARTY.md](THIRD_PARTY.md)에 정리되어 있습니다. 예제 녹음과 곡은 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)으로 퍼블릭 도메인에 공개합니다. 서드파티 도구와 음원은 각자의 라이선스를 따르며 이 저장소에는 포함하지 않습니다. 도구는 배포처에서, 음원 30종은 모두 이 프로젝트의 릴리스에서 내려받습니다(25종은 배포처의 샘플로 구성, 5종은 FreePats 파일을 그대로 다시 묶은 것). `skills/music-production/scripts/surge_host.py`는 그것이 실행하는 Surge XT, pedalboard와 같은 GPL-3.0-or-later입니다. 예제 그림은 각 프로젝트 파일에서 코드로 그린 것이고(그림의 글자는 Noto Sans TC, SIL Open Font License), 로고의 글자는 Noto Serif TC(SIL Open Font License)를 아웃라인으로 바꾼 것입니다.

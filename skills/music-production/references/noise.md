@@ -153,9 +153,51 @@ silence, at least 35 dB under the loud level.
 The measure above finds noise left bare after a note; it misses noise under a ringing note. A pedalled passage on the
 sampled pianos found it there: the VCSL Steinway's soft layer carries rumble about 32 dB and hiss about 60 dB under the
 note's early level, the Kawai's softest 30 and 47 dB (10 and 31 on its noisiest takes), where the Osiris pedal takes
-keep 58 and 73, and a pedal adds the takes up. Reducing it take by take, each take its own print, was tried and set
-aside: what was left of the noise rose and fell with the playing, and in a mix the other parts and the reverb cover the
-noise anyway. For quiet, exposed piano choose the Osiris, or the Yamaha upright ([soundbank-measurements.md](soundbank-measurements.md)).
+keep 58 and 73, and a pedal adds the takes up. Reducing it take by take with a gain that follows the signal, each take
+its own print, was tried and set aside: what was left of the noise rose and fell with the playing. The builds now take
+it out in ways that move nothing with the playing. The Steinway's soft and middle dynamics are made from its loud one
+(`vcsl` b7 and later), and the Osiris's bands are closed once each has come down to the hiss, its takes stored at full scale
+(`piano_osiris` b5 and later): in a soft pedalled passage the floor at 12 to 20 kHz lay 75 dB under the music on both, where it
+had lain 50 and 60 dB under it (measured on the builds before the closing was kept out of a note's first 0.06 s). For
+quiet, exposed piano choose the Steinway, or the Osiris for a closer and darker sound
+([piano-and-chamber.md](piano-and-chamber.md), Instruments).
+
+A count of every decaying, unlooped take of the banks (the 6 to 16 kHz level over the later part of the take, against
+the 0.35 of a 16-bit step that dither alone leaves) then found hiss under the ringing notes of thirty-one more
+instruments, a few takes to all of them. Each was played softly, alone and dry, and heard. The bands are closed the
+same way on those a piece leaves alone, where hiss is heard: the nylon guitar (`iowa_guitar` b8), the folk harp
+(`vcsl_world` b7), and the concert harp, the vibraphone and the tubular bells (`vcsl` b12). Measured on these
+builds and on the Osiris's (b10) against the untreated ones, every stored channel of two seconds or more, the level
+between 6 and 16 kHz from half to four fifths of the take, the gain of the first 30 ms taken out, at the median:
+17 dB less on the guitar, 15 on the folk harp, 12 on the concert harp, 7 on the tubular bells, 4 on the
+vibraphone, 13 and 14 on the two Osiris presets. Under the soft pedalled passage the pianos were first measured
+by, the Osiris's floor at 12 to 20 kHz lies 71 dB under the music (60 untreated): its bands close when the
+blow's own top has gone, 0.3 to 1 s after the onset.
+
+The other instruments were tried and are as recorded: the Kawai grand, the three uprights, the three TX81Z
+presets, the harpsichords, the timpani, the glockenspiel and every pizzicato preset. Inside a mix their hiss is
+covered by the other parts. On the timpani, the Yamaha upright and the harpsichords the step measured nothing
+over that part of the take; every band of a glockenspiel's takes holds a partial of the bar that rings on; and
+the FM voices' upper partials ring on likewise, which a first build removed with the hiss. That is what several
+independent reviews of the code found: a partial can pass for hiss (one that dies slowly, one in a voice whose
+top band holds partials too, a short one late in a take, one in one channel only, the crowded partials of a low
+note), and the builds named here close no band while a narrow component it would take from is still heard in the
+hiss ([soundbank-building.md](soundbank-building.md), `close_hiss`). In the opening of a piece for
+guitar, harp and plucked basses, the quietest moments measured 18 dB less at 6 to 12 kHz and 27 dB less at 12 to
+20 kHz, the level and everything under 3 kHz as they were (on the first builds of the two; the ringing part of
+their takes measures the same on these).
+
+What the closing leaves on the instruments it is used on, so that it is not looked for in vain: the hiss of a band while its partials still sound
+(1 to 3 kHz rings long on a guitar or a harp), and of a band in which a partial or a steady tone of the recording
+is heard into the later part of the take (most bands of a bell or a bar, the bands a sustaining FM voice reaches); everything under 1 kHz, a mains hum included (49 Hz under one cello
+pizzicato take, 60 and 120 Hz under the French harpsichord); sounds of the room that are no hiss (other players
+under a section's pizzicato, birdsong under the French harpsichord's long A sharp 4); a note's first 0.06 s; and takes
+under 2 s, which is most pizzicato. Every pizzicato preset was tried, heard to gain next to nothing, and is as
+recorded: the takes are short, and a section's takes hold the other players' strings from the pluck on, with other
+sounds of the room from about 1.3 s, which no closing of bands and no earlier end of the take removes (both were
+tried on the violins' G3). A pizzicato note written under a second, as they are played, ends before the later
+sounds are reached. Also as recorded: the upright and electric basses, the archtop guitar, the kalimbas, and the
+mbira, whose rattle is the instrument's own.
 Otherwise, noise heard in a render is first a matter of an instrument's own sound, gain, voices adding up and the
 playback level.
 

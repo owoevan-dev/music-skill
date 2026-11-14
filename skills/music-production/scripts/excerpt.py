@@ -77,6 +77,15 @@ def extract(p,first_bar,bars):
     for sec in p['sections']:
         a=max(first_bar-1,sec['start_bar']);b=min(first_bar-1+bars,sec['start_bar']+sec['bars'])
         if a<b:q['sections'].append({**sec,'start_bar':a-first_bar+1,'bars':b-a})
+    if isinstance(q.get('plan'),dict) and (first_bar>1 or bars<p['clock']['bars']):
+        # A plan is a plan of the piece.  Half of what it says compares a section with the one before it, which a cut
+        # takes away or cuts into, and its high point may lie outside the cut; so a passage keeps the piece's plan
+        # whole and says that it is a passage, and review reads the plan against the piece and asks nothing of it
+        # here (musiclib/plan.py).  Giving the passage a plan of its own was tried and read commitments against what
+        # the cut had left of the section before, hid a section the score does not have yet, and lost the high point
+        # at a second cut (the final review, FR02 to FR04).  A passage of a passage counts its bars in the piece's.
+        earlier=q['plan'].get('passage') if isinstance(q['plan'].get('passage'),dict) else {}
+        q['plan']['passage']={'first_bar':int(earlier.get('first_bar',1))+first_bar-1,'bars':bars}
     rubato=q['clock'].pop('rubato',None)
     if rubato:
         # The piece's ritardandi that reach into the passage, as spans in its beats, so it keeps the piece's tempo as

@@ -167,7 +167,7 @@ The table is an example plan. Build by addition toward the chorus (McAdams, Good
 | Bass | `bass_pick` (picked); `bass_darkblack` 0:33 (fingers, five strings), 1:33 staccato |
 | Rhythm guitars | `fsbs_dist1` and `fsbs_dist2` (distorted), `fsbs_clean` |
 | Lead | `fsbs_dist2` with legato and bends; for a different lead, `vsco` solo violin 0:40 or the trumpet 0:56 |
-| Keys | `vcsl` grand 0:0, `piano_osiris`; a Surge organ for a rock organ (`studio.py sounds --role keys --name organ --seed <piece seed>`, then `audition`) |
+| Keys | the Steinway grand `vcsl` 0:0; a Surge organ for a rock organ (`studio.py sounds --role keys --name organ --seed <piece seed>`, then `audition`) |
 | Orchestra, choir (symphonic metal) | `vsco_strings` sections, `vsco` brass, `vocal_ah`, `vcsl` timpani 0:47 ([orchestration.md](orchestration.md)) |
 
 Probe a preset before building a part on it ([soundbank-measurements.md](soundbank-measurements.md) has what each bank measured).

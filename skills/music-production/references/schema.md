@@ -138,7 +138,41 @@ For `drum_synth` (musiclib/drums.py), drum-machine voices on General MIDI keys: 
 
 For `additive`, optional `instrument` parameters: `harmonics` (default 12), `spectral_tilt` (1.25), `detune_cents` ([-5,0,5]), `attack_ms` (22), `release_ms` (120), `glide_ms` (28), `cutoff_hz` (1900), `odd_only` (false), and optionally `vibrato_depth_cents` (depth at CC1 = 127; without it about 14 cents at full CC1), `vibrato_rate_hz` (5.1) and `vibrato_delay_ms` (180). A single detune voice is centred. Keep monophonic lead roles; polyphonic pad emulation is outside this instrument's design. For `noise`, a note's `articulation` selects `rise`, `impact`, `vinyl` or a decaying noise transition; pitch is retained for MIDI editing but is not acoustic pitch in the noise engine. A `vinyl` note plays a worn record's surface noise for its whole length (hiss, a crackle of clicks, occasional pops, a scratch once a revolution); its clicks stand far above its hiss, so give the part `level_mode: "peak"` and set `level_dbfs` for the loudest click, around −30 to −22.
 
-Optional `harmony`, `decisions`, `authorship` and `revision_history` retain compositional intent. The renderer never infers or enforces harmony; `review` only questions notes against it. You must author the notes.
+Optional `harmony`, `decisions`, `authorship` and `revision_history` retain compositional intent. The renderer never infers or enforces harmony; `review` only questions notes against it. You must author the notes. A decision that begins with a review question's identifier and a colon (`"stiffness:keys: a sequenced arpeggio, meant"`; the identifiers are in the review's summary and in `questions` of score_review.json) answers that question: `review` lists it under `answered` with the reason and does not ask it again for as long as the question keeps that identifier.
+
+Optional `association` keeps what the piece started from beside the request (SKILL.md, step 2):
+
+```json
+"association": {
+  "source": "draw", "seed": 548970676,
+  "words": ["scarlet", "stapler", "sewer", "sauna", "screwdriver", "motel", "mesa", "whittle", "leek", "crimp", "lemur", "tram"],
+  "whole": "A night tram crosses the mesa to a motel whose scarlet sign has gone out ...",
+  "gives": [
+    {"level": "form", "what": "seven scenes in the order of the journey", "where": "all sections"},
+    {"level": "rhythm", "what": "the tram's wheels, 3+3+2", "where": "tram, bars 9-28"},
+    {"level": "harmony", "what": "the scarlet chord, B-flat over D", "where": "bars 5-6, 29-44, 95"}
+  ]
+}
+```
+
+`source`, `seed` and `words` are copied from the `association.json` that `studio.py words` wrote in the project folder (`source` is `draw`, or `user` for words the user gave). `whole` is the one scene, story or chain that holds the request and every word. `gives` says what the whole decided, level by level, and where it is heard. A piece whose user asked for no association records `"association": {"none": "<why>"}`. `validate` checks the frame only. `review` asks once for a project without the field, for words without their whole, and for a whole that gave the music fewer than three levels (`association.missing`, `association.whole`, `association.gives`); nothing refuses a project for it, and nothing checks that the whole is a good one: that is for its reader.
+
+Optional `plan` is the piece's plan as data, written before the notes and kept:
+
+```json
+"plan": {
+  "identity": "what makes this piece itself, in your words",
+  "high_point": {"section": "top", "means": "by what it is the high point"},
+  "sections": [
+    {"section": "verse", "sounds": ["drums", "bass", "keys", "lead"], "leads": "lead"},
+    {"section": "chorus", "sounds": ["drums", "bass", "keys", "lead", "brass"], "leads": "lead", "answers": ["brass"],
+     "register": {"lead": "higher"}, "harmony": "faster", "dynamics": "louder",
+     "differs": "what sets it apart from the section before, in your words"}
+  ]
+}
+```
+
+Every field is optional and a section may be left out: the plan holds what you commit to and nothing else, and it has no form to fill. `sounds` is the parts that sound in the section, attacked there or held into it. `leads` and each part of `answers` attack in it. `register` gives a part `higher`, `lower` or `same` against the last section it played in (its median pitch there and here; 2 semitones count). `harmony` is `faster`, `slower` or `same` against the section before (chord changes a bar, as the review's glance counts them). `dynamics` is `louder`, `softer` or `same` against the section before (the mean written velocity; 3 counts; levels and automation of the mix are not read). A passage cut from the piece with `excerpt.py` keeps this plan whole and adds `passage` (`first_bar` and `bars`, in the piece's bars): the plan is read against the piece, and the review of a passage asks nothing of it. `identity` and `differs` are your words and are compared with nothing; the high point's `means` are shown and judged by nothing, since a high point need not be more parts or more notes. `validate` checks the plan's frame only: it may name a part or a section the score does not have yet. `review` reads the score against each commitment and asks where they differ (`plan:<section>`), with the figures; the score or the plan may be the one to change. `round` keeps the plan as first written (`plan_first` in round.json) and says where a later plan no longer says the same, so a plan rewritten to fit the score is seen as that. A project without a plan is asked for one (`plan.missing`); a decision can answer that for a piece that needs none.
 
 Optional `style` places the piece on the style maps ([style-maps.md](style-maps.md)): an entry, `"style": "family/sub-style"`, or a primary entry with entries borrowed for some axes, `"style": {"primary": "family/sub-style", "borrow": {"rhythm": "family/other"}}`. The axes are `tempo`, `harmony`, `melody`, `rhythm`, `timbre`, `form` and `mix`; each is governed by the entry borrowed for it, otherwise by the primary one. `validate` refuses an entry the maps do not have. `review` takes each check's limits from the entry governing the check's axis, and its record `limits` gives every limit with its origin: a source, or `ours` where the project set the number itself ([style-maps.json](style-maps.json)). The renderer does not read `style`.
 

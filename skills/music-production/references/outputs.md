@@ -15,11 +15,18 @@ Contents: [round.json](#roundjson) · [report.json](#reportjson-render) · [stem
 `studio.py round` writes `review/` and `render/` (a draft, with `analysis.json` and `compare_<previous>.json`) and
 `round.json`, from the moment the round's folder is made: `kind` and `title` (what made the folder and of which piece),
 `status` (the render's; `FAIL` if it did not finish), `failed` (null, or the `step` that stopped the round and its
-`error`), `questions` (how many review questions), `project` and `previous` (relative to the round's folder), the
+`error`), `questions` (how many review questions), `new_questions` and `gone_questions` (with `--previous` a round
+made by this version: the identifiers of the questions this round asks that the round before did not, and of those
+it asked that are gone; a fix that raises another question shows in the first), `project` and `previous` (relative
+to the round's folder), the
 relative paths `review`, `render`, `analysis`, `compare`, `seconds` per step and `runtime_seconds`. With `--clip`, the comparison's `clip` names the old-then-new MP3
 (or why it was not made). A round's folder can stand for its render wherever a command takes a render folder;
 `compare` of two rounds names its report after the first, and `analyze` of a round needs `--output` (the round wrote
 its `analysis.json`).
+With a `plan` in the project, the round also records `plan` (the plan as it stands in this round), `plan_first` (the
+plan as first written, carried from round to round so that it outlives the earlier rounds' folders) and, where the
+two differ, `plan_changed` (`identity`, `high_point`, `section <id>`). A round whose project has no plan any more
+still carries `plan_first` on, and its `plan_changed` says the whole plan is gone.
 
 ## report.json (render)
 
@@ -58,16 +65,22 @@ memory while other parts held it), `synthesis` and `processing`.
 | Key | What it holds |
 |---|---|
 | `prompts` | every review question, as the summary prints them |
+| `association` questions | `association.missing` (the project records none), `association.whole` (words without the whole made of them), `association.gives` (the whole gave the music fewer than three levels); a project with `"association": {"none": "..."}` is asked none of them |
+| `answered` | the questions a decision answers and that are therefore not asked: `id`, the question's `text` with what it counts now, and the `reason` (the decision after the identifier and its colon). An identifier holds no colon followed by a space, and the names in it are joined by plus signs: in a name a per cent sign is written `%25` and a plus sign `%2B`, and a space after a colon `%20` (a section named `answer: reprise` gives `plan:answer:%20reprise`; the sections `a+b` and `c` give `sections_alike:a%2Bb+c`), so no two questions about different names share an identifier. The identifier a decision answers is the text before its first colon and space, that one and no other, in every round; the summary prints each question's identifier in brackets |
+| `plan` | null for a project without a plan, else the plan read against the score: `identity`; `high_point` (`section`, `means`, `in_piece`); `commitments`, `kept` and `differences` (counts of the statements that can be read off a score); and per planned section `kept` (the commitments the score holds), `differs` (each with `what`, `planned`, `found` and the sentence the question prints), `unread` (what cannot be read and why: a first section has none before it, a project without `harmony` has no pace) and `what_differs` (the plan's own sentence, compared with nothing) |
+| `questions` | the same questions, each with its `text` and an `id` that does not depend on the wording: the kind of question and, after a colon, the part, the parts or the section it is about (`vertical`, `outside_chord.melody`, `sections_alike:verse+chorus`, `stiffness:keys`, `restatement:chorus`). Rounds and versions are compared by these |
+| `views` | the score at a glance, which the summary prints before the questions. `parts_by_section`: per section the parts that sound in it, attacked there or held into it, each with `attacks`, `held_in`, `notes_per_bar`, `low` and `high`, `velocity`; `part_sets`: how many different sets of parts the sections have. `harmony_pace`: `entries` of `harmony`, `changes` (a chord that differs from the one before it, however it is spelled; the same chord written again is none), `changes_per_bar`, `kinds` (triad, added, seventh, extended, altered) and the same by section. `melody_rhythm`: for each part with the role `melody`, `syncopated_pct` and `pushes_pct` by the rule of `stiffness`, `longest_run` (the longest stretch it sounds without a rest of half a beat: `beats`, `seconds`, `from_bar`, `to_bar`), `bar_rhythms`, and by section its attacks, syncopations, pushes, rests and phrases. They describe the score; none is a question or a mark |
 | `tracks` | per part: notes, pitch range, duration values, velocity range, key gaps, step share, phrase labels |
 | `sections` | per section: seconds, active parts, onsets by role |
-| `vertical_minor_seconds_ninths` | `count`, `foreground_count`, `by_parts`, `examples` (each `at`, `parts`, `pitches`, `overlap_beats`) |
-| `outside_chord` | `count` and `examples` of the notes not resolved by step (each `at`, `track`, `note`, `chord`, `approach`, `departure`), `not_resolved_by_step` (by melody, bass and accompaniment), `tracks` (each part's notes outside the chord counted by kind: passing, neighbour, suspension and the rest), `unparsed_symbols` |
+| `vertical_minor_seconds_ninths` | `count`, `foreground_count`, `by_parts`, `examples` (each `at`, `parts`, `pitches`, `ids` (the two notes, the lower pitch first), `overlap_beats`) |
+| `outside_chord` | `count` and `examples` of the notes not resolved by step (each `at`, `track`, `note`, `id` and `struck` (the note and where it begins: a note held into a chord is named `at` the chord's beat, which is not where the note is written), `chord`, `approach`, `departure`), `not_resolved_by_step` (by melody, bass and accompaniment), `tracks` (each part's notes outside the chord counted by kind: passing, neighbour, suspension and the rest), `unparsed_symbols` |
 | `parallel_fifths_octaves` | `count`, `by_pair`, `examples` (each `at`, `parts`, `interval`, `pitches`), `octaves_in_doublings` |
 | `low_intervals` | `count`, `by_parts`, `furthest_below`, `examples` (each `at`, `parts`, `interval`, `notes`, `limit`) |
 | `repetition` | `static_spans`, `part_loops`, `literal_returns`, `arrivals_thinner_than_before`, `sections_alike`, `energy` per section |
 | `stiffness` | `block_chord_parts`, `parts`, `no_pushes_anywhere` |
-| `melody_sections` | per section: phrases, the longest stretch without a breath, leaps, bars restated, the peak and where it falls |
+| `melody_sections` | per section: phrases (a phrase ends at a rest of half a beat or at a note held a beat and a half), the longest of them (`longest_without_breath_*`: a guess at phrasing, not a measure of rest, which `views.melody_rhythm.longest_run` is), leaps, bars restated, the peak and where it falls |
 | `transposed_samples`, `cannot_render` | with `--config`: notes played from samples far from their pitch, notes outside a preset, parts the banks cannot play |
+| (question `piano:<part>`) | with `--config` and the `vcsl` bank installed: a piano part played on another piano than the Steinway grand ([piano-and-chamber.md](piano-and-chamber.md)); it has no field of its own, and a decision that begins with its identifier answers it. It is asked of the project's own banks only: a bank that someone configured themselves, the default bank included, may hold anything at any program |
 | `loop_seam` | a game loop's seam from the score |
 
 `notes.csv` lists every note with its bar, beat, pitch, velocity, timing and performed seconds; `arrangement.md` is

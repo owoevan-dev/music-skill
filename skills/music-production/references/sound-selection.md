@@ -149,6 +149,8 @@ Before searching, write down for the part:
 
 [soundbanks.md](soundbanks.md) lists the sampled pianos, guitars, basses, orchestra, kits and other recordings, [soundbank-presets.md](soundbank-presets.md) their presets and [soundbank-measurements.md](soundbank-measurements.md) what each was measured to do. Electric pianos also include the sampled TX81Z FM pianos ([beats.md](beats.md)). `studio.py audition` takes `soundfont:<bank>:<bank number>:<program>` to compare them on the part.
 
+**The piano.** A piano part in any kind of music is played on the Steinway grand (`"soundfont": "vcsl"`, bank 0, program 0), solo or in a mix, and made brighter or closer in the mix where it wants to be. Another piano is used where the user names it or the piece is built on its sound; [piano-and-chamber.md](piano-and-chamber.md) says which and what each costs. With `--config`, `review` asks about a piano part on any other piano (`piano:<part>`).
+
 **Notes far from a sample's pitch.** A sampled note played away from the pitch it was recorded at changes its tone, and a vibrato or other movement in it speeds up as it goes higher; a multisample gives each source sample a range of three or four semitones (Howell 2006), and one sample played across an octave sounds "very obviously less natural a few semitones in either direction from the root note" (Walden 2023). With `--config`, `review` names notes played more than 4 semitones from their sample, a limit this skill set ([outputs.md](outputs.md), `transposed_samples`).
 
 **Electric pianos** are there whenever a part wants one; none is a sampled Rhodes or Wurlitzer:

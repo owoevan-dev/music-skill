@@ -15,8 +15,8 @@
 
 <p align="center">
   <a href="https://github.com/owoevan-dev/music-skill/actions/workflows/tests.yml"><img src="https://github.com/owoevan-dev/music-skill/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-1f1c1a" alt="Licence: MIT"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-1f1c1a" alt="Python 3.10 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-111111" alt="Licence: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-111111" alt="Python 3.10 or newer">
 </p>
 
 <p align="center"><strong>不是生成，是作曲。</strong></p>
@@ -25,25 +25,28 @@ music-skill 是一個 [Agent Skill](https://agentskills.io)，讓 AI agent 像�
 
 整個過程沒有用到任何音訊生成模型。除了 MP3 和 WAV，你還會拿到 MIDI、每個聲部各自的音軌，以及一份專案檔：裡面任何一個音都能改，改完再重新渲染。
 
-<p align="center">
-  <img src="docs/images/cairnfire.png" alt="《Cairnfire》（管弦樂序曲）的一個瞬間，直接從專案檔畫出：每個音是鋼琴捲簾上的一條，弦樂藍色、木管綠色、銅管橘色，上方是樂曲的段落，下方是各聲部的名稱，正在演奏的會亮起">
-</p>
+每首曲子都從隨機抽出的十二個詞開始。agent 把這些詞和你的需求連成一個場景，由這個場景決定你沒說到的部分，所以同一個需求做出來的兩首曲子會比較不像。你也可以自己給詞，或是不要詞。
+
+https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 
 ## 試聽
 
-以下每一首都是用這個 skill 的 0.6.0 版、由標示的模型單次完成的，只給了一則訊息：[七首共用的開頭](examples/prompt.md)，加上三四句的需求。曲名、曲式、樂器和音色都由 agent 自己決定，每個音都是它寫的，審查、渲染和修改也都由它自己完成；製作期間沒有人回覆它，成品也沒有人修改過。七首全部都在這裡，沒有從多首裡挑選。每個範例資料夾都有需求原文、agent 的腳本和渲染時的專案檔。
+六首曲子，六個模型各一首，都用 xhigh effort。每首都是單次完成，只給了一則訊息：[六首共用的開頭](examples/prompt.md)，加上幾句需求。曲名、曲式和音色都由 agent 自己決定，每個音都是它寫的，審查和修改也由它自己完成。製作期間沒有人回覆它，它寫的音符也沒有人修改過。每首的頁面都列出它抽到的十二個詞，以及 agent 用這些詞連成的場景。
 
-- [《Stormglass Gambit》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/stormglass-gambit.mp3)（3:07），Claude Fable 5.2，xhigh effort：可循環的合成器遊戲戰鬥曲（[範例](examples/stormglass-gambit)）
-- [《Cairnfire》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/cairnfire.mp3)（4:29），Claude Fable 5.2，xhigh effort：給完整管弦樂團的音樂會序曲，共 36 個聲部（[範例](examples/cairnfire)）
-- [《Glass Towers, Low Gear》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/glass-towers-low-gear.mp3)（3:03），Claude Opus 5.5，xhigh effort：city pop，夜晚開車穿過燈火通明的城市（[範例](examples/glass-towers-low-gear)）
-- [《The Stone Vault Turns to Light》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/the-stone-vault-turns-to-light.mp3)（3:56），GPT-6 Astra，xhigh effort：管風琴觸技曲（[範例](examples/the-stone-vault-turns-to-light)）
-- [《Paper Lantern Hours》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/paper-lantern-hours.mp3)（2:10），Claude Sonnet 5.5，medium effort：可循環的 lo-fi hip-hop（[範例](examples/paper-lantern-hours)）
-- [《Fughetta in D minor》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/fughetta-in-d-minor.mp3)（2:00），Claude Opus 5.5，medium effort：巴洛克風格的小賦格，大鍵琴與弦樂（[範例](examples/fughetta-in-d-minor)）
-- [《Skybutton Speedway》](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/skybutton-speedway.mp3)（1:31），GPT-6 Luna，max effort：8-bit 晶片音樂的標題畫面曲，90 秒循環（[範例](examples/skybutton-speedway)）
+<table>
+<tr>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-lamp-on-the-wire.mp3"><img src="docs/images/the-lamp-on-the-wire.jpg" alt="《The Lamp on the Wire》的鋼琴捲簾的一個瞬間"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-lamp-on-the-wire.mp3">《The Lamp on the Wire》</a></b><br>動畫電影的高潮配樂，完整管弦樂團，4:43<br><sub>Claude Fable 5.2 · <a href="examples/the-lamp-on-the-wire">製作過程</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/battle-reel-of-the-stork-rider.mp3"><img src="docs/images/battle-reel-of-the-stork-rider.jpg" alt="《Battle Reel of the Stork-Rider》的鋼琴捲簾的一個瞬間"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/battle-reel-of-the-stork-rider.mp3">《Battle Reel of the Stork-Rider》</a></b><br>奇幻故事的戰鬥曲，民謠樂團演奏，2:58<br><sub>Claude Opus 5.5 · <a href="examples/battle-reel-of-the-stork-rider">製作過程</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fughetta-of-the-paper-paddock.mp3"><img src="docs/images/fughetta-of-the-paper-paddock.jpg" alt="《Fughetta of the Paper Paddock》的鋼琴捲簾的一個瞬間"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fughetta-of-the-paper-paddock.mp3">《Fughetta of the Paper Paddock》</a></b><br>巴洛克小賦格，大鍵琴與弦樂，2:28<br><sub>Claude Sonnet 5.5 · <a href="examples/fughetta-of-the-paper-paddock">製作過程</a></sub></td>
+</tr>
+<tr>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fjord-stopwatch.mp3"><img src="docs/images/fjord-stopwatch.jpg" alt="《Fjord Stopwatch》的鋼琴捲簾的一個瞬間"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fjord-stopwatch.mp3">《Fjord Stopwatch》</a></b><br>深夜閱讀的 lo-fi，可循環，2:32<br><sub>Claude Haiku 5.5 · <a href="examples/fjord-stopwatch">製作過程</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-cork-boat-keeps-our-evening.mp3"><img src="docs/images/the-cork-boat-keeps-our-evening.jpg" alt="《The Cork Boat Keeps Our Evening》的鋼琴捲簾的一個瞬間"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-cork-boat-keeps-our-evening.mp3">《The Cork Boat Keeps Our Evening》</a></b><br>沒有歌手的抒情慢歌，3:33<br><sub>GPT-6 Astra · <a href="examples/the-cork-boat-keeps-our-evening">製作過程</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/noon-raccoon-rooftop-run.mp3"><img src="docs/images/noon-raccoon-rooftop-run.jpg" alt="《Noon Raccoon Rooftop Run》的鋼琴捲簾的一個瞬間"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/noon-raccoon-rooftop-run.mp3">《Noon Raccoon Rooftop Run》</a></b><br>平台遊戲第一關的 8-bit，可循環，1:31<br><sub>GPT-6 Luna · <a href="examples/noon-raccoon-rooftop-run">製作過程</a></sub></td>
+</tr>
+</table>
 
-[原版與修改版對照](examples/before-after) 把一首小曲改掉一個音，再用 `compare` 列出渲染裡跟著變的所有地方：那個聲部、它的匯流排、殘響尾巴和母帶。
-
-錄音是 MP3 檔，可以從 release [examples-4](https://github.com/owoevan-dev/music-skill/releases/tag/examples-4) 下載。
+樂曲和錄音都是 CC0；錄音是 MP3 檔，放在 release [examples-5](https://github.com/owoevan-dev/music-skill/releases/tag/examples-5)。[原版與修改版對照](examples/before-after) 把一首小曲改掉一個音，再用 `compare` 列出渲染裡跟著變的所有地方：那個聲部、它的匯流排、殘響尾巴和母帶。
 
 ## 快速開始
 
@@ -55,25 +58,39 @@ music-skill 是一個 [Agent Skill](https://agentskills.io)，讓 AI agent 像�
    ```
 
    Codex 和其他 agent：`npx skills add owoevan-dev/music-skill`。
-2. 請 agent 安裝渲染工具和音色庫。它會執行[安裝](#安裝)一節的指令：下載約 3.7 GB，在我們的測試電腦上接著約五分鐘就完成其餘步驟。
+2. 請 agent 安裝渲染工具和音色庫。它會執行[安裝](#install)一節的指令：下載約 3.7 GB，在我們的測試電腦上接著約五分鐘就完成其餘步驟。
 3. 用平常的話點一首曲子：
 
    > 幫我的 RPG 寫一首一分鐘、可以循環的城鎮主題：直笛、豎琴和輕柔的弦樂。
 
-你會拿到 MP3 和 WAV、MIDI、每個聲部的分軌、加起來就是完整混音的匯流排與殘響回送，以及專案檔。在一台 24 執行緒的筆電上，上面的範例從零開始渲染，每首花了 22 秒（小賦格）到 108 秒（36 個聲部的序曲）。
+你會拿到 MP3 和 WAV、MIDI、每個聲部的分軌、加起來就是完整混音的匯流排與殘響回送，以及專案檔。在一台 24 執行緒的筆電上，上面的範例從零開始渲染，每首花了 25 秒（小賦格和 8-bit 曲）到 156 秒（57 個聲部的電影配樂）。
 
 ## 為什麼不直接生成？
 
-文字轉音樂的模型交給你的是一段做好的音訊。有些可以重新生成其中一段，但你沒辦法打開它移動一個音，也說不出裡面的聲音從哪裡來。
-
-這裡由 agent 寫出樂譜，所以音樂是由一個個你看得懂、改得動的決定組成：第 33 小節的旋律、一個和弦的配置、鼓手敲銅鈸的力道。只改一個音，就只會重新合成那個聲部，混音則整個重建。聲音來自真實樂器的多重取樣錄音（授權都查得到）或 skill 內建的合成器，也沒有用到任何以別人錄音訓練的模型。
+| | 文字轉音樂的模型 | music-skill |
+|---|---|---|
+| 改一個音 | 重新生成整首或其中一段 | 直接改那個音，只重新演奏那個聲部 |
+| 你拿到什麼 | 一個音訊檔 | 音訊、MIDI、每個聲部的分軌和專案檔 |
+| 聲音從哪裡來 | 模型內部 | 錄下的真實樂器和合成器，每一個都標明授權 |
+| 配合場景或關卡 | 大致吻合 | 精確到小節：循環點、命中點、準確的長度 |
+| 同一首再做一次 | 新的一次生成 | 同一個專案渲染出相同的聲音（Surge XT 聲部除外） |
 
 如果 Claude 或其他 agent 已經在幫你剪影片或做遊戲，它本來就知道音樂要配合什麼：每個場景多長、轉場落在哪裡、旁白何時開始、關卡怎麼循環。它可以照著這些數字寫：在揭曉的那一刻推到最高點、旁白底下的配樂收小、循環和關卡一樣長；剪輯改了，就只重寫移動到的那幾小節。
 
 ## 運作方式
 
-1. **寫譜**：agent 先規劃曲式和主題，再寫出專案檔。每個音的音高和長度記在樂譜裡；怎麼演奏（力度、時間點、放開的時機）另外記錄。較長的曲子通常由 agent 寫一支簡短的 Python 腳本來產生，讓和聲配置、貝斯線和鼓的樂句都清楚好改。
-2. **檢查樂譜**：`review` 會列出聲部之間持續的小二度和小九度；為和弦外的每個音標出經過音、掛留音等非和弦音的類型，並詢問沒有級進解決的音；還會列出獨立聲部之間的平行五度、八度，以及音域過低的密集音程，讓每一處都是刻意的選擇，而不是意外。
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/pipeline.zh-TW-dark.svg">
+    <img src="docs/images/pipeline.zh-TW.svg" alt="寫譜、檢查、演奏、渲染、混音、量測" width="900">
+  </picture>
+</p>
+
+<details>
+<summary><b>六個步驟的細節</b></summary>
+
+1. **寫譜**：agent 先確定需求要的是什麼，再替這首曲子隨機抽出十二個詞，把需求和這十二個詞連成一個整體（一個場景或一段故事），由它決定需求沒說到的部分：曲名、曲式、音色。接著寫下計畫（這首曲子靠什麼辨認、高潮在哪裡、用什麼手段、每個段落要做到什麼），再寫出專案檔。每個音的音高和長度記在樂譜裡；怎麼演奏（力度、時間點、放開的時機）另外記錄。較長的曲子通常由 agent 寫一支簡短的 Python 腳本來產生，讓和聲配置、貝斯線和鼓的樂句都清楚好改。
+2. **檢查樂譜**：`review` 一開頭先列出三張從樂譜算出的表（每個段落有哪些聲部發聲、和弦多久換一次、旋律的節奏），再拿樂譜對照計畫，問出兩者不符的地方。它會列出聲部之間持續的小二度和小九度；為和弦外的每個音標出經過音、掛留音等非和弦音的類型，並詢問沒有級進解決的音；還會列出獨立聲部之間的平行五度、八度，以及音域過低的密集音程。每個問題都有識別碼，以它開頭的書面決定就是對那個問題的回答，讓每一處都是刻意的選擇，而不是意外。
 3. **演奏**：演奏模型加上真人演奏會有的偏差：每位樂手在時間和音量上緩慢的起伏、稍微拖拍的貝斯、樂句的起伏弧線，以及和弦裡各音不會同時按下、也不會同時放開。取樣的主旋律可以圓滑奏，也可以推弦。
 4. **渲染**：FluidSynth 用有授權的 SoundFont 音色庫，讓每個取樣聲部用各自的樂器演奏；電子聲部則由內建的合成器和鼓機，或 Surge XT 合成器的音色演奏。
 5. **混音與母帶**：各聲部經過鼓、貝斯、節奏、合奏和主旋律匯流排，以及四種自動生成的殘響，最後由母帶處理做到 專案的目標響度（預設 −16 LUFS，串流常用 −14 LUFS），真峰值不超過 −1 dBTP。採用新版混音規則時，主旋律會保持在你寫的音量附近，母帶以真峰值限制器收尾；管弦樂曲還能指定聽起來離樂手多近，從樂手身邊到音樂廳的座位。管弦樂與管風琴可以略過壓縮器，保留完整的強弱對比；電子音樂可以加上側鏈閃避、跟著速度走的延遲、濾波掃頻，以及俱樂部等級的響亮母帶。
@@ -83,7 +100,14 @@ music-skill 是一個 [Agent Skill](https://agentskills.io)，讓 AI agent 像�
 
 遊戲用的專案可以設定循環：渲染時會把殘響尾巴折回循環開頭，並用 Godot 和 RPG Maker 讀取的格式，把循環點寫進 WAV 與 Ogg 檔，每個段落也標上提示點。循環還能拆成幾層，各層加起來就是完整混音，讓音樂隨著遊戲緊張程度逐層加厚。
 
-## 安裝
+</details>
+
+## 更多內容
+
+<a id="install"></a>
+
+<details>
+<summary><b>安裝</b></summary>
 
 **在哪裡執行。** 在你自己的電腦上，透過能在那裡執行指令的 agent 使用；已在 Claude Code 和 Codex 測試過。安裝時需要連網一次，並會保留它的資料夾供之後的工作階段使用，大小從約 1 GB 到裝滿全部音色庫的約 12 GB。claude.ai 的對話和 Cowork 尚未測試；離線或每次對話都會重設的沙盒無法保留安裝。
 
@@ -136,7 +160,10 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 **它執行什麼、下載什麼、傳送什麼**：skill 執行的是它的 Python 腳本、FluidSynth、FFmpeg，以及已安裝時的 Surge XT，全部在你的電腦上執行，渲染不需要連網。skill 自己的下載程式只從 github.com 和 GitHub 的下載主機（api.github.com、raw.githubusercontent.com、objects.githubusercontent.com、release-assets.githubusercontent.com）下載工具和音色庫；只有從原始錄音建置音色庫時，才會連到愛荷華大學的 theremin.music.uiowa.edu。它會拒絕轉址到其他主機。Python 套件（NumPy，以及 Surge XT 用的 pedalboard）透過 pip 下載，除非你替 pip 設定了其他套件索引，否則來自 PyPI；pedalboard 的 wheel 仍會以鎖定的 SHA-256 核對。它不傳送任何東西：沒有遙測、沒有帳號、不上傳（[PRIVACY.md](PRIVACY.md)）。
 
-## 使用方式
+</details>
+
+<details>
+<summary><b>使用方式</b></summary>
 
 直接用平常的話告訴 agent：
 
@@ -152,13 +179,20 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 > 幫雨天咖啡館的場景寫一首巴薩諾瓦：尼龍弦吉他、長笛和輕柔的鼓。
 
+> 這首不要隨機抽詞，用這幾個詞：燈塔、渡輪、霜。
+
+> 這首不要聯想詞。
+
 > 第 33 小節的副歌旋律太忙了，簡化一下再重新渲染。
 
 > 跟上一版比，改了哪裡？讓我聽聽差別。
 
 > 也把 MIDI 和分軌給我。
 
-## 音色庫
+</details>
+
+<details>
+<summary><b>音色庫</b></summary>
 
 | 樂器 | 音色庫 | 授權 |
 |---|---|---|
@@ -171,13 +205,19 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 錄音音色庫都是 CC0、可自由用於任何用途而沒有限制（愛荷華大學的錄音），或已捐贈給公有領域（鋼鼓），用它們做的音樂不需要署名。Surge XT 採用 GPL-3.0，只在本專案一個獨立的 GPL 程式（`surge_host.py`）裡執行；GPL 規範的是程式本身，不是它們演奏出來的音樂。MS Basic 是其他聲部退而使用的 General MIDI 音色庫，採用 MIT：它的聲明隨音色庫本身的複製和改作保留，用它演奏的音樂同樣不需要署名。來源和我們對各項授權的解讀列在 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
-## 效果如何
+</details>
 
-`selfcheck.py` 共有 152 項檢查（沒有渲染設定時為 122 項），從 MIDI 來回轉換、壓縮檔安全，到實際渲染都包括在內。例如：只改一個音時只會重新合成一個聲部，而 `compare` 只在受影響的檔案裡、從那個音開始找到差異；舊的單一殘響混音能逐位元重現先前的版本；響度量測對 BS.1770 的標準測試音讀出 −3.01 LUFS。CI 會跑完所有檢查（包括渲染），環境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）和 macOS（FluidSynth 2.6、FFmpeg 9.0）。
+<details>
+<summary><b>效果如何</b></summary>
+
+`selfcheck.py` 共有 160 項檢查（沒有渲染設定時為 130 項），從 MIDI 來回轉換、壓縮檔安全，到實際渲染都包括在內。例如：只改一個音時只會重新合成一個聲部，而 `compare` 只在受影響的檔案裡、從那個音開始找到差異；舊的單一殘響混音能逐位元重現先前的版本；響度量測對 BS.1770 的標準測試音讀出 −3.01 LUFS。CI 會跑完所有檢查（包括渲染），環境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.1、FFmpeg 9.0.2，加上 Surge XT）。
 
 音樂好不好聽是另一回事，只有實際聆聽才知道。上面這些曲子是這個 repo 最好的證據。
 
-## 常見問題
+</details>
+
+<details>
+<summary><b>常見問題</b></summary>
 
 **做出來的音樂可以用在影片、遊戲或商業作品嗎？** 工具本身沒有任何限制。音色庫都不需要署名：選用音色庫是 CC0 或可自由使用，MS Basic 的 MIT 授權對用它演奏的音樂沒有任何要求。GPL 授權的程式（FFmpeg、Surge XT）規範的是程式本身，不是經過它們處理的音樂。至於你對 agent 幫你寫的音樂是否享有著作權，取決於你所在地的法律，以及你參與塑造了多少。
 
@@ -187,7 +227,10 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 **可以用自己的樂器嗎？** 任何 SF2 音色庫都可以：用 `studio.py add-soundfont` 加進設定檔，再在聲部裡指定它（見 [soundbanks.md](skills/music-production/references/soundbanks.md)）。自己加的音色庫保留它原本的授權，發表作品前請先確認。
 
-## 限制
+</details>
+
+<details>
+<summary><b>限制</b></summary>
 
 - 不會唱歌、不寫歌詞。外掛只支援 Surge XT，還不能載入你自己的 VST 外掛。
 - 音色的上限取決於免費音色庫：YR 貝斯只有一層力度，弦樂起音偏慢，馬林巴、木琴與短笛的取樣稀疏，取樣吉他的推弦是把整段取樣變調，不會有真實琴弦的音色變化。
@@ -196,6 +239,8 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 - agent 聽不到聲音。`review` 和 `analyze` 只能找出問題，結果必須由人來聽；skill 也要求 agent 不得宣稱自己聽過。
 - 長曲裡如果有很多合成器或效果處理的聲部，會用掉不少記憶體，同時渲染的每個聲部最多約 2 GB；可用記憶體不足時，渲染程式會自動減少同時處理的聲部數，也可以用 `--jobs` 指定。
 - Linux 和 macOS 使用系統的 FluidSynth 和 FFmpeg，渲染出的取樣可能和 Windows 的鎖定版本有些微差異。
+
+</details>
 
 ## 文件
 
@@ -220,4 +265,4 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 ## 授權
 
-本專案自己的程式碼與文件採用 [MIT](LICENSE) 授權；第三方資料、對它們的測量結果和引用的片段保留各自的條款，列在 [THIRD_PARTY.md](THIRD_PARTY.md)。範例的錄音與樂曲以 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 釋出到公有領域。第三方工具和音色庫保留各自的授權，不包含在這個 repo 裡：工具從發布者下載，三十個音色庫都從本專案的 release 下載，其中二十五個以發布者的取樣建置，五個是 FreePats 的原檔重新打包。`skills/music-production/scripts/surge_host.py` 採用 GPL-3.0-or-later，與它執行的 Surge XT 和 pedalboard 相同。序曲的那張圖是程式直接從它的專案檔畫出來的；logo 的文字是將 Noto Serif TC（SIL Open Font License）轉成外框。
+本專案自己的程式碼與文件採用 [MIT](LICENSE) 授權；第三方資料、對它們的測量結果和引用的片段保留各自的條款，列在 [THIRD_PARTY.md](THIRD_PARTY.md)。範例的錄音與樂曲以 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 釋出到公有領域。第三方工具和音色庫保留各自的授權，不包含在這個 repo 裡：工具從發布者下載，三十個音色庫都從本專案的 release 下載，其中二十五個以發布者的取樣建置，五個是 FreePats 的原檔重新打包。`skills/music-production/scripts/surge_host.py` 採用 GPL-3.0-or-later，與它執行的 Surge XT 和 pedalboard 相同。範例的圖是程式直接從各自的專案檔畫出來的，圖中文字用 Noto Sans TC（SIL Open Font License）；logo 的文字是將 Noto Serif TC（SIL Open Font License）轉成外框。

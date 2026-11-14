@@ -158,9 +158,9 @@
       "samples": 628,
       "samples_bytes": 1289433743,
       "samples_sha256": "fbbe70412e923dd187b7e92ed32b216f32efe98ab2b85b6ac8829c3fe9de8c6b",
-      "output_sha256": "44b7dd081f4f895f9c23b24a90ea67af729bc20881f151a2778b1149287719a4",
+      "output_sha256": "be2ba40c99d307cb3c27ddd6a24f8829bab2392f61146f786bbb7dd8054670d9",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios; built by music-production soundbank.py",
-      "version": "build b4"
+      "version": "build b12"
     },
     {
       "name": "rusty",
@@ -252,9 +252,9 @@
       "samples": 622,
       "samples_bytes": 182979043,
       "samples_sha256": "36585aafe9e4cd0fae109744ce08313fcc327e3e6d82da4ab2d07c5180dade17",
-      "output_sha256": "3eb6a641872d7e75f98794744c577b37d034a65d6ab5074d89ba506643cb808b",
+      "output_sha256": "0fec2017db775d86bb288f324e6c6f5e720fe280f5f4efdc27395ff50d32df32",
       "license": "CC0-1.0 source samples: Osiris Piano by Karoryfer Samples; built by music-production soundbank.py",
-      "version": "build b3"
+      "version": "build b10"
     },
     {
       "name": "cello_bigcat",
@@ -3335,8 +3335,8 @@
       "checksum_evidence": "Size and SHA-256 of each file recorded at retrieval on 2026-11-06 (the publisher lists none); every cut note is checked against the hash in the notes manifest",
       "spec": "soundbanks/iowa_guitar.json",
       "notes": "soundbanks/iowa_guitar.notes.json",
-      "version": "Iowa MIS (2011 recording) build b2",
-      "output_sha256": "2b63a36b6ce404906c2c98765c60c90d540d8d2e55384cdd2170d93624e3bec1",
+      "version": "Iowa MIS (2011 recording) build b8",
+      "output_sha256": "abe638869b662095c2bd820096dda5046eff34edd8115ce235108444df1f153d",
       "files": [
         {
           "path": "sound files/MIS/Piano_Other/guitar/Guitar.ff.sulA.A2B2.mono.aif",
@@ -3811,9 +3811,9 @@
       "samples": 507,
       "samples_bytes": 477020002,
       "samples_sha256": "b4df1630a8ab719f0f15b2b420177223c55f7a3726ec50400d9888ecffe45b84",
-      "output_sha256": "7ae994b9da32c50c3c333de2bbd892287fdffcd9390eeb714ee44ae9d7d07c6f",
+      "output_sha256": "1d66543001ae6c6c562c8dbb3dc6f2a4807d26768252e0bc20d8b5cc1dc8532e",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios; built by music-production soundbank.py",
-      "version": "build b1"
+      "version": "build b7"
     },
     {
       "name": "bass_sneaky",
@@ -3958,10 +3958,10 @@
         "sf2_bytes": 607558000
       },
       "vcsl": {
-        "file": "vcsl-b4.sf2.xz",
-        "bytes": 233046428,
-        "sha256": "5c23ae660454ebde88f55cc69acf4e24f68ce4528af1d2247b218bf4b2b50b1b",
-        "sf2_bytes": 678603014
+        "file": "vcsl-b12.sf2.xz",
+        "bytes": 212790280,
+        "sha256": "66e64c055e1c96fc55915c22ceec423e87e5cb683f095842237c070607f299d8",
+        "sf2_bytes": 720762710
       },
       "rusty": {
         "file": "rusty-b1.sf2.xz",
@@ -3976,10 +3976,10 @@
         "sf2_bytes": 355209222
       },
       "piano_osiris": {
-        "file": "piano_osiris-b3.sf2.xz",
-        "bytes": 101266696,
-        "sha256": "19e131a961d417d49818f33d0b328917909503991fd4753efb39831663e173de",
-        "sf2_bytes": 398073434
+        "file": "piano_osiris-b10.sf2.xz",
+        "bytes": 149844812,
+        "sha256": "78e43884a56b5b13c6b9c88576f36144a76579ef05f6a727301ea0a2ba6faf13",
+        "sf2_bytes": 397929388
       },
       "cello_bigcat": {
         "file": "cello_bigcat-b2.sf2.xz",
@@ -4048,10 +4048,10 @@
         "sf2_bytes": 363445338
       },
       "vcsl_world": {
-        "file": "vcsl_world-b1.sf2.xz",
-        "bytes": 115104300,
-        "sha256": "f506c057d980f9412c9b2f24365cd5ad0ccc627ed7c457a14417d4c334d16310",
-        "sf2_bytes": 296126252
+        "file": "vcsl_world-b7.sf2.xz",
+        "bytes": 110912992,
+        "sha256": "1c6d68a73f3a34a6018a6c39ee9b137acfafadf71b961eeda7f0e230bedf77ed",
+        "sf2_bytes": 294737586
       },
       "bass_sneaky": {
         "file": "bass_sneaky-b1.sf2.xz",
@@ -4096,10 +4096,10 @@
         "sf2_bytes": 23691096
       },
       "iowa_guitar": {
-        "file": "iowa_guitar-b2.sf2.xz",
-        "bytes": 53496012,
-        "sha256": "96988b30e30d6c413bd1d6b84131734de7e71875619c9e7a9d093684673f7dcd",
-        "sf2_bytes": 148794422
+        "file": "iowa_guitar-b8.sf2.xz",
+        "bytes": 31778272,
+        "sha256": "beff2e54e43f8dea5a03eb2cf262eef0867e820bbef779e551f693f626f375f9",
+        "sf2_bytes": 148796442
       }
     },
     "archives": {
@@ -4169,17 +4169,19 @@
     ],
     "examples": [
       "vsco",
+      "vsco_colors",
       "vsco_extra",
       "vsco_strings",
       "vcsl",
       "cello_bigcat",
       "iowa_brass",
+      "iowa_perc",
       "iowa_strings",
-      "organ_vcsl",
+      "iowa_winds",
       "rusty",
-      "fsbs_clean",
       "bass_darkblack",
       "bass_sneaky",
+      "guitar_shiny",
       "vcsl_keys",
       "vcsl_world"
     ]

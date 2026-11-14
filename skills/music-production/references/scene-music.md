@@ -88,7 +88,7 @@ The instrument alone changes the emotion heard. Hailstone et al. (2009) recorded
 
 ## Instruments for scene music
 
-- **Piano.** `piano_osiris` has a pedal-up and a pedal-down preset ([soundbank-presets.md](soundbank-presets.md)). For legato, ringing writing, use the pedal-down preset and lift the pedal at each harmony change with CC64 in `performance.cc` (`[beat, 64, 0]`, then `[beat + 0.05, 64, 127]`). Use the pedal-up preset for dry, detached figures.
+- **Piano.** The Steinway (`vcsl` 0:0) for every piano part ([piano-and-chamber.md](piano-and-chamber.md)). For legato, ringing writing, hold the pedal and change it at each harmony with CC64 in `performance.cc` (`[beat, 64, 0]`, then `[beat + 0.05, 64, 127]`); leave it up for dry, detached figures. `piano_osiris` has a preset recorded with the pedal held (1:0), where the whole instrument rings with every note: only for slow, sparse music built on that haze.
 - **Solo cello.** `cello_bigcat` sustains loop for as long as a note is held. A gentle vibrato starts after 0.35 s, and CC1 deepens it.
 - **Organ.** `organ_vcsl` does not respond to velocity, like a pipe organ. Shape its dynamics with CC11, as with a swell pedal, or by changing registration; [organ.md](organ.md) covers writing for it and the church it sounds in.
 - **Orchestra.** Strings, woodwinds, brass, harp and timpani come from `vsco`, `vsco_extra` and `vcsl`; [orchestration.md](orchestration.md) covers balance and the wide master.

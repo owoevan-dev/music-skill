@@ -15,8 +15,8 @@
 
 <p align="center">
   <a href="https://github.com/owoevan-dev/music-skill/actions/workflows/tests.yml"><img src="https://github.com/owoevan-dev/music-skill/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-1f1c1a" alt="Licence: MIT"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-1f1c1a" alt="Python 3.10 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-111111" alt="Licence: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-111111" alt="Python 3.10 or newer">
 </p>
 
 <p align="center"><strong>Don't generate it. Compose it.</strong></p>
@@ -25,25 +25,28 @@ music-skill is an [Agent Skill](https://agentskills.io) for writing original ins
 
 No audio-generation model is involved. Besides the MP3 and WAV you get the MIDI, a stem per part, and a project file in which any note can be changed and rendered again.
 
-<p align="center">
-  <img src="docs/images/cairnfire.png" alt="One moment of Cairnfire, an overture for full orchestra, drawn from its project file: every note is a bar on a piano roll, strings in blue, woodwinds in green and brass in orange, with the piece's sections above and the parts' names below, those playing lit">
-</p>
+Each piece starts from twelve words drawn at random. The agent links them with your request into one scene, and the scene decides what you left open, so two pieces from one request come out less alike. You can give your own words, or none.
+
+https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 
 ## Listen
 
-Each of these was made with this skill's version 0.6.0 by the model named, in one take from one message: [an opening that is the same for all seven](examples/prompt.md), then a brief of three or four sentences. The agent chose the title, the form, the instruments and the sounds, wrote every note, and reviewed, rendered and revised its own work; nobody replied to it while it worked, and nobody edited the result. All seven are here: none was picked from several. Each example folder has the brief, the agent's script and the project as it was rendered.
+Six pieces, one by each of six models at xhigh effort. Each was made in one take from one message, [an opening that is the same for all six](examples/prompt.md) and a brief of a few sentences: the agent chose the title, the form and the sounds, wrote every note, and reviewed and revised its own work. Nobody replied to it while it worked, and nobody edited the notes it wrote. Each page shows the twelve words the piece drew and the scene the agent made of them.
 
-- [Stormglass Gambit](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/stormglass-gambit.mp3) (3:07), Claude Fable 5.2 at xhigh effort: a looping synth battle theme for a game ([the example](examples/stormglass-gambit))
-- [Cairnfire](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/cairnfire.mp3) (4:29), Claude Fable 5.2 at xhigh effort: a concert overture for full orchestra, in 36 parts ([the example](examples/cairnfire))
-- [Glass Towers, Low Gear](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/glass-towers-low-gear.mp3) (3:03), Claude Opus 5.5 at xhigh effort: city pop, a night drive through a lit city ([the example](examples/glass-towers-low-gear))
-- [The Stone Vault Turns to Light](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/the-stone-vault-turns-to-light.mp3) (3:56), GPT-6 Astra at xhigh effort: a toccata for pipe organ ([the example](examples/the-stone-vault-turns-to-light))
-- [Paper Lantern Hours](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/paper-lantern-hours.mp3) (2:10), Claude Sonnet 5.5 at medium effort: a lo-fi hip-hop beat that loops ([the example](examples/paper-lantern-hours))
-- [Fughetta in D minor](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/fughetta-in-d-minor.mp3) (2:00), Claude Opus 5.5 at medium effort: a baroque-style fughetta for harpsichord and strings ([the example](examples/fughetta-in-d-minor))
-- [Skybutton Speedway](https://github.com/owoevan-dev/music-skill/releases/download/examples-4/skybutton-speedway.mp3) (1:31), GPT-6 Luna at max effort: an 8-bit chiptune for a title screen, a 90-second loop ([the example](examples/skybutton-speedway))
+<table>
+<tr>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-lamp-on-the-wire.mp3"><img src="docs/images/the-lamp-on-the-wire.jpg" alt="The Lamp on the Wire: a moment of its piano roll"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-lamp-on-the-wire.mp3">The Lamp on the Wire</a></b><br>the climax of an animated film, for full orchestra, 4:43<br><sub>Claude Fable 5.2 · <a href="examples/the-lamp-on-the-wire">how it was made</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/battle-reel-of-the-stork-rider.mp3"><img src="docs/images/battle-reel-of-the-stork-rider.jpg" alt="Battle Reel of the Stork-Rider: a moment of its piano roll"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/battle-reel-of-the-stork-rider.mp3">Battle Reel of the Stork-Rider</a></b><br>battle music for a fantasy story, on a folk band, 2:58<br><sub>Claude Opus 5.5 · <a href="examples/battle-reel-of-the-stork-rider">how it was made</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fughetta-of-the-paper-paddock.mp3"><img src="docs/images/fughetta-of-the-paper-paddock.jpg" alt="Fughetta of the Paper Paddock: a moment of its piano roll"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fughetta-of-the-paper-paddock.mp3">Fughetta of the Paper Paddock</a></b><br>a baroque fughetta for harpsichord and strings, 2:28<br><sub>Claude Sonnet 5.5 · <a href="examples/fughetta-of-the-paper-paddock">how it was made</a></sub></td>
+</tr>
+<tr>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fjord-stopwatch.mp3"><img src="docs/images/fjord-stopwatch.jpg" alt="Fjord Stopwatch: a moment of its piano roll"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/fjord-stopwatch.mp3">Fjord Stopwatch</a></b><br>a lo-fi beat for late reading, which loops, 2:32<br><sub>Claude Haiku 5.5 · <a href="examples/fjord-stopwatch">how it was made</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-cork-boat-keeps-our-evening.mp3"><img src="docs/images/the-cork-boat-keeps-our-evening.jpg" alt="The Cork Boat Keeps Our Evening: a moment of its piano roll"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/the-cork-boat-keeps-our-evening.mp3">The Cork Boat Keeps Our Evening</a></b><br>a slow ballad without a singer, 3:33<br><sub>GPT-6 Astra · <a href="examples/the-cork-boat-keeps-our-evening">how it was made</a></sub></td>
+<td width="33%" valign="top"><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/noon-raccoon-rooftop-run.mp3"><img src="docs/images/noon-raccoon-rooftop-run.jpg" alt="Noon Raccoon Rooftop Run: a moment of its piano roll"></a><br><b><a href="https://github.com/owoevan-dev/music-skill/releases/download/examples-5/noon-raccoon-rooftop-run.mp3">Noon Raccoon Rooftop Run</a></b><br>8-bit for a platform game's first level, a loop, 1:31<br><sub>GPT-6 Luna · <a href="examples/noon-raccoon-rooftop-run">how it was made</a></sub></td>
+</tr>
+</table>
 
-[Before and after](examples/before-after) changes one note of a short piece, and `compare` shows everything in the render that changed with it: the part, its bus, the reverb's tail and the master.
-
-The recordings download as MP3 files from the release [examples-4](https://github.com/owoevan-dev/music-skill/releases/tag/examples-4).
+Compositions and recordings are CC0; the recordings are MP3 files on the release [examples-5](https://github.com/owoevan-dev/music-skill/releases/tag/examples-5). [Before and after](examples/before-after) changes one note of a short piece, and `compare` shows everything in the render that changed with it: the part, its bus, the reverb's tail and the master.
 
 ## Quick start
 
@@ -60,20 +63,34 @@ The recordings download as MP3 files from the release [examples-4](https://githu
 
    > Write a one-minute looping town theme for my RPG: recorder, harp and light strings.
 
-You get an MP3 and a WAV, the MIDI, a stem per part, the buses and reverb returns that add up to the mix, and the project file. On a 24-thread laptop each of the examples above rendered from scratch in 22 seconds (the fughetta) to 108 seconds (the overture, with its 36 parts).
+You get an MP3 and a WAV, the MIDI, a stem per part, the buses and reverb returns that add up to the mix, and the project file. On a 24-thread laptop each of the examples above rendered from scratch in 25 seconds (the fughetta and the chiptune) to 156 seconds (the film score, with its 57 parts).
 
 ## Why not just generate it?
 
-A text-to-music model hands you a finished waveform. Some can regenerate a section, but you can't open the result and move one note, and you can't say where its sounds came from.
-
-Here the agent writes the score, so the music is made of decisions you can read and change: the melody in bar 33, the voicing of a chord, how hard the drummer hits the crash. Change one note and only that part is played again; the mix is rebuilt around it. The sounds are multisampled recordings of real instruments under licences you can check, or the skill's own synthesizers, and no model trained on other people's recordings is involved.
+| | A text-to-music model | music-skill |
+|---|---|---|
+| Changing one note | regenerate the piece or a section | edit the note; only that part is played again |
+| What you get | an audio file | audio, MIDI, a stem per part and the project |
+| Where the sounds come from | inside the model | recorded instruments and synthesizers, each named with its licence |
+| Fitting a scene or a level | roughly | to the bar: loop points, hit points, exact lengths |
+| The same piece again | a new take | the same audio from the same project (Surge XT parts aside) |
 
 If Claude or another agent is already cutting your video or building your game, it knows what the music has to fit: how long each scene runs, where the cuts land, when the narration starts, how a level loops. It can write to those numbers, with a swell that peaks on the reveal, a quieter bed under the voice, a loop as long as the level, and when the edit changes, rewrite just the bars that moved.
 
 ## How it works
 
-1. **Write.** The agent plans the form and a theme, then writes a project file. Every note's pitch and length go in the score; how it is played (velocity, timing, release) is kept separately. A longer piece is usually written by a short Python script the agent creates, so voicings, bass lines and drum patterns stay readable.
-2. **Check the score.** `review` lists sustained minor seconds and ninths between parts; names every note outside the written chords as a passing note, a suspension or another embellishing tone, asking about those not resolved by step; and lists parallel fifths and octaves between independent parts and close intervals too low in the register. Each one becomes a decision instead of an accident.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/pipeline-dark.svg">
+    <img src="docs/images/pipeline.svg" alt="Write, Check, Perform, Render, Mix, Measure" width="900">
+  </picture>
+</p>
+
+<details>
+<summary><b>The six steps in detail</b></summary>
+
+1. **Write.** The agent settles what the request asks, then draws twelve words at random for the piece and links the request and all twelve into one whole, a scene or a story, which decides what the request left open: the title, the form, the sounds. It writes a plan (what identifies the piece, where its high point is and by what means, what each section commits to), then the project file. Every note's pitch and length go in the score; how it is played (velocity, timing, release) is kept separately. A longer piece is usually written by a short Python script the agent creates, so voicings, bass lines and drum patterns stay readable.
+2. **Check the score.** `review` opens with three tables counted from the score (the parts that sound in each section, how often the chord changes, the melody's rhythm) and reads the score against the plan, asking where they differ. It lists sustained minor seconds and ninths between parts; names every note outside the written chords as a passing note, a suspension or another embellishing tone, asking about those not resolved by step; and lists parallel fifths and octaves between independent parts and close intervals too low in the register. Every question has an identifier, and a written decision that begins with it answers it: each one becomes a decision instead of an accident.
 3. **Perform.** A performance model adds the kind of deviation players produce: a slow wander in timing and loudness for each player, a laid-back bass, phrase arches, chords whose notes are not struck or released together. Sampled leads can slur and bend.
 4. **Render.** FluidSynth plays each sampled part on its own instrument from licensed SoundFont banks. Electronic parts play on built-in synthesizers and drum machines, or on presets of the Surge XT synthesizer.
 5. **Mix and master.** Parts go through drum, bass, rhythm, ensemble and lead buses and four generated reverbs, then a master chain to the project's loudness target (−16 LUFS by default, −14 for streaming) with the true peak at or below −1 dBTP. With the mix's newer rules the lead stays close to where you write it and the master ends in a true-peak limiter, and an orchestral piece can say how near it is heard, from among the players to a seat in the hall. Orchestral and organ music can skip the compressors and keep their full dynamics; electronic music can add sidechain ducking, tempo-synced delays, filter sweeps and a loud club master.
@@ -83,7 +100,14 @@ Changing one note synthesizes only that part again, and a part whose notes and m
 
 For a game, a project can loop. The render folds the reverb tail back into the loop start and writes the loop points into a WAV and an Ogg file, in the forms Godot and RPG Maker look for, with a cue point at every section. It can also split the loop into layers that add up to the mix, for music that builds as play heats up.
 
-## Install
+</details>
+
+## More
+
+<a id="install"></a>
+
+<details>
+<summary><b>Install</b></summary>
 
 **Where it runs.** On your own computer, through an agent that runs commands there: it is tested in Claude Code and Codex. The setup needs internet access once and keeps its folder for later sessions, from about 1 GB to about 12 GB with every bank. In claude.ai chat and Cowork it has not been tested; a sandbox that is offline or reset between conversations cannot keep the setup.
 
@@ -136,7 +160,10 @@ No GPU, no account, no audio model. Every download comes from its publisher or t
 
 **What it runs, fetches and sends.** The skill runs its Python scripts, FluidSynth, FFmpeg and, if installed, Surge XT, all on your computer, and renders offline. Its own downloaders fetch tools and sound banks only from github.com and GitHub's download hosts (api.github.com, raw.githubusercontent.com, objects.githubusercontent.com, release-assets.githubusercontent.com) and, when a bank is built from its sources, from the University of Iowa's theremin.music.uiowa.edu, and they refuse a redirect to any other host. Python packages (NumPy, and pedalboard for Surge XT) come through pip, from PyPI unless you have set pip to use another package index; the pedalboard wheel is still checked against its pinned SHA-256. It sends nothing: no telemetry, no account, no uploads ([PRIVACY.md](PRIVACY.md)).
 
-## Using it
+</details>
+
+<details>
+<summary><b>Using it</b></summary>
 
 Ask your agent in plain words:
 
@@ -152,13 +179,20 @@ Ask your agent in plain words:
 
 > Write a bossa nova for a rainy café scene: nylon guitar, flute and a soft kit.
 
+> Start from these words instead of random ones: lighthouse, ferry, frost.
+
+> No random words for this one.
+
 > The chorus melody in bar 33 is too busy. Simplify it and render again.
 
 > What changed from the last version? Let me hear the difference.
 
 > Send me the MIDI and the stems too.
 
-## Sound banks
+</details>
+
+<details>
+<summary><b>Sound banks</b></summary>
 
 | Instruments | Banks | Licence |
 |---|---|---|
@@ -171,13 +205,19 @@ Ask your agent in plain words:
 
 Every recorded bank is CC0, free for any use without restrictions (the Iowa recordings) or dedicated to the public domain (the steel pan), so what you make with them needs no credit. Surge XT is GPL-3.0 and runs only inside a separate GPL program of this project (`surge_host.py`); the GPL covers the programs, not the music they play. MS Basic, the General MIDI bank that other parts fall back to, is MIT: its notices go with copies and adaptations of the bank, and music played on it needs no credit either. [THIRD_PARTY.md](THIRD_PARTY.md) lists the sources and how we read each licence.
 
-## How well it works
+</details>
 
-`selfcheck.py` runs 152 checks (122 without a renderer configuration), from MIDI round trips and archive safety to real renders. A one-note revision synthesizes one part again, and `compare` finds the change from that note on, in every file it reached and nowhere else. The older single-room mix reproduces an earlier release bit for bit. The loudness meter reads −3.01 LUFS for the BS.1770 reference tone. CI runs every check, renders included, on Ubuntu with FluidSynth 2.3 and FFmpeg 6.1 and on macOS with FluidSynth 2.6 and FFmpeg 9.0.
+<details>
+<summary><b>How well it works</b></summary>
+
+`selfcheck.py` runs 160 checks (130 without a renderer configuration), from MIDI round trips and archive safety to real renders. A one-note revision synthesizes one part again, and `compare` finds the change from that note on, in every file it reached and nowhere else. The older single-room mix reproduces an earlier release bit for bit. The loudness meter reads −3.01 LUFS for the BS.1770 reference tone. CI runs every check, renders included, on Ubuntu with FluidSynth 2.3 and FFmpeg 6.1, on macOS with FluidSynth 2.6 and FFmpeg 9.0, and on Windows with the pinned FluidSynth 2.6.1 and FFmpeg 9.0.2 and with Surge XT.
 
 Whether the music is good is another matter, and only listening can tell. The pieces above are the best evidence this repository has.
 
-## Questions
+</details>
+
+<details>
+<summary><b>Questions</b></summary>
 
 **Can I use the music in a video, a game or a commercial release?** Nothing in the toolchain stands in the way. No sound bank asks for a credit: the optional ones are CC0 or free for any use, and MS Basic's MIT licence asks nothing of music played on it. The GPL programs (FFmpeg, Surge XT) cover the programs, not the music that passes through them. Whether you hold a copyright in music an agent wrote for you depends on your country's law and on how much of it you shaped.
 
@@ -187,7 +227,10 @@ Whether the music is good is another matter, and only listening can tell. The pi
 
 **Can I use my own instruments?** Any SF2 bank: `studio.py add-soundfont` adds it to your configuration and a part names it ([soundbanks.md](skills/music-production/references/soundbanks.md)). A bank you add keeps its own licence, so check it before you publish music made with it.
 
-## Limits
+</details>
+
+<details>
+<summary><b>Limits</b></summary>
 
 - It doesn't sing or write lyrics. Of plugins it runs only Surge XT; your own VST plugins are not supported yet.
 - The sound is only as good as the free banks. The YR basses have one velocity layer, the section strings speak slowly, marimba, xylophone and piccolo are sampled sparsely, and a sampled guitar bend shifts the whole sample instead of changing the string's tone.
@@ -196,6 +239,8 @@ Whether the music is good is another matter, and only listening can tell. The pi
 - The agent cannot listen. `review` and `analyze` locate problems; a person has to hear the result, and the skill tells the agent never to claim it listened.
 - A long piece with many synthesizer or effect parts needs memory, up to about 2 GB for each part rendered at once; the renderer runs fewer parts at a time when free memory is short, and `--jobs` sets the number.
 - Linux and macOS use the system FluidSynth and FFmpeg, so their samples can differ slightly from the pinned Windows builds.
+
+</details>
 
 ## Documentation
 
@@ -218,4 +263,4 @@ Bug reports, listening notes and sound bank suggestions are welcome as [issues](
 
 ## Licence
 
-[MIT](LICENSE) for this project's own code and documentation; third-party data, measurements of it and quoted excerpts keep their own terms, listed in [THIRD_PARTY.md](THIRD_PARTY.md). The example recordings and compositions are dedicated to the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Third-party tools and sound banks keep their own licences and are not in this repository: the tools come from their publishers and all thirty banks from this project's release, twenty-five built from the publishers' samples and five repacked unchanged from FreePats. `skills/music-production/scripts/surge_host.py` is GPL-3.0-or-later, the licence of the Surge XT and pedalboard it runs. The picture of the overture is drawn by code from its project file, and the logo's lettering is Noto Serif TC (SIL Open Font License) turned into outlines.
+[MIT](LICENSE) for this project's own code and documentation; third-party data, measurements of it and quoted excerpts keep their own terms, listed in [THIRD_PARTY.md](THIRD_PARTY.md). The example recordings and compositions are dedicated to the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Third-party tools and sound banks keep their own licences and are not in this repository: the tools come from their publishers and all thirty banks from this project's release, twenty-five built from the publishers' samples and five repacked unchanged from FreePats. `skills/music-production/scripts/surge_host.py` is GPL-3.0-or-later, the licence of the Surge XT and pedalboard it runs. The pictures of the examples are drawn by code from their project files, their lettering in Noto Sans TC (SIL Open Font License), and the logo's lettering is Noto Serif TC (SIL Open Font License) turned into outlines.

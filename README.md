@@ -25,11 +25,13 @@ music-skill is an [Agent Skill](https://agentskills.io) for writing original ins
 
 No audio-generation model is involved. Besides the MP3 and WAV you get the MIDI, a stem per part, and a project file in which any note can be changed and rendered again.
 
+Each piece starts from twelve words drawn at random. The agent links them with your request into one scene, and the scene decides what you left open, so two pieces from one request come out less alike. You can give your own words, or none.
+
 https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 
 ## Listen
 
-Six pieces, one by each of six models at xhigh effort. Each was made in one take from one message, [an opening that is the same for all six](examples/prompt.md) and a brief of a few sentences: the agent chose the title, the form and the sounds, wrote every note, and reviewed and revised its own work. Nobody replied to it while it worked, and nobody edited the notes it wrote.
+Six pieces, one by each of six models at xhigh effort. Each was made in one take from one message, [an opening that is the same for all six](examples/prompt.md) and a brief of a few sentences: the agent chose the title, the form and the sounds, wrote every note, and reviewed and revised its own work. Nobody replied to it while it worked, and nobody edited the notes it wrote. Each page shows the twelve words the piece drew and the scene the agent made of them.
 
 <table>
 <tr>
@@ -176,6 +178,10 @@ Ask your agent in plain words:
 > Make a synthwave cue for a night drive in my racing game: 100 BPM, a gated snare and a gliding lead.
 
 > Write a bossa nova for a rainy café scene: nylon guitar, flute and a soft kit.
+
+> Start from these words instead of random ones: lighthouse, ferry, frost.
+
+> No random words for this one.
 
 > The chorus melody in bar 33 is too busy. Simplify it and render again.
 

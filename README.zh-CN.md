@@ -27,8 +27,6 @@ music-skill 是一个 [Agent Skill](https://agentskills.io)，让 AI agent 像�
 
 https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 
-<p align="center"><sub>六首示例各 8 秒，取各自最密集的片段；画面直接从项目文件画出，声音就是录音本身。</sub></p>
-
 ## 试听
 
 六首曲子，六个模型各一首，都用 xhigh effort。每首都是一次完成，只给了一条消息：[六首共用的开头](examples/prompt.md)，加上几句需求。曲名、曲式和音色都由 agent 自己决定，每个音都是它写的，审查和修改也由它自己完成。制作期间没有人回复它，它写的音符也没有人修改过。

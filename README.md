@@ -27,8 +27,6 @@ No audio-generation model is involved. Besides the MP3 and WAV you get the MIDI,
 
 https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 
-<p align="center"><sub>Eight seconds of each example where it is busiest, drawn from its own project file, with its own recording as the sound.</sub></p>
-
 ## Listen
 
 Six pieces, one by each of six models at xhigh effort. Each was made in one take from one message, [an opening that is the same for all six](examples/prompt.md) and a brief of a few sentences: the agent chose the title, the form and the sounds, wrote every note, and reviewed and revised its own work. Nobody replied to it while it worked, and nobody edited the notes it wrote.

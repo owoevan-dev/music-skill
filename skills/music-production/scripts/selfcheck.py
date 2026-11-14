@@ -1842,6 +1842,26 @@ def checks(work,config=None):
             z=low_note(amp,phase);kept,rep=close_settled_bands(z,44100)
             for lo,hi in ((2828,4000),(4000,5657),(8000,11314)):
                 assert abs(band44(kept,lo,hi,1,3)-band44(z,lo,hi,1,3))<0.5,(lo,band44(kept,lo,hi,1,3)-band44(z,lo,hi,1,3),rep)
+        # The final review's second look, SR02: two cases the check passed without.  A short 5 kHz tone with a burst of
+        # noise over a very quiet background: each frame's level is held no lower than the stored floor, or the quiet
+        # frames outweigh the loud ones in the window and the tone went (89 dB); its band closes after it.
+        t4b=np.arange(4*44100)/44100;g4=np.random.default_rng(328)
+        burst=np.where((t4b>=1.0)&(t4b<1.15),np.sin(np.pi*(t4b-1.0)/0.15)**2,0.0)
+        z=0.3*np.exp(-0.6*t4b)*np.sin(2*np.pi*262*t4b)+3e-5*burst*np.sin(2*np.pi*5000*t4b)+(1e-6+1e-4*burst)*g4.standard_normal(len(t4b))
+        z=np.repeat(z[:,None],2,1);kept,rep=close_settled_bands(z,44100);r={q['band'][0]:q for q in rep}
+        assert abs(band44(kept,4800,5200,1.0,1.15)-band44(z,4800,5200,1.0,1.15))<0.2 and ('left' in r[4000] or r[4000]['closed_s']>1.15),rep
+        # And each channel keeps its own floor to the end: a low note of crowded partials in one channel and a bare
+        # one under louder hiss in the other, either way round; with one channel's floor for both the crowded
+        # channel lost 89 dB between 4 and 5.7 kHz.
+        g5=np.random.default_rng(913)
+        crowded=sum((0.3/k)*np.sin(2*np.pi*55*k*t4b) for k in range(1,291))*np.exp(-0.1*t4b)+1e-6*g5.standard_normal(len(t4b))
+        bare=0.3*np.sin(2*np.pi*55*t4b)*np.exp(-0.1*t4b)+1e-4*g5.standard_normal(len(t4b))
+        for pair,ch in (((crowded,bare),0),((bare,crowded),1)):
+            z=np.stack(pair,axis=1);kept,_=close_settled_bands(z,44100)
+            def upper_of(v):
+                s=np.abs(np.fft.rfft(v[44100:3*44100,ch]*np.hanning(2*44100)))**2;f=np.fft.rfftfreq(2*44100,1/44100)
+                return 10*np.log10(s[(f>=4000)&(f<5657)].sum()+1e-30)
+            assert abs(upper_of(kept)-upper_of(z))<0.5,(ch,upper_of(kept)-upper_of(z))
         # The third review, N1: each channel is read on its own.  A 5 kHz tone in the left channel alone, 8 dB over the
         # hiss of its half octave there, under a right channel whose hiss is 30 dB louder: in the two channels' average
         # it stands 2 dB over the floor and went unseen; its bands now wait for it, and the left channel keeps it.
@@ -2202,6 +2222,18 @@ def checks(work,config=None):
         legacy['plan']['outside_passage']={'sections':['b'],'high_point':{'section':'c','means':'the highest notes'}}
         try:validate(legacy);raise AssertionError('a plan with outside_passage was read')
         except ValueError as e:assert 'Cut it again from the piece' in str(e),e
+        # The final review's second look, SR01: and a round of that form is not carried on, neither by its first plan
+        # nor, where it has none, by its plan; a round started from it stops before it writes anything.
+        from musiclib.revision import revision_round
+        for k,field in enumerate(('plan_first','plan')):
+            old_round=work/f'review_old_round{k}';(old_round/'render').mkdir(parents=True)
+            (old_round/'render'/'report.json').write_text('{}',encoding='utf-8');save_json(old_round/'round.json',{field:legacy['plan']})
+            try:keep_plan({},extract(whole,1,2),old_round/'render');raise AssertionError(f'a round was carried on from an old {field}')
+            except ValueError as e:assert 'Start the rounds again' in str(e),e
+            project_file=work/f'review_old_round{k}.json';save_json(project_file,extract(whole,1,2))
+            try:revision_round(project_file,work/f'review_new_round{k}','no-config.json',previous=old_round);raise AssertionError('a round was started from it')
+            except ValueError as e:assert 'Start the rounds again' in str(e),e
+            assert not (work/f'review_new_round{k}').exists()
         # The melody's rhythm has known answers (figures of nought throughout passed): attacks on 1, 2 and 3, one half
         # a beat before the next bar and held over it, then 2, 3 and 4 and the next downbeat: one attack in eight is
         # syncopated, and it is a push.

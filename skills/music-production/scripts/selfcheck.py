@@ -1813,9 +1813,27 @@ def checks(work,config=None):
         # peak, lost in the hiss until the hiss fades away under it, holds no band (it held the Osiris's: such
         # 'components' lie under anything 16 bits store).
         g2=np.random.default_rng(1);dust=10**(-120/20)*0.3*np.sin(2*np.pi*12000*t10)
-        z=np.stack([(0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-75/20)*g2.standard_normal(len(t10)))*out_fade+dust for _ in range(2)],axis=1)
+        gone=np.clip((9.4-t10)/0.5,0,1)**3                                              # nothing but that component in the last 0.6 s
+        z=np.stack([(0.3*np.exp(-0.6*t10)*np.sin(2*np.pi*262*t10)+10**(-75/20)*g2.standard_normal(len(t10)))*gone+dust for _ in range(2)],axis=1)
         _,rep=close_settled_bands(z,44100)
         assert all(q.get('closed_s')==0.06 for q in rep if q['band'][0]>=8000),rep
+        # The final review, FR01: the floor that keeps those leavings out is the stored sample's, in the window's own
+        # units, and not the level the frames were set against.  A low note of 290 partials (55 Hz, each a k-th of
+        # the first, dying slowly) over very little hiss fills every half octave with partials; held at that level,
+        # the floor hid them and the band from 4 to 5.7 kHz lost 89 dB.  Its partials stay, with their phases as
+        # they are, at random, and where the upper ones are as strong as each other.
+        t4=np.arange(4*44100)/44100;g3=np.random.default_rng(913)
+        def low_note(amp,phase):
+            z=sum(amp(k)*np.sin(2*np.pi*55*k*t4+phase(k)) for k in range(1,291))*np.exp(-0.1*t4)+1e-6*g3.standard_normal(len(t4))
+            return np.repeat(z[:,None],2,1).astype(np.float32)
+        def band44(z,lo,hi,a,b):
+            seg=z[int(a*44100):int(b*44100),0].astype(np.float64);s=np.abs(np.fft.rfft(seg*np.hanning(len(seg))))**2;f=np.fft.rfftfreq(len(seg),1/44100)
+            return 10*np.log10(s[(f>=lo)&(f<hi)].sum()+1e-30)
+        turns=np.random.default_rng(7).uniform(0,2*np.pi,291)
+        for amp,phase in ((lambda k:0.3/k,lambda k:0.0),(lambda k:0.3/k,lambda k:turns[k]),(lambda k:0.3 if k==1 else 0.003,lambda k:turns[k])):
+            z=low_note(amp,phase);kept,rep=close_settled_bands(z,44100)
+            for lo,hi in ((2828,4000),(4000,5657),(8000,11314)):
+                assert abs(band44(kept,lo,hi,1,3)-band44(z,lo,hi,1,3))<0.5,(lo,band44(kept,lo,hi,1,3)-band44(z,lo,hi,1,3),rep)
         # The third review, N1: each channel is read on its own.  A 5 kHz tone in the left channel alone, 8 dB over the
         # hiss of its half octave there, under a right channel whose hiss is 30 dB louder: in the two channels' average
         # it stands 2 dB over the floor and went unseen; its bands now wait for it, and the left channel keeps it.
@@ -1916,6 +1934,18 @@ def checks(work,config=None):
             return 10*np.log10(s[(f>=8000)&(f<20000)].sum()/s.sum()),[x.get('closed_bands') for x in record['files']]
         (open_db,open_rows),(closed_db,closed_rows)=top_share('review_hiss_open',{}),top_share('review_hiss_closed',{'close_hiss':{}})
         assert closed_db<open_db-20 and not any(open_rows) and any('closed_s' in c for c in closed_rows[0]),(open_db,closed_db,closed_rows)
+        # FR01 in a bank as it is stored: the low note of 290 partials, built at full scale with `close_hiss` and
+        # without, keeps what it holds between 4 and 5.7 kHz against its first partial (it stood 73 dB lower).
+        froot=work/'review_low_source';froot.mkdir(parents=True,exist_ok=True)
+        fz=sum((0.3/k)*np.sin(2*np.pi*55*k*np.arange(4*rate)/rate) for k in range(1,291))*np.exp(-0.1*np.arange(4*rate)/rate)+1e-6*np.random.default_rng(913).standard_normal(4*rate)
+        write_wav(froot/'p_A1.wav',np.repeat((fz/np.abs(fz).max()*0.5)[:,None],2,1),rate,len(fz))
+        flayer={'dir':'.','pattern':r'p_(?P<note>[A-G]#?\d)\.wav','dynamics':['default'],'velocity':{'default':[1,127]},'keys':[33,33],'pitch_check':False,'full_scale':True}
+        def upper(name,extra):
+            build({'name':name,'target_rms':0.05,'presets':[{'name':'p','program':0,'layers':[{**flayer,**extra}]}]},froot,work/f'{name}.sf2')
+            b=sf2.read(work/f'{name}.sf2');z=np.asarray(sf2.load_sample(b,0),dtype=np.float64)[rate:3*rate]
+            s=np.abs(np.fft.rfft(z*np.hanning(len(z))))**2;f=np.fft.rfftfreq(len(z),1/rate)
+            return 10*np.log10(s[(f>=4000)&(f<5657)].sum()/s[(f>=40)&(f<70)].sum())
+        assert abs(upper('review_low_closed',{'close_hiss':{}})-upper('review_low_open',{}))<0.5
         # The third review, N4: and in one bank, where a take is loaded once for the presets that treat it alike.  Two
         # presets on that take, one with `close_hiss`, in either order: each stores its own sample, the closed one
         # 20 dB lower up there, and only its rows of the record name closed bands (with the option left out of the
@@ -2102,22 +2132,38 @@ def checks(work,config=None):
         solo['decisions']=[asked+': the user asked for this piano'];r=review(solo,work/'review_piano_decided',cfg)
         assert asked not in ids(r) and [a['id'] for a in r['answered']]==[asked],(ids(r),r['answered'])
         solo['decisions']=[];assert asked not in ids(review(solo,work/'review_piano_alone',{'soundfont':cfg['soundfont']}))
-        # U1: a passage cut from a piece carries the plan of what it holds whole.  The first two bars of the example,
-        # whose plan puts the high point in its second section: the passage's review asks nothing of the plan, where
-        # it asked for the section left out and for the high point; its plan names what lies outside; and a section
-        # it does hold, planned to sound a part the project lacks, is still asked about.  The piece's plan is untouched.
+        # U1, and the final review's FR02 to FR04: a passage cut from a piece keeps the piece's plan whole and says
+        # that it is a passage; the plan is read against the piece, and the review of a passage asks nothing of it
+        # and says why.  (A plan of the passage's own, tried for one round, read a commitment against what the cut
+        # had left of the section before, hid a section the score does not have yet, and lost the high point at a
+        # second cut.)  Six bars in three sections; the second is planned higher and louder than the first, which
+        # holds: its two notes are a low one and a high one, a soft one and a loud one.
         from excerpt import extract
-        whole=example();whole['plan']={'identity':'a question and its answer','high_point':{'section':'answer','means':'the lead has more notes there'},
-                                       'sections':[{'section':'question','sounds':['piano','bass','lead','drums','fx']},{'section':'answer','sounds':['piano','bass','lead','drums']}]}
-        kept_plan=copy.deepcopy(whole['plan'])
-        assert not [i for i in ids(review(whole,work/'review_whole')) if i.startswith('plan')]
-        part=extract(whole,1,2);r=review(part,work/'review_part')
-        assert validate(part)['warnings']==[] and whole['plan']==kept_plan
-        assert not [i for i in ids(r) if i.startswith('plan')],ids(r)
-        assert [s['section'] for s in part['plan']['sections']]==['question'] and part['plan']['outside_passage']=={'sections':['answer'],'high_point':kept_plan['high_point']},part['plan']
-        cut_in=extract(whole,2,2);assert cut_in['plan']['sections']==[] and cut_in['plan']['outside_passage']['sections']==['question','answer']   # both sections cut into
-        whole['plan']['sections'][0]['sounds']=['piano','bass','lead','drums','fx','brass'];r=review(extract(whole,1,2),work/'review_part_differs')
-        assert [i for i in ids(r) if i.startswith('plan')]==['plan:question'],ids(r)
+        from musiclib import summary as told
+        def six():
+            q=example();q.pop('harmony',None);q.pop('style',None);q['clock']={'bars':6,'meter':[4,4],'tempo':[[0,100]],'tail_seconds':1}
+            q['sections']=[{'id':n,'start_bar':2*i,'bars':2} for i,n in enumerate('abc')];k=q['tracks'][0];k['id']=k['name']='keys'
+            k['notes']=[{'id':f'n{i}','on':4*i,'duration':2,'pitch':x} for i,x in enumerate((48,72,64,64,67,67))]
+            k['performance']={'notes':{f'n{i}':{'velocity':v} for i,v in enumerate((40,100,80,80,85,85))}};q['tracks']=[k];q['decisions']=[];return q
+        plans=lambda q,name:[i for i in ids(review(q,work/name)) if i.startswith('plan')]
+        whole=six();whole['plan']={'identity':'x','high_point':{'section':'c','means':'the highest notes'},
+                                   'sections':[{'section':'b','register':{'keys':'higher'},'dynamics':'louder'}]}
+        kept_plan=copy.deepcopy(whole['plan']);assert plans(whole,'review_six')==[]
+        part=extract(whole,2,5);r=review(part,work/'review_six_cut')            # FR02: cut into the section b is compared with
+        assert validate(part)['warnings']==[] and whole['plan']==kept_plan and part['plan']=={**kept_plan,'passage':{'first_bar':2,'bars':5}},part['plan']
+        assert not [i for i in ids(r) if i.startswith('plan')] and r['plan']['passage']=={'first_bar':2,'bars':5},(ids(r),r['plan'])
+        assert 'Plan: this project is a passage of the piece (its bars 2 to 6)' in told.review(r,work/'review_six_cut')
+        # FR03: a passage of every bar is the piece, and what the piece is asked it is asked: a section the score
+        # does not have yet, and the high point planned in it.
+        unwritten=six();unwritten['plan']={'identity':'x','high_point':{'section':'coda','means':'everything'},'sections':[{'section':'a','sounds':['keys']},{'section':'coda','sounds':['keys']}]}
+        every=extract(unwritten,1,6);assert 'passage' not in every['plan'] and plans(every,'review_six_all')==plans(unwritten,'review_six_unwritten')==['plan.high_point','plan:coda']
+        # FR04: a passage of a passage is the same passage of the piece as the one cut at once.
+        assert extract(extract(whole,1,4),1,2)['plan']==extract(whole,1,2)['plan'] and extract(extract(whole,2,4),2,2)['plan']['passage']=={'first_bar':3,'bars':2}
+        assert plans(extract(extract(whole,1,4),1,2),'review_six_twice')==[]
+        # And the piece itself is still read: with a part planned that the project lacks, it is asked, and its passage is not.
+        whole['plan']['sections'][0]['sounds']=['keys','brass']
+        assert plans(whole,'review_six_differs')==['plan:b'] and plans(extract(whole,3,2),'review_six_differs_cut')==[]
+        bad=extract(whole,3,2);bad['plan']['passage']={'first_bar':0,'bars':2};assert rejects(lambda:validate(bad))
         # The melody's rhythm has known answers (figures of nought throughout passed): attacks on 1, 2 and 3, one half
         # a beat before the next bar and held over it, then 2, 3 and 4 and the next downbeat: one attack in eight is
         # syncopated, and it is a push.

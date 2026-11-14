@@ -77,18 +77,15 @@ def extract(p,first_bar,bars):
     for sec in p['sections']:
         a=max(first_bar-1,sec['start_bar']);b=min(first_bar-1+bars,sec['start_bar']+sec['bars'])
         if a<b:q['sections'].append({**sec,'start_bar':a-first_bar+1,'bars':b-a})
-    if isinstance(q.get('plan'),dict):
-        # The plan of a passage is the plan of what the passage holds whole.  Carried over as it stood, the plan of
-        # the piece made review ask for the sections the passage leaves out and for a high point that lies in one of
-        # them (the fifth review, U1).  A section the passage cuts into is left out too: the part cut away may be
-        # where a part planned to sound does.  What is left out is named, so that nothing reads it as dropped.
-        whole={sec['id'] for sec in p['sections'] if first_bar-1<=sec['start_bar'] and sec['start_bar']+sec['bars']<=first_bar-1+bars}
-        plan=q['plan'];planned=[s for s in plan.get('sections') or [] if isinstance(s,dict)]
-        outside={'sections':[s['section'] for s in planned if s.get('section') not in whole]}
-        plan['sections']=[s for s in planned if s.get('section') in whole]
-        hp=plan.get('high_point')
-        if isinstance(hp,dict) and hp.get('section') not in whole:outside['high_point']=plan.pop('high_point')
-        if outside['sections'] or 'high_point' in outside:plan['outside_passage']=outside
+    if isinstance(q.get('plan'),dict) and (first_bar>1 or bars<p['clock']['bars']):
+        # A plan is a plan of the piece.  Half of what it says compares a section with the one before it, which a cut
+        # takes away or cuts into, and its high point may lie outside the cut; so a passage keeps the piece's plan
+        # whole and says that it is a passage, and review reads the plan against the piece and asks nothing of it
+        # here (musiclib/plan.py).  Giving the passage a plan of its own was tried and read commitments against what
+        # the cut had left of the section before, hid a section the score does not have yet, and lost the high point
+        # at a second cut (the final review, FR02 to FR04).  A passage of a passage counts its bars in the piece's.
+        earlier=q['plan'].get('passage') if isinstance(q['plan'].get('passage'),dict) else {}
+        q['plan']['passage']={'first_bar':int(earlier.get('first_bar',1))+first_bar-1,'bars':bars}
     rubato=q['clock'].pop('rubato',None)
     if rubato:
         # The piece's ritardandi that reach into the passage, as spans in its beats, so it keeps the piece's tempo as

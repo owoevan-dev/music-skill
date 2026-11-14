@@ -158,9 +158,9 @@
       "samples": 628,
       "samples_bytes": 1289433743,
       "samples_sha256": "fbbe70412e923dd187b7e92ed32b216f32efe98ab2b85b6ac8829c3fe9de8c6b",
-      "output_sha256": "868397d40365f7b09050a301d170887ab63cca45c34deef45f028b6cbf0dfe55",
+      "output_sha256": "be2ba40c99d307cb3c27ddd6a24f8829bab2392f61146f786bbb7dd8054670d9",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios; built by music-production soundbank.py",
-      "version": "build b11"
+      "version": "build b12"
     },
     {
       "name": "rusty",
@@ -252,9 +252,9 @@
       "samples": 622,
       "samples_bytes": 182979043,
       "samples_sha256": "36585aafe9e4cd0fae109744ce08313fcc327e3e6d82da4ab2d07c5180dade17",
-      "output_sha256": "c69ec4e7efcb2eb6b6c88cd405c7d10b9789ee54a98481e6015d40c917f8f665",
+      "output_sha256": "0fec2017db775d86bb288f324e6c6f5e720fe280f5f4efdc27395ff50d32df32",
       "license": "CC0-1.0 source samples: Osiris Piano by Karoryfer Samples; built by music-production soundbank.py",
-      "version": "build b9"
+      "version": "build b10"
     },
     {
       "name": "cello_bigcat",
@@ -3335,8 +3335,8 @@
       "checksum_evidence": "Size and SHA-256 of each file recorded at retrieval on 2026-11-06 (the publisher lists none); every cut note is checked against the hash in the notes manifest",
       "spec": "soundbanks/iowa_guitar.json",
       "notes": "soundbanks/iowa_guitar.notes.json",
-      "version": "Iowa MIS (2011 recording) build b7",
-      "output_sha256": "6ab354479313f5dcc8a1ff3006db8babe822d237ac26590c6ce24d6a8ba72cee",
+      "version": "Iowa MIS (2011 recording) build b8",
+      "output_sha256": "abe638869b662095c2bd820096dda5046eff34edd8115ce235108444df1f153d",
       "files": [
         {
           "path": "sound files/MIS/Piano_Other/guitar/Guitar.ff.sulA.A2B2.mono.aif",
@@ -3564,9 +3564,9 @@
       "samples": 369,
       "samples_bytes": 479346789,
       "samples_sha256": "3dabc70c1cae94cbf343b55c50a6e0fe0d95def88582b683021ec89260653614",
-      "output_sha256": "931f4ea22f3189c69dc905cc983f666a065d7cbcdcf6b490bd7a7fa594a35b1c",
+      "output_sha256": "6e49973421231132638b4c2e059470ad728a6c2e57ee88dea606ab629c4aa111",
       "license": "CC0-1.0 source samples: VSCO 2 Community Edition by Versilian Studios (the library also asks that the samples are not sold as such and encourages credit and a link to its homepage); built by music-production soundbank.py",
-      "version": "build b8"
+      "version": "build b3"
     },
     {
       "name": "vcsl_keys",
@@ -3590,9 +3590,9 @@
       "samples": 609,
       "samples_bytes": 1411598570,
       "samples_sha256": "77517fc7bee2d91afb92cfe264ef9048d67d6da1862dd7471b677344fe5b7cde",
-      "output_sha256": "62d085bda19997d8cccf696c29a0ae239d1155787900880b3927f64cf2c56b7c",
+      "output_sha256": "bb69f1a6edac9e597038da8e3e7da7ee486ee3c194ba027c8b406edf57b91b80",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios; built by music-production soundbank.py",
-      "version": "build b7"
+      "version": "build b2"
     },
     {
       "name": "vcsl_winds",
@@ -3811,9 +3811,9 @@
       "samples": 507,
       "samples_bytes": 477020002,
       "samples_sha256": "b4df1630a8ab719f0f15b2b420177223c55f7a3726ec50400d9888ecffe45b84",
-      "output_sha256": "b25a3c4d075bee42cf2cbb29a7bf147bd41d0ebf2eadf5c1b5b7be1f54d9e85e",
+      "output_sha256": "1d66543001ae6c6c562c8dbb3dc6f2a4807d26768252e0bc20d8b5cc1dc8532e",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios; built by music-production soundbank.py",
-      "version": "build b6"
+      "version": "build b7"
     },
     {
       "name": "bass_sneaky",
@@ -3958,10 +3958,10 @@
         "sf2_bytes": 607558000
       },
       "vcsl": {
-        "file": "vcsl-b11.sf2.xz",
-        "bytes": 212715280,
-        "sha256": "0f4b9a5f6d3ec0c6c06a05259689c994dfadbfe375ae580a2516906a0af06faa",
-        "sf2_bytes": 720762162
+        "file": "vcsl-b12.sf2.xz",
+        "bytes": 212790280,
+        "sha256": "66e64c055e1c96fc55915c22ceec423e87e5cb683f095842237c070607f299d8",
+        "sf2_bytes": 720762710
       },
       "rusty": {
         "file": "rusty-b1.sf2.xz",
@@ -3976,10 +3976,10 @@
         "sf2_bytes": 355209222
       },
       "piano_osiris": {
-        "file": "piano_osiris-b9.sf2.xz",
-        "bytes": 149872228,
-        "sha256": "a99a72bf8c134303ca0dff4c82dd10a3bc00a8d3c89522e3db19474da69d942e",
-        "sf2_bytes": 397929092
+        "file": "piano_osiris-b10.sf2.xz",
+        "bytes": 149844812,
+        "sha256": "78e43884a56b5b13c6b9c88576f36144a76579ef05f6a727301ea0a2ba6faf13",
+        "sf2_bytes": 397929388
       },
       "cello_bigcat": {
         "file": "cello_bigcat-b2.sf2.xz",
@@ -4030,16 +4030,16 @@
         "sf2_bytes": 465159782
       },
       "vsco_colors": {
-        "file": "vsco_colors-b8.sf2.xz",
-        "bytes": 177758388,
-        "sha256": "171973cf9b28a9eb01853918e3c5241b4c4d7ee8c073af89c88c0e958c4f4397",
-        "sf2_bytes": 373649590
+        "file": "vsco_colors-b3.sf2.xz",
+        "bytes": 178477256,
+        "sha256": "14244329443bb4fe6c63680bab6b307e5df6fda7d32273cd37f22553db73adf5",
+        "sf2_bytes": 373648434
       },
       "vcsl_keys": {
-        "file": "vcsl_keys-b7.sf2.xz",
-        "bytes": 264620796,
-        "sha256": "8158710284cd9f8b72c70ee8ee07a14dbf151d9dd01434a7c12e4b1cd8af3f74",
-        "sf2_bytes": 798447738
+        "file": "vcsl_keys-b2.sf2.xz",
+        "bytes": 263087440,
+        "sha256": "b9008b361653427fce9a2767a23247f8ba6b932f30091f9c250e8a4c3ba580cf",
+        "sf2_bytes": 798603280
       },
       "vcsl_winds": {
         "file": "vcsl_winds-b2.sf2.xz",
@@ -4048,10 +4048,10 @@
         "sf2_bytes": 363445338
       },
       "vcsl_world": {
-        "file": "vcsl_world-b6.sf2.xz",
-        "bytes": 110184164,
-        "sha256": "7e83d480ef0ee399cfda8f0c60fd81800f66d501f76517d38863d6f394f10803",
-        "sf2_bytes": 294737290
+        "file": "vcsl_world-b7.sf2.xz",
+        "bytes": 110912992,
+        "sha256": "1c6d68a73f3a34a6018a6c39ee9b137acfafadf71b961eeda7f0e230bedf77ed",
+        "sf2_bytes": 294737586
       },
       "bass_sneaky": {
         "file": "bass_sneaky-b1.sf2.xz",
@@ -4096,10 +4096,10 @@
         "sf2_bytes": 23691096
       },
       "iowa_guitar": {
-        "file": "iowa_guitar-b7.sf2.xz",
-        "bytes": 31776424,
-        "sha256": "929e3b9bc2d555a2d13f8e4efcb22555ca65a1d379dea6516b283aa0cb25999a",
-        "sf2_bytes": 148796146
+        "file": "iowa_guitar-b8.sf2.xz",
+        "bytes": 31778272,
+        "sha256": "beff2e54e43f8dea5a03eb2cf262eef0867e820bbef779e551f693f626f375f9",
+        "sf2_bytes": 148796442
       }
     },
     "archives": {

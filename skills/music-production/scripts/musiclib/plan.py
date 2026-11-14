@@ -59,6 +59,10 @@ def compare(p, clock=None):
     plan = p.get('plan')
     if not isinstance(plan, dict):
         return None
+    if isinstance(plan.get('passage'), dict):
+        # A passage cut from the piece (excerpt.py): the plan is the piece's and is read against the piece.
+        return {'identity': plan.get('identity'), 'high_point': None, 'sections': [], 'commitments': 0, 'kept': 0,
+                'differences': 0, 'passage': dict(plan['passage'])}
     clock = clock or Clock(p)
     spans = views.spans(p, clock)
     order = [s[0] for s in spans]
@@ -70,9 +74,6 @@ def compare(p, clock=None):
     pace_of = {s['section']: s['changes'] / max(s['bars'], 1) for s in pace['sections']} if pace else None
     tracks = {t['id']: t for t in p['tracks']}
     out = {'identity': plan.get('identity'), 'high_point': None, 'sections': [], 'commitments': 0, 'kept': 0, 'differences': 0}
-    outside = plan.get('outside_passage')
-    if isinstance(outside, dict):          # a passage cut from a piece (excerpt.py): what its plan leaves to the piece
-        out['outside_passage'] = outside
     hp = plan.get('high_point')
     if isinstance(hp, dict):
         out['high_point'] = {'section': hp.get('section'), 'means': hp.get('means'), 'in_piece': hp.get('section') in span}
@@ -172,11 +173,11 @@ def questions(compared):
                  'by what means, and for each section which parts sound, which leads and what differs from the section before '
                  '(schema.md, plan); review then reads the score against it. Write one, or say in decisions why this piece '
                  'needs none.')]
+    if compared.get('passage'):
+        return []                              # the plan is the piece's; nothing of it is asked of a passage
     out = []
     hp = compared['high_point']
-    if hp is None and isinstance((compared.get('outside_passage') or {}).get('high_point'), dict):
-        pass                                   # the piece's high point lies in bars the passage leaves out: nothing to ask of the passage
-    elif hp is None or not hp.get('section'):
+    if hp is None or not hp.get('section'):
         out.append(('plan.high_point', 'The plan names no high point. Say where it is and by what means it is one, or say in '
                                        'decisions that the piece has none (a loop that holds one level has none to name).'))
     elif not hp['in_piece']:
@@ -201,6 +202,10 @@ def describe(compared):
     """One line for the head of a review's summary: how much of the plan the score holds."""
     if compared is None:
         return ''
+    if compared.get('passage'):
+        cut = compared['passage']
+        return (f'Plan: this project is a passage of the piece (its bars {cut.get("first_bar")} to '
+                f'{cut.get("first_bar", 1) + cut.get("bars", 1) - 1}); the plan is the piece\'s and is read against the piece, not here.')
     n, kept = compared['commitments'], compared['kept']
     unread = sum(len(s['unread']) for s in compared['sections'])
     hp = compared['high_point']

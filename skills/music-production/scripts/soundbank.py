@@ -700,14 +700,21 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
         power = np.divide(power, level, out=np.zeros_like(power), where=level > 0)
         run = np.concatenate([np.zeros((1,) + power.shape[1:]), np.cumsum(power, axis=0)])
         windows = (run[span:] - run[:-span]) / span                                # window i: frames i to i + span - 1
+        # The stored sample's floor in each window's own units: the mean over its frames of that floor over the
+        # frame's level.  It is 1 where a take has faded to nothing and next to nothing where it sounds.
+        share = np.divide(stored, level, out=np.zeros_like(level), where=level > 0)
+        run = np.concatenate([np.zeros((1,) + share.shape[1:]), np.cumsum(share, axis=0)])
+        least = (run[span:] - run[:-span]) / span
         ends = np.array([starts[i + span - 1] + nfft for i in range(len(windows))])
         floor, width = np.zeros_like(windows), np.ones(len(bins))
         for sel in halves:
             if True:
                 part = windows[:, sel]
-                # No lower than 1, the level each frame was set against: where that was the stored sample's floor
-                # and the frame lay far under it, the window's own floor would be as far under it again.
-                floor[:, sel] = np.maximum(np.minimum(np.median(part, axis=1), np.percentile(part, 10, axis=1) / 0.55), 1.0)[:, None]
+                # No lower than the stored sample's floor in the window's units (`least`): where a frame lay far
+                # under that floor, the window's own floor would be as far under it again.  Held at 1, the level
+                # the frames were set against, it hid the partials of a low note, whose median bin in a crowded
+                # half octave is itself partials and whose hiss lies far under it (the final review, FR01).
+                floor[:, sel] = np.maximum(np.minimum(np.median(part, axis=1), np.percentile(part, 10, axis=1) / 0.55)[:, None], least[:, sel])
                 width[sel] = len(sel)
         edge = np.pad(windows, ((0, 0), (1, 1), (0, 0)), mode='edge')
         over = np.pad(np.where(floor > 0, windows - floor, 0.0), ((0, 0), (2, 2), (0, 0)))

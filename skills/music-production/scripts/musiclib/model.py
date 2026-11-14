@@ -62,7 +62,7 @@ KNOWN = {
                 'authorship', 'revision_history', 'description', 'comment', 'style', 'plan', 'association'},
     'association': {'source', 'seed', 'count', 'list_words', 'list_sha256', 'words', 'whole', 'gives', 'none', 'reason', 'comment'},
     'association gives': {'level', 'what', 'where'},
-    'plan': {'identity', 'high_point', 'sections', 'comment', 'outside_passage'},
+    'plan': {'identity', 'high_point', 'sections', 'comment', 'passage'},
     'plan high point': {'section', 'means'},
     'plan section': {'section', 'sounds', 'leads', 'answers', 'register', 'harmony', 'dynamics', 'differs', 'comment'},
     'clock': {'bars', 'meter', 'tempo', 'tail_seconds', 'rubato'},
@@ -125,8 +125,11 @@ def plan_shape(plan, warnings):
         for key in ('section', 'means'):
             if key in hp:
                 text(hp[key], f'plan.high_point.{key}')
-    if 'outside_passage' in plan:        # written by excerpt.py: what the piece's plan says of the bars a passage leaves out
-        shape(plan['outside_passage'], dict, 'plan.outside_passage')
+    if 'passage' in plan:                # written by excerpt.py: the project is these bars of the piece the plan is of
+        cut = shape(plan['passage'], dict, 'plan.passage')
+        for key in ('first_bar', 'bars'):
+            if not isinstance(cut.get(key), int) or isinstance(cut.get(key), bool) or cut[key] < 1:
+                raise ValueError(f'plan.passage.{key}: a whole number of bars, 1 or more (excerpt.py writes it)')
     seen = set()
     sections = shape(plan.get('sections', []), list, 'plan.sections')
     if len(sections) > 512:

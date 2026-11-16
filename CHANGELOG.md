@@ -8,7 +8,7 @@ A piano-roll video of any render, banks from your own samples and SFZ instrument
 
 ### Added
 
-- **`studio.py start`** writes a new piece's folder: a `compose.py` with the sections and parts named, and the valid `song.json` it writes, on the bus chain with one placeholder note a part, so the project renders as it stands. A part's preset is found by words or by bank and program, as `instruments` finds it; a preset it cannot name, an id the script cannot use or a note outside a part's keys is refused before anything is written.
+- **`studio.py start`** writes into a piece's folder (made if missing; its brief and words may be there already): a `compose.py` with the sections and parts named, and the valid `song.json` it writes, on the bus chain with one placeholder note a part, so the project renders as it stands. A part's preset is found by words or by bank and program, as `instruments` finds it; a preset it cannot name, an id the script cannot use or a note outside a part's keys is refused before anything is written.
 - **`musiclib.builder`** keeps a composition script's books: notes placed by bar and beat (counted from 1; a beat is a quarter note) with stable ids (or ids of your own) and their performance entries, each checked as it is written against the keys its part's preset has a sample for, parts that take their bank, program and keys from the configured banks (the program reaches the exported MIDI too), and a save that validates. It composes nothing, and the project file stays the source of truth.
 - **`studio.py video` and `studio.py still`** draw a render's score as a piano roll: the notes as they were played, coloured by what each part does (lead, harmony and patterns, bass, drums and effects in a lane of their own), every part named in the legend and lit while it sounds (in a large ensemble, the names that do not fit are counted as "+N more"), bar lines, sections and a playhead. `video` scrolls it under the render's master as a WebM (VP9 and Opus) or, with `--mp4`, an MP4 (H.264 and AAC), kept under a size (10 MB by default), using the FFmpeg of the configuration; `still` writes one frame as a PNG. Both need Pillow, which the setup does not install.
 - **`soundbank.py folder`** builds a bank from a folder of your own samples in one command: one preset named by a filename template, each take's pitch read from its name and checked, the takes trimmed and their levels matched, the velocity range shared by the dynamics you give softest first, the keys and layers reported, and the licence you state kept in the bank and its receipt ([soundbank-building.md](skills/music-production/references/soundbank-building.md)).
@@ -22,7 +22,8 @@ A piano-roll video of any render, banks from your own samples and SFZ instrument
 - **A part takes at most 8 effects** in `mix.effects`, applied in the order listed.
 - **A part's `name` is text.** The piano roll's legend draws it; a name of another kind is refused with its place.
 - **Messages say where, what and the rule.** A project that fails validation names the place (part, note or field), the value, the rule or the values allowed, and how to fix it; notes missing a performance entry are listed together, with their count.
-- **Every `studio.py` command has a one-line description and an example**, and every option a help text (`studio.py <command> --help`).
+- **Every `studio.py` command has a one-line description and an example**, and every option a help text (`studio.py <command> --help`). A command line it cannot read is reported as every other error is: the usage, then one line `ERROR: ...`, with exit code 2.
+- **`studio.py clean` names a kept round by its own folder**, which stays whole with its render; it printed the render inside it.
 
 ### Fixed
 
@@ -32,6 +33,7 @@ A piano-roll video of any render, banks from your own samples and SFZ instrument
 - **Text from a project or a record prints on one line, escaped**, so a control or direction-changing character in a title, a section or a bank's notes cannot rewrite what the terminal shows.
 - **A project or record saved with a byte order mark is read.** Windows PowerShell 5.1 saves UTF-8 with a byte order mark, and UTF-16; both are read now (the tools still write UTF-8 without one).
 - **`sounds` names what it does not know.** A role is matched without regard to case; a role or character word the catalog does not hold is refused with the nearest one it does (it matched nothing before, silently), and the catalog's phrases such as "fast attack" are taken.
+- **A `key_map` key written with a leading zero (`"048"`) is refused.** It passed validation, and the render, which looks a note up as `"48"`, left it unmapped.
 - **Errors that stopped a command with a traceback now name their cause.** In `soundbank.py`, a FLAC source that FFmpeg cannot decode, or does not decode within ten minutes, and a bank past the SoundFont format's 65,535 zones, generators or samples are refused with a message. In `validate`, a `key_map` key written as a number rather than as text is refused with the part's name.
 
 ## [0.7.0] - 2026-11-14
@@ -253,7 +255,7 @@ Before release, 0.4.0 went through repeated independent code reviews and stress 
 - A part's raw synthesis is found in the cache again only when no code it runs has changed (a vinyl noise part kept its old noise after `production.py` changed), and two renders of one piece at once no longer write one cache entry together: a part holds its entry across processes while it is made.
 - Parts made at once share the memory free at the start, each holding what it was measured to need, instead of 2 GB each whatever the song; the built-in synth's filter takes a long note a chunk at a time (a two-minute pad: 3.7 GB, from 8.3 GB, the same samples), and a part that would need more memory than the machine has is refused before anything is synthesized.
 - The mix reads its filtergraph from a file: on one command line, 64 parts in a deep folder passed the 32,767 characters a Windows command line holds.
-- The scripts print a character their output cannot encode as an escape (`喆`) instead of stopping on it: on Windows, Python writes the output an agent reads through a pipe in the ANSI code page, which lacks characters some names hold. Folder and piece names may hold any characters; on Windows, setup.md asks for runtime and piece folders under 120 characters, as FluidSynth 2.6.1 does not opt in to paths over 260 characters.
+- The scripts print a character their output cannot encode as an escape (`\u5586`) instead of stopping on it: on Windows, Python writes the output an agent reads through a pipe in the ANSI code page, which lacks characters some names hold. Folder and piece names may hold any characters; on Windows, setup.md asks for runtime and piece folders under 120 characters, as FluidSynth 2.6.1 does not opt in to paths over 260 characters.
 
 **Game loops**
 

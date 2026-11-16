@@ -59,7 +59,7 @@ UNLOCKED_CACHE = 'unlocked_cache'
 
 # The Unicode Bidi_Control characters (PropList.txt, Unicode 18.0.0): the marks and the embedding, override and isolate
 # controls, which reorder how the text after them is shown (Boucher and Anderson 2021, Trojan Source).
-BIDI_CONTROL = frozenset('؜‎‏‪‫‬‭‮⁦⁧⁨⁩')
+BIDI_CONTROL = frozenset('\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069')
 
 
 def _unsafe(c):
@@ -834,7 +834,7 @@ def _record_value(record):
     if not regular_file(record) or lstat(record).st_size > MAX_RECORD:
         return None
     try:
-        value = loads(Path(record).read_text(encoding='utf-8'))
+        value = loads(Path(record).read_bytes())   # as bytes, as read_json reads a record (the review of 0.8.0)
     except (OSError, ValueError):
         return None
     return value if isinstance(value, dict) and value.get('kind') == KIND else None

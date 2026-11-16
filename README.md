@@ -227,7 +227,7 @@ Whether the music is good is another matter, and only listening can tell. The pi
 <details>
 <summary><b>Questions</b></summary>
 
-**Can I use the music in a video, a game or a commercial release?** Nothing in the toolchain stands in the way. No sound bank asks for a credit: the optional ones are CC0 or free for any use, and MS Basic's MIT licence asks nothing of music played on it. The GPL programs (FFmpeg, Surge XT) cover the programs, not the music that passes through them. Whether you hold a copyright in music an agent wrote for you depends on your country's law and on how much of it you shaped.
+**Can I use the music in a video, a game or a commercial release?** The skill and the sound banks it installs ask nothing of what you make with them. No sound bank asks for a credit: the optional ones are CC0 or free for any use, and MS Basic's MIT licence asks nothing of music played on it. The GPL programs (FFmpeg, Surge XT) cover the programs, not the music that passes through them. Whether you hold a copyright in music an agent wrote for you depends on your country's law and on how much of it you shaped.
 
 **Which agents can use it?** Any agent that loads Agent Skills and can run Python: Claude Code as a plugin, Codex, and others through `npx skills`.
 

@@ -342,6 +342,7 @@ def take_fault(path,exact=None):
     try:tag,channels,align,bits,_,size=wav_layout(path)
     except ValueError as e:return str(e)
     if (tag,bits,channels)!=(3,32,2):return f'format {tag}, {bits} bits, {channels} channels, not float32 stereo'
+    if not size//align:return 'no frames'   # a render makes at least one: one of none passed and stopped the level's measure (the review of 0.8.0)
     if exact is not None and size//align!=exact:return f'{size//align} frames, where this render makes {exact}'
     return None
 

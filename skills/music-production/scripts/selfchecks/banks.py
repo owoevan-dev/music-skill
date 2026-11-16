@@ -747,6 +747,10 @@ def define(S):
         b=(work/'cues.wav').read_bytes();i=b.find(b'adtl')+4
         assert struct.unpack_from('<4sI',b,i)==(b'labl',7) and b[i+15]==0 and b[i+16:i+20]==b'labl',b[i:i+40]
         assert struct.unpack_from('<I',b,4)[0]==len(b)-8 and audio.read_wav(work/'cues.wav')[1]['frames']==480
+        # A cached take of no frames is no take, whatever length the render asks of it: one passed for a sampled part,
+        # whose length varies, and stopped the level's measure (the review of 0.8.0)
+        audio.write_wav(work/'take_no_frames.wav',np.zeros((0,2),dtype=np.float32))
+        assert audio.take_fault(work/'take_no_frames.wav')=='no frames' and audio.take_fault(work/'take_no_frames.wav',0)=='no frames'
         return {'extensible':{'own':{n:('read' if v=='read' else 'refused') for n,v in own.items()},'third_party':{n:('read' if isinstance(v,tuple) else 'refused') for n,v in third.items()}},'short_format':'refused by both, named'}
     def bank_files_named_by_template():
         # 0.8 step 1.5 (design-0.8.md, Part C; CWE-1333): a spec names a layer's files with a template, matched in one
@@ -761,6 +765,16 @@ def define(S):
         assert m('p_{note}','p_C4')=={'note':'C4'} and m('p_{note}','p_C4x') is None and m('take.wav','take.wav')=={} and m('take.wav','take.wav.wav') is None
         assert m('{id}x{rr}.wav','abx02.wav')=={'id':'ab','rr':'02'} and m('{id}x{rr}.wav','axbx2.wav') is None   # no later x tried
         assert m('r{rr}5','r255')=={'rr':'25'}   # a last literal is matched at the end, not where it first appears
+        try:sb.naming({'presets':[{'name':'p','layers':[{'template':'p_{note}.wav'}]}]});raise AssertionError('a layer without dir taken')
+        except ValueError as e:assert 'no `dir`' in str(e),str(e)   # a KeyError past the command's handler (the review of 0.8.0)
+        for mics in ([{}],[{'dir':'k'},{'gain':.5}],'k',[3]):   # and each microphone's folder (a KeyError: the Astra review of the fixes)
+            try:sb.naming({'presets':[{'name':'p','layers':[{'template':'x.wav','root':60,'mics':mics,'dynamics':['default']}]}]});raise AssertionError(f'mics {mics!r} taken')
+            except ValueError as e:assert '`mics` lists objects, each with its `dir`' in str(e),str(e)
+        whole={'dir':'.','template':'p_{note}.wav','dynamics':['default'],'keys':'auto','velocity':{'default':[1,127]}}
+        sb.naming({'presets':[{'name':'p','layers':[whole]}]})   # and the fields the build reads of every layer, each named
+        for field in ('dynamics','keys','velocity'):
+            try:sb.naming({'presets':[{'name':'p','layers':[{k:v for k,v in whole.items() if k!=field}]}]});raise AssertionError(f'a layer without {field} taken')
+            except ValueError as e:assert f'no `{field}`' in str(e),str(e)
         assert m('p_{note}.wav','P_C4.wav') is None and m('p_{note}.wav','p_c#4.wav')=={'note':'c#4'} and m('p_{note}.wav','p_Bb-1.wav')=={'note':'Bb-1'}
         assert m('p_{note}.wav','p_C10.wav') is None and m('p_{note}.wav','p_C4.wav.wav') is None and m('p_{note}_{dyn}.wav','p_C4_.wav') is None
         assert m('p_{note}_{dyn}.wav','p_C4_ff.wav')=={'note':'C4','dyn':'ff'} and m('p_{dyn}.wav','p_fé.wav') is None and m('r{rr}.wav','r٢.wav') is None
@@ -998,6 +1012,7 @@ def define(S):
         for words in (('viola',),('Strings',),('default','viola')):
             code,found=ins(*words);row=found['presets'][0] if code==0 else None
             assert code==0 and found['count']==1 and row['patch']=={'bank':0,'program':41} and row['family']=='strings' and row['keys']=='G3-G4' and row['velocity_ranges']==2,(words,found)
+            assert row['velocities']==[[1,64],[65,127]],row   # the ranges themselves (a preset of 90-127 alone read as one of 1-127: the review of 0.8.0)
         code,err=ins('viloa');assert code==2 and "did you mean 'viola'?" in err and err.count('\n')==1,err
         # The Astra review of step 2: a preset zone and an instrument zone sound together only where their keys and their
         # velocities both overlap, each zone taking its global zone's ranges; the keys come as runs (holes kept); a
@@ -1034,6 +1049,17 @@ def define(S):
                                               'soundfonts':{'iowa_strings':{'path':str(work/'ins_odd.sf2'),'sha256':file_hash(work/'ins_odd.sf2')}}})
         odd=mi.search(work/'ins_odd_config.json',['odd'])['presets'][0]
         assert odd['family']=='no General MIDI family' and odd['key_ranges']==[[60,60],[72,72]] and odd['keys_without_a_sample']==11,odd
+        # a preset over 120 keys is said to stretch its samples over 120 of the 128 (it was "all keys"); a configuration
+        # naming a bank "default" among the others is refused, as doctor refuses it (it was listed: the review of 0.8.0)
+        sf2.write(work/'ins_wide.sf2','wide',[{'name':'t','data':tone,'rate':48000,'root':60}],[{'name':'i','zones':[{'gens':{43:(0,119)},'sample':0}]}],
+                  [{'name':'Wide Pad','bank':0,'program':88,'zones':[{'gens':{},'instrument':0}]}])
+        save_json(work/'ins_wide_config.json',{'soundfont':{'path':str(work/'ins_wide.sf2'),'sha256':file_hash(work/'ins_wide.sf2')}})
+        wide=mi.search(work/'ins_wide_config.json',['wide'])
+        assert '120 of the 128 keys' in wide['presets'][0]['every_key'] and '(stretched over 120 keys' in mi.summary(wide),wide['presets'][0]
+        save_json(work/'ins_named_default.json',{'soundfont':{'path':str(work/'ins.sf2'),'sha256':file_hash(work/'ins.sf2')},
+                                                 'soundfonts':{'default':{'path':str(work/'ins_wide.sf2'),'sha256':file_hash(work/'ins_wide.sf2')}}})
+        try:mi.search(work/'ins_named_default.json',['wide']);raise AssertionError('a bank named default among the others listed')
+        except ValueError as e:assert '(not "default")' in str(e),str(e)
         try:mi.search(work/'ins_odd_config.json',['iowa_strings','viloa']);raise AssertionError('a misspelt word matched')
         except ValueError as e:assert "did you mean 'viola'?" in str(e),str(e)   # not 'strings', a piece of the bank's name
         try:mi.search(work/'ins_odd_config.json',[],bank='nowhere');raise AssertionError('an unknown bank searched')
@@ -1150,6 +1176,10 @@ def define(S):
         assert L[0]['velocity']=={'default':[65,127]} and (L[1]['tune_cents'],L[1]['root'],round(20*np.log10(L[1]['gain']),6))==(.5,59,3.0),L
         sp,left=spec('<region> sample=s/x.wav end=-1 group=3\n<region> sample=s/x.wav off_by=3')
         assert len(sp['presets'][0]['layers'])==1 and any('end=-1' in n for n in left['approximated']),left   # a region that does not play, left out and said
+        # and the region it cut gets no exclusive class, nor one whose off_by names a group no region plays in: a class
+        # of its own made its notes cut each other, a chord lost its first notes (the review of 0.8.0)
+        assert 'exclusive_class' not in sp['presets'][0]['layers'][0],sp['presets'][0]['layers'][0]
+        assert 'exclusive_class' not in layers('<region> sample=s/x.wav lokey=60 hikey=72 off_by=99')[0]
         import os
         outside=work/'own_outside';outside.mkdir();(outside/'x.wav').write_bytes(b'');(outside/'y.sfz').write_text('<region> sample=s/x.wav\n',encoding='utf-8')
         junction=(subprocess.run(['cmd','/c','mklink','/J',str(cases/'j'),str(outside)],capture_output=True).returncode==0 if os.name=='nt'
@@ -1170,7 +1200,8 @@ def define(S):
                             ('loop','points'),('loop_points',['a',5])):   # the builder's step 3 fields, checked before any reading (no OverflowError)
             try:sb.naming({'presets':[{'name':'p','layers':[{'template':'x.wav','root':60,field:value}]}]});raise AssertionError(f'{field}={value!r} taken')
             except ValueError as e:assert f'`{field}`' in str(e) or 'loop_points' in str(e),str(e)
-        sb.naming({'presets':[{'name':'p','layers':[{'template':'x.wav','root':60,'loop':'points','loop_points':[0,None]}]}]})   # null: to the end kept
+        sb.naming({'presets':[{'name':'p','layers':[{'dir':'.','template':'x.wav','root':60,'loop':'points','loop_points':[0,None],
+                                                     'dynamics':['default'],'keys':'auto','velocity':{'default':[1,127]}}]}]})   # null: to the end kept
         # The fourth outside review's cases: a main file below the root, and one reached through a junction; key after
         # bounds in its own header; a loop with no loop_end on a sample with none of its own (to the sample's end), and
         # points with no loop_mode on such a sample (unlooped, said); text grown past the bound by the lines after a
@@ -1225,6 +1256,60 @@ def define(S):
         for k in range(127):(cases/'dyn127'/f'n_C4_d{k}.wav').write_bytes(b'')
         wide=sb.folder_spec(cases/'dyn127','n_{note}_{dyn}.wav','X',0,lic,[f'd{k}' for k in range(127)])['presets'][0]['layers'][0]['velocity']
         assert len(wide)==127 and wide['d0']==[1,1] and wide['d126']==[127,127],wide
+        # The review of 0.8.0. A byte order mark before a first-line #include (an editor's UTF-8) and an #include named by
+        # a #define are read: the included regions were left out, or looked for under "$part"
+        (cases/'case.sfz').write_bytes(b'\xef\xbb\xbf#include "inc/b.sfz"\n<region> sample=s/x.wav key=62\n')
+        assert [l['keys'] for l in sb.sfz_spec(cases/'case.sfz',cases,'X',0,lic)[0]['presets'][0]['layers']]==[[61,61],[62,62]]
+        assert [l['keys'] for l in layers('#define $part inc/b.sfz\n#include "$part"\n')]==[[61,61]]
+        # an #include's name grown by #define names that double at each step is refused before it grows (1 KB made a
+        # name of 4 MB, and more steps grew it without end: the Astra review of the fixes for 0.8.0)
+        chain='#define $A x\n'+''.join(f'#define ${"A"*(k+1)} ${"A"*k}${"A"*k}\n' for k in range(1,23))+'#include "$'+'A'*23+'"\n'
+        try:layers(chain);raise AssertionError('an #include name grown past any path taken')
+        except ValueError as e:assert 'grows past' in str(e),str(e)
+        # a sample kept from its first frame with a second of silence before its tone builds: it was measured over that
+        # second and refused as silent
+        late=np.concatenate([np.zeros((48000,2),np.float32),np.stack([(np.sin(2*np.pi*261.63*np.arange(24000)/48000)*.3).astype(np.float32)]*2,1)])
+        sb.write_float_wav(cases/'s'/'late.wav',late,48000);sb.build(spec('<region> sample=s/late.wav key=60')[0],cases,work/'own_late.sf2')
+        # a take quieter than -80 dBFS throughout is measured from its first sound: it measured 0, so an SFZ of it alone
+        # was refused as silent and, beside a louder take in a layer that matches its notes, the match divided by 0; a
+        # take of no sound beside sounding ones is refused by its name (the Astra review of the fixes for 0.8.0)
+        tone=lambda amp:np.stack([(np.sin(2*np.pi*261.63*np.arange(48000)/48000)*amp).astype(np.float32)]*2,1)
+        sb.write_float_wav(cases/'s'/'quiet.wav',tone(.00005),48000);sb.build(spec('<region> sample=s/quiet.wav key=60')[0],cases,work/'own_quiet.sf2')
+        pair=work/'own_pair';pair.mkdir()
+        sb.write_float_wav(pair/'n_C4.wav',tone(.00005),48000);sb.write_float_wav(pair/'n_D4.wav',tone(.3),48000)
+        two={'name':'Pair','presets':[{'name':'Pair','program':0,'layers':[{'dir':'.','template':'n_{note}.wav','dynamics':['default'],'keys':'auto',
+                                                                              'velocity':{'default':[1,127]},'onset_db':None,'pitch_check':False}]}]}
+        sb.build(two,pair,work/'own_pair.sf2')
+        sb.write_float_wav(pair/'n_C4.wav',np.zeros((48000,2),np.float32),48000)
+        try:sb.build(two,pair,work/'own_pair_silent.sf2');raise AssertionError('a silent take beside a sounding one built')
+        except ValueError as e:assert 'n_C4.wav is silent' in str(e),str(e)
+        # and in a layer of two dynamics whose soft take is silent, before "across" or layer_levels_db divides by that
+        # dynamic's median (each a division by 0 before the first fix's check: the second Astra review of the fixes)
+        dyn=work/'own_dyn';dyn.mkdir()
+        sb.write_float_wav(dyn/'n_C4_pp.wav',np.zeros((48000,2),np.float32),48000);sb.write_float_wav(dyn/'n_C4_ff.wav',tone(.3),48000)
+        two_dyn={'dir':'.','template':'n_{note}_{dyn}.wav','dynamics':['pp','ff'],'keys':'auto','velocity':{'pp':[1,63],'ff':[64,127]},'onset_db':None,'pitch_check':False}
+        for extra in ({'match_notes':'across'},{'layer_levels_db':{'pp':-6}},{'match_notes':False,'layer_levels_db':{'pp':-6}}):
+            try:sb.build({'name':'Dyn','presets':[{'name':'Dyn','program':0,'layers':[{**two_dyn,**extra}]}]},dyn,work/'own_dyn.sf2');raise AssertionError(f'a silent dynamic built with {extra}')
+            except ValueError as e:assert 'n_C4_pp.wav is silent' in str(e),(extra,str(e))
+        # where nothing divides by it, a silent take is kept as before: no match, and a shape of the sounding dynamic
+        # only (the guard refused it too: the third Astra review of the fixes)
+        sb.build({'name':'Dyn','presets':[{'name':'Dyn','program':0,'layers':[{**two_dyn,'match_notes':False,'layer_levels_db':{'ff':0}}]}]},dyn,work/'own_dyn_kept.sf2')
+        # a take whose name gives a key outside MIDI 0-127 is refused by name (Cb-1 stopped the writer with a traceback,
+        # B9 built a bank of no sample); a preset name the bank cannot hold is refused; a licence beyond Latin-1 is kept
+        # in the receipt as given and in the bank's copyright field as its escapes, and the printout says which
+        odd=work/'own_odd';odd.mkdir()
+        for note_name in ('Cb-1','B9'):
+            (odd/f'p_{note_name}.wav').write_bytes((src/'samples'/'pno_C4_p.wav').read_bytes())
+            r=run('folder',odd,'--template','p_{note}.wav','--name','Odd','--program',0,'--license',lic,'--output',work/f'own_odd_{note_name}.sf2','--receipt',work/f'own_odd_{note_name}.json')
+            assert r.returncode==2 and 'outside 0-127' in r.stderr and 'Traceback' not in r.stderr and not (work/f'own_odd_{note_name}.sf2').exists(),(note_name,r.stderr[-300:])
+            (odd/f'p_{note_name}.wav').rename(odd/f'p_{note_name}.wav.off')
+        for bad_name in ('A preset name too long','鋼琴'):
+            r=folder('badname','--dynamics','p,f','--name',bad_name)
+            assert r.returncode==2 and '19 Latin-1' in r.stderr and not (work/'own_badname.sf2').exists(),(bad_name,r.stderr[-300:])
+        wide_lic='錄音授權, CC0'
+        r=run('sfz',src/'own.sfz','--name','Own SFZ','--program',0,'--license',wide_lic,'--output',work/'own_wide.sf2','--receipt',work/'own_wide.json')
+        assert r.returncode==0 and json.loads((work/'own_wide.json').read_text(encoding='utf-8'))['license']==wide_lic,r.stderr[-300:]
+        assert b'\\u9304\\u97f3\\u6388\\u6b0a, CC0\0' in (work/'own_wide.sf2').read_bytes() and 'keeps it as \\u9304' in r.stdout,r.stdout[-400:]
         return {'folder':'2 notes x 2 dynamics, keys Bb3-A4, or G3-C5 as asked; 128 dynamics refused','sfz':'6 regions; a header and 2 opcodes named as not used; 4 refusals',
                 'reading':'9 rules and 9 refusals in this process','fields':'4 refused before reading'}
     def aiff_reader():

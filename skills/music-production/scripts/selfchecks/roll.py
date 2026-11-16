@@ -114,6 +114,33 @@ def define(S):
         validate(km);(work/'roll_keymap').mkdir();save_json(work/'roll_keymap'/'project.json',km)
         rk=rl.Roll(work/'roll_keymap',640,360,30);drawn=next(q for q in rk.parts if q['name']==(t.get('name') or t['id']))['notes']
         assert len(drawn)==len(t['notes'])-1 and twin['pitch'] not in {pitch for _,_,pitch in drawn},(len(drawn),len(t['notes']))
+        # The review of 0.8.0: a part played backwards sounds over each note's written span, and one with crossfade
+        # legato as layered.plan has it (a note entered legato later, the one before held into the crossfade): drawn so,
+        # at their written pitches (both were drawn from the performed notes); a name or a title holding a line break is
+        # drawn on one line (it stopped Pillow's measure)
+        from musiclib import layered
+        from musiclib.model import TPQ
+        plain=lambda t:t['engine']=='soundfont' and not t.get('drums') and 'dynamics' not in t['performance'] and not t['performance'].get('legato')
+        rv=copy.deepcopy(p);tr=next(t for t in rv['tracks'] if plain(t));tr['notes']=tr['notes'][:12];tr['reverse']=True
+        tr['performance']['notes']={n['id']:{**tr['performance']['notes'][n['id']],'gate':.5} for n in tr['notes']}
+        validate(rv);(work/'roll_reverse').mkdir();save_json(work/'roll_reverse'/'project.json',rv);c=Clock(rv)
+        drawn=next(q for q in rl.Roll(work/'roll_reverse',640,360,30).parts if q['name']==' '.join((tr.get('name') or tr['id']).split()))['notes']
+        assert drawn==sorted((c.seconds(n['on']),c.seconds(n['on']+n['duration']),n['pitch']) for n in tr['notes']),drawn[:3]
+        # a kit played backwards sounds each note as a swell over its written span: drawn so in the lane, and lit while it
+        # swells (a reversed crash was drawn and lit as a 90 ms hit: the Astra review of the fixes for 0.8.0)
+        kr=copy.deepcopy(p);kt=next(t for t in kr['tracks'] if t.get('drums') and t['engine']=='soundfont');kt['reverse']=True
+        validate(kr);(work/'roll_kit_reverse').mkdir();save_json(work/'roll_kit_reverse'/'project.json',kr);ck=Clock(kr)
+        q=next(q for q in rl.Roll(work/'roll_kit_reverse',640,360,30).parts if q['name']==' '.join((kt.get('name') or kt['id']).split()))
+        assert q['lane'] and not q['hits'] and q['notes']==sorted((ck.seconds(n['on']),ck.seconds(n['on']+n['duration']),n['pitch']) for n in kt['notes']),q['notes'][:3]
+        xf=copy.deepcopy(p);tx=next(t for t in xf['tracks'] if plain(t));tx.pop('range',None)
+        tx['notes']=[{'id':f'x{k}','on':k,'duration':1,'pitch':60+2*k} for k in range(4)];tx['performance']['notes']={f'x{k}':{'velocity':80} for k in range(4)}
+        tx['performance']['legato']={'mode':'crossfade'};validate(xf);(work/'roll_crossfade').mkdir();save_json(work/'roll_crossfade'/'project.json',xf);c=Clock(xf)
+        drawn=next(q for q in rl.Roll(work/'roll_crossfade',640,360,30).parts if q['name']==' '.join((tx.get('name') or tx['id']).split()))['notes']
+        planned=sorted((c.seconds(n['tick']/TPQ),c.seconds(n['end_tick']/TPQ),n['pitch']) for n in layered.plan(tx,c))
+        assert drawn==planned and drawn!=sorted((n['start_seconds'],n['end_seconds'],n['pitch']) for n in performed(tx,c)),(drawn,planned)
+        lines=copy.deepcopy(p);lines['title']='Two\nlines';lines['tracks'][0]['name']='Piano\nleft hand';validate(lines)
+        (work/'roll_lines').mkdir();save_json(work/'roll_lines'/'project.json',lines);rn=rl.Roll(work/'roll_lines',640,360,30);rn.frame(1.0)
+        assert rn.title=='Two lines' and any(q['name']=='Piano left hand' for q in rn.parts),(rn.title,[q['name'] for q in rn.parts])
         # no flash: the mean luminance of the frame moves less than a tenth between frames (WCAG 2.3.1's threshold)
         lum=[float(np.mean(r.frame(k/30)@np.array([.2126,.7152,.0722])))/255 for k in range(0,150)]
         assert max(abs(x-y) for x,y in zip(lum,lum[1:]))<.1,max(abs(x-y) for x,y in zip(lum,lum[1:]))
@@ -148,6 +175,20 @@ def define(S):
             cfg=audio.load_config(config);have=rl.encoders(cfg['ffmpeg']['path']);out={}
             render(work/'example.json',work/'render_roll',config,cache)
             total=rl.Roll(work/'render_roll',640,360).total
+            # The review of 0.8.0: the video's sound is checked as sound, decoded and set against the master (codec names
+            # and a length passed a silent or an earlier master): their correlation at the best lag within 50 ms
+            master=audio.read_wav(work/'render_roll'/'master.wav')[0].mean(axis=1).astype(np.float64)
+            def heard(video):
+                # FFmpeg itself, as the probe below: audio.ffmpeg takes only the skill's own WAVs as inputs
+                wav=work/f'{video.stem}_{video.suffix[1:]}_sound.wav'
+                got=subprocess.run([cfg['ffmpeg']['path'],'-hide_banner','-nostdin','-i',str(video),'-vn','-ac','2','-ar',str(audio.RATE),
+                                    '-c:a','pcm_f32le','-map_metadata','-1',str(wav)],capture_output=True,text=True,errors='replace')
+                assert got.returncode==0,(video.name,got.stderr[-400:])
+                return audio.read_wav(wav)[0].mean(axis=1).astype(np.float64)
+            def alike(a,b,span=2400):
+                n=min(len(a),len(b));a,b=a[:n],b[:n];size=1<<(2*n-1).bit_length()
+                c=np.fft.irfft(np.fft.rfft(a,size)*np.conj(np.fft.rfft(b,size)),size)
+                return float(np.r_[c[:span+1],c[-span:]].max()/np.sqrt((a*a).sum()*(b*b).sum()))
             for name,flag,codecs in (('roll.webm',(),('libvpx-vp9','libopus')),('roll.mp4',('--mp4',),('libx264','aac'))):
                 if not set(codecs)<=have:
                     out[name]='this FFmpeg lacks '+', '.join(sorted(set(codecs)-have));continue
@@ -159,7 +200,17 @@ def define(S):
                 import re
                 h,m,s=re.search(r'Duration: (\d+):(\d+):([\d.]+)',probe).groups();seconds=int(h)*3600+int(m)*60+float(s)
                 assert abs(seconds-total)<.25 and ('vp9' if not flag else 'h264') in probe and ('opus' if not flag else 'aac') in probe,(name,seconds,total,probe[-400:])
-                out[name]=f'{seconds:.2f} s, {(work/name).stat().st_size} bytes'
+                r=alike(heard(work/name),master);assert r>.8,(name,r)
+                out[name]=f'{seconds:.2f} s, {(work/name).stat().st_size} bytes, its sound the master\'s (r {r:.2f})'
+            # a draft resumed over a full render leaves the full render's FLAC beside the new master.wav: the video takes
+            # the WAV, which every render writes and checks (it took the FLAC, the earlier master)
+            if {'libvpx-vp9','libopus'}<=have:
+                stale=work/'render_stale';stale.mkdir()
+                for f in ('project.json','master.wav'):(stale/f).write_bytes((work/'render_roll'/f).read_bytes())
+                tone=np.sin(2*np.pi*440*np.arange(len(master))/audio.RATE).astype(np.float32)*.3;audio.write_wav(work/'stale_tone.wav',np.stack([tone,tone],1))
+                audio.ffmpeg(cfg,['-i',str(work/'stale_tone.wav'),'-c:a','flac',str(stale/'master.flac')],work/'roll_logs','stale_flac')
+                rl.video(stale,work/'roll_stale.webm',config,size_mb=1,fps=10,width=640,height=360)
+                sound=heard(work/'roll_stale.webm');assert alike(sound,master)>.8 and alike(sound,tone.astype(np.float64))<.3,'the video took the earlier master'
             done=subprocess.run([sys.executable,str(SCRIPTS/'studio.py'),'video',str(work/'render_roll'),'--output',str(work/'roll_wrong.mp4'),'--config',str(config)],
                                 capture_output=True,text=True,encoding='utf-8',errors='replace')
             assert done.returncode==2 and 'name it .mp4 with --mp4' in done.stderr,done.stderr[-300:]

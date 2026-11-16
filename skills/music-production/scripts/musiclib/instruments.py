@@ -75,6 +75,20 @@ def measured(bank, preset, spent=None):
     return keys, sorted(ranges)
 
 
+def zones_of(config_file, bank, bank_no, program):
+    """The (keys, velocities) of each zone pair that sounds in a configured preset (pairs), merged where equal: what a
+    note may be written on and how hard it may be played to sound (a preset may give a key a sample at some velocities
+    only: start's placeholder at velocity 64 was silent on one of 90-127, the review of 0.8.0)."""
+    configured = banks(config_file)
+    if bank not in configured:
+        raise ValueError(f'No configured bank is named {files.one_line(bank)!r}; the configuration names {", ".join(sorted(configured))}')
+    sounds = read(configured[bank])
+    preset = next((p for p in sounds['presets'] if (p['bank'], p['program']) == (bank_no, program)), None)
+    if preset is None:
+        raise ValueError(f'{bank} has no preset at {bank_no}:{program}')
+    return sorted({(k, v) for _, _, _, k, v in pairs(sounds, preset)})
+
+
 def key_ranges(keys):
     """Keys as runs, [[first, last], ...]: what a preset covers, and where it has no sample between."""
     out = []
@@ -104,6 +118,8 @@ def banks(config_file):
     if not isinstance(config, dict):
         raise ValueError(f'{config_file}: a configuration is a JSON object')
     config = audio.absolute_paths(config, Path(config_file).resolve().parent, config_file)
+    if 'default' in (config.get('soundfonts') or {}):   # the name doctor and the render refuse there (it listed that bank: the review of 0.8.0)
+        raise ValueError(f'{config_file}: soundfonts must map lower-case names (not "default") to entries; "default" is the bank under "soundfont"')
     out = {'default': config['soundfont']['path']} if isinstance(config.get('soundfont'), dict) else {}
     out.update({name: e['path'] for name, e in (config.get('soundfonts') or {}).items() if isinstance(e, dict) and 'path' in e})
     return out
@@ -134,9 +150,10 @@ def search(config_file, words, bank=None):
             row = {'bank': name, 'patch': {'bank': p['bank'], 'program': p['program']}, 'preset': p['name'], 'family': family,
                    'keys': f'{note(min(keys))}-{note(max(keys))}' if keys else None, 'keys_midi': [min(keys), max(keys)] if keys else None,
                    'keys_without_a_sample': (max(keys) - min(keys) + 1 - len(keys)) if keys else None, 'key_ranges': key_ranges(keys),
-                   'velocity_ranges': len(ranges)}
+                   'velocity_ranges': len(ranges), 'velocities': [list(v) for v in ranges]}   # the ranges too, not their count alone (the review of 0.8.0)
             if len(keys) >= 120:   # a General MIDI bank stretches its samples over the keyboard: the keys say nothing of the instrument
-                row['every_key'] = 'the bank stretches its samples over all keys: take the instrument\'s range from orchestration.md'
+                row['every_key'] = (f'the bank stretches its samples over {len(keys)} of the 128 keys: take the instrument\'s range from '
+                                    'orchestration.md')
             if (name, p['bank'], p['program']) in listed:
                 row['preset_list'] = listed[(name, p['bank'], p['program'])]
             rows.append(row)
@@ -149,7 +166,8 @@ def search(config_file, words, bank=None):
     return {'count': len(rows), 'presets': rows,
             'note': ('A part plays one with "soundfont": <bank> and "patch": {"bank": ..., "program": ...} (schema.md). keys: the '
                      'notes its samples cover (MIDI 60 is C4), read from the bank; write inside them, and nearer the middle for an '
-                     'even tone. velocity_ranges counts its dynamic layers, and in the banks built here its round robins too; '
+                     'even tone. velocity_ranges counts its dynamic layers, and in the banks built here its round robins too, and '
+                     'velocities lists them (a note below every range sounds nothing); '
                      'preset_list gives the recorded layers as references/soundbank-presets.md lists them.')}
 
 
@@ -160,7 +178,7 @@ def summary(found):
         listed = r.get('preset_list')
         lines.append(f'  {r["bank"]} {r["patch"]["bank"]}:{r["patch"]["program"]} {r["preset"]} ({r["family"]}): keys {r["keys"]}'
                      + (f', {r["keys_without_a_sample"]} without a sample' if r['keys_without_a_sample'] else '')
-                     + (' (stretched over all keys: the instrument\'s range is in orchestration.md)' if r.get('every_key') else '')
+                     + (f' (stretched over {r["keys_midi"][1] - r["keys_midi"][0] + 1 - r["keys_without_a_sample"]} keys: the instrument\'s range is in orchestration.md)' if r.get('every_key') else '')
                      + f', {r["velocity_ranges"]} velocity range{"s" if r["velocity_ranges"] != 1 else ""}'
                      + (f'; the preset list: keys {listed["keys"]}, velocity layers {listed["velocity_layers"]}' if listed else ''))
     if found['count'] > 60:

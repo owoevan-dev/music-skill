@@ -310,7 +310,8 @@ def define(S):
         rock=blocks.drums(seed=1,**{**base,'feel':'rock','kick':'one_three','pulse':'eighth'})
         assert rock['record']['typical'] and 'basic rock beat' in rock['record']['typical'][0]
         shuffle=blocks.drums(seed=1,**{**base,'meter':[12,8],'feel':'jazz_shuffle','cymbal':'ride','pulse':'feel'})
-        assert shuffle['notes'] and all(abs(n['on']*2-round(n['on']*2))<1e-9 for n in shuffle['notes'] if n['pitch']==51)  # on the triplet eighths
+        rides=[n for n in shuffle['notes'] if n['pitch']==51]   # (all() of none passed with every ride gone: the review of 0.8.0)
+        assert rides and all(abs(n['on']*2-round(n['on']*2))<1e-9 for n in rides)  # on the triplet eighths
         options=blocks.candidates(n=4,seed=blocks.seed('Song A'),**base)
         assert len({tuple(o['kick_steps']) for o in options})==4,options
         chords=['C','Am7','Fmaj7','G7']*4;sections=[{'id':'a','start_bar':0,'bars':8},{'id':'b','start_bar':8,'bars':8}]
@@ -464,10 +465,15 @@ def define(S):
         assert given.track['program']==71 and zero.track['program']==0 and given.track['patch']=={'bank':0,'program':41},given.track
         assert [r['program'] for r in midi.write(g.project,work/'books_given.mid')]==[71,0]   # the export's: the authored ones
         tone=(np.sin(2*np.pi*440*np.arange(4800)/48000)*.4).astype(np.float32)
+        # (a program 0 over 48-72, and one that sounds C4 only at velocities 90-127, for start's defaults below)
         sf2.write(work/'holes.sf2','holes',[{'name':'a','data':tone,'rate':48000,'root':60},{'name':'b','data':tone,'rate':48000,'root':72},{'name':'k','data':tone,'rate':48000,'root':36}],
-                  [{'name':'gaps','zones':[{'gens':{43:(60,60)},'sample':0},{'gens':{43:(72,72)},'sample':1}]},{'name':'kit','zones':[{'gens':{43:(36,36)},'sample':2}]}],
-                  [{'name':'Holes','bank':0,'program':11,'zones':[{'gens':{},'instrument':0}]},{'name':'Kit','bank':128,'program':0,'zones':[{'gens':{},'instrument':1}]}])
-        save_json(work/'holes_config.json',{'soundfont':{'path':str(work/'books.sf2'),'sha256':file_hash(work/'books.sf2')},'soundfonts':{'holes':{'path':str(work/'holes.sf2'),'sha256':file_hash(work/'holes.sf2')}}})
+                  [{'name':'gaps','zones':[{'gens':{43:(60,60)},'sample':0},{'gens':{43:(72,72)},'sample':1}]},{'name':'kit','zones':[{'gens':{43:(36,36)},'sample':2}]},
+                   {'name':'zero','zones':[{'gens':{43:(48,72)},'sample':0}]},{'name':'loud','zones':[{'gens':{43:(60,60),44:(90,127)},'sample':0}]}],
+                  [{'name':'Holes','bank':0,'program':11,'zones':[{'gens':{},'instrument':0}]},{'name':'Kit','bank':128,'program':0,'zones':[{'gens':{},'instrument':1}]},
+                   {'name':'Zero','bank':0,'program':0,'zones':[{'gens':{},'instrument':2}]},{'name':'Loud','bank':0,'program':12,'zones':[{'gens':{},'instrument':3}]}])
+        entry=lambda f:{'path':str(work/f),'sha256':file_hash(work/f)}
+        save_json(work/'holes_config.json',{'soundfont':entry('books.sf2'),'soundfonts':{'holes':entry('holes.sf2')}})
+        save_json(work/'start_config.json',{'soundfont':entry('holes.sf2'),'soundfonts':{'books':entry('books.sf2'),'holes':entry('holes.sf2')}})
         h=Song('H',bars=1,config=work/'holes_config.json');h.section('a',1);gaps=h.part('gaps','harmony','holes 0:11')
         assert gaps.keys==[60,72] and gaps.track['range']==[60,72] and gaps.track['soundfont']=='holes' and gaps.track['program']==11,(gaps.keys,gaps.track)
         try:gaps.note(1,1,66,1);raise AssertionError('a key with no sample taken')
@@ -480,12 +486,35 @@ def define(S):
         off=h.part('off','harmony','holes 0:11',key_map={'60':66})
         try:off.note(1,1,60,1);raise AssertionError('a key mapped onto no sample taken')
         except ValueError as e:assert 'plays key 66 through the part\'s key_map, which has no sample in holes 0:11; the keys that reach one are C5' in str(e),str(e)
-        for bad in ({35:36},{'35':36.0},{'35':128},['35']):   # each onto the kit's one sample, or past the keys: only its kind refuses it
+        for bad in ({35:36},{'35':36.0},{'35':128},['35'],{'035':36}):   # each onto the kit's one sample, or past the keys: only its kind refuses it
             try:h.part('bad','percussion','holes 128:0',key_map=bad);raise AssertionError(f'key_map {bad!r} taken')
-            except ValueError as e:assert 'key_map' in str(e) and 'written as text' in str(e),(bad,str(e))
-        numbered=copy.deepcopy(h.project);validate(copy.deepcopy(numbered));numbered['tracks'][-1]['key_map']={36:60}
-        try:validate(numbered);raise AssertionError('a key_map key of a number taken')
-        except ValueError as e:assert 'key_map keys are MIDI pitches written as text' in str(e),str(e)
+            except ValueError as e:assert 'key_map' in str(e),(bad,str(e))
+        # a key with a leading zero ("048") is refused by validate and the builder alike: the render looks a note up as
+        # "48" and left it unmapped, so the builder took a key no sample played (the review of 0.8.0)
+        for key,words in ((36,'key_map key 36: a MIDI pitch written as text without leading zeros'),('048',"key_map key '048': a MIDI pitch")):
+            numbered=copy.deepcopy(h.project);validate(copy.deepcopy(numbered));numbered['tracks'][-1]['key_map']={key:60}
+            try:validate(numbered);raise AssertionError(f'a key_map key {key!r} taken')
+            except ValueError as e:assert words in str(e),str(e)
+        try:h.part('padded','harmony','holes 0:11',keys=(48,48),key_map={'048':60});raise AssertionError('a key with a leading zero taken by the builder')
+        except ValueError as e:assert "key_map key '048'" in str(e),str(e)
+        # malformed arguments are refused, not a raw error or a value left out (the review of 0.8.0)
+        rejects(lambda:Song('k',bars=1).part('k1','melody',keys=(60,)));rejects(lambda:Song('k',bars=1).part('k2','melody',keys=(60,72,84)))
+        _,lead4,_=song()
+        for bad in (None,True,'2'):rejects(lambda:lead4.note(1,bad,'E4',1))
+        # the first save of a song.json makes it only while the name stays free: one put there meanwhile is left as it
+        # is (start's first run replaced it: the review of 0.8.0); a save over the script's own earlier one replaces it
+        import musiclib.builder as builder_mod
+        s5,_,_=song();s5.save(work/'books_twice.json');s5.save(work/'books_twice.json')
+        real_occupied=builder_mod.files.occupied
+        def appears(p):
+            if Path(p).name!='books_race.json':return real_occupied(p)
+            Path(p).write_text('theirs',encoding='utf-8');return False
+        builder_mod.files.occupied=appears
+        try:
+            try:s5.save(work/'books_race.json');raise AssertionError('a song.json made meanwhile replaced')
+            except ValueError as e:assert 'made by something else while the song was saved' in str(e),str(e)
+        finally:builder_mod.files.occupied=real_occupied
+        assert (work/'books_race.json').read_text(encoding='utf-8')=='theirs'
         rejects(lambda:Song('m',bars=1,meter=(4,0)));rejects(lambda:Song('m',bars=1,meter=(4,6)))
         s3,lead3,_=song();assert lead3.note(1,1,'E4',1,id='hook')=='hook' and 'hook' in s3.project['tracks'][0]['performance']['notes'] and s3.project['tracks'][0]['notes'][-1]['id']=='hook'
         for given,words in (('hook','is taken by another note of this part'),(7,'is no text'),('','is no text')):   # an id this part has, or none: each named
@@ -495,11 +524,40 @@ def define(S):
         def start(*a):
             return subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'start',*map(str,a)],capture_output=True,text=True,encoding='utf-8',errors='replace')
         title='Books """1""" \\N'   # quotes and a backslash written into compose.py as they are
-        r=start(work/'books_piece','--title',title,'--section','a:2','--section','b:2','--part','lead melody','--part','kit drums','--part','viola harmony viola','--config',work/'books_config.json')
+        r=start(work/'books_piece','--title',title,'--section','a:2','--section','b:2','--part','lead melody','--part','kit drums','--part','viola harmony viola','--config',work/'start_config.json')
         assert r.returncode==0 and (work/'books_piece'/'compose.py').is_file(),r.stderr[-400:]
         made=json.loads((work/'books_piece'/'song.json').read_text(encoding='utf-8'));validate(made)
         notes={t['id']:[n['pitch'] for n in t['notes']] for t in made['tracks']}
         assert made['title']==title and made['mix']=={'chain':'bus','rules':2,'target_lufs':-14} and notes=={'lead':[60],'kit':[36],'viola':[61]} and made['clock']['bars']==4,(made['mix'],notes)
+        # The review of 0.8.0: with a configuration, a part that names no instrument plays the default bank's program 0
+        # (a drum part its kit), written out and checked; compose.py names the skill and the configuration from the
+        # user's home where they lie there (it named the whole path, the account with it)
+        text=(work/'books_piece'/'compose.py').read_text(encoding='utf-8')
+        assert "song.part('lead', 'melody', 'default 0:0')" in text and "song.part('kit', 'drums', 'default 128:0')" in text,text
+        home=Path.home().resolve()
+        assert str(home) not in text and home.as_posix() not in text,'compose.py names the home folder'
+        if SCRIPTS.resolve().is_relative_to(home):assert 'SKILL = Path.home() / ' in text,text[:900]
+        from musiclib.starter import spelled   # wherever this skill lies: a path under the home is named from it, another as it is
+        assert spelled(home/'skills'/'x')=="Path.home() / 'skills/x'" and spelled(home.parent.parent/'x').startswith("Path('"),spelled(home/'skills'/'x')
+        # compose.py says where the project's other fields go and the mix a new song starts with, as the builder makes
+        # it (the walkthrough of 0.8.0 found both only in the builder's docstrings)
+        assert 'written into song.project before the save' in text and f"song.project['mix'] starts as {made['mix']!r}." in text,text[-700:]
+        # a preset that sounds its key only at velocities 90-127 gets its placeholder at 90, not a silent 64; a part that
+        # names no instrument where the default bank has no program 0 is refused before anything is written
+        r=start(work/'books_loud','--title','L','--section','a:1','--part','lead melody default 0:12','--config',work/'start_config.json')
+        loud=json.loads((work/'books_loud'/'song.json').read_text(encoding='utf-8')) if r.returncode==0 else r.stderr[-300:]
+        assert isinstance(loud,dict) and [e['velocity'] for e in loud['tracks'][0]['performance']['notes'].values()]==[90],loud
+        r=start(work/'books_nodefault','--title','N','--section','a:1','--part','lead melody','--config',work/'books_config.json')
+        assert r.returncode==2 and 'names no instrument' in r.stderr and not (work/'books_nodefault').exists(),r.stderr[-300:]
+        # a folder holding the piece's brief and words (SKILL.md's steps 1 and 2 come first) is written into, keeping them;
+        # one holding a compose.py or a song.json is refused (a folder that was there was refused: the review of 0.8.0)
+        kept=work/'books_kept';kept.mkdir();(kept/'brief.md').write_text('the brief',encoding='utf-8');save_json(kept/'association.json',{'words':['a']})
+        r=start(kept,'--title','K','--section','a:1','--part','lead melody','--config',work/'start_config.json')
+        assert r.returncode==0 and (kept/'song.json').is_file() and (kept/'brief.md').read_text(encoding='utf-8')=='the brief',r.stderr[-300:]
+        for name in ('compose.py','song.json'):
+            other=work/f'books_has_{name[:-3]}';other.mkdir();(other/name).write_text('mine',encoding='utf-8')
+            r=start(other,'--title','K','--section','a:1','--part','lead melody','--config',work/'start_config.json')
+            assert r.returncode==2 and 'exists' in r.stderr and (other/name).read_text(encoding='utf-8')=='mine',(name,r.stderr[-300:])
         import musiclib.starter as starter
         real=starter.script;starter.script=lambda *a:real(*a)+'raise SystemExit("stopped here")\n'   # a compose.py that stops is reported
         try:starter.start(work/'books_stops','B',['a:2'],['lead melody']);raise AssertionError('a stopped compose.py reported as written')
@@ -513,6 +571,19 @@ def define(S):
         except ValueError as e:assert 'made by something else while start wrote it' in str(e),str(e)
         finally:starter.script=real
         assert (work/'books_race'/'compose.py').read_text(encoding='utf-8')=='# theirs\n' and not (work/'books_race'/'song.json').exists()
+        # a song.json put there after start looked, before compose.py saves, is left as it is: start's first run replaces
+        # nothing (it was taken for the script's own and replaced: the Astra review of the fixes for 0.8.0)
+        import contextlib
+        real_staged=starter.files.staged
+        @contextlib.contextmanager
+        def then_theirs(path,*a,**k):
+            with real_staged(path,*a,**k) as f:yield f
+            (Path(path).parent/'song.json').write_text('theirs',encoding='utf-8')
+        starter.files.staged=then_theirs
+        try:starter.start(work/'books_late','B',['a:2'],['lead melody']);raise AssertionError('a song.json made after start looked replaced')
+        except ValueError as e:assert 'made by something else while the song was saved' in str(e),str(e)
+        finally:starter.files.staged=real_staged
+        assert (work/'books_late'/'song.json').read_text(encoding='utf-8')=='theirs'
         r=start(work/'books_piece','--title','B','--section','a:2','--part','lead melody');assert r.returncode==2 and 'exists' in r.stderr,r.stderr[-300:]
         # from the working folder: a relative folder, and one named as Python's -c option (both ran another script, or
         # code, before compose.py was given by its absolute path after "--"); a meter of 3/16 (its placeholder a bar
@@ -520,7 +591,7 @@ def define(S):
         def start_in(*a):
             return subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'start',*map(str,a)],cwd=work,capture_output=True,text=True,encoding='utf-8',errors='replace')
         for folder,args in (('books_rel',()),('-cprint(123)#',('--meter','3/16','--tempo','100.123456789'))):
-            r=start_in('--title','R','--section','a:1','--part','lead melody','--part','gaps harmony holes 0:11','--config',work/'holes_config.json',*args,'--',folder)
+            r=start_in('--title','R','--section','a:1','--part','lead melody','--part','gaps harmony holes 0:11','--config',work/'start_config.json',*args,'--',folder)
             made=json.loads((work/folder/'song.json').read_text(encoding='utf-8')) if r.returncode==0 else r.stderr[-300:]
             assert isinstance(made,dict) and [n['pitch'] for t in made['tracks'] for n in t['notes']]==[60,60],(folder,made)
         assert made['clock']['tempo']==[[0,100.123456789]] and [n['duration'] for t in made['tracks'] for n in t['notes']]==[.75,.75],made['clock']
@@ -529,7 +600,7 @@ def define(S):
                  ('a:2',['Lead melody'],'Invalid or duplicate track id'),('a:2',['lead melody','lead bass'],'exists already'),
                  ('a:2',['lead melody default 0:42'],'finds no preset'))
         for i,(section,parts,words) in enumerate(refused):   # each refused before its folder is made
-            r=start(work/f'books_r{i}','--title','B','--section',section,*[x for p in parts for x in ('--part',p)],*(('--config',work/'books_config.json') if i>2 else ()))
+            r=start(work/f'books_r{i}','--title','B','--section',section,*[x for p in parts for x in ('--part',p)],*(('--config',work/'start_config.json') if i>2 else ()))
             assert r.returncode==2 and words in r.stderr and not (work/f'books_r{i}').exists(),(i,r.stderr[-300:])
         return {'ids':ids[:2],'start':'compose.py and a valid song.json','refused':['a used folder']+[w for _,_,w in refused]}
     def swing_pairs_counted_from_each_bar_line():

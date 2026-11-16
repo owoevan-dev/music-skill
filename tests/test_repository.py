@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -193,6 +194,26 @@ def test_no_personal_data():
             if any(b.search(line) for b in PERSONAL):
                 hits.append(f'{p.relative_to(ROOT)}:{i}: {line.strip()[:100]}')
     assert not hits, '\n'.join(hits)
+
+
+def test_no_hidden_characters():
+    """No text file holds a character that does not show: bidirectional controls, zero-width characters, a byte order
+    mark, other format or control characters.  A reader cannot see them and a viewer may reorder the text around them
+    (Trojan Source, CVE-2021-42574); code that needs one writes its escape."""
+    hits = []
+    for p in repository_files():
+        if not p.is_file() or {'.git', '__pycache__', '.pytest_cache'} & set(p.parts):
+            continue
+        if p.suffix not in ('.py', '.md', '.json', '.txt', '.tsv', '.yaml', '.yml', '.toml', '.cfg', '.svg', ''):
+            continue
+        # split on LF alone: splitlines() also breaks at U+2028, U+2029, U+0085, VT, FF and FS to RS, and so would drop
+        # the very separators this looks for (the Astra review of the fixes for 0.8.0); CR is a line ending's part
+        for i, line in enumerate(p.read_text(encoding='utf-8', errors='replace').split('\n'), 1):
+            bad = sorted({f'U+{ord(c):04X}' for c in line.removesuffix('\r')
+                          if unicodedata.category(c) in ('Cc', 'Cf', 'Zl', 'Zp', 'Co', 'Cs') and c != '\t'})
+            if bad:
+                hits.append(f'{p.relative_to(ROOT)}:{i}: {", ".join(bad)}')
+    assert not hits, '\n'.join(hits[:40])
 
 
 def test_example_projects():

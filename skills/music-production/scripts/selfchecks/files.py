@@ -120,7 +120,12 @@ def define(S):
         assert listed(done)==want and not (a/'r1').exists() and (b/'final'/'master.wav').is_file() and (b/'r3').is_dir() and (b/'cache'/H('3')).is_dir()
         # A piece renamed between rounds: its earlier round names the same project file.
         c=work2/'song_c';round_of(c/'r1','Old name',c/'song.json');round_of(c/'r2','New name',c/'song.json')
-        assert listed(clean(work2,[c/'r2']))==[('render','song_c/r1/render'),('round','song_c/r1')]
+        kept_round=clean(work2,[c/'r2'])
+        assert listed(kept_round)==[('render','song_c/r1/render'),('round','song_c/r1')]
+        # a kept round is named by its own folder, which stays whole (it printed the render inside it: the walkthrough
+        # of 0.8.0), and so is the round of a render kept from inside it
+        assert kept_round['kept']==[str((c/'r2').resolve())] and clean(work2,[c/'r2'/'render'])['kept']==[str((c/'r2').resolve())],kept_round['kept']
+        assert 'Kept: '+str((c/'r2').resolve())+';' in describe(kept_round),describe(kept_round)
         # Only what a tool wrote and recorded goes, unchanged: a listed render keeps the files added to it and another
         # piece's render inside it, so it stays, in part, with its records; a file changed since stays; and a folder
         # from before 0.4.0, with no files.json, is left alone.  (The cases the second review of 0.4.0 found.)

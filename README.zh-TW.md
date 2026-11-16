@@ -227,7 +227,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 <details>
 <summary><b>常見問題</b></summary>
 
-**做出來的音樂可以用在影片、遊戲或商業作品嗎？** 工具本身沒有任何限制。音色庫都不需要署名：選用音色庫是 CC0 或可自由使用，MS Basic 的 MIT 授權對用它演奏的音樂沒有任何要求。GPL 授權的程式（FFmpeg、Surge XT）規範的是程式本身，不是經過它們處理的音樂。至於你對 agent 幫你寫的音樂是否享有著作權，取決於你所在地的法律，以及你參與塑造了多少。
+**做出來的音樂可以用在影片、遊戲或商業作品嗎？** 這個 skill 和它安裝的音色庫對你做出來的東西沒有任何要求。音色庫都不需要署名：選用音色庫是 CC0 或可自由使用，MS Basic 的 MIT 授權對用它演奏的音樂沒有任何要求。GPL 授權的程式（FFmpeg、Surge XT）規範的是程式本身，不是經過它們處理的音樂。至於你對 agent 幫你寫的音樂是否享有著作權，取決於你所在地的法律，以及你參與塑造了多少。
 
 **哪些 agent 可以用？** 任何能載入 Agent Skills 並執行 Python 的 agent：Claude Code（以外掛安裝）、Codex，以及透過 `npx skills` 安裝的其他 agent。
 

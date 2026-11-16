@@ -65,7 +65,7 @@ def _record(path, limit=None):
     if not _file(path) or files.lstat(path).st_size > (limit or files.MAX_RECORD):
         return None
     try:
-        value = files.loads(Path(path).read_text(encoding='utf-8'))
+        value = files.loads(Path(path).read_bytes())   # as bytes, as files.read_json reads a record (a mark or UTF-16 hid it: the review of 0.8.0)
     except (OSError, ValueError):
         return None
     return value if isinstance(value, dict) else None
@@ -417,7 +417,9 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
     """The listed folders' plans, and with `remove` their removal, each folder under its lock (`held`), which is let
     go as soon as that folder is done."""
     plans = {f: _plan(f, kind, record, [u for u in units if u != f and f in u.parents]) for f, (kind, record) in listed.items()}
-    report = {'folder': str(root), 'kept': [str(k[0]) for k in kept], 'cache_entries_kept': len(used), 'dry_run': not remove,
+    # a kept round is named by its own folder, which stays whole with its render (it printed the render inside it: the
+    # walkthrough of 0.8.0)
+    report = {'folder': str(root), 'kept': [str(k[1] or k[0]) for k in kept], 'cache_entries_kept': len(used), 'dry_run': not remove,
               'listed': [], 'bytes': 0, 'left_alone': left, 'not_removed': []}
     # Cache entries first: an audition's own cache must be empty before its folder can go.
     entries = [f for f in folders if f.parent in caches and f.name not in used and entry_record(f)]

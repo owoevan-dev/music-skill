@@ -305,7 +305,7 @@ def stopped(folder):
     """Why the render in `folder` stopped before it finished (the error its report.json gives), or None."""
     report=Path(folder)/'report.json'
     if not files.regular_file(report) or files.lstat(report).st_size>files.MAX_RECORD:return None
-    try:r=files.loads(report.read_text(encoding='utf-8'))
+    try:r=files.loads(report.read_bytes())   # as bytes, as files.read_json reads a record: a mark or UTF-16 hid the failure (the review of 0.8.0)
     except (OSError,ValueError):return None
     failed=r.get('failed') if isinstance(r,dict) else None
     return (failed.get('error') or 'stopped') if isinstance(failed,dict) else None

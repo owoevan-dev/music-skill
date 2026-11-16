@@ -136,7 +136,7 @@ numbered folder.
 `listed` (each folder it takes files from, or would: `kind` render, round, audition or cache entry, `path`, `bytes`,
 `whole` whether the folder goes, and `kept_inside`, the first 20 of what stays in it: files no tool recorded or changed
 since, and the folders inside it that stay, ending in `/`),
-`bytes`, `kept` and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
+`bytes`, `kept` (the folders kept: a round by its own folder, which stays whole with its render) and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
 files.json (made before 0.4.0), a render, round or audition at work, or inside one, cache entries holding files renders
 did not write there or that changed since: `kind`, `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the
 `error`).  A render, round or audition holds its folder's lock file `work.lock` while it runs and removes it when it

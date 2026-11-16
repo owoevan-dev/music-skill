@@ -24,18 +24,26 @@ EXAMPLES = """The usual order of a piece (SKILL.md gives it in full):
 Each command's own help and example: python studio.py COMMAND --help"""
 
 
+class Parser(argparse.ArgumentParser):
+    """argparse's parser, its errors in the form every other error takes (SKILL.md: Errors go to stderr as `ERROR: ...`
+    with exit code 2): the usage, then one line `ERROR: ...`.  The commands' parsers are of this class too
+    (add_subparsers makes them of the parser's own class)."""
+    def error(self,message):
+        self.print_usage(sys.stderr)
+        print(f'ERROR: {self.prog}: {files.one_line(message)}',file=sys.stderr);sys.exit(2)
+
 def build_parser():
     """The command line: the commands an agent runs most first, each with a one-line description, an example, and help
     for every option (0.8 step 2.4, after the Command Line Interface Guidelines: examples first, every flag described)."""
-    parser=argparse.ArgumentParser(description=__doc__+'\n\n'+EXAMPLES,formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser=Parser(description=__doc__+'\n\n'+EXAMPLES,formatter_class=argparse.RawDescriptionHelpFormatter)
     sub=parser.add_subparsers(dest='command',required=True,metavar='COMMAND')
     def command(name,help,example,**kw):
         return sub.add_parser(name,help=help,description=f'{help}.\n\nExample:\n  {example}',formatter_class=argparse.RawDescriptionHelpFormatter,**kw)
     project=lambda cmd:cmd.add_argument('project',type=Path,help='the project file (JSON)')
     as_json=lambda cmd:cmd.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
-    st=command('start','Start a piece: a new folder with a compose.py that writes song.json through musiclib.builder (sections and parts named, a performance entry for every note), and that song.json, validated',
+    st=command('start','Start a piece: in its folder (made if missing; its brief and words may be there), a compose.py that writes song.json through musiclib.builder (sections and parts named, a performance entry for every note), and that song.json, validated',
                'python studio.py start harbour --title "Harbour Lights" --tempo 96 --section verse:8 --section chorus:8 --part "piano harmony vcsl 0:0" --part "lead melody iowa_winds 0:73" --config config.json')
-    st.add_argument('folder',type=Path,help='a new folder for the piece');st.add_argument('--title',required=True,help="the piece's title")
+    st.add_argument('folder',type=Path,help="the piece's folder: a new one, or one with its brief and words but no compose.py or song.json");st.add_argument('--title',required=True,help="the piece's title")
     st.add_argument('--section',action='append',required=True,metavar='ID:BARS',help='a section and its bars, in order (repeatable)')
     st.add_argument('--part',action='append',required=True,metavar='"ID ROLE [INSTRUMENT]"',help='a part: its id, its role (melody, harmony, bass, drums, ...) and words that find its preset in the configured banks, as studio.py instruments takes them (repeatable)')
     st.add_argument('--tempo',type=float,default=100,help='quarter-note BPM (default 100)');st.add_argument('--meter',default='4/4',help='beats/beat unit (default 4/4)')

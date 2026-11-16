@@ -1,5 +1,5 @@
 """studio.py still and studio.py video (0.8 step 4): a render's score as a piano roll, drawn from the render's own
-project.json (musiclib.model.performed: the notes as they were played), with the render's master as the sound.
+project.json (as_played: the notes as the part's renderer played them), with the render's master.wav as the sound.
 
 What it shows (design-0.8.md, 4.6): the notes' own properties alone, pitch, onset, duration and part, with the bar
 lines, the sections, a legend and a moving playhead; nothing is coloured or marked by interval, chord or harmony.
@@ -98,21 +98,19 @@ class Roll:
         if not (320 <= width <= 3840 and 240 <= height <= 2160 and width % 2 == 0 and height % 2 == 0):
             raise ValueError(f'a picture of {width}x{height}: from 320x240 to 3840x2160, even numbers (video codecs halve the colour)')
         self.W, self.H, self.fps = width, height, fps
-        self.title = p['title']
+        # one line each: a valid name or title holding a line break stopped Pillow's measure (the review of 0.8.0)
+        self.title = ' '.join(p['title'].split())
         self.parts = []
         for t in p['tracks']:
             # a kit's hits are short marks in the lane; noise there sounds as long as it is written (a riser of
-            # seconds was drawn and lit for 90 ms: the third outside review)
-            hits = bool(t.get('drums')) or t['engine'] == 'drum_synth'
-            lane = hits or t['engine'] == 'noise'
-            played = performed(t, clock)
-            if t.get('key_map'):   # as the render plays them (midi.remap): notes the map puts on one key at once sound as
-                # one, a retrigger there cuts the note before; each drawn at its written pitch, the note heard (the whole review)
-                played = [{**n, 'pitch': n['written'], 'end_seconds': clock.seconds(n['end_tick'] / TPQ)}
-                          for n in remap([{**n, 'written': n['pitch']} for n in played], t['key_map'])]
-            notes = sorted((n['start_seconds'], n['end_seconds'], n['pitch']) for n in played)
+            # seconds was drawn and lit for 90 ms: the third outside review), and so does a kit played backwards, each
+            # note a swell over its written span (a reversed crash was drawn as a hit: the Astra review of the fixes)
+            kit = bool(t.get('drums')) or t['engine'] == 'drum_synth'
+            hits = kit and not (t['engine'] == 'soundfont' and t.get('reverse'))
+            lane = kit or t['engine'] == 'noise'
+            notes = sorted((n['start_seconds'], n['end_seconds'], n['pitch']) for n in as_played(t, clock))
             # by onset, with the longest note's length: a frame looks only at the notes that can reach into it
-            self.parts.append({'name': t.get('name') or t['id'], 'class': 'kit' if lane else CLASS[bus_of(t)], 'lane': lane, 'hits': hits,
+            self.parts.append({'name': ' '.join((t.get('name') or t['id']).split()), 'class': 'kit' if lane else CLASS[bus_of(t)], 'lane': lane, 'hits': hits,
                                'notes': notes, 'starts': [n[0] for n in notes],
                                'longest': max([LANE_HIT_S] + [e - s for s, e, _ in notes])})
         self.length = clock.seconds(clock.total_beats)   # the score's end
@@ -309,6 +307,26 @@ class Roll:
         return self._cache[key]
 
 
+def as_played(t, clock):
+    """A part's notes as its renderer plays them, each with the pitch it is written at (the note heard), as
+    mixbus.held_spans takes their times: a sampled part played backwards over each note's written span
+    (render.reversed_notes); one on its recorded dynamics or with crossfade legato as layered.plan has them (a note
+    entered legato later, the one before held into the crossfade); one with a key_map as midi.remap leaves them (notes
+    the map puts on one key at once sound as one, a retrigger there cuts the note before: the whole review); else as
+    performed.  The roll drew every part from the performed notes, which the first two do not play (the review of 0.8.0)."""
+    from . import layered
+    if t['engine'] == 'soundfont' and t.get('reverse'):
+        return [{'start_seconds': clock.seconds(n['on']), 'end_seconds': clock.seconds(n['on'] + n['duration']), 'pitch': n['pitch']} for n in t['notes']]
+    if t['engine'] == 'soundfont' and layered.wanted(t):
+        return [{'start_seconds': clock.seconds(n['tick'] / TPQ), 'end_seconds': clock.seconds(n['end_tick'] / TPQ), 'pitch': n['pitch']}
+                for n in layered.plan(t, clock)]
+    played = performed(t, clock)
+    if t.get('key_map'):
+        played = [{**n, 'pitch': n['written'], 'end_seconds': clock.seconds(n['end_tick'] / TPQ)}
+                  for n in remap([{**n, 'written': n['pitch']} for n in played], t['key_map'])]
+    return played
+
+
 def unlinked(render):
     """The render folder given, refused where it is itself a link (revision.render_folder's rule): it is read, and held,
     as the folder itself."""
@@ -319,11 +337,12 @@ def unlinked(render):
 
 
 def master_of(render):
-    """The render's master: its FLAC, or its WAV (a draft writes no FLAC)."""
-    for name in ('master.flac', 'master.wav'):
-        if (Path(render) / name).is_file():
-            return Path(render) / name
-    raise ValueError(f'{render} has no master (master.flac or master.wav): still and video take the --output of studio.py render')
+    """The render's master: master.wav, which every render writes and checks, full or draft (as analyze and compare
+    read it).  Its FLAC was taken first, and a draft resumed over a full render leaves the full render's FLAC beside
+    the new WAV: the video carried the earlier master (the review of 0.8.0)."""
+    if (Path(render) / 'master.wav').is_file():
+        return Path(render) / 'master.wav'
+    raise ValueError(f'{render} has no master.wav: still and video take the --output of studio.py render')
 
 
 def still(render, at, output, width=1280, height=720):
@@ -365,7 +384,7 @@ def video(render, output, config, mp4=False, size_mb=10.0, fps=30, width=1280, h
 
 def _video(render, output, config, mp4, size_mb, fps, width, height):
     from . import audio
-    # absolute: FFmpeg runs in the staging folder, where a relative render/master.flac named nothing (the third review)
+    # absolute: FFmpeg runs in the staging folder, where a relative render's master named nothing (the third review)
     render, output = Path(render).absolute(), Path(output).absolute()
     files.fresh(output)
     if output.suffix.lower() != ('.mp4' if mp4 else '.webm'):

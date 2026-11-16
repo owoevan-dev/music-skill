@@ -24,6 +24,22 @@ def save_json(path, value, new=False):
     path.parent.mkdir(parents=True, exist_ok=True)
     write_json(path, value, new=new)
 
+def key_map_pitches(tid, key_map):
+    """A part's key_map as {written pitch: key played}, read one way by validate, the builder and the render: each key a
+    MIDI pitch written as text without leading zeros ("36"), each value a MIDI key.  A key that was no text stopped re
+    with a TypeError (the whole review of 0.8), and "048" passed validate and the builder while the render, which looks
+    a note up as "48", left it unmapped (the review of 0.8.0)."""
+    if not isinstance(key_map, dict) or len(key_map) > 128:
+        raise ValueError(f'{tid}: key_map maps MIDI pitches written as text to MIDI keys, e.g. {{"36": 48}}')
+    out = {}
+    for k, v in key_map.items():
+        if not isinstance(k, str) or not re.fullmatch(r'0|[1-9][0-9]{0,2}', k) or int(k) > 127:
+            raise ValueError(f'{tid}: key_map key {k!r}: a MIDI pitch written as text without leading zeros, e.g. {{"36": 48}}')
+        number(v, 0, 127, f'{tid} key_map value of {k!r}', True)
+        out[int(k)] = v
+    return out
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
 
@@ -496,10 +512,8 @@ def _track(p,t,c,total,clock,warnings):
         if t['engine']!='soundfont' or not isinstance(t['patch'],dict) or set(t['patch'])-{'bank','program'}:raise ValueError(f'{t["id"]}: patch takes bank/program')
         number(t['patch'].get('bank',0),0,16383,f'{tid} patch bank',True);number(t['patch'].get('program',0),0,127,f'{tid} patch program',True)
     if 'key_map' in t:
-        if t['engine']!='soundfont' or not isinstance(t['key_map'],dict) or len(t['key_map'])>128:raise ValueError(f'{t["id"]}: key_map maps MIDI pitches')
-        for k,v in t['key_map'].items():   # a key that is no text (a number, from a script) stopped re with a TypeError (the whole review of 0.8)
-            if not isinstance(k,str) or not re.fullmatch(r'\d{1,3}',k) or int(k)>127:raise ValueError(f'{t["id"]}: key_map keys are MIDI pitches written as text, e.g. {{"36": 48}}')
-            number(v,0,127,'key_map target',True)
+        if t['engine']!='soundfont':raise ValueError(f'{t["id"]}: key_map maps MIDI pitches (soundfont engine only)')
+        key_map_pitches(tid,t['key_map'])
     if t['performance'].get('cc_mode','linear' if t['engine']=='additive' else 'step') not in ('step','linear'):
         raise ValueError(f'{t["id"]}: cc_mode must be step or linear')
     number(t['performance'].get('offset_ms',0),-300,300,'track offset ms')

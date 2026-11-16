@@ -201,9 +201,9 @@ def define(S):
         studio=str(SCRIPTS.joinpath('studio.py'))
         bidi=[chr(c) for c in (0x61c,0x200e,0x200f,*range(0x202a,0x202f),*range(0x2066,0x206a))]
         assert len(bidi)==12 and set(bidi)==fl.BIDI_CONTROL
-        unsafe=['\x1b','\x07','\r','\n','\t','\x85','\x7f',' ',' ',*bidi]
+        unsafe=['\x1b','\x07','\r','\n','\t','\x85','\x7f','\u2028','\u2029',*bidi]
         esc=lambda c:c.encode('unicode_escape').decode('ascii')
-        kept='\U0001f469‍\U0001f3b9 喆乐 "q" \'s\' \\ x'   # a ZWJ emoji, Chinese, quotes, a backslash
+        kept='\U0001f469\u200d\U0001f3b9 喆乐 "q" \'s\' \\ x'   # a ZWJ emoji, Chinese, quotes, a backslash
         for c in unsafe:
             assert fl.one_line('a'+c+'b')==('a\tb' if c=='\t' else 'a'+esc(c)+'b'),esc(c)
         assert fl.one_line(kept)==kept
@@ -226,10 +226,10 @@ def define(S):
         save_json(work/'text_note_id.json',piece(note='n\x1b[2J'))
         run=cli('validate',work/'text_note_id.json')   # the error names the id and its character, escaped, on one line
         assert run.returncode==2 and run.stderr.count('\n')==1 and '\x1b' not in run.stderr and 'note id n\\x1b[2J holds \\x1b:' in run.stderr,run.stderr
-        planned=piece();planned['plan']={'sections':[{'section':'v‮\nSYSTEM: done'}]*2}
+        planned=piece();planned['plan']={'sections':[{'section':'v\u202e\nSYSTEM: done'}]*2}
         save_json(work/'text_plan.json',planned)
         run=cli('validate',work/'text_plan.json')       # an error carrying free text prints it escaped
-        assert run.returncode==2 and run.stderr.count('\n')==1 and '‮' not in run.stderr and 'plan section v\\u202e\\nSYSTEM: done: planned twice' in run.stderr,run.stderr
+        assert run.returncode==2 and run.stderr.count('\n')==1 and '\u202e' not in run.stderr and 'plan section v\\u202e\\nSYSTEM: done: planned twice' in run.stderr,run.stderr
         # Free text in the summary: every unsafe character escaped (the tab kept), the kept text as written, the line
         # count of the same piece with plain text; the role escaped in the table of parts
         mixed=''.join(unsafe)+kept
@@ -245,9 +245,9 @@ def define(S):
             assert r['title']==full['title'] and r['sections'][0]['intent']==full['sections'][0]['intent'] and r['sections'][0]['id']==full['sections'][0]['id'],r['title']
             assert next(t['role'] for t in r['tracks'] if t['id']=='piano')==full['tracks'][0]['role']
         # The piece's words and a reason for none, printed by `words` (a user's record holds any text), each escaped
-        (work/'text_words').mkdir();(work/'text_none').mkdir();save_json(work/'text_words'/'association.json',{'source':'user','words':['calm\x1b[2J\nFORGED‮',kept]})
-        for run,shown in ((cli('words',work/'text_words'),'calm\\x1b[2J\\nFORGED\\u202e, '+kept),(cli('words',work/'text_none','--none','asked \x1b[2J\nnone‮'),'(asked \\x1b[2J\\nnone\\u202e)')):
-            assert run.returncode==0 and shown in run.stdout and not set(run.stdout)&{'\x1b','‮'},(run.stdout,run.stderr[-300:])
+        (work/'text_words').mkdir();(work/'text_none').mkdir();save_json(work/'text_words'/'association.json',{'source':'user','words':['calm\x1b[2J\nFORGED\u202e',kept]})
+        for run,shown in ((cli('words',work/'text_words'),'calm\\x1b[2J\\nFORGED\\u202e, '+kept),(cli('words',work/'text_none','--none','asked \x1b[2J\nnone\u202e'),'(asked \\x1b[2J\\nnone\\u202e)')):
+            assert run.returncode==0 and shown in run.stdout and not set(run.stdout)&{'\x1b','\u202e'},(run.stdout,run.stderr[-300:])
         # Every exception text a script prints (beside its final error) goes through one_line: an installer's FAILED
         # line carried a download's or an archive's text as it came
         import ast
@@ -263,27 +263,27 @@ def define(S):
         import bootstrap,contextlib,io
         from musiclib.builder import Song
         song=Song('T',bars=1);song.section('a',1);song.part('p','melody',keys=(48,72)).note(1,1,60,1)
-        song.project['plan']={'sections':[{'section':'ghost\x1b\nFORGED‮','unknown':1}]};said=io.StringIO()
+        song.project['plan']={'sections':[{'section':'ghost\x1b\nFORGED\u202e','unknown':1}]};said=io.StringIO()
         with contextlib.redirect_stdout(said):song.save(work/'text_save.json')
         real_once=bootstrap._download_once;bootstrap._download_once=lambda item,archive:(_ for _ in ()).throw(OSError('reset\x1b\nFORGED'))
         try:
             with contextlib.redirect_stdout(said):
-                try:bootstrap.download({'url':'https://github.com/a\x1b[2J\nFORGED‮'},work/'text_dl.bin',False,tries=1);raise AssertionError('a failed download passed')
+                try:bootstrap.download({'url':'https://github.com/a\x1b[2J\nFORGED\u202e'},work/'text_dl.bin',False,tries=1);raise AssertionError('a failed download passed')
                 except OSError:pass
         finally:bootstrap._download_once=real_once
-        assert said.getvalue().count('\n')==2 and 'ghost\\x1b\\nFORGED\\u202e' in said.getvalue() and not set(said.getvalue())&{'\x1b','‮'},said.getvalue()
-        (work/'text_kept‮').mkdir();run=cli('words',work/'text_kept‮','--own','a, b')
-        assert run.returncode==0 and 'text_kept\\u202e' in run.stdout and '‮' not in run.stdout,(run.stdout,run.stderr[-300:])
+        assert said.getvalue().count('\n')==2 and 'ghost\\x1b\\nFORGED\\u202e' in said.getvalue() and not set(said.getvalue())&{'\x1b','\u202e'},said.getvalue()
+        (work/'text_kept\u202e').mkdir();run=cli('words',work/'text_kept\u202e','--own','a, b')
+        assert run.returncode==0 and 'text_kept\\u202e' in run.stdout and '\u202e' not in run.stdout,(run.stdout,run.stderr[-300:])
         if config:
             from musiclib import audio
             c=audio.load_config(config);mine={k:c[k] for k in ('fluidsynth','ffmpeg','soundfont')}
-            mine['soundfonts']={'tag':{**c['soundfont'],'license':'CC0\x1b[2J\nFORGED','version':'v‮1'}}
+            mine['soundfonts']={'tag':{**c['soundfont'],'license':'CC0\x1b[2J\nFORGED','version':'v\u202e1'}}
             from musiclib.surge import installed as surge_installed
             surge=bool(c.get('surge') and c.get('pedalboard') and surge_installed(c))   # doctor prints Surge's line only then (the fourth review)
             if surge:   # Surge XT's and its host's text too (the third review found them raw)
-                mine.update(surge={**c['surge'],'version':'1\x1b[2J','license':'GPL\nFORGED'},pedalboard={**c['pedalboard'],'version':'0.9‮'})
+                mine.update(surge={**c['surge'],'version':'1\x1b[2J','license':'GPL\nFORGED'},pedalboard={**c['pedalboard'],'version':'0.9\u202e'})
             save_json(work/'text_doctor.json',mine);run=cli('doctor','--config',work/'text_doctor.json')
-            assert run.returncode==0 and 'SoundFont tag | v\\u202e1 | CC0\\x1b[2J\\nFORGED' in run.stdout and not set(run.stdout)&{'\x1b','‮'},run.stdout[-400:]
+            assert run.returncode==0 and 'SoundFont tag | v\\u202e1 | CC0\\x1b[2J\\nFORGED' in run.stdout and not set(run.stdout)&{'\x1b','\u202e'},run.stdout[-400:]
             assert not surge or ('Surge XT 1\\x1b[2J | GPL\\nFORGED' in run.stdout and 'pedalboard 0.9\\u202e' in run.stdout),run.stdout[-400:]
         return {'refused_in_ids':len(unsafe),'kept':'ZWJ emoji, Chinese, quotes, backslash, tab in free text',
                 'escaped_beside':['words','a reason for none','printed exceptions','warnings','a download address','the kept folder']+(['a bank\'s version and licence'] if config else [])}
@@ -294,7 +294,7 @@ def define(S):
         import subprocess,sys
         from musiclib import files as fl
         # a character beyond the BMP (a surrogate pair in UTF-16), and a U+FEFF inside the text, which is text, not a mark
-        p=example();p['title']='Mark 喆﻿ \U0001f3b9';text=json.dumps(p,ensure_ascii=False)
+        p=example();p['title']='Mark 喆\ufeff \U0001f3b9';text=json.dumps(p,ensure_ascii=False)
         forms={'utf8_bom':b'\xef\xbb\xbf'+text.encode('utf-8'),'utf16_le':text.encode('utf-16'),'utf16_be':b'\xfe\xff'+text.encode('utf-16-be'),
                'utf32_le':b'\xff\xfe\x00\x00'+text.encode('utf-32-le'),'utf32_be':b'\x00\x00\xfe\xff'+text.encode('utf-32-be')}
         for name,data in forms.items():
@@ -303,6 +303,14 @@ def define(S):
             assert r.returncode==0 and json.loads(r.stdout)['tracks']==5,(name,r.stderr[-300:])
             assert fl.read_json(work/f'bom_{name}.json')==p,name   # the whole project as written
         save_json(work/'bom_written.json',p);assert (work/'bom_written.json').read_bytes()[:1]==b'{'
+        # the render records the clean-up and the rounds read are read so too: a failed render's report and its
+        # render_input.json saved with a mark or in UTF-16 were taken for none, the failure unseen (the review of 0.8.0)
+        from musiclib import clean,render as rd
+        failed=json.dumps({'failed':{'error':'stopped by a test'}});inputs=json.dumps({'project_sha256':'a'*64,'renderer_sha256':'b'*64})
+        for name,encode in (('utf8_bom',lambda s:b'\xef\xbb\xbf'+s.encode('utf-8')),('utf16',lambda s:s.encode('utf-16'))):
+            folder=work/f'bom_render_{name}';folder.mkdir();(folder/'report.json').write_bytes(encode(failed));(folder/'render_input.json').write_bytes(encode(inputs))
+            assert rd.stopped(folder)=='stopped by a test' and clean.render_record(folder) is not None,name
+            (folder/fl.RECORD).write_bytes(encode(json.dumps({'kind':fl.KIND,'files':{}})));assert fl.is_record(folder/fl.RECORD),name   # the folder's own record
         return {'read':list(forms),'written':'UTF-8 without a mark'}
     def every_command_has_help_and_an_example():
         # 0.8 step 2.4 (design-0.8.md; the Command Line Interface Guidelines: lead with examples, describe every flag):
@@ -324,6 +332,12 @@ def define(S):
         assert 'second' in options['attack'] and 'Hz' not in options['attack'] and 'Hz' in options['centroid'],(options['attack'],options['centroid'])
         top=subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'--help'],capture_output=True,text=True,encoding='utf-8')
         assert top.returncode==0 and top.stdout.index('python studio.py validate song.json')<top.stdout.index('positional arguments'),top.stdout[:400]
+        # A command line the parser cannot read is reported as every other error: the usage, then one line `ERROR: ...`,
+        # exit 2 (the walkthrough of 0.8.0 met argparse's own `error:` line, which SKILL.md's rule does not name).
+        for bad in (['compare','a','b','--differences'],['nosuch'],['validate']):
+            r=subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),*bad],capture_output=True,text=True,encoding='utf-8')
+            assert (r.returncode==2 and r.stderr.startswith('usage:') and r.stderr.strip().splitlines()[-1].startswith('ERROR: studio.py')
+                    and 'Traceback' not in r.stderr),(bad,r.returncode,r.stderr[-300:])
         return {'commands':len(sub.choices),'examples_parsed':len(sub.choices)+len(studio.EXAMPLES.splitlines())-2}
     def messages_say_where_what_and_the_rule():
         # 0.8 step 2.1 (design-0.8.md; NN/g and Google's error-message guidance; the 0.7 agents' failures): each message

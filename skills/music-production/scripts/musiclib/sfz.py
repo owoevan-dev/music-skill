@@ -32,6 +32,8 @@ ALIASES = {'loopmode': 'loop_mode', 'loopstart': 'loop_start', 'loopend': 'loop_
 CONTROL = {'default_path'}
 MAX_INCLUDES = 32          # files an SFZ may pull in, and their depth: an #include of itself stops here
 MAX_BYTES = 4_000_000      # the SFZ text with its includes, and again once its #define names are replaced
+MAX_NAME = 32_767          # an #include's name once its #define names are replaced: Windows' longest path
+DEFINE = r'\s*#define\s+(\$\w+)\s+(.*?)\s*$'   # a name and its value to the line's end
 NAMES = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
 
 
@@ -98,9 +100,11 @@ def spelled(folder, part, listed):
     return alike[0] if len(alike) == 1 else part
 
 
-def _text(path, root, start, seen, size, listed):
+def _text(path, root, start, seen, size, listed, defines):
     """The file's text with each #include pulled in (named from the main file's folder, `start` below the root) and
-    comments left out; the size is counted before a file is read, so none is taken whole to learn it is too large."""
+    comments left out; the size is counted before a file is read, so none is taken whole to learn it is too large.  A
+    file's byte order mark is read as one (it hid a first-line #include or #define, and the regions it brought were
+    left out: the review of 0.8.0); an #include's name takes the #define names before it ("$part", as sfizz takes it)."""
     if len(seen) >= MAX_INCLUDES:
         raise ValueError(f'{path.name}: more than {MAX_INCLUDES} SFZ files through #include (or one that includes itself)')
     size[0] += path.stat().st_size
@@ -109,17 +113,28 @@ def _text(path, root, start, seen, size, listed):
     seen.append(path)
     # // to the line's end, or /* ... */, whichever begins first; a block comment keeps its line breaks
     text = re.sub(r'//[^\n]*|/\*.*?\*/', lambda m: '' if m[0].startswith('//') else ' ' + '\n' * m[0].count('\n'),
-                  path.read_bytes().decode('utf-8', 'replace'), flags=re.S)
+                  path.read_bytes().decode('utf-8-sig', 'replace'), flags=re.S)
     out = []
     for line in text.split('\n'):
+        d = re.match(DEFINE, line)
+        if d:
+            defines[d[1]] = d[2]   # kept in the text too: _tokens replaces the names in the opcodes after it
         m = re.match(r'\s*#include\s+"([^"]+)"', line)
         if not m:
             out.append(line)
             continue
-        target = below(root, start, m[1], f'{path.name}: #include', listed)
+        name = m[1]
+        for k in sorted(defines, key=len, reverse=True):   # the longest first ($PIANO before $PIAN), as _tokens does
+            # bounded before it grows, as _tokens bounds the opcodes: names doubling at each step made a name of 4 MB
+            # from 1 KB (the Astra review of the fixes for 0.8.0); no system takes a path this long
+            n = name.count(k)
+            if n and len(name) + n * (len(defines[k]) - len(k)) > MAX_NAME:
+                raise ValueError(f'{path.name}: #include "{m[1]}" grows past {MAX_NAME:,} characters once its #define names are replaced')
+            name = name.replace(k, defines[k])
+        target = below(root, start, name, f'{path.name}: #include', listed)
         if not target.is_file():
-            raise ValueError(f'{path.name}: #include "{m[1]}" names no file')
-        out.append(_text(target, root, start, seen, size, listed))
+            raise ValueError(f'{path.name}: #include "{m[1]}"' + (f' ({name})' if name != m[1] else '') + ' names no file')
+        out.append(_text(target, root, start, seen, size, listed, defines))
     return '\n'.join(out)
 
 
@@ -129,7 +144,7 @@ def _tokens(text):
     the next opcode or header (a sample's path may hold spaces)."""
     defines, tokens, grown = {}, [], 0
     for line in text.split('\n'):
-        m = re.match(r'\s*#define\s+(\$\w+)\s+(.*?)\s*$', line)
+        m = re.match(DEFINE, line)
         if m:
             defines[m[1]] = m[2]
             continue
@@ -178,7 +193,7 @@ def read(path, root):
     listed = {}   # each folder's names, for the names the file gives in another case (spelled)
     control, glob, master, group, region, regions, current, own = {}, {}, {}, {}, None, [], None, set()
     not_headers, not_opcodes = Counter(), Counter()
-    for kind, name, value in _tokens(_text(path, root, start, [], [0], listed)):
+    for kind, name, value in _tokens(_text(path, root, start, [], [0], listed, {})):
         if kind == 'h':
             if region is not None:
                 regions.append(region)

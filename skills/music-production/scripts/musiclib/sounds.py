@@ -67,11 +67,33 @@ def within(value, span):
     return value is not None and (lo is None or value >= lo) and (hi is None or value <= hi)
 
 
+def unknown(flag, value, known):
+    """A word the catalog does not hold, refused with the nearest it does and all of them (0.8 step 2.3: suggest, never
+    correct silently, as the Command Line Interface Guidelines put it; an unknown word matched nothing, silently)."""
+    import difflib
+    near = difflib.get_close_matches(value.lower(), known, n=1)
+    return ValueError(f'{flag} {value!r} is not a word of the catalog' + (f'; did you mean {near[0]!r}?' if near else '.')
+                      + f' It knows: {", ".join(known)}.')
+
+
 def search(role=None, character=(), name=None, source=None, limit=25, everything=False, seed=None, centroid=None, attack=None):
     """The catalog's patches that match, as a shortlist.  `centroid` (Hz) and `attack` (seconds) are (lowest, highest)
-    ranges of the probe note's figures, either end None for open."""
+    ranges of the probe note's figures, either end None for open.  A role is matched without regard to case; a role
+    or a character word the catalog does not hold is refused with the nearest one (a character word is one of the
+    measured character's words or phrases: "bright", "fast attack")."""
+    catalog = surge.catalog()
+    if role:
+        roles = sorted({e['role'] for e in catalog.values()})
+        if role.lower() not in roles:
+            raise unknown('--role', role, roles)
+        role = role.lower()
+    terms = sorted({t for e in catalog.values() for phrase in e.get('character', '').split(', ') if phrase
+                    for t in [phrase] + phrase.split()})
+    for w in character:
+        if w.strip() and w.strip().lower() not in terms:
+            raise unknown('--character', w.strip(), terms)
     rows = []
-    for key, e in surge.catalog().items():
+    for key, e in catalog.items():
         if role and e['role'] != role:
             continue
         if source and source.lower() not in e['source'].lower():

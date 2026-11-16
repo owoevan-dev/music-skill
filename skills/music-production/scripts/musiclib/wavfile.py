@@ -33,6 +33,8 @@ def info(path, max_bytes=2_000_000_000):
             pos += 8 + csize + (csize & 1)
     if fmt is None or data is None:
         raise ValueError(f'Missing fmt/data in {path.name}')
+    if len(fmt) < 16:  # the fields read below; a shorter chunk stopped the build with struct.error (0.8 step 1.7)
+        raise ValueError(f'Short WAV format chunk in {path.name}')
     tag, channels, rate, _, align, bits = struct.unpack_from('<HHIIHH', fmt)
     if tag == 0xFFFE and len(fmt) >= 26:
         tag = struct.unpack_from('<H', fmt, 24)[0]

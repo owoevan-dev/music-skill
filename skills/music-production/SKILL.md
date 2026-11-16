@@ -5,7 +5,7 @@ license: "MIT; scripts/surge_host.py is GPL-3.0-or-later (LICENSES/GPL-3.0-or-la
 compatibility: "Python 3.10+ with NumPy. FluidSynth 2.x and FFmpeg 6 or newer: pinned portable builds on Windows x64, the system packages on Linux and macOS. Sound banks are downloaded once from this project's GitHub release (twenty-five built here, five repacked unchanged from FreePats), each checked against a pinned SHA-256, with each publisher's own download as the fallback. No GPU and no audio model. Needs a shell, internet access for the setup and a folder that persists (tested: Claude Code, Codex)."
 metadata:
   author: "owoevan-dev"
-  version: "0.7.0"
+  version: "0.8.0"
 ---
 
 # Music production
@@ -47,7 +47,7 @@ Nine steps, in order. Copy the checklist into the project's notes and tick it of
   - Write the plan into the project (`plan` in [schema.md](references/schema.md)): what identifies the piece (it comes from the whole of step 2), the high point and by what means, and for each section only what you commit to (which parts sound, which leads, what sets it apart from the section before). `review` then reads the score against it.
   - Where melody and harmony lead the piece, the melody, a second line, the bass and the chords can be written and reviewed first, without a render, and the other parts once those hold; a piece led by its sounds is written with them from the start.
   - Guides: [arrangement.md](references/arrangement.md); the high point and the melody, [climax-and-melody.md](references/climax-and-melody.md); chords and keys, [harmony.md](references/harmony.md); variation and groove, [development-and-groove.md](references/development-and-groove.md).
-- [ ] **4. Project file.** `studio.py validate` passes and lists no warnings (an unknown field is a typo that does nothing). The project is written to [schema.md](references/schema.md), usually by a composition script of your own in the project folder.
+- [ ] **4. Project file.** `studio.py validate` passes and lists no warnings (an unknown field is a typo that does nothing). The project is written to [schema.md](references/schema.md), usually by a composition script in the project folder: `studio.py start` writes one (`compose.py`, on `musiclib.builder`) with the sections and parts named.
 - [ ] **5. Performance.** Velocities, gates and timing are shaped by phrase: player-like deviation from `musiclib.expression` (`drift='time'`, so a revised note moves nothing else); legato on sustained sampled leads, bends on lead guitar ([performance-and-mix.md](references/performance-and-mix.md)).
 - [ ] **6. Revision rounds.** Every review question has a musical decision, and the comparison shows that only the intended parts and bars changed.
   - Each round is one `studio.py round` into a new folder (`r1`, `r2`, ...), with `--previous` the round before. It validates the project, reviews the score with the configuration (so notes far from their samples are found), renders a draft (the same audio as a full render; `mix.chain` is `"bus"` for a finished mix), analyzes it (`--reference` where a genre reference fits, `--span` for a passage) and compares it with the previous round, printing each step's summary.
@@ -58,6 +58,7 @@ Nine steps, in order. Copy the checklist into the project's notes and tick it of
 - [ ] **7. Listen.** The user heard the full piece. A round's `--clip <file>.mp3` gives them its change old then new at equal loudness (`studio.py compare --clip` does it for any two renders).
 - [ ] **8. Deliver.** A full render (`studio.py render`, without `--draft`) completes with every check passed.
   - Hand over the master, FLAC, MP3, MIDI, stems (and `returns/` for a remix) and the project, and for a game loop `loop.wav`/`loop.ogg` with the loop points; the measured checks; what changed and what is still open. A credit only where a bank the user added asks for one (the banks the setup installs ask nothing of the music).
+  - Where the user wants to show the piece: `studio.py video <final render> --output roll.webm --config <config>` makes the score a scrolling piano roll under the master (WebM, or `--mp4` for the widest playback; kept under 10 MB, the size GitHub takes, unless `--size-mb` says otherwise), and `studio.py still` one frame of it. Both need Pillow (`python -m pip install pillow`); the roll shows the notes as played, coloured by what each part does, every part named in the legend (in a large ensemble, the names that do not fit are counted as "+N more"). The video takes minutes (two passes over every frame: on a desktop machine about as long as the piece plays) and prints only when it is done, so run it where a long command can finish, in the background if commands are timed.
   - Then `studio.py clean <project> --keep <final render> --keep <last round>` lists the piece's older renders, rounds and audition caches and the cache entries those two do not use; check the list, then run it again with `--remove`. It removes only what the tools made for that piece, by the records they wrote, never follows a link, and leaves alone a folder a render, round or audition is still working in.
 
 ## Commands
@@ -66,6 +67,7 @@ Nine steps, in order. Copy the checklist into the project's notes and tick it of
 
 ```text
 python <skill>/scripts/studio.py doctor   --config <config.json>
+python <skill>/scripts/studio.py start    <project> --title "<title>" --section verse:8 --section chorus:8 --part "piano harmony vcsl 0:0" --part "lead melody iowa_winds 0:73" --config <config.json>   # compose.py and the song.json it writes
 python <skill>/scripts/studio.py words    <project>   # the piece's twelve words, drawn once; --own "a, b, c" for the user's own, --none "<why>" for none
 python <skill>/scripts/studio.py round    <project>/song.json --config <config.json> --output <project>/r2 --previous <project>/r1 --clip <project>/r1_r2.mp3
 python <skill>/scripts/studio.py render   <project>/song.json --config <config.json> --output <project>/final
@@ -76,9 +78,12 @@ python <skill>/scripts/studio.py analyze  <project>/r2 --span chorus:17-24 --ref
 python <skill>/scripts/studio.py compare  <project>/r6 <project>/final --clip <project>/r6_final.mp3 --config <config.json>
 python <skill>/scripts/studio.py profile  <project>/song.json --output <project>/profile_r1.json
 python <skill>/scripts/studio.py sounds   --role pad --character warm,slow --seed <piece seed>   # --centroid 600-900 --attack 0.1-0.3: by measured range; --id <id>: one patch's controls
+python <skill>/scripts/studio.py instruments viola --config <config.json>   # a preset's bank and program, the keys its samples cover, its layers
 python <skill>/scripts/studio.py audition <project>/song.json --track lead --sounds surge:smooth_lead,synth:supersaw_lead --bars 21-24 --output <project>/audition_lead --config <config.json>
 python <skill>/scripts/studio.py revise   <project>/song.json --track piano --note piano_b004_n003 --pitch 74 --output <project>/song_r2.json
 python <skill>/scripts/studio.py export-midi <project>/song.json --output <project>/song.mid
+python <skill>/scripts/studio.py still <project>/final --at 42 --output <project>/roll_42.png   # the piano roll at one moment (Pillow)
+python <skill>/scripts/studio.py video <project>/final --output <project>/roll.webm --config <config.json>   # the roll scrolling under the master; --mp4 for H.264
 python <skill>/scripts/studio.py inspect-midi <file>.mid   # a MIDI file's division, tracks, notes, and notes left open or closed twice
 python <skill>/scripts/excerpt.py <project>/song.json --first-bar 17 --bars 8 --output <project>/passage.json
 python <skill>/scripts/selfcheck.py --work <new empty folder> --config <config.json>
@@ -92,7 +97,7 @@ A render writes `master.wav` (24-bit), `master.flac` (not in a draft), `preview.
 
 ## Writing the project
 
-- The JSON is the source of truth. For anything longer than a few bars, write a Python script in the project folder that builds it: helpers for voicings, the bass line and drum patterns keep decisions readable and revisable. Keep note ids stable when a musical event survives a revision.
+- The JSON is the source of truth. For anything longer than a few bars, a Python script in the project folder builds it. `studio.py start` writes it as `compose.py`, with the sections and parts, each part's preset found in the configured banks as `instruments` finds it, and `musiclib.builder` keeps its books: notes placed by bar and beat (from 1; a beat is a quarter note), each with a stable id and its performance entry, checked against its part's keys as it is written, and a save that validates. Every note is still yours: helpers of your own for voicings, the bass line and drum patterns keep decisions readable and revisable. Keep note ids stable when a musical event survives a revision.
 - Score and performance are separate: `notes` hold the written pitch and duration, `performance.notes` hold velocity, timing offset and gate. Pedal, sample release and note overlap mean different things.
 - Choose recordings per part and probe a bank before writing a part around it: range, velocity response, attack. Write for the recording: slow string attacks need `offset_ms`, single-layer basses repeat one sample, kits without a hi-hat choke ring.
 - Synth parts default to Surge XT where it is installed: `engine: "surge"` with a patch chosen for the part's need from its catalog of 3,008 measured patches: `studio.py sounds` with the piece's `--seed` gives a shortlist spread over the range, of its own for each piece, and takes ranges of measured brightness and attack (`--centroid 600-900 --attack 0.1-0.3`) and `--character steady` for a patch whose brightness holds still: a sound is designed by choosing it, since a patch's own controls rarely reach a target ([sound-selection.md](references/sound-selection.md), [electronic-sounds.md](references/electronic-sounds.md)). Where Surge is missing, the part plays its patch's built-in fallback by itself. Write a built-in preset only for what no curated patch plays (the 808's glide, the 303's sweep, chip waves, noise transitions) or where a render must repeat exactly; with the full patch set installed, `review --config` names the catalog patches whose designers named them for those sounds, to hear against the built-in. `studio.py audition` plays one part's passage on several sounds in turn, in the mix and at one loudness, so the choice is made by ear on the music itself.

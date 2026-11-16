@@ -212,7 +212,7 @@ def fluidsynth(config,font_path,midi_path,wav_path,folder,label='fluidsynth'):
         log=run([config['fluidsynth']['path'],'-n','-i','-C','0','-R','0','-g','.55','-r',str(RATE),'-T','wav','-O','float','-o','synth.cpu-cores=1','-o','synth.polyphony=256','-o','synth.midi-bank-select=mma','-o','player.timing-source=sample','-F',names[0],font_path,midi_path],folder,label)
         # Only FluidSynth's own messages ("fluidsynth: error: ...", a preset "not found"), not paths it echoes.
         problems=[line for line in log.splitlines() if line.lower().startswith('fluidsynth:') and any(w in line.lower() for w in ('error','panic','failed','not found'))]
-        if problems:raise ValueError('Instrument rendering diagnostic: '+'\n'.join(problems)[-2000:])
+        if problems:raise ValueError('Instrument rendering diagnostic: '+' | '.join(problems)[-2000:])
         return log
     return written_whole(run_it,[wav_path])
 
@@ -277,8 +277,11 @@ def write_wav(path,data,rate=RATE):
     with files.staged(path) as f:  # whole or not at all: a failed write leaves the file that was there
         f.write(b'RIFF'+struct.pack('<I',36+len(raw))+b'WAVEfmt '+struct.pack('<I',16)+fmt+b'data'+struct.pack('<I',len(raw))+raw)
 
-def read_wav(path):
-    path=Path(path)
+def wav_layout(path):
+    """A WAV's (format, channels, frame bytes, bits, data offset, data bytes), its header read and checked as read_wav
+    reads it: the one header policy of the tools' own WAV files, which the render cache's take_fault applies before it
+    hashes a take (0.8 step 1.4; a second, weaker walk there let through takes read_wav then refused)."""
+    path=Path(path);file_size=path.stat().st_size
     with path.open('rb') as f:
         h=f.read(12)
         if h[:4]!=b'RIFF' or h[8:12]!=b'WAVE':raise ValueError('Only RIFF WAV supported')
@@ -288,7 +291,7 @@ def read_wav(path):
             if not header:break
             if len(header)!=8:raise ValueError('Truncated WAV chunk')
             name,size=struct.unpack('<4sI',header)
-            if size>path.stat().st_size:raise ValueError('Invalid WAV chunk size')
+            if size>file_size:raise ValueError('Invalid WAV chunk size')
             if name==b'fmt ':
                 if size>1024:raise ValueError('Invalid WAV format chunk')  # 16 to 40 bytes in practice
                 fmt=f.read(size)
@@ -304,13 +307,21 @@ def read_wav(path):
     tag,channels,rate,_,align,bits=struct.unpack_from('<HHIIHH',fmt)
     if tag==65534:
         if len(fmt)<40:raise ValueError('Short extensible WAV')
+        # The sub-format is a GUID: the format's code in its first two bytes, then KSDATAFORMAT's fixed 14 (FFmpeg reads
+        # no other, so a take whose GUID differs passed the cache's check and stopped the render in FFmpeg).
+        if fmt[26:40]!=bytes.fromhex('000000001000800000aa00389b71'):raise ValueError('Extensible WAV of an unknown sub-format')
         tag=struct.unpack_from('<H',fmt,24)[0]
     if channels not in (1,2) or rate!=RATE or not align or align!=channels*bits//8 or payload[1]%align:raise ValueError('Unsupported WAV dimensions')
     offset,size=payload
+    if offset+size>file_size:raise ValueError(f'a data chunk of {size} bytes, more than the file holds')   # (a map of it failed)
     if size//align>MAX_WAV_SECONDS*RATE:
         # Nothing the tools write is longer than a render, so a longer file (a reference, a render folder from
         # elsewhere) is refused before it is read: analysis and comparison hold several float64 copies of what they read.
         raise ValueError(f'{path.name}: {size//align/RATE/60:.1f} minutes, longer than a render can be ({MAX_WAV_SECONDS//60} minutes)')
+    return tag,channels,align,bits,offset,size
+
+def read_wav(path):
+    path=Path(path);tag,channels,align,bits,offset,size=wav_layout(path);rate=RATE
     if tag==3 and bits==32:
         data=np.memmap(path,dtype='<f4',mode='r',offset=offset,shape=(size//4//channels,channels))
     elif tag==1 and bits==24:
@@ -322,6 +333,17 @@ def read_wav(path):
         data=np.memmap(path,dtype='<i2',mode='r',offset=offset,shape=(size//2//channels,channels)).astype(np.float32)/32768
     else:raise ValueError(f'Unsupported WAV encoding {tag}/{bits}')
     return data,{'frames':len(data),'sample_rate':rate,'channels':channels,'bits':bits,'format':tag,'seconds':len(data)/rate}
+
+def take_fault(path,exact=None):
+    """Why a cached take or a kept stem cannot be used, read from the file itself before it is hashed or decoded, or
+    None (0.8 step 1.4: the cache is trusted local state, CWE-345, and a take that matched its receipt was used whatever
+    it held).  Its header must be one read_wav reads (wav_layout: at RATE, whole frames, its data inside the file, no
+    longer than MAX_WAV_SECONDS), float32 stereo; then `exact` frames when given."""
+    try:tag,channels,align,bits,_,size=wav_layout(path)
+    except ValueError as e:return str(e)
+    if (tag,bits,channels)!=(3,32,2):return f'format {tag}, {bits} bits, {channels} channels, not float32 stereo'
+    if exact is not None and size//align!=exact:return f'{size//align} frames, where this render makes {exact}'
+    return None
 
 def audio_hash(path):
     """SHA-256 of a WAV's format and data chunks only: the same audio gives the same hash whatever else the writer

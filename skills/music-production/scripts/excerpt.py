@@ -68,7 +68,9 @@ def crop_cc(track,start,end):
     return sorted(out)
 
 def extract(p,first_bar,bars):
-    if first_bar<1 or bars<1 or first_bar-1+bars>p['clock']['bars']:raise ValueError('Excerpt outside source bars')
+    if first_bar<1 or bars<1 or first_bar-1+bars>p['clock']['bars']:  # 0.8 step 2.1: the lengths
+        raise ValueError(f'Bars {first_bar} to {first_bar+bars-1} are outside the piece, which has bars 1 to {p["clock"]["bars"]} '
+                         '(--first-bar counts from 1, --bars is how many)')
     q=copy.deepcopy(p);clock=Clock(p);start=(first_bar-1)*clock.beats_per_bar;end=start+bars*clock.beats_per_bar
     q['clock']['bars']=bars
     bpm=next(bpm for beat,bpm in reversed(p['clock']['tempo']) if beat<=start)
@@ -384,4 +386,4 @@ if __name__=='__main__':
     files.escape_unprintable()
     try:main()
     except (ValueError,KeyError,OSError) as e:
-        print('ERROR:',str(e),file=sys.stderr);sys.exit(2)
+        print('ERROR:',files.one_line(str(e)),file=sys.stderr);sys.exit(2)  # one line, whatever text it carries (0.8 step 1.6)

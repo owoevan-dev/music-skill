@@ -122,11 +122,11 @@ def check(record, target):
 
 def describe(record, made, target):
     if record.get('source') == 'none':
-        return f'This piece associates from no words ({record.get("reason") or "no reason given"}). Kept in {target}.'
+        return f'This piece associates from no words ({files.one_line(str(record.get("reason") or "no reason given"))}). Kept in {files.one_line(str(target))}.'
     head = ('The words of this piece' if made else 'This piece already has its words; they are not drawn again')
     origin = {'draw': f' (drawn, seed {record.get("seed")})', 'user': ' (given by the user)'}.get(record.get('source'), '')
-    return (f'{head}{origin}:\n{", ".join(record.get("words", []))}\n'
-            f'Kept in {target}. The request comes first; link it and all of these into one whole, and let that whole decide '
+    return (f'{head}{origin}:\n{", ".join(files.one_line(str(w)) for w in record.get("words", []))}\n'   # a user's words hold any text (0.8 step 1.6)
+            f'Kept in {files.one_line(str(target))}. The request comes first; link it and all of these into one whole, and let that whole decide '
             'what the request leaves open (SKILL.md, step 2).')
 
 

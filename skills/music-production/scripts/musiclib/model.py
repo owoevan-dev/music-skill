@@ -6,8 +6,11 @@ import json
 import math
 from pathlib import Path
 import re
+from .files import id_fault, one_line
 
 TPQ = 960
+# Effects a part takes in mix.effects (0.8 step 1.3: a stated limit, CWE-770; the most any project held was one).
+MAX_EFFECTS = 8
 # The bus mix (mix.chain "bus", musiclib.mixbus): buses a track can join and spaces its reverb send can feed.
 BUSES = ('drums', 'bass', 'rhythm', 'ensemble', 'lead', 'fx')
 SPACES = ('room', 'plate', 'hall', 'church')
@@ -43,6 +46,15 @@ def shape(value, kind, name):
         raise ValueError(f'{name} is {"an object" if kind is dict else "a list"}, got {type(value).__name__}')
     return value
 
+
+def check_meter(meter):
+    """A meter is [beats, beat unit]: 1-16 beats of a half, quarter, eighth or sixteenth note (validate, and the
+    builder before it divides by the unit)."""
+    if len(meter)!=2:raise ValueError('clock.meter is [beats, beat unit], e.g. [3, 4]')
+    number(meter[1],2,16,'meter beat unit',True)
+    if meter[1] not in (2,4,8,16):
+        raise ValueError(f'Unsupported meter {list(meter)}: the beat unit is 2, 4, 8 or 16, as in [3, 4] or [6, 8]')
+    number(meter[0],1,16,'meter numerator',True)
 
 def number(value, lo, hi, name, integer=False):
     """`value` must be a number in lo..hi; with `integer`, a JSON integer (100, not 100.0, which MIDI cannot carry)."""
@@ -291,7 +303,7 @@ def validate(p):
 def _validate(p):
     warnings = []
     if p.get('schema') != 'music-production/v1':
-        raise ValueError('Unsupported project schema')
+        raise ValueError(f'Unsupported project schema {p.get("schema")!r}: a project says "schema": "music-production/v1"')
     for k, kind in (('clock', dict), ('mix', dict), ('sections', list), ('tracks', list)):
         if k in p:shape(p[k], kind, k)
     for s in p.get('sections', []):shape(s, dict, 'each section')
@@ -315,11 +327,8 @@ def _validate(p):
     if 'revision_history' in p and not isinstance(p['revision_history'],list):raise ValueError('revision_history is a list of the revisions made')
     c=p['clock'];unknown_fields(c,'clock','clock',warnings);unknown_fields(p['mix'],'mix','mix',warnings)
     number(c['bars'],1,512,'bars',True)
-    if not isinstance(c['meter'],list) or len(c['meter'])!=2:raise ValueError('clock.meter is [beats, beat unit], e.g. [3, 4]')
-    number(c['meter'][1],2,16,'meter beat unit',True)
-    if c['meter'][1] not in (2,4,8,16):
-        raise ValueError('Unsupported meter')
-    number(c['meter'][0],1,16,'meter numerator',True)
+    if not isinstance(c['meter'],list):raise ValueError('clock.meter is [beats, beat unit], e.g. [3, 4]')
+    check_meter(c['meter'])
     number(c.get('tail_seconds',5),1,15,'tail')
     r=c.get('rubato')
     if r is not None:
@@ -351,21 +360,30 @@ def _validate(p):
     section_ids=set()
     for s in p['sections']:
         if not isinstance(s.get('id'),str) or not 1<=len(s['id'])<=64:raise ValueError(f'Section id must be a string of 1-64 characters, got {s.get("id")!r}')
+        if (bad:=id_fault(s['id'])):  # 0.8 step 1.6
+            raise ValueError(f'Section id {one_line(s["id"])} holds {bad}: a section id is printed in tables and messages, so it holds no control, line-separator or bidirectional formatting character')
         number(s['start_bar'],0,c['bars']-1,f'section {s["id"]} start bar',True)
-        if s['id'] in section_ids or s['start_bar']!=cursor:
-            raise ValueError('Sections must uniquely cover all bars')
+        # 0.8 step 2.1: which section, and where the gap or the overlap lies
+        if s['id'] in section_ids:
+            raise ValueError(f'Section id {s["id"]} is used twice: each section has an id of its own')
+        if s['start_bar']!=cursor:
+            raise ValueError(f'Section {s["id"]} starts at bar {s["start_bar"]}, and the sections before it end at bar {cursor}: '
+                             + ('bars are counted from 0, so the first section has "start_bar": 0' if cursor==0 and s['start_bar']==1 else
+                                f'bars {cursor} to {s["start_bar"]-1} belong to no section' if s['start_bar']>cursor else
+                                f'it overlaps the section before; each section starts where the one before it ends (bar {cursor})'))
         number(s['bars'],1,c['bars'],'section bars',True)
         if 'intent' in s:text(s['intent'],f'section {s["id"]} intent')
         section_ids.add(s['id'])
         cursor+=s['bars']
     if cursor!=c['bars']:
-        raise ValueError('Sections do not cover form')
+        raise ValueError(f'The sections cover {cursor} bars and clock.bars is {c["bars"]}: '
+                         + (f'bars {cursor} to {c["bars"]-1} belong to no section' if cursor<c['bars'] else 'they run past the end'))
     if 'loop' in p:
         # The loop runs from the start of `start_bar` (0-based, like sections) to the end of the last bar.
         if not isinstance(p['loop'],dict) or set(p['loop'])-{'start_bar','layers'}:raise ValueError('loop takes start_bar and layers')
         number(p['loop'].get('start_bar',0),0,c['bars']-1,'loop start bar',True)
     if not 1<=len(p['tracks'])<=64:
-        raise ValueError('Track count outside bound')
+        raise ValueError(f'A project has 1 to 64 tracks; this one has {len(p["tracks"])}')
     ids=set(); events=0
     for t in p['tracks']:
         if not isinstance(t.get('id'),str) or not re.fullmatch(r'[a-z][a-z0-9_]{0,47}',t['id']) or t['id'] in ids:
@@ -377,7 +395,7 @@ def _validate(p):
             raise ValueError(f'{t["id"]}: missing field {e}') from None
         except (TypeError,AttributeError) as e:
             raise ValueError(f'{t["id"]}: a field has the wrong type ({e})') from None
-    if events>500000:raise ValueError('Too many notes')
+    if events>500000:raise ValueError(f'A project holds at most 500,000 notes; this one holds {events:,}')
     if isinstance(p.get('harmony'),list):
         for h in p['harmony']:
             shape(h,dict,'each harmony entry');number(h['bar'],1,c['bars'],'harmony bar',True);number(h.get('beat',0),0,clock.beats_per_bar-1/TPQ,'harmony beat')
@@ -449,9 +467,11 @@ def _track(p,t,c,total,clock,warnings):
     """One track's checks (validate); returns its note count."""
     tid=t['id'];shape(t['performance'],dict,f'{tid}.performance');shape(t['mix'],dict,f'{tid}.mix')
     for n in shape(t['notes'],list,f'{tid}.notes'):shape(n,dict,f'each note of {tid}')
+    if 'notes' not in t['performance']:  # 0.8 step 2.1: it read as the part's own `notes` missing
+        raise ValueError(f'{tid}: performance.notes is missing: a velocity for each note, by its id, e.g. "performance": {{"notes": {{"{tid}_1": {{"velocity": 80}}}}}}')
     for x in shape(t['performance']['notes'],dict,f'{tid}.performance.notes').values():shape(x,dict,f'each entry of {tid}.performance.notes')
     if t['engine'] not in ('soundfont','additive','noise','synth','drum_synth','surge'):
-        raise ValueError('Unsupported instrument engine')
+        raise ValueError(f'{tid}: engine {t["engine"]!r} is none of soundfont, additive, noise, synth, drum_synth and surge')
     if t['engine']=='synth':
         from . import synth;synth.validate(t)
     if t['engine']=='drum_synth':
@@ -461,7 +481,7 @@ def _track(p,t,c,total,clock,warnings):
     if 'kit' in t and t['engine']!='drum_synth':raise ValueError(f'{t["id"]}: "kit" belongs to engine "drum_synth"')
     if 'synth' in t and t['engine']!='synth':raise ValueError(f'{t["id"]}: "synth" belongs to engine "synth"')
     if 'surge' in t and t['engine']!='surge':raise ValueError(f'{t["id"]}: "surge" belongs to engine "surge"')
-    if not isinstance(t.get('drums',False),bool):raise ValueError('drums must be boolean')
+    if not isinstance(t.get('drums',False),bool):raise ValueError(f'{tid}: drums is true or false, got {t.get("drums")!r}')
     if 'reverse' in t:
         # A sampled part whose notes play backwards (render.reversed_notes): one plain render per note, so not with the
         # layered dynamics or crossfade legato, which render the part another way.
@@ -474,11 +494,11 @@ def _track(p,t,c,total,clock,warnings):
         raise ValueError(f'{t["id"]}: soundfont must name a configured SoundFont (soundfont engine only)')
     if 'patch' in t:
         if t['engine']!='soundfont' or not isinstance(t['patch'],dict) or set(t['patch'])-{'bank','program'}:raise ValueError(f'{t["id"]}: patch takes bank/program')
-        number(t['patch'].get('bank',0),0,16383,'patch bank',True);number(t['patch'].get('program',0),0,127,'patch program',True)
+        number(t['patch'].get('bank',0),0,16383,f'{tid} patch bank',True);number(t['patch'].get('program',0),0,127,f'{tid} patch program',True)
     if 'key_map' in t:
         if t['engine']!='soundfont' or not isinstance(t['key_map'],dict) or len(t['key_map'])>128:raise ValueError(f'{t["id"]}: key_map maps MIDI pitches')
-        for k,v in t['key_map'].items():
-            if not re.fullmatch(r'\d{1,3}',k) or int(k)>127:raise ValueError(f'{t["id"]}: key_map keys are MIDI pitches')
+        for k,v in t['key_map'].items():   # a key that is no text (a number, from a script) stopped re with a TypeError (the whole review of 0.8)
+            if not isinstance(k,str) or not re.fullmatch(r'\d{1,3}',k) or int(k)>127:raise ValueError(f'{t["id"]}: key_map keys are MIDI pitches written as text, e.g. {{"36": 48}}')
             number(v,0,127,'key_map target',True)
     if t['performance'].get('cc_mode','linear' if t['engine']=='additive' else 'step') not in ('step','linear'):
         raise ValueError(f'{t["id"]}: cc_mode must be step or linear')
@@ -491,37 +511,46 @@ def _track(p,t,c,total,clock,warnings):
         if not isinstance(voices,list) or not 1<=len(voices)<=7:raise ValueError('Expected 1–7 synth voices')
         for cents in voices:number(cents,-40,40,'detune cents')
         if not isinstance(cfg.get('odd_only',False),bool):raise ValueError('odd_only must be boolean')
-    number(t.get('program',0),0,127,'program',True)
+    number(t.get('program',0),0,127,f'{tid} program',True)
     number(t.get('bank',0),0,16383,'bank',True)
     lo,hi=t.get('range',[0,127])
     number(lo,0,127,'range low',True);number(hi,lo,127,'range high',True)
-    local_ids=set();events=0;tid=t['id']
+    local_ids=set();events=0;tid=t['id'];missing=[]
     unknown_fields(t,'track',tid,warnings);unknown_fields(t['performance'],'performance',f'{tid}.performance',warnings)
     unknown_fields(t['mix'],'track mix',f'{tid}.mix',warnings);unknown_fields(t['performance'].get('legato'),'legato',f'{tid}.performance.legato',warnings)
     if t['engine']=='synth':unknown_fields(t.get('synth'),'synth',f'{tid}.synth',warnings)
     unknown_note_fields(t['notes'],'note',f'{tid} notes',warnings)
     unknown_note_fields(list(t['performance']['notes'].values()),'played note',f'{tid} performance.notes',warnings)
     if 'role' in t:text(t['role'],f'{tid} role')
+    if 'name' in t:text(t['name'],f'{tid} name')   # the piano roll's legend draws it (a list stopped it: the third outside review of 0.8)
     for n in t['notes']:
         if not isinstance(n.get('id'),str) or not 1<=len(n['id'])<=120 or n['id'] in local_ids:
             raise ValueError(f'{tid}: duplicate or invalid note id {n.get("id")!r}')
+        if (bad:=id_fault(n['id'])):  # 0.8 step 1.6
+            raise ValueError(f'{tid}: note id {one_line(n["id"])} holds {bad}: a note id is printed in messages and examples, so it holds no control, line-separator or bidirectional formatting character')
         for k in ('phrase','articulation','comment'):
             if k in n:text(n[k],f'{tid}/{n["id"]} {k}')
         local_ids.add(n['id']);events+=1;at=f'{tid}/{n["id"]}'
         number(n['on'],0,total-1/TPQ,f'{at} onset (beats)')
         number(n['duration'],1/TPQ,total,f'{at} duration (beats)')
         if n['on']+n['duration']>total+1e-6:
-            raise ValueError(f'Note beyond score: {t["id"]}/{n["id"]}')
+            raise ValueError(f'{at}: the note ends at beat {n["on"]+n["duration"]:g}, past the end of the score at beat {total:g} '
+                             f'({c["bars"]} bars): shorten it, or add bars')
         number(n['pitch'],lo,hi,f'pitch {t["id"]}/{n["id"]}',True)
         if n['id'] not in t['performance']['notes']:
-            raise ValueError(f'Missing performance for {t["id"]}/{n["id"]}')
+            missing.append(n['id']);continue  # all of them reported at once, below (0.8 step 2.1)
         perf=t['performance']['notes'][n['id']]
         if 'velocity' not in perf:raise ValueError(f'{at}: performance.notes needs a velocity')
         number(perf['velocity'],1,127,f'{at} velocity',True)
         number(perf.get('timing_ms',0),-100,100,f'{at} timing_ms')
         number(perf.get('gate',1),.05,1.6,f'{at} gate')
+    if missing:
+        raise ValueError(f'{tid}: {len(missing)} note{"s" if len(missing)!=1 else ""} without an entry in performance.notes '
+                         f'({", ".join(missing[:5])}{", ..." if len(missing)>5 else ""}): add one for each, e.g. "{missing[0]}": {{"velocity": 80}}')
     if local_ids!=set(t['performance']['notes']):
-        raise ValueError('Performance keys must exactly match score ids')
+        extra=sorted(set(t['performance']['notes'])-local_ids)
+        raise ValueError(f'{tid}: performance.notes has {len(extra)} entr{"ies" if len(extra)!=1 else "y"} for notes the part does not hold '
+                         f'({", ".join(map(str,extra[:5]))}{", ..." if len(extra)>5 else ""}): each entry belongs to a note of the same id')
     if t['engine']=='additive':
         ordered=sorted(t['notes'],key=lambda n:n['on'])
         if any(a['on']+a['duration']>b['on']+1/TPQ for a,b in zip(ordered,ordered[1:])):
@@ -584,13 +613,18 @@ def _track(p,t,c,total,clock,warnings):
             last=item[0]
         if any(control==1 for _,control,_ in t['performance'].get('cc',[])):raise ValueError(f'{t["id"]}: dynamics is exported as CC1, so the part cannot also write CC1')
     mix=t['mix']
-    if mix.get('level_mode','active_rms') not in ('active_rms','peak'):raise ValueError('Unknown reference level mode')
-    number(mix.get('delay_quarters',.75),.0625,8,'delay quarter notes')
+    if mix.get('level_mode','active_rms') not in ('active_rms','peak'):raise ValueError(f'{tid}: mix.level_mode {mix.get("level_mode")!r} is "active_rms" or "peak"')
+    number(mix.get('delay_quarters',.75),.0625,8,f'{tid} mix.delay_quarters')
     number(mix['level_dbfs'],-60,-6,f'{tid} mix.level_dbfs')
-    number(mix.get('pan',0),-1,1,'pan');number(mix.get('width',1),0,1,'stereo width')
-    if mix.get('depth_m') is not None:number(mix['depth_m'],0,10,'stage depth m')
+    number(mix.get('pan',0),-1,1,f'{tid} mix.pan');number(mix.get('width',1),0,1,f'{tid} mix.width')
+    if mix.get('depth_m') is not None:number(mix['depth_m'],0,10,f'{tid} mix.depth_m')
     from . import production;production.validate(p,t)
-    for e in mix.get('effects',[]):
+    fx=mix.get('effects',[])
+    # Counted as listed, repeats too, before each is checked; a list only, so 0.7's other forms keep their outcomes
+    # ("" and {} hold no effect; null, false or a number are a field of the wrong type, as before).
+    if isinstance(fx,list) and len(fx)>MAX_EFFECTS:
+        raise ValueError(f'{t["id"]}: {len(fx)} effects in mix.effects; a part takes at most {MAX_EFFECTS}, applied in the order listed')
+    for e in fx:
         if not isinstance(e,dict) or e.get('type') not in ('chorus','phaser','bitcrush'):raise ValueError(f'{t["id"]}: effects are chorus, phaser or bitcrush')
         # The phaser is FFmpeg's aphaser, whose speed runs from 0.1 to 2 Hz (ffmpeg -h filter=aphaser): a rate outside
         # it passed here and stopped the render.
@@ -767,7 +801,12 @@ def legato_notes(track,notes,clock):
 def load_project(path):
     path=Path(path)
     from .files import MAX_PROJECT, loads
+    # 0.8 step 2.1: what was expected, not the system's message in its own language ("Permission denied" for a folder)
+    if not path.exists():raise ValueError(f'No project file at {path}: give the path of a project JSON file')
+    if path.is_dir():raise ValueError(f'{path} is a folder: give the project JSON file itself (song.json in it, for example)')
     if path.stat().st_size>MAX_PROJECT:raise ValueError(f'Project exceeds size limit ({MAX_PROJECT // 1_000_000} MB)')
-    p=loads(path.read_text(encoding='utf-8'))
+    try:data=path.read_bytes()
+    except PermissionError:raise ValueError(f'{path} cannot be read: this account has no permission to read it') from None
+    p=loads(data)  # UTF-8 with or without a byte order mark, UTF-16 or UTF-32, as files.read_json (0.8 step 2.2)
     validate(p)
     return p

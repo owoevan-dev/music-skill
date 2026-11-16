@@ -2,12 +2,12 @@
 import bisect
 from collections import Counter, defaultdict
 import csv
-import heapq
 import json
 import math
 from pathlib import Path
 import statistics
 from . import files, harmony
+from .instruments import key_ranges, pairs
 from .model import Clock, performed, save_json, validate
 
 FOREGROUND = ('melody', 'countermelody')
@@ -69,38 +69,254 @@ def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5):
     """Minor seconds/ninths between a sustained note (>=0.75 beat) and any note of another pitched
     part (or inside one part's chord) overlapping >=0.5 beat (both numbers ours: style-maps.json).  Major sevenths are
     not flagged.  Unpitched parts
-    (unpitched()) are left out.  The notes are indexed by pitch and onset, so only notes 1, 13, 25... semitones away
-    that overlap in time are looked at: the work follows the collisions there are, not the square of the notes, and the
-    first `limit` examples by beat are kept while the rest are counted."""
+    (unpitched()) are left out.  The first `limit` examples by beat are kept while the rest are counted.
+
+    0.8 step 1.2: the pairs are counted, not looked at one by one where they are many (0.7 looked at every pair, and
+    two parts of 250,000 notes hold 62,500,000,000).  The results are 0.7's to the last example.  A pair is two notes
+    1, 13, 25... semitones apart, each lasting overlap_beats or more, overlapping by overlap_beats as 0.7 computed it
+    (the earlier end less the later onset, in floats), one of them sustained (its end less its onset at least
+    sustain_beats).  Of two long notes e and f with f starting no earlier, they overlap when e's end passes f's onset
+    by the overlap: f's own length passes it already, and a rounded difference never shrinks when its first term
+    grows or its second falls.  So a note's partners starting after it are a run of the other pitch's long notes in
+    onset order, up to the first whose onset its end does not pass by the overlap; with it, they are those starting
+    with it.  Each run's ends are found exactly among the long notes' distinct onsets (a binary search of the
+    rounded differences themselves), and every pair is counted once, from its earlier note (of one onset, from
+    the lower pitch): looked at where its run is short beside the parts at that pitch, counted part by part where it
+    is long.  The parts' order (most pairs first, ties in the order 0.7 found their first pair: its outer note in the
+    order of the parts and their notes, the pitches by 1, 13, 25... above and below, the partner in the pitch's order)
+    and the examples (the earliest beats, ties in that order) are drawn from counts that say which notes hold them."""
     items=[]
     for t in p['tracks']:
         if unpitched(t):continue
         for n in t['notes']:items.append((n['on'],n['on']+n['duration'],n['pitch'],t['id'],t.get('role') in FOREGROUND,n.get('id') or ''))
+    if not items:
+        return {'count':0,'foreground_count':0,'by_parts':{},'examples':[]}
+    import numpy as np
+    ob=overlap_beats;N=len(items)
+    index={};fg=[]                                    # the parts in order, each with its role (0.7: the note's part's)
+    for x in items:
+        if x[3] not in index:index[x[3]]=len(fg);fg.append(x[4])
+    tids,k=list(index),len(fg)
+    on=np.array([x[0] for x in items],dtype=np.float64);end=np.array([x[1] for x in items],dtype=np.float64)
+    length=end-on                                     # 0.7's a[1]-a[0]
+    long=length>=ob                                   # a pair overlaps by no more than either note lasts
+    sust=long&(length>=sustain_beats)
+    code=np.array([index[x[3]] for x in items])
+    offsets=lambda q:[q+d*s for d in range(1,128,12) for s in (1,-1)]
+    # Each pitch's notes in 0.7's order (onset, end, pitch, part, foreground, id), and each note's place there.
     by_pitch=defaultdict(list)
-    for it in items:by_pitch[it[2]].append(it)
-    starts,longest={},{}
-    for q,lst in by_pitch.items():
-        lst.sort();starts[q]=[x[0] for x in lst];longest[q]=max(x[1]-x[0] for x in lst)
-    count=fg=seq=0;pairs=Counter();kept=[]
-    for a in items:
-        if a[1]-a[0]<sustain_beats:continue
-        for q in [a[2]+d*s for d in range(1,128,12) for s in (1,-1)]:
-            lst=by_pitch.get(q)
-            if not lst:continue
-            # Notes of that pitch starting before a ends and late enough to still sound when it starts.
-            for b in lst[bisect.bisect_left(starts[q],a[0]-longest[q]):bisect.bisect_left(starts[q],a[1])]:
-                ov=min(a[1],b[1])-max(a[0],b[0])
-                # A pair of two sustained notes is found from both; it counts once, from the earlier one.
-                if ov<overlap_beats or (b[1]-b[0]>=sustain_beats and b<a):continue
-                count+=1;fg+=a[4] or b[4];pairs[' / '.join(sorted({a[3],b[3]}))]+=1;seq+=1
-                beat=max(a[0],b[0])
-                heapq.heappush(kept,(-beat,-seq,(a,b,ov)))
-                if len(kept)>limit:heapq.heappop(kept)
+    for i,x in enumerate(items):by_pitch[x[2]].append(i)
+    place=np.zeros(N,dtype=np.int64);P={}
+    for q,ix in by_pitch.items():
+        ix.sort(key=items.__getitem__);P[q]=np.array(ix);place[P[q]]=np.arange(len(ix))
+    pitches=sorted(P);rank={q:j for j,q in enumerate(pitches)};pid=np.array([rank[x[2]] for x in items])
+
+    # The long notes: their ends and onsets as ranks among the distinct ones, and keyed by pitch or by group (one
+    # pitch and part) with each rank: all of them, and the sustained ones.
+    L=np.flatnonzero(long);pL=pid[L];sl=sust[L];cL=code[L]
+    V,U=np.unique(end[L]),np.unique(on[L]);W=max(len(V),len(U))+1
+    rV,rU=np.searchsorted(V,end[L]),np.searchsorted(U,on[L])
+    groups,gid=np.unique(pL*k+cL,return_inverse=True);G=len(groups)
+    gpart=groups%k;gstart=np.searchsorted(groups//k,np.arange(len(pitches)+1))  # a pitch's groups lie together
+
+    def keyed(of,n,idx):
+        # the ends' keys sorted; the onsets' keys sorted, with the long notes in that order; where each key begins
+        KE=np.sort(of[idx]*W+rV[idx]);ko=of[idx]*W+rU[idx];o=np.argsort(ko,kind='stable')
+        return KE,ko[o],idx[o],np.searchsorted(KE,np.arange(n+1)*W)
+    every,held=np.arange(len(L)),np.flatnonzero(sl)
+    pitch_keys=(keyed(pL,len(pitches),every),keyed(pL,len(pitches),held))   # [0]: all long notes, [1]: sustained
+    group_keys=(keyed(gid,G,every),keyed(gid,G,held))
+
+    def first(vals,holds):
+        # the first index of the sorted distinct vals at which holds(value) is true, holds turning true once along them:
+        # a binary search of the rounded comparison itself, since one rounding plateau can hold any number of distinct
+        # values (onsets 1e-19 apart all lie 0.5 before an end of 0.5)
+        m=len(vals);lo=np.zeros(len(L),dtype=np.int64);hi=np.full(len(L),m,dtype=np.int64)
+        while (live:=lo<hi).any():
+            mid=(lo+hi)//2;h=holds(vals[np.minimum(mid,m-1)])
+            hi=np.where(live&h,mid,hi);lo=np.where(live&~h,mid+1,lo)
+        return lo
+    z0,z1=on[L],end[L]
+    rE=first(V,lambda v:v-z0>=ob)   # ends from here on reach z's onset by ob
+    rS=first(U,lambda u:z1-u<ob)    # onsets before here z's end passes by ob
+
+    def tally(zz,ss,keys):
+        # long notes zz against sets ss: the members whose end reaches z's onset by the overlap, whose onset z's end
+        # passes by it, starting no later than z, starting before z; the set's size and first place
+        KE,KS,_,seg=keys;base=ss*W;lo,hi=seg[ss],seg[ss+1]
+        return (hi-np.searchsorted(KE,base+rE[zz]),np.searchsorted(KS,base+rS[zz])-lo,np.searchsorted(KS,base+rU[zz],'right')-lo,
+                np.searchsorted(KS,base+rU[zz])-lo,hi-lo,lo)
+
+    CAP=1<<20  # elements worked on at once
+
+    def spread(lens):
+        # runs of the given lengths in chunks of about CAP elements: each element's run, and its place in the run
+        ends=np.cumsum(lens);a=0
+        while a<len(lens):
+            b=max(a+1,int(np.searchsorted(ends,ends[a]-lens[a]+CAP,'right')));n=lens[a:b]
+            yield np.repeat(np.arange(a,b),n),np.arange(ends[a]-lens[a],ends[b-1])-np.repeat(ends[a:b]-n,n)
+            a=b
+
+    def add_up(acc,keys,values):
+        u,inv=np.unique(keys,return_inverse=True)
+        for key,val in zip(u.tolist(),np.bincount(inv,weights=values,minlength=len(u)).tolist()):acc[key]=acc.get(key,0)+val
+
+    near=[np.array([rank[o] for o in offsets(q) if o in rank and pitch_keys[0][3][rank[o]+1]>pitch_keys[0][3][rank[o]]],dtype=np.int64)
+          for q in pitches]                           # the offset pitches that hold long notes
+    zorder=np.argsort(pL,kind='stable');zstart=np.searchsorted(pL[zorder],np.arange(len(pitches)+1))
+
+    def note_pitch_pairs():
+        zs,qs,n=[],[],0
+        for j in range(len(pitches)):
+            Z,R=zorder[zstart[j]:zstart[j+1]],near[j]
+            if not (len(Z) and len(R)):continue
+            step=max(1,CAP//len(R))
+            for a in range(0,len(Z),step):
+                zs.append(np.repeat(Z[a:a+step],len(R)));qs.append(np.tile(R,len(Z[a:a+step])));n+=len(zs[-1])
+                if n>=CAP:
+                    yield np.concatenate(zs),np.concatenate(qs);zs,qs,n=[],[],0
+        if n:yield np.concatenate(zs),np.concatenate(qs)
+
+    # Each long note z against each offset pitch, with any long partner if z is sustained, sustained ones if not: for
+    # the examples, its partners starting no later than it (twice those before it, once those with it); and the run of
+    # the pairs it starts, counted by pair of parts: looked at where it is no longer than eight times its pitch's
+    # groups, else counted group by group (the group's long or sustained notes from z's onset, or after it, to the
+    # run's end).
+    twice=np.zeros(len(L));pairs_of={}
+    for zz,qq in note_pitch_pairs():
+        for s,mine in ((0,sl[zz]),(1,~sl[zz])):  # the partners' set: all long notes, or the sustained ones
+            z,q=zz[mine],qq[mine]
+            if not len(z):continue
+            cE,cS,upto,before,size,lo=tally(z,q,pitch_keys[s])
+            twice+=np.bincount(z,weights=2*(cE-size+upto)-(upto-before),minlength=len(L))
+            a,b=lo+np.where(q>pL[z],before,upto),lo+cS
+            m=b>a;z,q,a,b=z[m],q[m],a[m],b[m];kq=gstart[q+1]-gstart[q];look=b-a<=8*kq
+            for rep,off in spread((b-a)[look]):
+                zl,fl=z[look][rep],pitch_keys[s][2][a[look][rep]+off]
+                add_up(pairs_of,np.minimum(cL[zl],cL[fl])*k+np.maximum(cL[zl],cL[fl]),np.ones(len(zl)))
+            z,q=z[~look],q[~look];KS=group_keys[s][1]
+            lo_rank=rU[z]+(q<=pL[z])                  # with z only from the lower pitch
+            for rep,off in spread(kq[~look]):
+                g=gstart[q[rep]]+off;zr=z[rep];base=g*W
+                n=np.searchsorted(KS,base+rS[zr])-np.searchsorted(KS,base+lo_rank[rep]);m=n>0
+                add_up(pairs_of,np.minimum(cL[zr[m]],gpart[g[m]])*k+np.maximum(cL[zr[m]],gpart[g[m]]),n[m])
+    counted={divmod(key,k):int(n) for key,n in pairs_of.items()}
+    count=sum(counted.values());fg_count=sum(n for (a,b),n in counted.items() if fg[a] or fg[b])
+
+    def found_with(i,q,ix):
+        # 0.7's partners of outer note i among notes ix of pitch q, in the pitch's order: overlapping long notes, less a
+        # sustained one that sorts before i (that pair is found from it)
+        a=items[i];b0,b1=on[ix],end[ix]
+        before=(b0<a[0])|((b0==a[0])&((b1<a[1])|((b1==a[1])&(q<a[2]))))
+        return ix[long[ix]&(np.minimum(a[1],b1)-np.maximum(a[0],b0)>=ob)&~(sust[ix]&before)]
+
+    # The parts' order: most pairs first; where counts tie, the first pair 0.7 found of each.  All of a part's notes
+    # come before a later part's, so that pair's outer note is the first of the earlier part that is the outer note
+    # of a pair with the other part, or else the first such of the other; its partner, the first in the order of the
+    # pitches and of the pitch's notes.  The sustained notes with partners at a pitch where the other part has notes
+    # are tried in growing batches, all ties at once.
+    ties=Counter(counted.values());first={}
+    tied=[key for key,n in counted.items() if ties[n]>1]
+    if tied:
+        both=rU*W+rV;UB=np.unique(both);NB=len(UB)+1
+        rB,nextB=np.searchsorted(UB,both),np.searchsorted(UB,(rU+1)*W)
+        KB=np.sort(gid[held]*NB+rB[held])             # the sustained notes by group, onset and end
+        partnered=[]                                  # each sustained note with partners at a pitch, by part, then note
+        for zz,qq in note_pitch_pairs():
+            z,q=zz[sl[zz]],qq[sl[zz]];cE,cS,_,_,size,_=tally(z,q,pitch_keys[0]);partnered.append((z[cE+cS>size],q[cE+cS>size]))
+        pz,pq=(np.concatenate(c) for c in zip(*partnered));o=np.lexsort((pq,pz,cL[pz]));pz,pq=pz[o],pq[o]
+        pcut=np.searchsorted(cL[pz],np.arange(k+1))
+
+        def outers(asks):
+            # for each (a, b) asked: the first sustained note of part a that is the outer note of a pair with part b
+            # (a partner of b there not sustained, or sustained and after it in 0.7's order: starting later, or with it
+            # and ending later, or ending with it at a higher pitch), or None
+            best=[None]*len(asks);live=np.arange(len(asks));at,step=0,64
+            start,stop=pcut[[a for a,_ in asks]],pcut[[a+1 for a,_ in asks]];bs=np.array([b for _,b in asks])
+            while len(live):
+                step=max(1,min(step,CAP//len(live)))  # the batch doubles, at most CAP notes in all
+                lo,hi=start[live]+at,np.minimum(stop[live],start[live]+at+step);live,lo,hi=live[hi>lo],lo[hi>lo],hi[hi>lo]
+                at+=step;step*=2
+                if not len(live):break
+                n=hi-lo;owner=np.repeat(live,n);e=np.repeat(lo,n)+np.arange(n.sum())-np.repeat(np.cumsum(n)-n,n)
+                key=pq[e]*k+bs[owner];g=np.minimum(np.searchsorted(groups,key),G-1);m=groups[g]==key
+                if not m.any():continue
+                z,g,w=pz[e[m]],g[m],owner[m]
+                cE,cS,upto,_,size1,_=tally(z,g,group_keys[0]);cE2,cS2,upto2,_,size2,_=tally(z,g,group_keys[1])
+                k0,k1=g*NB+rB[z],g*NB+nextB[z];e0,e1=np.searchsorted(KB,k0),np.searchsorted(KB,k0,'right')
+                outer=(cE+cS-size1)-(cE2+cS2-size2)+(cS2-upto2)+np.searchsorted(KB,k1)-e1+np.where(groups[g]//k>pL[z],e1-e0,0)>0
+                if not outer.any():continue
+                least=np.full(len(asks),len(L));np.minimum.at(least,w[outer],z[outer])
+                for t in np.flatnonzero(least<len(L)):best[t]=int(L[least[t]])
+                live=live[least[live]==len(L)]
+            return best
+        firsts=outers(tied)
+        again=[t for t,i in enumerate(firsts) if i is None]
+        for t,i in zip(again,outers([tied[t][::-1] for t in again]) if again else ()):firsts[t]=i
+        srt=np.lexsort((place,code,pid));ps,cs=pid[srt],code[srt]   # each part's notes of a pitch, in the pitch's order
+        cut=np.flatnonzero(np.r_[True,(ps[1:]!=ps[:-1])|(cs[1:]!=cs[:-1]),True])
+        part_at={(pitches[ps[s]],int(cs[s])):srt[s:e] for s,e in zip(cut[:-1].tolist(),cut[1:].tolist())}
+        for (a,b),i in zip(tied,firsts):
+            other=b if code[i]==a else a
+            for qi,q in enumerate(offsets(items[i][2])):
+                hit=found_with(i,q,part_at[(q,other)]) if (q,other) in part_at else ()
+                if len(hit):first[(a,b)]=(i,qi,int(place[hit[0]]));break
+    by_parts={' / '.join(sorted({tids[a],tids[b]})):counted[(a,b)] for a,b in sorted(counted,key=lambda key:(-counted[key],first.get(key,())))}
+
+    # The examples: the `limit` pairs of the earliest beats, ties in 0.7's order of finding them.  A pair's beat is its
+    # later onset.  The count for each note of its pairs with partners starting no later than it (a pair of one onset
+    # half from each side) gives the beat B by which `limit` pairs have begun: every pair before B is drawn, from its
+    # later note; then the first pairs at B in 0.7's order, from the outer notes counted to hold some.
     found=[]
-    for beat,_,(a,b,ov) in sorted(kept,key=lambda k:(-k[0],-k[1])):
-        pair=sorted([(a[2],a[5]),(b[2],b[5])])  # the lower pitch first, each with its note's id
-        found.append({'at':where(clock,-beat),'beat':round(-beat,4),'parts':sorted({a[3],b[3]}),'pitches':[x[0] for x in pair],'ids':[x[1] for x in pair],'overlap_beats':round(ov,3),'involves_foreground':a[4] or b[4],'same_part':a[3]==b[3]})
-    return {'count':count,'foreground_count':fg,'by_parts':dict(pairs.most_common()),'examples':found}
+    if limit>0 and count:
+        tw=np.zeros(N);tw[L]=twice
+        by_onset=np.argsort(on,kind='stable');cum=np.cumsum(tw[by_onset]);o=on[by_onset]
+        reach=np.flatnonzero(np.r_[o[1:]!=o[:-1],True]&(cum>=2*limit))  # at the last note of an onset
+        B=o[reach[0]] if len(reach) else np.inf
+        chosen={}
+
+        def add(i,j):
+            a,b=(i,j) if sust[i] and (not sust[j] or items[i]<items[j]) else (j,i)
+            chosen.setdefault((a,b),(max(items[a][0],items[b][0]),a,offsets(items[a][2]).index(items[b][2]),int(place[b])))
+        for z in np.flatnonzero((on<B)&(tw>0)):  # every pair before B, found from its later note
+            z=int(z)
+            for q in set(offsets(items[z][2]))&P.keys():
+                ix=P[q];m=long[ix]&(on[ix]<=on[z])&(end[ix]-on[z]>=ob)
+                if not sust[z]:m&=sust[ix]
+                for j in ix[m]:add(z,int(j))
+        need=limit-len(chosen)
+        if need>0 and B<np.inf:
+            # The outer notes of pairs at B are sustained notes sounding at B.  One starting before B pairs with every
+            # long note at an offset pitch starting at B; one starting at B, with the long notes not sustained that
+            # reach past B by the overlap, and with the sustained ones starting at B after it in 0.7's order.
+            span=np.flatnonzero(sust&(on<=B)&(end-B>=ob))
+            starting=np.bincount(pid[long&(on==B)],minlength=len(pitches))
+            reaching=np.bincount(pid[long&~sust&(on<=B)&(end-B>=ob)],minlength=len(pitches))
+            pairs_at=np.where(on[span]<B,np.array([starting[r].sum() for r in near])[pid[span]],
+                              np.array([reaching[r].sum() for r in near])[pid[span]])
+            with_b=on[span]==B
+            if with_b.any():
+                sb=np.flatnonzero(sust&(on==B));sb=sb[np.lexsort((end[sb],pid[sb]))]  # by pitch, then end
+                cut=np.searchsorted(pid[sb],np.arange(len(pitches)+1))
+                for j in np.unique(pid[span[with_b]]):
+                    here=np.flatnonzero(with_b&(pid[span]==j))
+                    for r in near[j]:
+                        e=end[sb[cut[r]:cut[r+1]]]  # after it: a later end, or the same end at a higher pitch
+                        if len(e):pairs_at[here]+=len(e)-np.searchsorted(e,end[span[here]],'left' if r>j else 'right')
+            for i in span[pairs_at>0]:
+                i=int(i)
+                for q in offsets(items[i][2]):
+                    if q not in P:continue
+                    hit=found_with(i,q,P[q]);hit=hit[on[hit]<=B] if on[i]==B else hit[on[hit]==B]
+                    for j in hit[:need]:add(i,int(j))
+                    need=limit-len(chosen)
+                    if need<=0:break
+                if need<=0:break
+        for (ai,bi),_ in sorted(chosen.items(),key=lambda kv:kv[1])[:limit]:
+            a,b=items[ai],items[bi];ov=min(a[1],b[1])-max(a[0],b[0]);beat=max(a[0],b[0])
+            pair=sorted([(a[2],a[5]),(b[2],b[5])])  # the lower pitch first, each with its note's id
+            found.append({'at':where(clock,beat),'beat':round(beat,4),'parts':sorted({a[3],b[3]}),'pitches':[x[0] for x in pair],'ids':[x[1] for x in pair],'overlap_beats':round(ov,3),'involves_foreground':a[4] or b[4],'same_part':a[3]==b[3]})
+    return {'count':count,'foreground_count':fg_count,'by_parts':by_parts,'examples':found}
 
 def note_name(pitch):
     return f'{NAMES[pitch%12]}{pitch//12-1}'
@@ -496,35 +712,31 @@ def stiffness(p,clock,block_share=.9,min_chords=8):
     no_push=bool(lines) and all(v['downbeat_pushes_pct']==0 for v in lines)
     return {'block_chord_parts':blocks,'parts':parts,'no_pushes_anywhere':no_push}
 
-def transposition(bank,bank_no,program):
+def transposition(bank,bank_no,program,spent=None):
     """Key -> semitones between the key and the recorded pitch of the sample that plays it in a preset (the smallest
-    among the zones covering the key; coarse tune counts). None when the bank has no such preset."""
+    among the zones covering the key; coarse tune counts), over the zone pairs that sound (instruments.pairs: global
+    zones, keys and velocities together). None when the bank has no such preset."""
     pre=next((x for x in bank['presets'] if x['bank']==bank_no and x['program']==program),None)
     if pre is None:return None
     shift={}
-    for pz in pre['zones']:
-        if pz['target'] is None:continue
-        plo,phi=pz['gens'].get(43,(0,127));inst=bank['instruments'][pz['target']]
-        top=next((z['gens'] for z in inst['zones'] if z['target'] is None),{})
-        for z in inst['zones']:
-            g,smp=z['gens'],z['target']
-            if smp is None:continue
-            lo,hi=g.get(43,top.get(43,(0,127)))
-            root=g.get(58,top.get(58,bank['samples'][smp]['root']));coarse=g.get(51,top.get(51,0))
-            for k in range(max(lo,plo),min(hi,phi)+1):
-                d=k-root+coarse
-                if k not in shift or abs(d)<abs(shift[k]):shift[k]=d
+    for _,z,top,(lo,hi),_ in pairs(bank,pre,spent):
+        g=z['gens'];root=g.get(58,top.get(58,bank['samples'][z['target']]['root']));coarse=g.get(51,top.get(51,0))
+        for k in range(lo,hi+1):
+            d=k-root+coarse
+            if k not in shift or abs(d)<abs(shift[k]):shift[k]=d
     return shift
 def sample_maps(p,config):
     """transposition() for every pitched SoundFont part, reading each configured bank once."""
     from . import audio,sf2
-    banks,maps={},{}
+    banks,maps,made={},{},{}   # each preset's map made once, the pairs it looks at bounded a bank (the fourth review)
     for t in p['tracks']:
         if t['engine']!='soundfont' or t.get('drums') or t.get('key_map'):continue
         _,font=audio.soundfont_for(config,t)
-        if font['path'] not in banks:banks[font['path']]=sf2.read(font['path'])
+        if font['path'] not in banks:banks[font['path']]=(sf2.read(font['path']),[0])
         patch=t.get('patch') or {'bank':t.get('bank',0),'program':t.get('program',0)}
-        maps[t['id']]=transposition(banks[font['path']],patch.get('bank',0),patch.get('program',0))
+        k=(font['path'],patch.get('bank',0),patch.get('program',0))
+        if k not in made:made[k]=transposition(banks[font['path']][0],k[1],k[2],banks[font['path']][1])
+        maps[t['id']]=made[k]
     return maps
 def stretched(p,clock,maps,limit=4,examples=40):
     """Notes whose sample is transposed more than `limit` semitones (timbre and vibrato rate change with it), and notes
@@ -535,12 +747,20 @@ def stretched(p,clock,maps,limit=4,examples=40):
         if t['id'] in maps and shift is None:silent.append({'track':t['id'],'problem':'preset not in bank'});continue
         for n in t['notes'] if t['id'] in maps else []:
             d=shift.get(n['pitch'])
-            if d is None:silent.append({'track':t['id'],'at':where(clock,n['on']),'pitch':n['pitch']})
+            if d is None:silent.append({'track':t['id'],'at':where(clock,n['on']),'pitch':n['pitch'],'key_ranges':key_ranges(shift)})   # the runs: a hole inside them too
             elif abs(d)>limit:
                 far.append({'track':t['id'],'at':where(clock,n['on']),'pitch':n['pitch'],'semitones':d})
                 b=by[t['id']];b['notes']+=1
                 if b['worst'] is None or abs(d)>abs(b['worst']['semitones']):b['worst']={'pitch':n['pitch'],'semitones':d,'at':where(clock,n['on'])}
     return {'limit_semitones':limit,'count':len(far),'by_track':dict(sorted(by.items(),key=lambda kv:-kv[1]['notes'])),'examples':far[:examples],'outside_preset':silent[:examples],'outside_count':len(silent)}
+def outside_keys(st):
+    """review's question on notes no zone of their preset covers (stretched()): the count, the first three by part, place
+    and name with the keys their preset has, and the fix (0.8 step 2.1: it gave the count alone)."""
+    runs=lambda r:', '.join(note_name(a) if a==b else f'{note_name(a)} to {note_name(b)}' for a,b in r)
+    named=[f'{x["track"]} at {x["at"]}, {note_name(x["pitch"])}'+(f' (its preset has samples for {runs(x["key_ranges"])})' if x.get('key_ranges') else '')
+           for x in st['outside_preset'] if 'pitch' in x][:3]
+    return (f'{st["outside_count"]} notes fall on keys their preset has no sample for and will not sound'
+            +(': '+'; '.join(named)+('; ...' if st['outside_count']>len(named) else '') if named else '')+'. Move them onto those keys, or give them to an instrument that has them.')
 # The acoustic pianos of the banks other than the Steinway grand (vcsl 0:0), by bank, bank number and program; 'default'
 # is a SoundFont part that names no bank, on the General MIDI bank every installation has.
 OTHER_PIANOS={('piano_osiris',0,0):'the Osiris piano',('piano_osiris',1,0):'the Osiris piano recorded with the pedal held',
@@ -757,7 +977,7 @@ def review(p,out,config=None):
         if st['count'] and ask('transposed_samples'):
             worst=next(iter(st['by_track']))
             put('transposed_samples',f'{st["count"]} notes play a sample transposed more than {st["limit_semitones"]} semitones, most in {worst}; the tone and the vibrato rate change with it. Move them, give them to another instrument, or accept the change.')
-        if st['outside_count']:put('outside_keys',f'{st["outside_count"]} notes fall outside their preset\'s keys and will not sound.')
+        if st['outside_count']:put('outside_keys',outside_keys(st))
         from . import audio,layered
         cannot=summary['cannot_render']=[m for t in p['tracks'] if t['engine']=='soundfont' for m in [layered.unsupported(t,audio.soundfont_for(config,t)[1]['path'])] if m]
         for m in cannot:put('cannot_render','Cannot render: '+m)

@@ -89,7 +89,7 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 <details>
 <summary><b>六个步骤的细节</b></summary>
 
-1. **写谱**：agent 先确定需求要的是什么，再为这首曲子随机抽出十二个词，把需求和这十二个词连成一个整体（一个场景或一段故事），由它决定需求没说到的部分：曲名、曲式、音色。接着写下计划（这首曲子靠什么辨认、高潮在哪里、用什么手段、每个段落要做到什么），再写出项目文件。每个音的音高和时值记在乐谱里；怎么演奏（力度、时间点、松开的时机）另外记录。较长的曲子通常由 agent 写一个简短的 Python 脚本来生成，让和声配置、贝斯线和鼓的乐句都清晰、好改。
+1. **写谱**：agent 先确定需求要的是什么，再为这首曲子随机抽出十二个词，把需求和这十二个词连成一个整体（一个场景或一段故事），由它决定需求没说到的部分：曲名、曲式、音色。接着写下计划（这首曲子靠什么辨认、高潮在哪里、用什么手段、每个段落要做到什么），再写出项目文件。每个音的音高和时值记在乐谱里；怎么演奏（力度、时间点、松开的时机）另外记录。较长的曲子通常由 agent 写一个简短的 Python 脚本来生成，让和声配置、贝斯线和鼓的乐句都清晰、好改。`studio.py start` 会写出脚本的第一版：段落和声部都已命名，每个声部的乐器从已安装的音色库里找好，再加上一个负责记账的小工具（稳定的音符编号、每个音怎么演奏，并逐一检查每个音都落在该乐器有采样的键上）。
 2. **检查乐谱**：`review` 一开头先列出三张从乐谱算出的表（每个段落有哪些声部发声、和弦多久换一次、旋律的节奏），再拿乐谱对照计划，问出两者不符的地方。它会列出声部之间持续的小二度和小九度；为和弦外的每个音标出经过音、挂留音等非和弦音的类型，并询问没有级进解决的音；还会列出独立声部之间的平行五度、八度，以及音区过低的密集音程。每个问题都有标识符，以它开头的书面决定就是对那个问题的回答，让每一处都是有意的选择，而不是意外。
 3. **演奏**：演奏模型加入真人演奏会有的偏差：每位乐手在时间和音量上缓慢的起伏、略微靠后的贝斯、乐句的起伏弧线，以及和弦中各音不会同时按下、也不会同时松开。采样的主旋律可以连奏，也可以推弦。
 4. **渲染**：FluidSynth 用有许可的 SoundFont 音色库，让每个采样声部用各自的乐器演奏；电子声部则由内置的合成器和鼓机，或 Surge XT 合成器的音色演奏。
@@ -99,6 +99,8 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 只改一个音，就只会重新合成那一个声部；音符和混音都没变的声部，会像 DAW 里冻结的音轨一样，直接使用缓存中处理好的分轨。每次渲染都会用所有声部重新混音，所以共用混响、混响尾巴和母带都会随之改变。每一轮修改用一次 `round`：检查乐谱、渲染草稿（声音相同，只省去交付才需要的文件）、测量，再与上一轮比较，每一步都给出简短摘要。`compare` 会列出两次渲染之间的差异：哪些声部重新合成，以及哪些分轨、总线和混响返回有变化、变在哪里、差多少。
 
 游戏用的项目可以设置循环：渲染时会把混响尾巴折回循环开头，并按 Godot 和 RPG Maker 读取的格式，把循环点写进 WAV 和 Ogg 文件，每个段落也标上提示点。循环还能拆成几层，各层相加就是完整混音，让音乐随着游戏紧张程度逐层加厚。
+
+想展示作品时，`studio.py video` 会把渲染结果做成滚动的钢琴卷帘视频，音轨就是母带：每个音按实际演奏的样子呈现，每个声部都列在图例里、演奏时会亮起（大编制放不下的名字会合并成“+N more”，只显示数量），默认控制在 10 MB 以内（GitHub 上传视频的上限）。`studio.py still` 则画出其中一个瞬间的图片。
 
 </details>
 
@@ -134,6 +136,8 @@ npx skills add owoevan-dev/music-skill
 python3 -m venv .venv && . .venv/bin/activate        # Windows: py -m venv .venv, then .venv\Scripts\activate
 python -m pip install -r skills/music-production/requirements.txt
 ```
+
+钢琴卷帘的视频和图片另外需要 Pillow，安装流程不会自动安装：`python -m pip install pillow`。
 
 Windows x64 会下载锁定版本的 FluidSynth 和 FFmpeg 便携版，以及 Surge XT 合成器和运行它的插件宿主（约 55 MB）与它的 3,008 个音色（约 217 MB）；加上 `--no-surge-catalog` 就不装这些音色，加上 `--no-surge` 就完全不装 Surge：
 
@@ -183,6 +187,10 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 > 这首不要联想词。
 
+> 把完成的曲子做成钢琴卷帘视频，放在我的项目页面上。
+
+> 用我放在 ~/samples/kalimba 的采样做成一个乐器（文件名像 kalimba_C4.wav 这样），用来演奏旋律。
+
 > 第 33 小节的副歌旋律太满了，简化一下再重新渲染。
 
 > 跟上一版比，改了哪里？让我听听区别。
@@ -210,7 +218,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 <details>
 <summary><b>效果如何</b></summary>
 
-`selfcheck.py` 共有 160 项检查（没有渲染配置时为 130 项），从 MIDI 往返转换、压缩包安全到实际渲染都包含在内。例如：只改一个音时只会重新合成一个声部，而 `compare` 只在受影响的文件里、从那个音开始找到差异；旧的单一混响混音能逐位重现之前的版本；响度测量对 BS.1770 的标准测试音读出 −3.01 LUFS。CI 会跑完所有检查（包括渲染），环境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.1、FFmpeg 9.0.2，加上 Surge XT）。
+`selfcheck.py` 共有 191 项检查（没有渲染配置时为 156 项），从 MIDI 往返转换、压缩包安全到实际渲染都包含在内。例如：只改一个音时只会重新合成一个声部，而 `compare` 只在受影响的文件里、从那个音开始找到差异；旧的单一混响混音能逐位重现之前的版本；响度测量对 BS.1770 的标准测试音读出 −3.01 LUFS。CI 会跑完所有检查（包括渲染），环境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.1、FFmpeg 9.0.2，加上 Surge XT）。
 
 音乐好不好听是另一回事，只有实际聆听才知道。上面这些曲子是这个仓库最好的证据。
 
@@ -225,7 +233,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 **需要网络或 GPU 吗？** 只有安装时需要网络；渲染在 CPU 上离线进行。你的项目文件不会发给任何人，只有你的 agent 会把它读到的内容发给它自己的模型。
 
-**可以用自己的乐器吗？** 任何 SF2 音色库都可以：用 `studio.py add-soundfont` 加进配置文件，再在声部里指定它（见 [soundbanks.md](skills/music-production/references/soundbanks.md)）。自己加的音色库保留它原本的许可，发布作品前请先确认。
+**可以用自己的乐器吗？** 任何 SF2 音色库都可以：用 `studio.py add-soundfont` 加进配置文件，再在声部里指定它（见 [soundbanks.md](skills/music-production/references/soundbanks.md)）。自己加的音色库保留它原本的许可，发布作品前请先确认。如果是自己录的音，`soundbank.py folder` 一条命令就能建成音色库，每个采样的音高从文件名读出；`soundbank.py sfz` 则能把 SFZ 乐器建成音色库，并列出音色库装不下的部分（见 [soundbank-building.md](skills/music-production/references/soundbank-building.md)）。
 
 </details>
 
@@ -233,6 +241,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 <summary><b>局限</b></summary>
 
 - 不会唱歌、不写歌词。插件只支持 Surge XT，还不能加载你自己的 VST 插件。
+- SFZ 乐器只读取其中一部分：交叉淡化会改成切点，控制器、滤波器和效果则会列为未使用。
 - 音色的上限取决于免费音色库：YR 贝斯只有一层力度，弦乐起音偏慢，马林巴、木琴和短笛的采样稀疏，采样吉他的推弦是把整段采样变调，不会有真实琴弦的音色变化。
 - 目前还没有钢弦木吉他、合唱，以及二胡和越南筝以外的东亚乐器音色库；这些声部只能用 MS Basic 采样稀疏的 General MIDI 音色。
 - Surge XT 的振荡器每次都从随机相位开始，所以同一个 Surge 声部每次合成都会有细微差异；渲染缓存会保留一次的结果，直到这个声部改动为止。它的节拍同步延迟和 LFO 每个声部只用一个速度：该声部大多数音符起始时的乐谱速度，所以弱起拍或渐慢不会决定它，曲中变速也不会跟着改。其他部分每次渲染都完全相同。

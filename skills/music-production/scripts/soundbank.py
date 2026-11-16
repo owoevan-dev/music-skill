@@ -109,32 +109,70 @@ def _ext80(b):
         return float('inf')
 
 def read_aiff(path):
-    """Uncompressed AIFF or AIFC (big-endian PCM, or 'sowt' little-endian) as float frames, with read_audio's info."""
-    data = Path(path).read_bytes()
-    if data[:4] != b'FORM' or data[8:12] not in (b'AIFF', b'AIFC'):
-        raise ValueError(f'{Path(path).name}: not an AIFF file')
-    pos, comm, ssnd = 12, None, None
-    while pos + 8 <= len(data):
-        cid, size = data[pos:pos + 4], int.from_bytes(data[pos + 4:pos + 8], 'big')
-        if cid == b'COMM':
-            comm = data[pos + 8:pos + 8 + size]
-        elif cid == b'SSND':
-            ssnd = data[pos + 8:pos + 8 + size]
-        pos += 8 + size + (size & 1)
-    if comm is None or ssnd is None:
-        raise ValueError(f'{Path(path).name}: AIFF without COMM or SSND')
-    channels, frames, bits = int.from_bytes(comm[:2], 'big'), int.from_bytes(comm[2:6], 'big'), int.from_bytes(comm[6:8], 'big')
-    rate = _ext80(comm[8:18])
-    kind = comm[18:22] if data[8:12] == b'AIFC' else b'NONE'
-    # The rate within the range a WAV's is held to (wavfile.info: 8 to 192 kHz).  The header's number sized working
-    # arrays whatever it claimed: a build's ring measure makes one of a twentieth of a second, and a rate of a million
-    # million asked for 400 GB (GPT's security audit of 0.5, S06).
-    if (kind not in (b'NONE', b'twos', b'sowt') or bits not in (8, 16, 24, 32) or not 1 <= channels <= 8
-            or not 8000 <= rate <= 192000):
-        raise ValueError(f'{Path(path).name}: unsupported AIFF ({kind!r}, {bits} bits, {rate:g} Hz)')
-    offset = int.from_bytes(ssnd[:4], 'big')
-    width = bits // 8
-    raw = ssnd[8 + offset:8 + offset + frames * channels * width]
+    """Uncompressed AIFF or AIFC (big-endian PCM, or 'sowt' little-endian) as float frames, with read_audio's info.
+
+    0.8 step 1.5 (AIFF 1.3; the AIFF-C draft of 1991 for AIFC): the chunk headers are walked by seeking, the samples
+    read once and only where they are.  Until COMM and SSND are both found an ID is printable ASCII (a zero-filled file
+    fails at once); once both are, bytes that make no chunk are left unread (a writer that left out the pad byte after
+    an odd SSND shifts the next header by one, as in one of the Iowa recordings).  A second complete COMM is refused
+    wherever it lies; chunks come in any order, the last SSND is used, the FORM's length is not trusted and no FVER is
+    asked for.  COMM holds 18 bytes in AIFF, and in AIFC 22 and its compression name (a count and that many
+    characters, padded to an even length).  The samples COMM's frames need must lie in SSND, after its offset, and in
+    the file (surplus bytes are left), and a recording over MAX_SOURCE_SECONDS is refused, as a FLAC is, before any
+    sample is read."""
+    path = Path(path)
+    name, size = path.name, path.stat().st_size
+    with open(path, 'rb') as f:
+        head = f.read(12)
+        if len(head) < 12 or head[:4] != b'FORM' or head[8:12] not in (b'AIFF', b'AIFC'):
+            raise ValueError(f'{name}: not an AIFF file')
+        aifc = head[8:12] == b'AIFC'
+        pos, comm, ssnd = 12, None, None              # ssnd: where its payload starts, and how many bytes of it the file holds
+        while pos + 8 <= size:
+            f.seek(pos)
+            cid, csize = (lambda h: (h[:4], int.from_bytes(h[4:8], 'big')))(f.read(8))
+            printable = all(32 <= b < 127 for b in cid)
+            if comm is not None and ssnd is not None and (not printable or pos + 8 + csize > size):
+                break                                 # bytes after both that make no chunk: left unread
+            if not printable:
+                raise ValueError(f'{name}: not an AIFF file (a chunk ID of unprintable bytes at byte {pos})')
+            if cid == b'COMM':
+                if comm is not None:
+                    raise ValueError(f'{name}: two COMM chunks (the second at byte {pos}); which one is meant is not known')
+                comm = f.read(min(csize, 280))        # 22 and a name of at most 255 characters, padded
+                if len(comm) != csize:
+                    raise ValueError(f'{name}: a COMM chunk of {csize} bytes, where AIFF has 18 and AIFC 22 and its compression name')
+            elif cid == b'SSND':
+                ssnd = (pos + 8, min(csize, size - pos - 8))
+            pos += 8 + csize + (csize & 1)
+        if comm is None or ssnd is None:
+            raise ValueError(f'{name}: AIFF without COMM or SSND')
+        # AIFC's compression name: its count, that many characters, and a pad byte where those two make an odd length
+        right = (len(comm) > 22 and len(comm) == 23 + comm[22] + (1 - comm[22] % 2)) if aifc else len(comm) == 18
+        if not right:
+            raise ValueError(f'{name}: a COMM chunk of {len(comm)} bytes, where {"AIFC has 22 and its compression name" if aifc else "AIFF has 18"}')
+        channels, frames, bits = int.from_bytes(comm[:2], 'big'), int.from_bytes(comm[2:6], 'big'), int.from_bytes(comm[6:8], 'big')
+        rate = _ext80(comm[8:18])
+        kind = comm[18:22] if aifc else b'NONE'
+        # The rate within the range a WAV's is held to (wavfile.info: 8 to 192 kHz).  The header's number sized working
+        # arrays whatever it claimed: a build's ring measure makes one of a twentieth of a second, and a rate of a million
+        # million asked for 400 GB (GPT's security audit of 0.5, S06).
+        if (kind not in (b'NONE', b'twos', b'sowt') or bits not in (8, 16, 24, 32) or not 1 <= channels <= 8
+                or not 8000 <= rate <= 192000):
+            raise ValueError(f'{name}: unsupported AIFF ({kind!r}, {bits} bits, {rate:g} Hz)')
+        if frames > MAX_SOURCE_SECONDS * rate:
+            raise ValueError(f'{name}: longer than {MAX_SOURCE_SECONDS // 60} minutes, more than a sample recording; cut it first')
+        width = bits // 8
+        start, held = ssnd
+        if held < 8:
+            raise ValueError(f'{name}: an SSND chunk without its offset and block size')
+        f.seek(start)
+        offset = int.from_bytes(f.read(4), 'big')
+        need = frames * channels * width
+        if held - 8 - offset < need:
+            raise ValueError(f'{name}: COMM says {frames} frames, and the sound data after its offset holds fewer')
+        f.seek(start + 8 + offset)
+        raw = f.read(need)
     order = '<' if kind == b'sowt' else '>'
     if width == 3:
         b3 = np.frombuffer(raw, dtype='u1').reshape(-1, 3).astype(np.int32)
@@ -417,14 +455,26 @@ def _note_run(names):
     return list(range(lo, hi + 1))
 
 def contained(root, rel, what):
-    """`root`/`rel` for a relative path that stays inside `root` (no absolute path, "..", drive or backslash, and no
-    link out of it); a manifest or spec from elsewhere cannot reach other files."""
+    """`root`/`rel` for a relative path that stays inside `root` (no absolute path, "..", drive or backslash), and on
+    which no folder or file below the root is a link or a junction (CWE-59; 0.8 step 1.5: one inside the root was
+    followed): a manifest or spec from elsewhere cannot reach other files.  The root itself may be one: each entry
+    resolves it once."""
     parts = PurePosixPath(rel).parts if isinstance(rel, str) else ()
     if not parts or rel.startswith('/') or '..' in parts or ':' in rel or '\\' in rel:
         raise ValueError(f'{what} {rel!r}: expected a relative path inside its folder')
-    path = Path(root) / rel
+    path = Path(root)
+    for part in parts:
+        path = path / part
+        unlinked(path, root, what)
     if not path.resolve().is_relative_to(Path(root).resolve()):
         raise ValueError(f'{what} {rel!r} leads out of its folder')
+    return path
+
+
+def unlinked(path, root, what):
+    """`path`, below `root`, refused where it is a link or a junction, naming it (CWE-59)."""
+    if files.linked(path):
+        raise ValueError(f'{what}: {Path(path).relative_to(root).as_posix()} is a link or a junction; the build opens none below its root')
     return path
 
 # The characters a label that becomes part of a file's name may hold: POSIX's portable filename character set, which
@@ -441,6 +491,179 @@ def label(text, what):
             or text.split('.')[0].lower() in RESERVED):
         raise ValueError(f'{what} {text!r}: a name of letters, digits, "_", "." and "-" (at most 64, no path)')
     return text
+
+# 0.8 step 1.5 (CWE-1333, Inefficient Regular Expression Complexity: no regular expression from outside runs here).  A
+# spec names a layer's files with a `template`; the skill's own recipes keep the regular expressions (`pattern`) they
+# were built with, told by the canonical digest of the parsed spec, which soundbank-lock.json records for each locked
+# build (`spec_digest`): a copy under another name or with other line endings is still one of them, a copy with one
+# value changed is not.
+LOCK = Path(__file__).resolve().parents[1] / 'references' / 'soundbank-lock.json'
+TEMPLATE_FIELDS = ('note', 'dyn', 'id', 'rr')
+NOTE_FIELD = re.compile(r'[A-Ga-g][#b]?(?:-1|[0-9])')  # a note name as note_number reads it, octave -1 to 9
+
+
+def bundled_digests():
+    """The digests of the skill's own recipes, from the lock."""
+    lock = files.read_object(LOCK, 'the sound bank lock', needs=(('builds', list, 'the locked builds'),))
+    return {b['spec_digest'] for b in lock['builds'] if isinstance(b, dict) and isinstance(b.get('spec_digest'), str)}
+
+
+def template_parts(text, where):
+    """A file-name template as its parts, in order: literal text, and up to four fields, {note}, {dyn}, {id} and {rr},
+    each at most once, with literal text between any two (('', field) for a field).  A brace outside a field is
+    refused: there is no escape."""
+    if not isinstance(text, str) or not text:
+        raise ValueError(f'{where}: `template` is the form of the file names, e.g. "p_{{note}}_vl{{dyn}}_rr{{rr}}.wav"')
+    parts, literal, i = [], '', 0
+    while i < len(text):
+        c = text[i]
+        if c == '}':
+            raise ValueError(f'{where}: template {text!r} has a "}}" outside a field (a brace only encloses one)')
+        if c != '{':
+            literal += c
+            i += 1
+            continue
+        j = text.find('}', i)
+        name = text[i + 1:j] if j > i else None
+        if name not in TEMPLATE_FIELDS:
+            raise ValueError(f'{where}: template {text!r}: a field is one of {{note}}, {{dyn}}, {{id}} and {{rr}}, in braces')
+        if any(f == name for _, f in parts):
+            raise ValueError(f'{where}: template {text!r} names {{{name}}} twice')
+        if parts and parts[-1][1] and not literal:
+            raise ValueError(f'{where}: template {text!r} has two fields with no text between them; nothing would tell where one ends')
+        if literal:
+            parts.append((literal, None))
+            literal = ''
+        parts.append(('', name))
+        i = j + 1
+    if literal:
+        parts.append((literal, None))
+    return parts
+
+
+def template_match(parts, name):
+    """The fields of file name `name` by a template's parts, or None.  One pass, left to right, no backtracking: a
+    literal must stand there exactly; a field runs to the first place the next literal follows, or to the end of the
+    name when it is last, and a last literal is matched at the end; what a field took must be one or more of its
+    characters (a note name; ASCII letters or digits for {dyn} and {id}; ASCII digits for {rr}, kept as written)."""
+    got, pos = {}, 0
+    for k, (literal, field) in enumerate(parts):
+        if field is None:
+            if not name.startswith(literal, pos):
+                return None
+            pos += len(literal)
+            continue
+        if k == len(parts) - 1:
+            end = len(name)
+        elif k + 1 == len(parts) - 1:
+            end = len(name) - len(parts[k + 1][0])
+        else:
+            end = name.find(parts[k + 1][0], pos)
+        value = name[pos:end] if end >= pos else ''  # none of the tests below takes an empty value
+        if not (NOTE_FIELD.fullmatch(value) if field == 'note' else value.isascii() and (value.isdigit() if field == 'rr' else value.isalnum())):
+            return None
+        got[field] = value
+        pos = end
+    return got if pos == len(name) else None
+
+
+def _as_template(pattern):
+    """A regex of the usual form, written as the nearest template, or None: each named group of the four fields as
+    the field, an escaped character as itself, and nothing else of a regex left.  Nearest, not the same: a field takes
+    any value of its kind, where the group may have taken fewer (`(?P<note>C4|D4)` becomes {note}, which takes E4 too)."""
+    if not isinstance(pattern, str):
+        return None
+    marked = re.sub(r'\(\?P<(note|dyn|id|rr)>[^()]*\)', lambda m: '\0' + m.group(1) + '\0', pattern)
+    out, i = '', 0
+    while i < len(marked):
+        c = marked[i]
+        if c == '\\' and i + 1 < len(marked) and not marked[i + 1].isalnum():
+            out, i = out + marked[i + 1], i + 2
+        elif c in '\\.^$*+?()[]{}|':
+            return None
+        else:
+            out, i = out + c, i + 1
+    return out.replace('\0note\0', '{note}').replace('\0dyn\0', '{dyn}').replace('\0id\0', '{id}').replace('\0rr\0', '{rr}')
+
+
+def step3_fields(layer, where):
+    """The layer fields 0.8 step 3 added, checked before any recording is read: a span of [0.5, 5] stopped the build
+    with TypeError and [0] with IndexError, a tune of "20" with TypeError (the third outside review of 0.8)."""
+    whole = lambda v: isinstance(v, int) and not isinstance(v, bool)
+    # a whole number is compared as it is (math.isfinite of a JSON integer of 401 digits raised OverflowError: the
+    # fourth review)
+    real = lambda v: whole(v) or (isinstance(v, float) and math.isfinite(v))
+    for name in ('span', 'loop_points'):
+        v = layer.get(name, [0, 1])
+        ok = isinstance(v, list) and len(v) == 2 and whole(v[0]) and v[0] >= 0
+        if ok and name == 'loop_points' and v[1] is None:
+            continue   # a loop to the end of what is kept (an SFZ loop with no loop_end, on a sample with no loop of its own)
+        if not (ok and whole(v[1]) and v[0] < v[1]):
+            raise ValueError(f'{where}: `{name}` is [the first frame, the frame after the last] in whole numbers, the first below the other'
+                             + (' (or null: to the end of what is kept)' if name == 'loop_points' else ''))
+    if (layer.get('loop') == 'points') != ('loop_points' in layer):
+        raise ValueError(f'{where}: `"loop": "points"` and `loop_points` come together')
+    if 'tune_cents' in layer and not (real(layer['tune_cents']) and -100 <= layer['tune_cents'] <= 100):
+        raise ValueError(f'{where}: `tune_cents` is a number of cents from -100 to 100 (whole semitones go into `root`)')
+    if layer.get('onset_db') is not None and not (real(layer['onset_db']) and layer['onset_db'] < 0):
+        raise ValueError(f'{where}: `onset_db` is a level below 0 dB, or null to keep each take from its first frame')
+    if layer.get('loop_mode', 'sustain') != 'sustain':
+        raise ValueError(f'{where}: `loop_mode` is "sustain" (the loop plays while the key is held), or absent')
+    env = layer.get('envelope')
+    if isinstance(env, dict) and 'delay' in env and not (real(env['delay']) and 0 <= env['delay'] <= 100):
+        raise ValueError(f'{where}: the envelope\'s `delay` is seconds from 0 to 100')
+
+
+def naming(spec):
+    """Each layer's way of naming its files, checked before any recording is read: its template's parts, or None for
+    the regular expression of one of the skill's own recipes.  A `pattern` in any other spec, or beside a template,
+    is refused, naming the preset and layer, with the nearest template where it has the usual form.  The layer fields
+    of step 3 are checked here too (step3_fields)."""
+    from musiclib.model import digest
+    ours, out = None, []
+    for p in spec['presets']:
+        for k, layer in enumerate(p['layers']):
+            where = f'preset {p.get("name")!r}, layer {k + 1}'
+            if not isinstance(layer, dict):
+                raise ValueError(f'{where}: a layer is an object')
+            step3_fields(layer, where)
+            if 'template' in layer:
+                if 'pattern' in layer:
+                    raise ValueError(f'{where}: a `pattern` beside its `template`; the template alone names the files')
+                parts = template_parts(layer['template'], where)
+                if 'note' not in [f for _, f in parts] and 'root' not in layer and 'pitches' not in layer:
+                    raise ValueError(f'{where}: template {layer["template"]!r} has no {{note}}: give the layer a `root` key, or '
+                                     '`pitches` by {id}')
+                out.append(parts)
+            elif 'pattern' in layer:
+                ours = digest(spec) in bundled_digests() if ours is None else ours
+                if not ours:
+                    shown = _as_template(layer['pattern'])
+                    try:
+                        template_parts(shown, where) if shown else None   # a hint the grammar refuses (n_{note}{dyn}.wav) is not shown
+                    except ValueError:
+                        shown = None
+                    raise ValueError(f'{where}: names its files with a regular expression (`pattern`), which only the skill\'s own '
+                                     'recipes keep (0.8). Name them with a `template` instead: '
+                                     + (f'"template": "{shown}" (the nearest one: each field takes any value of its kind, which the regex may have narrowed)' if shown else
+                                        '"template": "p_{note}_vl{dyn}_rr{rr}.wav", literal text and the fields {note}, {dyn}, {id} and {rr}'))
+                out.append(None)
+            else:
+                raise ValueError(f'{where}: no `template` naming its files, e.g. "template": "p_{{note}}_vl{{dyn}}.wav"')
+    return out
+
+
+def _span(note, frames):
+    """A manifest note's start, end and fade, checked against its decoded source before anything is sliced or ramped
+    (CWE-770; 0.8 step 1.5: a fade longer than its note, a float or a negative start failed late or not at all): whole
+    numbers, not booleans, with 0 <= start <= end <= the source's frames and 0 <= fade <= end - start."""
+    s, e, f = (note.get(k) for k in ('start', 'end', 'fade'))
+    if not all(isinstance(v, int) and not isinstance(v, bool) for v in (s, e, f)):
+        raise ValueError(f'{note.get("file")!r}: its start, end and fade are whole numbers of samples')
+    if not (0 <= s <= e <= frames and 0 <= f <= e - s):
+        raise ValueError(f'{note.get("file")!r}: samples {s} to {e} with a fade of {f} do not fit a source of {frames} samples')
+    return s, e, f
+
 
 def _cut_note(x, start, end, fade, rate, path):
     """Write samples start..end of `x` as a float WAV, the last `fade` samples faded out; returns the file's SHA-256."""
@@ -467,7 +690,7 @@ def cut_sources(manifest, src_root, out_root):
     whose floating-point decisions could differ by a frame on another platform.  Each note is written under a name of
     its own and takes its file's name only once it is checked; if any note fails, the notes this run cut are removed
     again (they are its own: every one was a new file), so no note that does not match, nor half a set, is left."""
-    src_root, out_root = Path(src_root), Path(out_root)
+    src_root, out_root = Path(src_root).resolve(), Path(out_root).resolve()  # each once: a link below either is refused (contained)
     by_source, targets = {}, {}
     for n in manifest['notes']:
         contained(src_root, n['source'], 'source')
@@ -487,7 +710,7 @@ def cut_sources(manifest, src_root, out_root):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 temp = files.stage_name(path, '.wav')
                 try:
-                    if _cut_note(x, n['start'], n['end'], n['fade'], info['rate'], temp) != n['sha256']:
+                    if _cut_note(x, *_span(n, len(x)), info['rate'], temp) != n['sha256']:
                         raise ValueError(f'{n["file"]}: the cut does not reproduce the recorded note (is {source} the '
                                          'recording the manifest was made from?); no note was kept')
                     files.fresh(path, 'cut writes into a new folder')
@@ -812,7 +1035,7 @@ def split_sources(split, src_root, out_root):
     note at the same dynamic (a violin's notes on more than one string), `strings` gives each string's preferred notes
     and the nearest string that has the note is used.  Returns the manifest: every note's source, sample span, pitch,
     and each source's noise floor."""
-    src_root, out_root = Path(src_root), Path(out_root)
+    src_root, out_root = Path(src_root).resolve(), Path(out_root).resolve()  # each once: a link below either is refused (contained)
     manifest = {'groups': [], 'notes': [], 'sources': []}
     for group in split['groups']:
         label(group.get('name'), 'group name')
@@ -944,9 +1167,14 @@ def read_audio(path, ffmpeg=None):
     try:
         # Decoded to at most a second past MAX_SOURCE_SECONDS, so the temporary WAV stays bounded whatever the file
         # claims; a longer recording is refused rather than cut.
-        subprocess.run([str(ffmpeg), '-hide_banner', '-nostdin', '-v', 'error', '-y', '-protocol_whitelist', 'file',
-                        '-f', 'flac', '-i', str(path), '-t', str(MAX_SOURCE_SECONDS + 1), '-c:a', 'pcm_f32le', tmp],
-                       check=True, stdin=subprocess.DEVNULL, timeout=600, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        try:   # a file FFmpeg cannot decode, or not in time, is named (its errors went past the command's handler: the whole review)
+            subprocess.run([str(ffmpeg), '-hide_banner', '-nostdin', '-v', 'error', '-y', '-protocol_whitelist', 'file',
+                            '-f', 'flac', '-i', str(path), '-t', str(MAX_SOURCE_SECONDS + 1), '-c:a', 'pcm_f32le', tmp],
+                           check=True, stdin=subprocess.DEVNULL, timeout=600, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        except subprocess.CalledProcessError as e:
+            raise ValueError(f'{path.name}: FFmpeg could not decode this FLAC (exit code {e.returncode}; its message is above)') from None
+        except subprocess.TimeoutExpired:
+            raise ValueError(f'{path.name}: FFmpeg did not decode this FLAC within 600 seconds') from None
         x, info = wavfile.read(tmp)
         if len(x) > MAX_SOURCE_SECONDS * info['rate']:
             raise ValueError(f'{path.name}: longer than {MAX_SOURCE_SECONDS // 60} minutes, more than a sample recording; cut it first')
@@ -1368,7 +1596,7 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
                                 if offset:
                                     z[0], z[4] = offset % 32768, offset // 32768
                                 if e.get('loop'):
-                                    z[54] = 1
+                                    z[54] = 3 if layer.get('loop_mode') == 'sustain' else 1   # as the main preset's zones
                                 if layer.get('exclusive_class'):
                                     z[57] = int(layer['exclusive_class'])
                                 if len(ids) == 2:
@@ -1390,12 +1618,13 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
 
 def _split_pitches(root):
     """Each note file's measured offset in cents from its name, from the manifest `split` wrote beside the notes."""
-    manifest = files.read_object(Path(root) / 'split.json', 'a split manifest', needs=(('notes', list, 'the notes split cut'),))
+    manifest = files.read_object(unlinked(Path(root) / 'split.json', root, 'the split manifest'), 'a split manifest', needs=(('notes', list, 'the notes split cut'),))
     return {n['file'].replace('\\', '/'): n['cents'] for n in manifest['notes'] if n.get('cents') is not None}
 
-def _load_layer(layer, root, ffmpeg, loaded, receipt):
-    """Match, load, trim and measure one layer's takes; returns its entries (octave-checked) and per-dynamic medians."""
-    rx = re.compile(layer['pattern'])
+def _load_layer(layer, root, ffmpeg, loaded, receipt, parts=None):
+    """Match, load, trim and measure one layer's takes; returns its entries (octave-checked) and per-dynamic medians.
+    `parts`: the layer's template (naming); None for the regular expression of one of the skill's own recipes."""
+    rx = re.compile(layer['pattern']) if parts is None else None
     # `pitch_source: "split"`: notes cut by `split` keep the pitch measured over their whole steady part, so a low
     # pedal note that defeats a short YIN excerpt is still tuned.
     split_cents = _split_pitches(root) if layer.get('pitch_source') == 'split' else None
@@ -1405,12 +1634,24 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
     under = lambda rel, what: Path(root) if rel == '.' else contained(root, rel, what)
     folder = under(mics[0]['dir'] if mics else layer['dir'], 'layer dir')
     entries = []
-    for f in audio_files(folder):
-        m = rx.fullmatch(f.name)
-        if not m:
-            receipt['files'].append({'file': str(f.relative_to(root)), 'skipped': 'name does not match pattern'})
+    # A folder listed once a build (an SFZ's regions share one), and a template of no field, which names one file,
+    # says nothing of the folder's others: Meta Piano's 352 regions in one folder wrote 123,552 of them in its receipt.
+    listing = loaded.get(('folder', str(folder)))
+    if listing is None:
+        listing = loaded[('folder', str(folder))] = audio_files(folder)
+    literal = parts is not None and all(f is None for _, f in parts)
+    if literal:   # its one file by its name, not each of the folder's matched against it (a region a file: R x F)
+        names = loaded.get(('names', str(folder)))
+        if names is None:
+            names = loaded[('names', str(folder))] = {f.name: f for f in listing}
+        listing = [names[parts[0][0]]] if parts[0][0] in names else []
+    for f in listing:
+        m = rx.fullmatch(f.name) if rx else template_match(parts, f.name)
+        if m is None:   # a template of no field matches with no fields: {}
+            if not literal:
+                receipt['files'].append({'file': str(f.relative_to(root)), 'skipped': f'name does not match {"pattern" if rx else "template"}'})
             continue
-        g = m.groupdict()
+        g = m.groupdict() if rx else m
         dyn = g.get('dyn') or 'default'
         if dyn not in layer['dynamics']:
             continue
@@ -1429,6 +1670,8 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
             if rel not in split_cents:
                 raise ValueError(f'{rel}: not in split.json')
             measured = named + split_cents[rel] / 100
+        if 'tune_cents' in layer:   # an SFZ region's tune (0.8 step 3.2): played that many cents sharp, as a take that much flat is
+            measured = named - layer['tune_cents'] / 100
         # Every microphone recorded the same take in its own folder, under the same file name or one that differs by the
         # microphone's own tag (`name`: [text in the first microphone's file name, text in this one's]).
         # (Named takes, not files: a local `files` hid the module, and the denoise of notes cut by split, which reads
@@ -1442,6 +1685,8 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
                 raise ValueError(f'{name!r}: a microphone\'s `name` changes a take\'s file name, not its folder')
             return there / name
         takes = [f] + [take_of(mic) for mic in (mics or [])[1:]]
+        for take in takes:
+            unlinked(take, root, 'a take')
         for other in takes[1:]:
             if not other.is_file():
                 raise ValueError(f'{other.relative_to(root)}: no take for this microphone')
@@ -1449,7 +1694,7 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
     if not entries:
         raise ValueError(f'No samples matched {folder.relative_to(root)}')
     # Load, trim, measure pitch and level.
-    looped = layer.get('loop') in ('recorded', 'found')
+    looped = layer.get('loop') in ('recorded', 'found', 'points')
     dn = layer.get('denoise')
     dc = layer.get('declick')
     # `highpass`: {"ratio", "max_hz"}, a zero-phase high-pass at that fraction of each take's fundamental, at most
@@ -1462,7 +1707,7 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
         # it was split (the manifest stores it, rounded, so every build gets the same numbers).  A recording played
         # without pauses borrows the median, band by band, of the recordings of the same layer and dynamic that have
         # one (one session, one setup), or of all the layer's.
-        manifest = files.read_object(root / 'split.json', 'a split manifest',
+        manifest = files.read_object(unlinked(root / 'split.json', root, 'the split manifest'), 'a split manifest',
                                      needs=(('notes', list, 'the notes split cut'), ('sources', list, 'the recordings it cut them from')))
         bands = {s['file']: s.get('noise_bands') for s in manifest['sources']}
         source_of = {n['file']: n['source'] for n in manifest['notes']}
@@ -1504,12 +1749,21 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
         rel = e['file'].relative_to(root).as_posix()
         cleaned_with = (per_take[rel] if dn and rel in per_take else
                         hashlib.sha256(np.ascontiguousarray(noise[e['dyn']]).tobytes()).hexdigest() if dn and e['dyn'] in noise else None)
-        key = json.dumps([[str(f) for f in e['files']], mics, layer.get('onset_db'), layer.get('max_seconds'), layer.get('ring_db'),
+        # (onset_db as written: absent apart from -45 written out, as 0.7 kept them apart, and from null, step 3's "keep
+        # the take from its first frame")
+        key = json.dumps([[str(f) for f in e['files']], mics, layer.get('onset_db', 'unset'), layer.get('max_seconds'), layer.get('ring_db'),
                           layer.get('level'), layer.get('loop'), layer.get('loop_window'), layer.get('loop_repair'), dn, cleaned_with, dc, hpf,
                           e['named'] if looped or hpf else None,
-                          e['measured'] if dn and dn.get('keep_partials_below') else None] + ([['close_hiss', close]] if close is not None else []))
+                          e['measured'] if dn and dn.get('keep_partials_below') else None] + ([['close_hiss', close]] if close is not None else [])
+                         + ([['span', layer.get('span'), layer.get('loop_points')]] if 'span' in layer or 'loop_points' in layer else []))
         if key not in loaded:
             x, info = mic_mix(e['files'], mics, ffmpeg) if mics else read_audio(e['file'], ffmpeg)
+            cut = 0
+            if 'span' in layer:   # an SFZ region's offset and end (0.8 step 3.2), in the file's own frames
+                cut, end = layer['span'][0], min(layer['span'][1], len(x))
+                if not 0 <= cut < end:
+                    raise ValueError(f'{e["file"].name}: offset {cut} and end {layer["span"][1]} leave nothing of its {len(x)} frames')
+                x = x[cut:end]
             if hpf:
                 f0 = 440.0 * 2 ** ((e['named'] - 69) / 12)
                 x = highpass(x, info['rate'], min(hpf.get('max_hz', 120.0), hpf.get('ratio', 0.73) * f0))
@@ -1530,7 +1784,8 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
                 noise_db = round(10 * math.log10(4 * noise[e['dyn']].sum() / DENOISE_FRAME ** 2 + 1e-30), 1)
                 noise_from = 'quiet frames'
             # Short articulations use a higher threshold so pre-attack bow/breath noise is cut.
-            start = onset(x, info['rate'], layer.get('onset_db', -45.0))
+            threshold = layer.get('onset_db', -45.0)
+            start = onset(x, info['rate'], threshold) if threshold is not None else 0   # None: kept as cut (an SFZ region's offset)
             x = x[start:]
             # `declick` (options of find_clicks, {} for its defaults): a take that rings on while the action knocks
             # (a key let go under the sustain pedal) has the knock repaired before the ring cut is measured.
@@ -1542,9 +1797,17 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt):
                 if not info.get('loops'):
                     raise ValueError(f'{e["file"].name}: no recorded loop (a WAV smpl chunk) to keep')
                 ls, le = info['loops'][0]
-                if ls < start:
+                if ls < cut + start:
                     raise ValueError(f'{e["file"].name}: the silence trim reaches into the recorded loop')
-                loop = (ls - start, le - start)
+                if le > cut + start + len(x):   # an SFZ region's end short of the file's loop (0.8 step 3.2)
+                    raise ValueError(f'{e["file"].name}: the end kept, frame {cut + start + len(x)}, cuts into the recorded loop {ls}-{le}')
+                loop = (ls - cut - start, le - cut - start)
+            elif layer.get('loop') == 'points':   # an SFZ region's loop_start and loop_end, in the file's frames
+                ls, le = layer['loop_points']
+                le = cut + start + len(x) if le is None else le   # null: to the end of what is kept (ARIA's loop with no loop_end)
+                if not cut + start <= ls < le <= cut + start + len(x):
+                    raise ValueError(f'{e["file"].name}: loop {ls}-{le} lies outside the {len(x)} frames kept from {cut + start}')
+                loop = (ls - cut - start, le - cut - start)
             elif layer.get('loop') == 'found':
                 # A take recorded without a loop: one is cut from `loop_window` (seconds after the onset), its end
                 # moved back to the last steady point and matched to the start by steady_loop below.
@@ -1724,13 +1987,14 @@ def _across_levels(local, layer_med):
     return {(n, dyn): float(np.median(common[n])) * layer_med[dyn] for (n, dyn) in local}
 
 def build(spec, root, output, ffmpeg=None, new=False):
-    root = Path(root)
+    root = Path(root).resolve()  # once: a link below it is refused where the build opens it (contained, unlinked)
+    named = iter(naming(spec))  # every layer's naming checked before any recording is read (0.8 step 1.5)
     samples, instruments, presets, receipt = [], [], [], {'spec': spec.get('name'), 'files': [], 'layers': []}
     loaded, stored = {}, {}
     for pspec in spec['presets']:
         layer_targets = []
         first_instrument = len(instruments)
-        prepared = [_load_layer(layer, root, ffmpeg, loaded, receipt) for layer in pspec['layers']]
+        prepared = [_load_layer(layer, root, ffmpeg, loaded, receipt, next(named)) for layer in pspec['layers']]
         # Level matching: each dynamic layer's median level is kept relative to the loudest layer; notes within a
         # layer are pulled toward the layer median (bounded so noise is not raised much), or with `match_notes:
         # "local"` toward the median of their nearest neighbours, or with "across" every dynamic of a note to one
@@ -1740,6 +2004,8 @@ def build(spec, root, output, ffmpeg=None, new=False):
         common = max(max(med.values()) for _, _, med in prepared) if shared else None
         for layer, (entries, octave_fix, layer_med) in zip(pspec['layers'], prepared):
             ref = common if shared else max(layer_med.values())
+            if not ref > 0:   # silent takes alone (an SFZ's onset_db null lets them by): nothing to set the others' level by
+                raise ValueError(f'preset {pspec.get("name")!r}: its samples are silent (a level of 0); leave the silent ones out')
             # Optional `layer_levels_db` sets each recorded dynamic's level relative to the loudest one (a soft
             # layer keeps its timbre but stops being 15-25 dB down, and sections in one patch match).
             shape = layer.get('layer_levels_db')
@@ -1774,7 +2040,7 @@ def build(spec, root, output, ffmpeg=None, new=False):
             vel_ranges = layer['velocity']
             env = layer.get('envelope', {})
             gens = {54: 0}
-            for name, gen in (('attack', 34), ('hold', 35), ('decay', 36), ('release', 38)):
+            for name, gen in (('delay', 33), ('attack', 34), ('hold', 35), ('decay', 36), ('release', 38)):
                 if name in env:
                     gens[gen] = sf2.timecents(env[name])
             if 'sustain_db' in env:
@@ -1869,7 +2135,9 @@ def build(spec, root, output, ffmpeg=None, new=False):
                                 if quieter or e.get('stored_lift_cb'):
                                     z[48] = gens.get(48, 0) + quieter + e.get('stored_lift_cb', 0.0)
                                 if e.get('loop'):
-                                    z[54] = 1  # loop continuously; the release envelope ends the note
+                                    # loop continuously, the release envelope ending the note; an SFZ loop_sustain
+                                    # (loop_mode "sustain") plays on past the loop after the key is let go (SF2 mode 3)
+                                    z[54] = 3 if layer.get('loop_mode') == 'sustain' else 1
                                 if layer.get('exclusive_class'):
                                     z[57] = int(layer['exclusive_class'])
                                 if len(ids) == 2:
@@ -1935,9 +2203,207 @@ def build(spec, root, output, ffmpeg=None, new=False):
                          'presets': sf2.inventory(sf2.read(output))}
     return receipt
 
+def folder_spec(folder, template, name, program, license, dynamics=None, keys='auto', loop=None, bank=0):
+    """The spec `soundbank.py folder` builds (0.8 step 3.1): one preset of one layer over the user's folder, its files
+    named by `template`, each take's pitch read from its {note} and checked by the builder, the takes trimmed and their
+    levels matched as any spec's are, the velocity range shared evenly by the dynamics, loudest last (MIDI 1.0 gives
+    velocity no curve, so even shares are a start a spec of one's own then shapes).  With more than one {dyn} value
+    in the folder `dynamics` must name them all, softest first: their names do not say their order."""
+    parts = template_parts(template, 'the template')
+    fields = {f for _, f in parts if f}
+    if 'note' not in fields:
+        raise ValueError(f'--template {template!r}: a take\'s pitch comes from {{note}} in its name here; takes named by position '
+                         '({id}) or one take for every key need a spec of their own (soundbank-building.md: pitches, root)')
+    found = sorted({m.get('dyn', 'default') for f in audio_files(folder) if (m := template_match(parts, f.name)) is not None})
+    if not found:
+        raise ValueError(f'No file in {folder} is named as {template!r}')
+    if dynamics is None:
+        if len(found) > 1:
+            raise ValueError(f'The folder holds the dynamics {", ".join(found)}, and their names do not say which is softer: give '
+                             'them all, softest first, as --dynamics <softest>,...,<loudest>')
+        dynamics = found
+    elif sorted(dynamics) != found or len(set(dynamics)) != len(dynamics):
+        raise ValueError(f'--dynamics {",".join(dynamics)}: the folder holds {", ".join(found)}; name each once, softest first')
+    n = len(dynamics)
+    if n > 127:   # 127 velocities to share: 128 dynamics gave one an empty range
+        raise ValueError(f'{n} dynamics: MIDI has 127 velocities to share among them')
+    edges = [round(127 * k / n) for k in range(n + 1)]
+    layer = {'dir': '.', 'template': template, 'dynamics': list(dynamics),
+             'velocity': {d: [edges[k] + 1, edges[k + 1]] for k, d in enumerate(dynamics)}, 'keys': keys, **({'loop': loop} if loop else {})}
+    return {'name': name, 'comment': f'Built by soundbank.py folder from the user\'s own samples ({folder.name})', 'copyright': license,
+            'presets': [{'name': name, 'program': program, **({'bank': bank} if bank else {}), 'layers': [layer]}]}
+
+
+def sfz_spec(sfz_path, root, name, program, license):
+    """The spec `soundbank.py sfz` builds (0.8 step 3.2) and what it could not carry: one preset, one layer a region,
+    its sample by the path below `root` the SFZ names (sfz.read: through no link), its root key (the pitch centre less
+    the transpose and the whole semitones of the tune, the rest as fine tune), keys and velocities (each crossfade a
+    split at its middle), volume as a gain, offset and end as the span kept, the loop (each point the SFZ's, else the
+    file's own), the amplitude envelope, and group and off_by as an exclusive class (SF2's is mutual: a group cut by
+    another cuts it too).  The levels are the SFZ's (none matched, one reference for the preset) and the pitch is the
+    SFZ's (none checked); nothing is trimmed but by the offset.  Each value is read as SFZ writes numbers and held to
+    the range its page of the SFZ documentation gives (the third outside review: a volume of 100000 overflowed)."""
+    from collections import Counter
+    from musiclib import sfz
+    parsed = sfz.read(sfz_path, root)   # the root as given: resolved there, once (one resolved here hid a link: the whole review)
+    root = Path(root).resolve()
+    file = Path(sfz_path).name
+
+    def num(r, op, default, where, cast, lo, hi):
+        value = str(r.get(op, default)).strip()
+        if not re.fullmatch(r'[+-]?\d+' if cast is int else r'[+-]?(\d+\.?\d*|\.\d+)', value):
+            raise ValueError(f'{where}: {op}={r.get(op)!r} is no {"whole " if cast is int else ""}number')
+        if not lo <= cast(value) <= hi:
+            raise ValueError(f'{where}: {op}={r.get(op)!r} is outside {lo:g} to {hi:g}')
+        return cast(value)
+    FRAMES = 2 ** 32 - 1   # offset, end and the loop points: the documentation's 0 to 4294967296 sample units
+    # group and off_by are numbers (0, the default, is no group and no off_by); a region of no group that another cuts
+    # gets a group of its own, so the other regions of group 0 do not cut each other in SF2's mutual classes.
+    parent, groups, silent = {}, [], set()
+
+    def find(g):   # iterative (a chain of 1,100 groups overflowed the recursion), each walk made one step for the next
+        top = g
+        while parent[top] != top:
+            top = parent[top]
+        while parent[g] != top:
+            parent[g], g = top, parent[g]
+        return top
+    for k, r in enumerate(parsed['regions']):
+        where = f'{file}, region {k + 1}'
+        if 'end' in r and num(r, 'end', 0, where, int, -1, FRAMES) == -1:
+            silent.add(k)   # end=-1: a region that does not play (SFZ uses one to cut others)
+            groups.append(None)
+            continue
+        g = num(r, 'group', 0, where, int, -2 ** 31, 2 ** 31 - 1)
+        off = num(r, 'off_by', 0, where, int, -2 ** 31, 2 ** 31 - 1)
+        g = ('region', k) if off and not g else g
+        groups.append(g)
+        if off:
+            for x in (g, off):
+                parent.setdefault(x, x)
+            a, b = find(g), find(off)
+            if a != b:
+                parent[a] = b
+    classes = {r_: n + 1 for n, r_ in enumerate(sorted({find(x) for x in parent}, key=str))}
+    if len(classes) > 127:
+        raise ValueError(f'{file}: {len(classes)} groups cut by others; an SF2 instrument holds 127 exclusive classes')
+
+    def split(low, high, r, kind, read, where):
+        """A range less the halves of its crossfades: silent up to xfin_lo, full from xfin_hi; full up to xfout_lo,
+        silent from xfout_hi (the documentation's pages).  Where both ends are equal the next value takes the side."""
+        for edge, lo_d, hi_d in (('in', '0', '0'), ('out', '127', '127')):
+            ends = f'xf{edge}_lo{kind}', f'xf{edge}_hi{kind}'
+            if ends[0] in r or ends[1] in r:
+                a, b = read(r, ends[0], lo_d), read(r, ends[1], hi_d)
+                if b < a:
+                    raise ValueError(f'{where}: {ends[1]} below {ends[0]}')
+                low, high = (max(low, (a + b) // 2 + 1), high) if edge == 'in' else (low, min(high, (a + b) // 2))
+        return low, high
+    layers, notes, splits = [], [], Counter()
+    for k, r in enumerate(parsed['regions']):
+        if k in silent:
+            continue
+        where = f'{file}, region {k + 1}'
+        sample = r['sample']
+        rel = sample.relative_to(root)
+        if '{' in rel.name or '}' in rel.name:
+            raise ValueError(f'{where}: a sample whose name holds a brace is not taken ({rel.name})')
+        key = lambda op, d: sfz.key(str(r.get(op, d)), where)
+        lo, hi, centre = key('lokey', '0'), key('hikey', '127'), key('pitch_keycenter', '60')
+        vel = lambda r_, op, d: num(r_, op, d, where, int, 0, 127)
+        lovel, hivel = max(1, vel(r, 'lovel', 1)), vel(r, 'hivel', 127)   # velocity 0 is no note-on
+        # A crossfade (xfin_ rising from silence, xfout_ falling to it) becomes a split at its middle: SF2 has none, and
+        # layers left overlapping both sound there at full level (Meta Piano's four velocity groups overlapped by 16).
+        was = (lo, hi, lovel, hivel)
+        lo, hi = split(lo, hi, r, 'key', lambda r_, op, d: sfz.key(str(r_.get(op, d)), where), where)
+        lovel, hivel = split(lovel, hivel, r, 'vel', vel, where)
+        if not (lo <= hi and lovel <= hivel):
+            raise ValueError(f'{where}: keys {lo}-{hi} and velocities {lovel}-{hivel} are no ranges' + (' once its crossfades are splits' if (lo, hi, lovel, hivel) != was else ''))
+        for kind, before, after in (('keys', was[:2], (lo, hi)), ('velocities', was[2:], (lovel, hivel))):
+            if before != after:
+                splits[(kind, *before, *after)] += 1
+        shift = 100 * num(r, 'transpose', 0, where, int, -127, 127) + num(r, 'tune', 0, where, float, -9600, 9600)
+        whole = round(shift / 100)
+        if not 0 <= centre - whole <= 127:
+            raise ValueError(f'{where}: pitch_keycenter {centre} with transpose and tune lands outside the keys')
+        layer = {'dir': rel.parent.as_posix() or '.', 'template': rel.name, 'root': centre - whole, 'keys': [lo, hi],
+                 'dynamics': ['default'], 'velocity': {'default': [lovel, hivel]}, 'pitch_check': False, 'match_notes': False,
+                 'onset_db': None, 'max_correction_cents': 50}
+        if shift - 100 * whole:
+            layer['tune_cents'] = shift - 100 * whole
+        if 'volume' in r:   # the documentation's -144.6 to 6, and up to the +24 some players take
+            layer['gain'] = 10 ** (num(r, 'volume', 0, where, float, -144.6, 24) / 20)
+        if 'offset' in r or 'end' in r:
+            start, end = num(r, 'offset', 0, where, int, 0, FRAMES), num(r, 'end', FRAMES - 1, where, int, -1, FRAMES)
+            if not start <= end:
+                raise ValueError(f'{where}: offset {start} and end {end} are no span')
+            layer['span'] = [start, end + 1]   # SFZ's end is the last frame played
+        mode = r.get('loop_mode', '')
+        if mode not in ('', 'no_loop', 'one_shot', 'loop_continuous', 'loop_sustain'):
+            raise ValueError(f'{where}: loop_mode={mode!r} is none of no_loop, one_shot, loop_continuous, loop_sustain')
+        held = (wavfile.info(sample).get('loops') or [None])[0] if sample.suffix.lower() == '.wav' and sample.is_file() else None
+        points = [num(r, 'loop_start', 0, where, int, 0, FRAMES) if 'loop_start' in r else None,
+                  num(r, 'loop_end', 0, where, int, 0, FRAMES) + 1 if 'loop_end' in r else None]
+        # Without loop_mode a sample plays as its file says: looped on its own loop where it holds one, else not; each
+        # loop point the SFZ gives replaces the file's (the loop_start and loop_end pages).
+        if mode in ('loop_continuous', 'loop_sustain') or (not mode and held):
+            if points == [None, None] and held:
+                layer['loop'] = 'recorded'   # the file's own loop (its smpl chunk), moved with the offset
+            else:
+                points = [p if p is not None else (held[n] if held else (0 if n == 0 else None)) for n, p in enumerate(points)]
+                if points[1] is not None and not points[0] < points[1]:   # null: to the sample's end, as ARIA has it
+                    raise ValueError(f'{where}: loop_start {points[0]} is not before loop_end {points[1] - 1}')
+                layer.update(loop='points', loop_points=points)
+            if mode == 'loop_sustain':
+                layer['loop_mode'] = 'sustain'
+        elif not mode and points != [None, None]:
+            notes.append(f'{where}: loop_start or loop_end with no loop_mode, and no loop in {rel.name}: played unlooped, as SFZ has it')
+        env = {n: num(r, f'ampeg_{n}', 0, where, float, 0, 100) for n in ('delay', 'attack', 'hold', 'decay', 'release') if f'ampeg_{n}' in r}
+        if 'ampeg_sustain' in r:   # a percentage of the level, as its level in dB (-144, SF2's least, for 0)
+            s = num(r, 'ampeg_sustain', 100, where, float, 0, 100)
+            env['sustain_db'] = -144.0 if s <= 0 else max(-144.0, 20 * math.log10(s / 100))
+        if env:
+            layer['envelope'] = env
+        if groups[k] in parent:
+            layer['exclusive_class'] = classes[find(groups[k])]
+        if mode == 'one_shot':
+            notes.append(f'{where}: one_shot plays as the note is held (SF2 has no one-shot mode)')
+        layers.append(layer)
+    if not layers:
+        raise ValueError(f'{file} holds no region that plays')
+    for (kind, a, b, c, d), n in sorted(splits.items()):
+        notes.append(f'{n} region{"s" * (n > 1)} of {kind} {a}-{b} play {kind} {c}-{d}: each crossfade is a split at its middle (SF2 has no crossfade)')
+    if silent:
+        notes.append(f'{len(silent)} region{"s" * (len(silent) > 1)} with end=-1, which do not play, left out (one that cuts others by group and off_by no longer does)')
+    spec = {'name': name, 'comment': f'Built by soundbank.py sfz from {file}', 'copyright': license,
+            'presets': [{'name': name, 'program': program, 'level_reference': 'preset', 'layers': layers}]}
+    return spec, {'not_used': parsed['not_used'], 'approximated': notes}
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest='command', required=True)
+    sz = sub.add_parser('sfz', help='build a bank from an SFZ instrument (a documented subset; what it does not use is listed in the receipt)')
+    sz.add_argument('sfz', type=Path, help='the .sfz file')
+    sz.add_argument('--root', type=Path, help='the folder the .sfz file, its includes and its samples lie in or below (default: the .sfz file\'s folder)')
+    sz.add_argument('--name', required=True, help="the bank's and the preset's name")
+    sz.add_argument('--program', type=int, required=True, help='the General MIDI program the preset takes, 0-127')
+    sz.add_argument('--license', required=True, help="the instrument's licence, as you state it: written into the bank and its receipt")
+    sz.add_argument('--output', type=Path, required=True, help='the new bank (.sf2)')
+    sz.add_argument('--receipt', type=Path, required=True, help='the new receipt: every file, every decision, what the SFZ held that is not used')
+    sz.add_argument('--ffmpeg', type=Path, help='FFmpeg executable, needed for FLAC samples')
+    fo = sub.add_parser('folder', help="build a bank from a folder of one's own samples in one step: one preset, named by a template")
+    fo.add_argument('folder', type=Path, help='the folder of samples (WAV, AIFF; FLAC through --ffmpeg)')
+    fo.add_argument('--template', required=True, help='the form of their names, e.g. "piano_{note}_{dyn}.wav" ({note} needed; {dyn} and {rr} as they come)')
+    fo.add_argument('--name', required=True, help="the bank's and the preset's name")
+    fo.add_argument('--program', type=int, required=True, help='the General MIDI program the preset takes, 0-127 (0 is a piano)')
+    fo.add_argument('--license', required=True, help="the samples' licence, as you state it: written into the bank and its receipt")
+    fo.add_argument('--dynamics', help='with more than one {dyn} value: all of them, softest first, comma-separated, e.g. p,mf,f')
+    fo.add_argument('--keys', default='auto', help='the playable keys LOW-HIGH as MIDI numbers, or auto (the notes found and 2 keys each side)')
+    fo.add_argument('--loop', choices=('recorded', 'found'), help="hold notes on each take's own loop (recorded) or on one the builder finds")
+    fo.add_argument('--output', type=Path, required=True, help='the new bank (.sf2)')
+    fo.add_argument('--receipt', type=Path, required=True, help='the new receipt: every file, every decision, the spec written and the licence')
+    fo.add_argument('--ffmpeg', type=Path, help='FFmpeg executable, needed for FLAC samples')
     i = sub.add_parser('inspect')
     i.add_argument('bank', type=Path)
     i.add_argument('--output', type=Path)
@@ -1956,6 +2422,65 @@ def main():
     sp.add_argument('--root', type=Path, required=True)
     sp.add_argument('--output', type=Path, required=True)
     args = ap.parse_args()
+    if args.command == 'sfz':
+        if files.occupied(args.output) or files.occupied(args.receipt):
+            raise ValueError('Choose new output and receipt paths')
+        if os.path.normcase(str(args.output.resolve())) == os.path.normcase(str(args.receipt.resolve())):
+            raise ValueError('--output and --receipt name one file: the receipt would replace the bank; give each its own')
+        if not args.sfz.is_file():
+            raise ValueError(f'{args.sfz} is no SFZ file')
+        if not 0 <= args.program <= 127:
+            raise ValueError(f'--program {args.program}: a General MIDI program is 0-127')
+        if not args.license.strip():
+            raise ValueError("--license: state the instrument's licence (as its author gives it)")
+        root = args.root or args.sfz.parent   # as given: sfz.read resolves it once, after it has looked for links below it
+        spec, left = sfz_spec(args.sfz, root, args.name, args.program, args.license)
+        receipt = build(spec, root, args.output, args.ffmpeg, new=True)
+        receipt.update(license=args.license, sfz_spec=spec, sfz_not_used=left['not_used'], sfz_approximated=left['approximated'])
+        save_json(args.receipt, receipt, new=True)
+        unused = {**left['not_used']['headers'], **left['not_used']['opcodes']}
+        print(files.joined([f'Built {args.output}: preset {args.name!r} at program {args.program}, {len(spec["presets"][0]["layers"])} regions.',
+                            ('Not used (the receipt lists them): ' + ', '.join(f'{k} ({n})' for k, n in sorted(unused.items()))) if unused else 'Every header and opcode was used.',
+                            *left['approximated'],
+                            f'Licence, kept in the bank and in {args.receipt}: {args.license}']))
+        return
+    if args.command == 'folder':
+        if files.occupied(args.output) or files.occupied(args.receipt):
+            raise ValueError('Choose new output and receipt paths')
+        if os.path.normcase(str(args.output.resolve())) == os.path.normcase(str(args.receipt.resolve())):
+            raise ValueError('--output and --receipt name one file: the receipt would replace the bank; give each its own')
+        if not args.folder.is_dir():
+            raise ValueError(f'{args.folder} is not a folder of samples')
+        if not 0 <= args.program <= 127:
+            raise ValueError(f'--program {args.program}: a General MIDI program is 0-127')
+        if not args.license.strip():
+            raise ValueError("--license: state the samples' licence (your own recordings, CC0, a library's terms)")
+        keys = args.keys
+        if keys != 'auto':
+            m = re.fullmatch(r'(\d{1,3})-(\d{1,3})', keys)
+            if not m or not int(m[1]) <= int(m[2]) <= 127:
+                raise ValueError(f'--keys {keys!r}: LOW-HIGH as MIDI numbers 0-127, low first (60-72), or auto')
+            keys = [int(m[1]), int(m[2])]
+        dynamics = [d.strip() for d in args.dynamics.split(',') if d.strip()] if args.dynamics else None
+        folder = args.folder.resolve()
+        spec = folder_spec(folder, args.template, args.name, args.program, args.license, dynamics, keys, args.loop)
+        receipt = build(spec, folder, args.output, args.ffmpeg, new=True)
+        receipt.update(license=args.license, folder_spec=spec)   # the licence as stated, and the spec to build on
+        save_json(args.receipt, receipt, new=True)
+        from musiclib.instruments import key_ranges, measured, note
+        bank = sf2.read(args.output)
+        held, ranges = measured(bank, bank['presets'][0])
+        used = [r for r in receipt['files'] if 'skipped' not in r and 'file' in r]
+        skipped = [r for r in receipt['files'] if 'skipped' in r and 'file' in r]
+        print(files.joined([f'Built {args.output}: preset {args.name!r} at program {args.program}, from {len({r["file"] for r in used})} takes'
+                            + (f' ({len(skipped)} files left out; the receipt says why)' if skipped else '') + '.',
+                            'Keys with a sample: ' + ', '.join(note(a) if a == b else f'{note(a)}-{note(b)}' for a, b in key_ranges(held)) + '.',
+                            'Velocity layers: ' + ', '.join(f'{d} {v[0]}-{v[1]}' for d, v in spec['presets'][0]['layers'][0]['velocity'].items())
+                            + f' ({len(ranges)} velocity ranges in the bank, round robins counted).',
+                            f'Licence, kept in the bank and in {args.receipt}: {args.license}',
+                            'To play it: studio.py add-soundfont --config <config.json> --name <a name> --path <the bank> --license <its licence> '
+                            '--source <where the samples come from> --version <a version> --output <a new config.json>']))
+        return
     if args.command == 'inspect':
         # An output never replaces anything, the bank it reads least of all (musiclib.files.fresh).
         if args.output:
@@ -2024,5 +2549,5 @@ if __name__ == '__main__':
     try:
         main()
     except (ValueError, OSError) as e:
-        print('ERROR:', e, file=sys.stderr)
+        print('ERROR:', files.one_line(str(e)), file=sys.stderr)  # one line, whatever text it carries (0.8 step 1.6)
         sys.exit(2)

@@ -57,15 +57,32 @@ LOCKS = (WORK_LOCK, 'entry.lock')  # a work lock's file, and a cache entry's (re
 UNLOCKED_CACHE = 'unlocked_cache'
 
 
+# The Unicode Bidi_Control characters (PropList.txt, Unicode 18.0.0): the marks and the embedding, override and isolate
+# controls, which reorder how the text after them is shown (Boucher and Anderson 2021, Trojan Source).
+BIDI_CONTROL = frozenset('؜‎‏‪‫‬‭‮⁦⁧⁨⁩')
+
+
+def _unsafe(c):
+    # a control character, a line or paragraph separator, a bidirectional formatting character
+    return unicodedata.category(c) in ('Cc', 'Zl', 'Zp') or c in BIDI_CONTROL
+
+
 def one_line(text):
     """`text` with each control character written as its escape (a line break as \\n, ESC as \\x1b; the Unicode
     line and paragraph separators too): text a summary takes from a project, a record or a file's name stays on the line
     that prints it, where it cannot pass for a line of the tool's own or drive a terminal (CWE-150, Improper
     Neutralization of Escape, Meta, or Control Sequences; a title's line break began a line of review's summary: GPT's
     security audit of 0.5, L05).  A tab stays a tab: it ends no line, and text copied from a table holds them (the
-    audit's re-review, N3)."""
-    return ''.join(c.encode('unicode_escape').decode('ascii') if c != '\t' and unicodedata.category(c) in ('Cc', 'Zl', 'Zp') else c
-                   for c in text)
+    audit's re-review, N3).  The bidirectional formatting characters are escaped too, so that no text shows in another
+    order than it is (0.8 step 1.6)."""
+    return ''.join(c.encode('unicode_escape').decode('ascii') if c != '\t' and _unsafe(c) else c for c in text)
+
+
+def id_fault(text):
+    """The first character of `text` that an identifier printed in tables and messages may not hold, as its escape, or
+    None: a control character (a tab too), a line or paragraph separator, a bidirectional formatting character (0.8
+    step 1.6: section and note ids)."""
+    return next((c.encode('unicode_escape').decode('ascii') for c in text if _unsafe(c)), None)
 
 
 def joined(rows):
@@ -768,7 +785,9 @@ def read_json(path, limit=None):
         raise ValueError(f'{path} is no regular file (a link or a folder): it is not read')
     if s.st_size > (MAX_RECORD if limit is None else limit):
         raise ValueError(f'{path} is {s.st_size} bytes, more than a record of the tools is: it is not read')
-    return loads(path.read_text(encoding='utf-8'))
+    # As bytes: json takes UTF-8 with or without a byte order mark, UTF-16 and UTF-32 (RFC 8259, 8.1, lets a parser
+    # ignore the mark), as Windows PowerShell 5.1 writes them (0.8 step 2.2); the tools write UTF-8 without one.
+    return loads(path.read_bytes())
 
 
 

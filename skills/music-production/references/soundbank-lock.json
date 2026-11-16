@@ -89,6 +89,7 @@
       "repository": "sgossner/VSCO-2-CE",
       "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "spec": "soundbanks/vsco2ce_orchestra.json",
+      "spec_digest": "2e9b084b19fb8e8d5dd952757da16760bcf1f095ef3611e3eba12bb7381b34b9",
       "paths": [
         "LICENSE",
         "README.md",
@@ -135,6 +136,7 @@
       "repository": "sgossner/VCSL",
       "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "spec": "soundbanks/vcsl.json",
+      "spec_digest": "d3d30ecdf3151feec1ea9b2f4a323fddcf98a0bd3d938eff6347d2243d396b11",
       "paths": [
         "LICENSE",
         "README.md",
@@ -167,6 +169,7 @@
       "repository": "sfzinstruments/karoryfer.big-rusty-drums",
       "commit": "f07ce00df34a46b6b08375be56fe116cf15782bc",
       "spec": "soundbanks/big_rusty_drums.json",
+      "spec_digest": "ecf568800cd198c799009b96e8ed96b9624b20ffe287c2cc2267e55933b83090",
       "paths": [
         "LICENSE",
         "Samples/china_18/cn/cl/",
@@ -222,6 +225,7 @@
       "repository": "sfzinstruments/karoryfer.black-and-blue-basses",
       "commit": "6e7d674cdb41be7a54dbccb15472401ad01099b9",
       "spec": "soundbanks/black_and_blue_bass.json",
+      "spec_digest": "dfd39011ca347860f9afde38c6f1bcdca36ae5512a8ddce6cde41100f4854aba",
       "paths": [
         "license",
         "Samples/darkblack/reg/",
@@ -240,6 +244,7 @@
       "repository": "sfzinstruments/Osiris_Piano",
       "commit": "18c6afccb60cff458edbf7c394571783e074e1e9",
       "spec": "soundbanks/osiris_piano.json",
+      "spec_digest": "fda3170fb7fc2f0b1635928a138b28d728ff54e6c1b646604d2f8933dc04521c",
       "paths": [
         "LICENSE",
         "UC/A/",
@@ -261,6 +266,7 @@
       "repository": "sfzinstruments/karoryfer-bigcat.cello",
       "commit": "6fd75fbfc1dbb3109bf26220ba1adea46188a18b",
       "spec": "soundbanks/bigcat_cello.json",
+      "spec_digest": "d4fff3d1c6c2d505856a49f5118b1fc6c6fc83dc034b11e0af7e36f1a132a55b",
       "paths": [
         "LICENSE",
         "readme.txt",
@@ -280,6 +286,7 @@
       "repository": "sgossner/VCSL",
       "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "spec": "soundbanks/vcsl_organ.json",
+      "spec_digest": "df36fd0f204db86d8ec1119fcae8e6278fa5ad8a751c6d4ad7b72479d48ac88f",
       "paths": [
         "LICENSE",
         "README.md",
@@ -300,6 +307,7 @@
       "repository": "sgossner/VSCO-2-CE",
       "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "spec": "soundbanks/vsco_extra.json",
+      "spec_digest": "4763fd9f144913cc0ab5c831633908c8316635d14441f812ce1797aa81aa0522",
       "paths": [
         "LICENSE",
         "README.md",
@@ -329,6 +337,7 @@
       "repository": "sgossner/VSCO-2-CE",
       "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "spec": "soundbanks/vsco2ce_strings.json",
+      "spec_digest": "84483d31289fafa8e375e25331fe70bd6bca919caf154c9df86d97df2e12e354",
       "paths": [
         "Strings/Violin Section/susVib/",
         "Strings/Violin Section/Spic/",
@@ -360,6 +369,7 @@
       "license": "University of Iowa Electronic Music Studios, Musical Instrument Samples: \"Since 1997, these recordings have been freely available on this website and may be downloaded and used for any projects, without restrictions.\" (https://theremin.music.uiowa.edu/MIS.html, retrieved 2026-11-02)",
       "checksum_evidence": "Size and SHA-256 of each file recorded at retrieval on 2026-11-03 (the publisher lists none); every cut note is checked against the hash in the notes manifest",
       "spec": "soundbanks/iowa_brass.json",
+      "spec_digest": "2eadb0ab7e36a30491c23b4ab87ab3ab59331b24f3d24538b943986d4f8c191d",
       "notes": "soundbanks/iowa_brass.notes.json",
       "version": "Iowa MIS (1997-2013 recordings) build b2",
       "output_sha256": "19fba7b2497fcd7302127b687560ea61ced2638e91b9ae26060c7ef46a6abed0",
@@ -520,6 +530,7 @@
       "license": "University of Iowa Electronic Music Studios, Musical Instrument Samples: \"Since 1997, these recordings have been freely available on this website and may be downloaded and used for any projects, without restrictions.\" (https://theremin.music.uiowa.edu/MIS.html, retrieved 2026-11-02)",
       "checksum_evidence": "Size and SHA-256 of each file recorded at retrieval on 2026-11-03 (the publisher lists none); every cut note is checked against the hash in the notes manifest",
       "spec": "soundbanks/iowa_winds.json",
+      "spec_digest": "96fd7d3e6cbbac5b4202c679125d7cb7fa96574f8880a2255228156817099e97",
       "notes": "soundbanks/iowa_winds.notes.json",
       "version": "Iowa MIS (1997-2013 recordings) build b4",
       "output_sha256": "567a4a14ec91899e8fbcef45a459794928f58aba5f85521327f78e3b7713fa29",
@@ -812,6 +823,7 @@
       "license": "University of Iowa Electronic Music Studios, Musical Instrument Samples: \"Since 1997, these recordings have been freely available on this website and may be downloaded and used for any projects, without restrictions.\" (https://theremin.music.uiowa.edu/MIS.html, retrieved 2026-11-02)",
       "checksum_evidence": "Size and SHA-256 of each file recorded at retrieval on 2026-11-03 (the publisher lists none); every cut note is checked against the hash in the notes manifest",
       "spec": "soundbanks/iowa_strings.json",
+      "spec_digest": "4336ab70ae788853495a336feff367756d867b9003dec1b411cfb9c78630a3c0",
       "notes": "soundbanks/iowa_strings.notes.json",
       "version": "Iowa MIS (1997-2013 recordings) build b4",
       "output_sha256": "be8e992a1e92c21d4ee367b18f5b7f287091eab3bf30c6c89dc9e178b3971f43",
@@ -2526,6 +2538,7 @@
       "license": "University of Iowa Electronic Music Studios, Musical Instrument Samples: \"Since 1997, these recordings have been freely available on this website and may be downloaded and used for any projects, without restrictions.\" (https://theremin.music.uiowa.edu/MIS.html, retrieved 2026-11-02)",
       "checksum_evidence": "Size and SHA-256 of each file recorded at retrieval on 2026-11-03 (the publisher lists none); every cut note is checked against the hash in the notes manifest",
       "spec": "soundbanks/iowa_perc.json",
+      "spec_digest": "f5402811206d102de4c1ff402d5ffa53b19bb240ddde0dfd7b77fb04dabf1228",
       "notes": "soundbanks/iowa_perc.notes.json",
       "version": "Iowa MIS (1997-2013 recordings) build b3",
       "output_sha256": "3a8779ec4c8fe89233a27bd51a8b53ce5df339e5518db798722fd03d697bc8be",
@@ -3334,6 +3347,7 @@
       "license": "University of Iowa Electronic Music Studios, Musical Instrument Samples: \"Since 1997, these recordings have been freely available on this website and may be downloaded and used for any projects, without restrictions.\" (https://theremin.music.uiowa.edu/MIS.html, retrieved 2026-11-02)",
       "checksum_evidence": "Size and SHA-256 of each file recorded at retrieval on 2026-11-06 (the publisher lists none); every cut note is checked against the hash in the notes manifest",
       "spec": "soundbanks/iowa_guitar.json",
+      "spec_digest": "879809b0a6356eede332dd79217112aca00cbfc8f9cb18aa1221f4beb7f09172",
       "notes": "soundbanks/iowa_guitar.notes.json",
       "version": "Iowa MIS (2011 recording) build b8",
       "output_sha256": "abe638869b662095c2bd820096dda5046eff34edd8115ce235108444df1f153d",
@@ -3489,6 +3503,7 @@
       "repository": "sgossner/VSCO-2-CE",
       "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "spec": "soundbanks/vsco_colors.json",
+      "spec_digest": "0e45355d82e1658b884d03d91dd82b42b4b866be844fc5cdaa86f031cd556c6a",
       "paths": [
         "LICENSE",
         "README.md",
@@ -3573,6 +3588,7 @@
       "repository": "sgossner/VCSL",
       "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "spec": "soundbanks/vcsl_keys.json",
+      "spec_digest": "56340f3ccbf5e9f7cb2f6fa6f6fff3cbd029591d73fa6ffadfd7495deb01c1fc",
       "paths": [
         "LICENSE",
         "README.md",
@@ -3599,6 +3615,7 @@
       "repository": "sgossner/VCSL",
       "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "spec": "soundbanks/vcsl_winds.json",
+      "spec_digest": "78a9a41978924da5cbc8b865e31df661d3299b919bdb48d4768384a66ec7a800",
       "paths": [
         "LICENSE",
         "README.md",
@@ -3643,6 +3660,7 @@
       "repository": "sgossner/VCSL",
       "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "spec": "soundbanks/vcsl_world.json",
+      "spec_digest": "6769bf6c3793bedf5c9c1c3b56e7f0ed02d5490c4a1c681eca766915d6150d09",
       "paths": [
         "LICENSE",
         "README.md",
@@ -3820,6 +3838,7 @@
       "repository": "sfzinstruments/karoryfer.sneakybass",
       "commit": "cc1a67e5c913678b85eaad1a3b5cb180d3be3e2d",
       "spec": "soundbanks/bass_sneaky.json",
+      "spec_digest": "73b279164d735340d172a36cefca0dfd45be08ea4c7c552c94beac0852d8dcad",
       "paths": [
         "LICENSE",
         "readme.txt",
@@ -3840,6 +3859,7 @@
       "repository": "sfzinstruments/karoryfer.shinyguitar",
       "commit": "57243cca85277dbcc120ce17c6178032f93c80f3",
       "spec": "soundbanks/guitar_shiny.json",
+      "spec_digest": "f5ed57bc5091e09e5821a3cf0f1132d005a857e617b3598017a24cda8f2467a5",
       "paths": [
         "LICENSE",
         "readme.txt",
@@ -3858,6 +3878,7 @@
       "repository": "sfzinstruments/aliexpress-erhu",
       "commit": "6615047b2fd06126877483e97b8bb4af9d00b080",
       "spec": "soundbanks/erhu.json",
+      "spec_digest": "ee76b21074b83fa15c950d342cf6bf2f97c54dd4d9b9850f3a6a3eff2580accf",
       "paths": [
         "LICENSE",
         "readme.txt",
@@ -3877,6 +3898,7 @@
       "repository": "sfzinstruments/jlearman.SteelDrum",
       "commit": "dc15a36ad69a43b0d240fcbd0cc78fbc61b2b47e",
       "spec": "soundbanks/steel_drum.json",
+      "spec_digest": "63fd6a0f62d942d87d5c1058438a7017be39e09e139a3d66464ecd2d18a08e92",
       "paths": [
         "LICENSE",
         "README.md",
@@ -3898,6 +3920,7 @@
       "repository": "sfzinstruments/karoryfer.war-tuba",
       "commit": "5b62dd6ef6b00281bb734769e44a63f5e013018a",
       "spec": "soundbanks/tuba_war.json",
+      "spec_digest": "0a1d06626123eb5a0c40ba7402ddbdb87bf847c9ba97b94e1238b72396abff44",
       "paths": [
         "LICENSE",
         "readme.txt",
@@ -3916,6 +3939,7 @@
       "repository": "sfzinstruments/karoryfer.bear-sax",
       "commit": "7abb3c652525a15dfac80e1b5dfbba9964ee568f",
       "spec": "soundbanks/sax_bear.json",
+      "spec_digest": "0e188623e96e9735ee9090b7a5299f9d74cb91fd86b3c10ed2c2cfb120d2cf8f",
       "paths": [
         "LICENSE",
         "readme.txt",
@@ -3934,6 +3958,7 @@
       "repository": "sfzinstruments/legato_vocal_tutorial",
       "commit": "fac6461ee4c7f498b23246eced644616fa58d2ec",
       "spec": "soundbanks/vocal_ah.json",
+      "spec_digest": "3467fbf82ded69904428f14ce7e432cecf4fc6e8682eb5e3fa6f81dc1c23f002",
       "paths": [
         "LICENSE",
         "readme.txt",

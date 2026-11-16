@@ -360,7 +360,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
     # Before anything is synthesized: every part's bank is configured and can play what the part asks of it.
     fonts={t['id']:audio.soundfont_for(cfg,t)[1] for t in p['tracks'] if t['engine']=='soundfont'}
     problems=[m for t in p['tracks'] if t['id'] in fonts for m in [layered.unsupported(t,fonts[t['id']]['path'])] if m]
-    if problems:raise ValueError('Parts the banks cannot play as written (review --config lists them too):\n'+'\n'.join(problems))
+    if problems:raise ValueError('Parts the banks cannot play as written (review --config lists them too): '+' '.join(problems))
     # And no part needs more memory at once than the machine has.  (Whether Surge XT plays each Surge part is read
     # once here, and is part of that part's cache key.)
     surge_deps={t['id']:surge.dependencies(cfg,t) for t in p['tracks'] if t['engine']=='surge'}
@@ -468,9 +468,17 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
           # next one to hold the entry removes those half written and keeps the rest as renders' (files.adopt).
           entry_keep=files.adopt(folder) if held else None
           try:
-            cached=False;raw_sha=None;old=read_json(receipt) if files.regular_file(raw) else {}
+            cached=False;raw_sha=None;old=read_json(receipt) if files.regular_file(raw) else {};rejected={}
             if old:
-                raw_sha=audio.audio_hash(raw);cached=old.get('key')==key and raw_sha==old.get('sha256')
+                # 0.8 step 1.4: the take's header and length checked from the file before it is hashed: exactly the
+                # render's frames from an empty part, a reversed one, the built-in engines and Surge's fallback where
+                # Surge XT is not configured; from FluidSynth, layered takes and Surge XT, whose tails vary, no longer
+                # than the ceiling.  A take that fails is made again, the reason in this render's receipt only.
+                exact=(not t['notes'] or (t['engine']=='soundfont' and bool(t.get('reverse'))) or t['engine'] in ('additive','synth','drum_synth','noise')
+                       or (t['engine']=='surge' and deps['surge'].get('plays')!='Surge XT'))
+                fault=audio.take_fault(raw,frames if exact else None)
+                if fault:rejected['raw']=fault
+                else:raw_sha=audio.audio_hash(raw);cached=old.get('key')==key and raw_sha==old.get('sha256')
             if not cached:
                 # Synthesized into a new file of its own (musiclib.files), which then takes raw.wav's place whole.
                 fresh=files.stage_name(raw,'.wav')
@@ -512,7 +520,9 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
             frozen,frozen_receipt=folder/'stem.wav',folder/'stem.json'
             stem_key=digest({**stem_identity(p,t,key,raw_sha,frames,code_hash,cfg),'quiet':t['id'] in quiet})
             kept=read_json(frozen_receipt);reused=False
-            if kept.get('key')==stem_key and isinstance(kept.get('processing'),dict) and {'reference_level_dbfs','gain_db','filter_chain'}<=set(kept['processing']) and frozen.is_file():
+            usable=kept.get('key')==stem_key and isinstance(kept.get('processing'),dict) and {'reference_level_dbfs','gain_db','filter_chain'}<=set(kept['processing']) and frozen.is_file()
+            if usable and (fault:=audio.take_fault(frozen,frames)):rejected['stem'],usable=fault,False  # exactly the render's frames (1.4)
+            if usable:
                 # Copied under a name of its own and checked before it takes the stem's name: a copy that fails or
                 # does not match leaves no stem, half or otherwise, and the part is processed again.
                 copy=None
@@ -536,6 +546,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
                     files.drop_journal(folder)
         receipt_data={'track':t['id'],'soundfont':font_name,'cache_key':key,'cache_hit':cached,'stem_reused':reused,'raw_sha256':raw_sha,'stem_sha256':stem_sha,'reference_level_dbfs':done['reference_level_dbfs'],'gain_db':done['gain_db'],'processed_stem':str(stem.relative_to(output)),'filter_chain':done['filter_chain'],'same_pitch_retrigger_trims':sum(n.get('retrigger_trimmed',False) for n in performed(t,clock))}
         if not held:receipt_data['unlocked_cache']=True  # made in the render's own folder: nothing cached (C04)
+        if rejected:receipt_data['cache_rejected']=rejected  # a cached take or stem found unfit and made again (1.4)
         if expressive:receipt_data['expressive']=expressive
         if heard:receipt_data['surge']=heard
         if done.get('nearly_silent'):receipt_data['nearly_silent']=True

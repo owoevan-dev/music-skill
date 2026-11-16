@@ -137,7 +137,10 @@ def read_own(path):
 def read(path,max_bytes=8_000_000,max_events=1_000_000):
     if Path(path).stat().st_size>max_bytes:raise ValueError('MIDI byte bound exceeded')
     with Path(path).open('rb') as stream:data=stream.read(max_bytes+1)
-    if not 14<=len(data)<=max_bytes or data[:4]!=b'MThd' or data[4:8]!=b'\x00\x00\x00\x06':raise ValueError('Invalid/big MIDI')
+    if not 14<=len(data)<=max_bytes or data[:4]!=b'MThd' or data[4:8]!=b'\x00\x00\x00\x06':  # 0.8 step 2.1: what it is, the lengths
+        raise ValueError(f'{Path(path).name} is not a MIDI file the reader takes: '
+                         + (f'{len(data)} bytes, where a MIDI file holds 14 to {max_bytes:,}' if not 14<=len(data)<=max_bytes else
+                            'it does not begin with the MThd header of 6 bytes a standard MIDI file has'))
     kind,ntracks,division=struct.unpack_from('>HHH',data,8)
     if kind not in (0,1) or not 1<=ntracks<=128 or not 1<=division<=32767 or (kind==0 and ntracks!=1):raise ValueError('Unsupported SMF header')
     pos=14;tracks=[];tempos=[];total_events=0

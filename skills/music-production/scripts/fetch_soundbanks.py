@@ -254,7 +254,7 @@ def install_archive(item, runtime, cache, offline, mirror=None, local=None):
             return _install_archive({**item, 'format': 'tar.xz', 'url': mirror['url'], 'bytes': mirror['bytes'], 'sha256': mirror['sha256']},
                                     runtime, cache, offline, source)
         except (OSError, ValueError, EOFError, lzma.LZMAError, tarfile.TarError, http.client.HTTPException) as e:
-            print(f'{item["name"]}: no repacked archive ({e}); downloading it from its publisher', flush=True)
+            print(f'{item["name"]}: no repacked archive ({files.one_line(str(e))}); downloading it from its publisher', flush=True)
     return _install_archive(item, runtime, cache, offline)
 
 def _install_archive(item, runtime, cache, offline, local=None):
@@ -500,7 +500,7 @@ def _install(args, lock, only, prebuilt, config, runtime):
                 print('VERIFIED', item['name'], flush=True)
             except (OSError, ValueError, http.client.HTTPException) as e:
                 failed[item['name']] = str(e)
-                print('FAILED', item['name'], '|', e, flush=True)
+                print('FAILED', item['name'], '|', files.one_line(str(e)), flush=True)
     for item in lock['builds']:
         if only is None or item['name'] in only:
             try:
@@ -513,7 +513,7 @@ def _install(args, lock, only, prebuilt, config, runtime):
                         used = str(args.prebuilt_from.resolve() / name) if args.prebuilt_from else lock['prebuilt']['release'] + name
                         print('PREBUILT', item['name'], flush=True)
                     except (OSError, ValueError, EOFError, lzma.LZMAError, http.client.HTTPException) as e:
-                        print(f'{item["name"]}: no prebuilt bank ({e}); building it from its sources', flush=True)
+                        print(f'{item["name"]}: no prebuilt bank ({files.one_line(str(e))}); building it from its sources', flush=True)
                 if item.get('kind') == 'split':
                     fonts[item['name']] = install_split(item, runtime, args.offline, config['ffmpeg']['path'])
                 else:
@@ -525,7 +525,7 @@ def _install(args, lock, only, prebuilt, config, runtime):
                 print('VERIFIED', item['name'], f'{count} samples' if count is not None else '(the built bank matches its lock)', flush=True)
             except (OSError, ValueError, EOFError, lzma.LZMAError, http.client.HTTPException) as e:
                 failed[item['name']] = str(e)
-                print('FAILED', item['name'], '|', e, flush=True)
+                print('FAILED', item['name'], '|', files.one_line(str(e)), flush=True)
     # The banks that did install are written to the configuration either way; a failure is listed and ends in exit 2.
     files.save_config(args.output, config, '--output')  # never over a bank or record this run put at that path
     print('Saved', args.output.resolve())
@@ -626,5 +626,5 @@ if __name__ == '__main__':
     try:
         main()
     except (ValueError, OSError) as e:
-        print('ERROR:', e, file=sys.stderr)
+        print('ERROR:', files.one_line(str(e)), file=sys.stderr)  # one line, whatever text it carries (0.8 step 1.6)
         sys.exit(2)

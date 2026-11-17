@@ -57,7 +57,10 @@ automation, applied after the chain), `nearly_silent` (an audition's context par
 not lock the entry, or the entry's folder could not be made there for want of permission, so the part was made in the
 render's own `unlocked_cache/` folder: none of the cache's files was read or written, and trying for the lock made at
 most the entry's folder and its `entry.lock`; the folder is the render's own, which `clean` takes with the render by
-its record, never as a cache) and `seconds`: `waiting` (for another render's hold on the same cache entry, or for
+its record, never as a cache), `cache_rejected` (`raw` or `stem`: why a cached take or processed stem was not used
+and was made again; before one is used its own header must say float32 stereo at 48 kHz with its data inside the
+file, and its length be the render's frames exactly, or for FluidSynth, layered and Surge XT takes, whose tails vary,
+at most 31 minutes; only the render that found it says so) and `seconds`: `waiting` (for another render's hold on the same cache entry, or for
 memory while other parts held it), `synthesis` and `processing`.
 
 ## score_review.json (review)
@@ -133,7 +136,7 @@ numbered folder.
 `listed` (each folder it takes files from, or would: `kind` render, round, audition or cache entry, `path`, `bytes`,
 `whole` whether the folder goes, and `kept_inside`, the first 20 of what stays in it: files no tool recorded or changed
 since, and the folders inside it that stay, ending in `/`),
-`bytes`, `kept` and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
+`bytes`, `kept` (the folders kept: a round by its own folder, which stays whole with its render) and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
 files.json (made before 0.4.0), a render, round or audition at work, or inside one, cache entries holding files renders
 did not write there or that changed since: `kind`, `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the
 `error`).  A render, round or audition holds its folder's lock file `work.lock` while it runs and removes it when it

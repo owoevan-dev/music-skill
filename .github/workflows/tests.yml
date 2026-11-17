@@ -62,10 +62,11 @@ jobs:
         run: brew install fluid-synth ffmpeg
       - name: Install the Python packages
         # requirements.txt pins NumPy by hash, which puts pip in hash-checking mode for everything that command
-        # installs; the test tools go in a command of their own.
+        # installs; the test tools go in a command of their own, with Pillow, which users install for the piano roll:
+        # without it the roll's checks only saw that the command says how to install it.
         run: |
           python -m pip install -r skills/music-production/requirements.txt
-          python -m pip install pyyaml pytest
+          python -m pip install pyyaml pytest pillow
       - name: Set up the renderer with the system tools
         if: runner.os != 'Windows'
         run: python skills/music-production/scripts/bootstrap.py --system --runtime "$RUNNER_TEMP/runtime" --config "$RUNNER_TEMP/runtime/local-config.json"

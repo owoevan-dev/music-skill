@@ -89,7 +89,7 @@ If Claude or another agent is already cutting your video or building your game, 
 <details>
 <summary><b>The six steps in detail</b></summary>
 
-1. **Write.** The agent settles what the request asks, then draws twelve words at random for the piece and links the request and all twelve into one whole, a scene or a story, which decides what the request left open: the title, the form, the sounds. It writes a plan (what identifies the piece, where its high point is and by what means, what each section commits to), then the project file. Every note's pitch and length go in the score; how it is played (velocity, timing, release) is kept separately. A longer piece is usually written by a short Python script the agent creates, so voicings, bass lines and drum patterns stay readable.
+1. **Write.** The agent settles what the request asks, then draws twelve words at random for the piece and links the request and all twelve into one whole, a scene or a story, which decides what the request left open: the title, the form, the sounds. It writes a plan (what identifies the piece, where its high point is and by what means, what each section commits to), then the project file. Every note's pitch and length go in the score; how it is played (velocity, timing, release) is kept separately. A longer piece is usually written by a short Python script the agent creates, so voicings, bass lines and drum patterns stay readable. `studio.py start` writes its first version: the sections and parts named, each part's instrument found in the installed banks, and a small builder that keeps the books (stable note ids, how each note is played, every note checked against the keys its instrument has samples for).
 2. **Check the score.** `review` opens with three tables counted from the score (the parts that sound in each section, how often the chord changes, the melody's rhythm) and reads the score against the plan, asking where they differ. It lists sustained minor seconds and ninths between parts; names every note outside the written chords as a passing note, a suspension or another embellishing tone, asking about those not resolved by step; and lists parallel fifths and octaves between independent parts and close intervals too low in the register. Every question has an identifier, and a written decision that begins with it answers it: each one becomes a decision instead of an accident.
 3. **Perform.** A performance model adds the kind of deviation players produce: a slow wander in timing and loudness for each player, a laid-back bass, phrase arches, chords whose notes are not struck or released together. Sampled leads can slur and bend.
 4. **Render.** FluidSynth plays each sampled part on its own instrument from licensed SoundFont banks. Electronic parts play on built-in synthesizers and drum machines, or on presets of the Surge XT synthesizer.
@@ -99,6 +99,8 @@ If Claude or another agent is already cutting your video or building your game, 
 Changing one note synthesizes only that part again, and a part whose notes and mix did not change plays its processed stem from the cache, as a DAW plays a frozen track. Every render mixes all the parts again, so the shared reverbs, their tails and the master follow the change. Each revision is one `round`: it checks the score, renders a draft (the same audio, without the files only delivery needs), measures it and compares it with the previous round, with a short summary of each. `compare` shows what changed between two renders: which parts were synthesized again, and which stems, buses and reverb returns changed, where and by how much.
 
 For a game, a project can loop. The render folds the reverb tail back into the loop start and writes the loop points into a WAV and an Ogg file, in the forms Godot and RPG Maker look for, with a cue point at every section. It can also split the loop into layers that add up to the mix, for music that builds as play heats up.
+
+To show a piece, `studio.py video` turns a render into a scrolling piano roll with the master as its sound: every note as it was played, each part named in a legend that lights while it plays (in a large ensemble, the names that do not fit are counted as "+N more"), under 10 MB by default (the size GitHub takes for a video). `studio.py still` draws one moment of it as a picture.
 
 </details>
 
@@ -134,6 +136,8 @@ Python 3.10 or newer with NumPy. On Linux and macOS a virtual environment keeps 
 python3 -m venv .venv && . .venv/bin/activate        # Windows: py -m venv .venv, then .venv\Scripts\activate
 python -m pip install -r skills/music-production/requirements.txt
 ```
+
+The piano-roll video and picture also need Pillow, which the setup leaves to you: `python -m pip install pillow`.
 
 Windows x64 downloads pinned portable builds of FluidSynth and FFmpeg, and the Surge XT synthesizer with the plugin host that runs it (about 55 MB) and its 3,008 patches (about 217 MB); leave the patches out with `--no-surge-catalog`, or all of Surge with `--no-surge`:
 
@@ -183,6 +187,10 @@ Ask your agent in plain words:
 
 > No random words for this one.
 
+> Make a piano-roll video of the finished piece for my project page.
+
+> Build an instrument from my own samples in ~/samples/kalimba (files named like kalimba_C4.wav) and use it for the melody.
+
 > The chorus melody in bar 33 is too busy. Simplify it and render again.
 
 > What changed from the last version? Let me hear the difference.
@@ -210,7 +218,7 @@ Every recorded bank is CC0, free for any use without restrictions (the Iowa reco
 <details>
 <summary><b>How well it works</b></summary>
 
-`selfcheck.py` runs 160 checks (130 without a renderer configuration), from MIDI round trips and archive safety to real renders. A one-note revision synthesizes one part again, and `compare` finds the change from that note on, in every file it reached and nowhere else. The older single-room mix reproduces an earlier release bit for bit. The loudness meter reads −3.01 LUFS for the BS.1770 reference tone. CI runs every check, renders included, on Ubuntu with FluidSynth 2.3 and FFmpeg 6.1, on macOS with FluidSynth 2.6 and FFmpeg 9.0, and on Windows with the pinned FluidSynth 2.6.1 and FFmpeg 9.0.2 and with Surge XT.
+`selfcheck.py` runs 191 checks (156 without a renderer configuration), from MIDI round trips and archive safety to real renders. A one-note revision synthesizes one part again, and `compare` finds the change from that note on, in every file it reached and nowhere else. The older single-room mix reproduces an earlier release bit for bit. The loudness meter reads −3.01 LUFS for the BS.1770 reference tone. CI runs every check, renders included, on Ubuntu with FluidSynth 2.3 and FFmpeg 6.1, on macOS with FluidSynth 2.6 and FFmpeg 9.0, and on Windows with the pinned FluidSynth 2.6.1 and FFmpeg 9.0.2 and with Surge XT.
 
 Whether the music is good is another matter, and only listening can tell. The pieces above are the best evidence this repository has.
 
@@ -219,13 +227,13 @@ Whether the music is good is another matter, and only listening can tell. The pi
 <details>
 <summary><b>Questions</b></summary>
 
-**Can I use the music in a video, a game or a commercial release?** Nothing in the toolchain stands in the way. No sound bank asks for a credit: the optional ones are CC0 or free for any use, and MS Basic's MIT licence asks nothing of music played on it. The GPL programs (FFmpeg, Surge XT) cover the programs, not the music that passes through them. Whether you hold a copyright in music an agent wrote for you depends on your country's law and on how much of it you shaped.
+**Can I use the music in a video, a game or a commercial release?** The skill and the sound banks it installs ask nothing of what you make with them. No sound bank asks for a credit: the optional ones are CC0 or free for any use, and MS Basic's MIT licence asks nothing of music played on it. The GPL programs (FFmpeg, Surge XT) cover the programs, not the music that passes through them. Whether you hold a copyright in music an agent wrote for you depends on your country's law and on how much of it you shaped.
 
 **Which agents can use it?** Any agent that loads Agent Skills and can run Python: Claude Code as a plugin, Codex, and others through `npx skills`.
 
 **Does it need the internet or a GPU?** The internet only for setup; rendering runs offline on the CPU. Your project files reach no one except through your agent, which sends what it reads to its own model.
 
-**Can I use my own instruments?** Any SF2 bank: `studio.py add-soundfont` adds it to your configuration and a part names it ([soundbanks.md](skills/music-production/references/soundbanks.md)). A bank you add keeps its own licence, so check it before you publish music made with it.
+**Can I use my own instruments?** Any SF2 bank: `studio.py add-soundfont` adds it to your configuration and a part names it ([soundbanks.md](skills/music-production/references/soundbanks.md)). A bank you add keeps its own licence, so check it before you publish music made with it. From your own recordings, `soundbank.py folder` builds a bank in one command, reading each sample's pitch from its file name, and `soundbank.py sfz` builds one from an SFZ instrument, naming whatever of it the bank cannot hold ([soundbank-building.md](skills/music-production/references/soundbank-building.md)).
 
 </details>
 
@@ -233,6 +241,7 @@ Whether the music is good is another matter, and only listening can tell. The pi
 <summary><b>Limits</b></summary>
 
 - It doesn't sing or write lyrics. Of plugins it runs only Surge XT; your own VST plugins are not supported yet.
+- An SFZ instrument is read as a subset: its crossfades become splits, and its controllers, filters and effects are listed as not used.
 - The sound is only as good as the free banks. The YR basses have one velocity layer, the section strings speak slowly, marimba, xylophone and piccolo are sampled sparsely, and a sampled guitar bend shifts the whole sample instead of changing the string's tone.
 - No bank yet covers steel-string acoustic guitars, a choir or East Asian instruments beyond an erhu and a dan tranh; such parts fall back to MS Basic's sparse General MIDI samples.
 - Surge XT starts its oscillators at random phases, so a Surge part is a slightly different take each time it is synthesized; the render cache keeps a take until the part changes. Its tempo-synced delays and LFOs follow one tempo per part, the written tempo most of its notes start under, so a pickup or a ritardando does not set it and a later tempo change does not move it. Everything else renders the same every time.

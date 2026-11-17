@@ -26,7 +26,7 @@ Pull requests from outside the project are closed for now. If you have a fix, de
 
 ## Paths under `research/`
 
-Comments in the scripts and a few lines of the guides name files under `research/` (a design note, a measurement script, a trial). Those are the project's development records. They are kept outside this repository, so such a path names where a figure came from and is not a file here; what the skill relies on is stated where it is cited, and the checks that guard it are in `scripts/selfcheck.py`.
+Comments in the scripts and a few lines of the guides name files under `research/` (a design note, a measurement script, a trial). Those are the project's development records. They are kept outside this repository, so such a path names where a figure came from and is not a file here; what the skill relies on is stated where it is cited, and the checks that guard it are in `scripts/selfcheck.py`, which runs them, and `scripts/selfchecks/`, which holds them by area.
 
 ## Running the tests
 

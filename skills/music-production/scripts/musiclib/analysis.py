@@ -199,7 +199,7 @@ def no_links_in(folder):
     odd = files.links_in(folder)
     if odd:
         raise ValueError(f'{folder} holds links ({", ".join(str(Path(p).relative_to(folder)) for p in odd[:5])}); a render '
-                         'folder holds its own files only, so analyze reads none through a link')
+                         'folder holds its own files only, so the tools read none through a link')
 
 
 def load_reference(spec, config=None):
@@ -428,6 +428,12 @@ def analyze(render_dir, bar_spans=(), reference=None):
     """`bar_spans`: (name, first bar, last bar), 1-based and inclusive, measured like the sections.  `reference`:
     (name, measures) from load_reference."""
     render_dir = Path(render_dir)
+    # 0.8 step 2.1: a folder that is no render is named as such, as compare names it (it stopped on a missing file)
+    if not render_dir.is_dir():  # (a round folder is taken to its render/ by the command, studio.render_folder)
+        raise ValueError(f'{render_dir} is not a folder: analyze takes a render folder, the --output of studio.py render')
+    for name in ('project.json', 'master.wav'):
+        if not (render_dir / name).is_file():
+            raise ValueError(f'{render_dir} is not a finished render ({name} is missing): analyze takes the --output of studio.py render')
     # The project as the render wrote it, read as any project is (size bounded, validated): a render folder from
     # elsewhere cannot name stems outside it or ask for an unbounded length, nor reach one through a link.
     no_links_in(render_dir)

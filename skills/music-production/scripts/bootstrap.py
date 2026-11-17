@@ -133,8 +133,8 @@ def download(item,archive,offline,tries=4):
             # A name another run or the user took meanwhile is not tried again: a download is published only where
             # nothing holds its name (files.staged new; GPT Pro's fourth review of 0.4.0).
             if isinstance(e,FileExistsError) or isinstance(e,urllib.error.HTTPError) and e.code<500 and e.code!=429 or attempt==tries-1:
-                print(f'download failed: {item["url"]} ({e})',flush=True);raise
-            print(f'retrying {item["url"]} after {e}',flush=True);time.sleep(3*2**attempt)
+                print(f'download failed: {files.one_line(item["url"])} ({files.one_line(str(e))})',flush=True);raise
+            print(f'retrying {files.one_line(item["url"])} after {files.one_line(str(e))}',flush=True);time.sleep(3*2**attempt)
 
 def _download_once(item,archive):
     request=urllib.request.Request(item['url'],headers={'User-Agent':'MusicProductionSkill/1.0'})
@@ -233,7 +233,7 @@ def install_surge(lock,runtime,cache,args,system,config):
     try:return _install_surge(lock,runtime,cache,args,system,config)
     except (ValueError,OSError,subprocess.SubprocessError) as e:
         config.pop('surge',None);config.pop('pedalboard',None)
-        print(f'SKIPPED surge_xt | {e}; Surge parts use their fallback presets',flush=True)
+        print(f'SKIPPED surge_xt | {files.one_line(str(e))}; Surge parts use their fallback presets',flush=True)
 
 def _install_surge(lock,runtime,cache,args,system,config):
     plugin,binary,source=surge_plugin(lock,runtime,cache,args,system)
@@ -288,7 +288,7 @@ def install_catalog(runtime,cache,args,config):
         note_aside(files.install_tree(staging,target))
     except (ValueError,OSError,http.client.HTTPException) as err:
         shutil.rmtree(staging,ignore_errors=True)
-        print(f'SKIPPED surge_catalog | {err}; parts that name a catalog patch use their fallback presets',flush=True);return
+        print(f'SKIPPED surge_catalog | {files.one_line(str(err))}; parts that name a catalog patch use their fallback presets',flush=True);return
     config['surge']['catalog']=str(target)
     print('VERIFIED surge_catalog |',len(doc['presets']),'patches',flush=True)
 
@@ -370,4 +370,4 @@ if __name__=='__main__':
     files.escape_unprintable()
     try:main()
     except (ValueError,OSError) as e:
-        print('ERROR:',e,file=sys.stderr);sys.exit(2)
+        print('ERROR:',files.one_line(str(e)),file=sys.stderr);sys.exit(2)  # one line, whatever text it carries (0.8 step 1.6)

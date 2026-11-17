@@ -6,7 +6,7 @@ Contents: [Presets in the built banks](#presets-in-the-built-banks) · [Dynamic 
 
 ## Presets in the built banks
 
-A track selects one with `soundfont` and `patch` ([schema.md](schema.md)). Long and short articulations are separate presets: write short notes on a staccato or pizzicato track and long notes on the sustained one.
+A track selects one with `soundfont` and `patch` ([schema.md](schema.md)); `studio.py instruments <words> --config <config.json>` finds a configured bank's presets by name, General MIDI family or bank and reads each one's keys and velocity ranges from the bank itself. Long and short articulations are separate presets: write short notes on a staccato or pizzicato track and long notes on the sustained one.
 
 | Bank | Patch (bank:program) | Preset | Keys | Velocity layers |
 |---|---|---|---|---|

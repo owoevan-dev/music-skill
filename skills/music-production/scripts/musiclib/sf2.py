@@ -79,33 +79,50 @@ def _chunks(f, start, end):
         yield cid, pos + 8, size
         pos += 8 + size + (size & 1)
 
-MAX_ZONES = 262_144  # preset and instrument zones together; the largest bank the skill installs has 9,400 (our count)
+SIDES = ((b'phdr', 3, b'pbag', b'pgen', b'pmod', 'preset'), (b'inst', 1, b'ibag', b'igen', b'imod', 'instrument'))
 
-def structure(tables):
-    """Refuse a bank whose tables do not hold together, as the SoundFont 2.04 specification (7.2-7.3, 7.6-7.7) and
-    FluidSynth's loader do: the bag indices of the preset and instrument headers, and the generator and modulator
-    indices of the bags, never decrease; each header table's terminal record names the bag table's terminal record;
-    and each bag table's terminal record names the generator or modulator table's terminal record, or the end of a
-    table that has none (FluidSynth accepts a missing terminal generator or modulator).  "Structurally defective ...
-    rejected at load time" is the specification's word for any other bank.  With the indices in order, every zone and
-    generator is read once, so the zones built stay in proportion to the file (non-monotonic indices repeat a range
-    of zones as often as a header names it)."""
-    for head, index, bag, gen, mod, what in ((b'phdr', 3, b'pbag', b'pgen', b'pmod', 'preset'),
-                                             (b'inst', 1, b'ibag', b'igen', b'imod', 'instrument')):
-        heads, bags = [h[index] for h in tables[head]], tables[bag]
-        if not heads or not bags or not tables[b'shdr']:
+def structure(f, where):
+    """The pdta tables, refusing a bank whose tables do not hold together, as the SoundFont 2.04 specification (7.2-7.3,
+    7.6-7.7) and FluidSynth's loader do: the bag indices of the preset and instrument headers, and the generator and
+    modulator indices of the bags, never decrease; each header table's terminal record names the bag table's terminal
+    record; and each bag table's terminal record names the generator or modulator table's terminal record, or the end
+    of a table that has none (FluidSynth accepts a missing terminal generator or modulator).  "Structurally defective
+    ... rejected at load time" is the specification's word for any other bank.  With the indices in order, every zone
+    and generator is read once, so the zones built stay in proportion to the file (non-monotonic indices repeat a range
+    of zones as often as a header names it).
+
+    `where` holds each table's place and record count, its size already checked.  The tables are read and checked in
+    the specification's order, as 0.7 checked them, but a table whose size depends on another only once that size is
+    known (0.8 step 1.1: 0.7 read every table whole first, two million records of a crafted bag table among them): a
+    side's header table (the MAX_RECORDS cap holds it), its bag table once the header's terminal record has named its
+    length, and the generator and modulator tables once the bag tables' terminal records have named theirs.  A bag
+    index is 16 bits, so a table so named holds at most 65,536 records, and both sides' zones at most 131,070.  Where a
+    bank has several faults, the error is the first this order reaches, as in 0.7: the preset tables before the
+    instrument tables, a header before its bags."""
+    n = {k: count for k, (_, count) in where.items()}
+    tables = {}
+    def read(table):
+        off, count = where[table]
+        f.seek(off)
+        tables[table] = list(PDTA[table].iter_unpack(f.read(count * PDTA[table].size)))
+        return tables[table]
+    for head, index, bag, gen, mod, what in SIDES:
+        if not n[head] or not n[bag] or not n[b'shdr']:
             raise ValueError(f'SoundFont {what} tables without their terminal records: a structurally defective bank')
-        if any(a > b for a, b in zip(heads, heads[1:])) or heads[-1] != len(bags) - 1:
+        heads = [h[index] for h in read(head)]
+        if any(a > b for a, b in zip(heads, heads[1:])) or heads[-1] != n[bag] - 1:
             raise ValueError(f'SoundFont {what} header indices are not monotonic or do not end at the bag table\'s end: '
                              'a structurally defective bank')
+        bags = read(bag)
         for k, table in ((0, gen), (1, mod)):
             xs = [b[k] for b in bags]
-            if any(a > b for a, b in zip(xs, xs[1:])) or xs[-1] not in (len(tables[table]) - 1, len(tables[table])):
+            if any(a > b for a, b in zip(xs, xs[1:])) or xs[-1] not in (n[table] - 1, n[table]):
                 raise ValueError(f'SoundFont {what} bag indices are not monotonic or do not end at the '
                                  f'{"generator" if k == 0 else "modulator"} table\'s end: a structurally defective bank')
-    zones = len(tables[b'pbag']) + len(tables[b'ibag']) - 2
-    if zones > MAX_ZONES:
-        raise ValueError(f'SoundFont with {zones} zones: more than the {MAX_ZONES} this reader takes')
+    for table in where:
+        if table not in tables:
+            read(table)
+    return tables
 
 def read(path):
     """A SoundFont's tables and where its sample data lies, refusing a damaged file with ValueError: a chunk shorter
@@ -119,12 +136,12 @@ def read(path):
 def _read(path):
     path = Path(path)
     total = path.stat().st_size
-    with path.open('rb') as f:
+    with open(path, 'rb') as f:  # open(), which a check can watch (the bytes a refusal reads: 0.8 step 1.1)
         head = f.read(12)
         if head[:4] != b'RIFF' or head[8:12] != b'sfbk':
             raise ValueError('Not a SoundFont 2 file')
         riff_end = min(total, 8 + struct.unpack('<I', head[4:8])[0])
-        info, sdta, tables = {}, {}, {}
+        info, sdta, where = {}, {}, {}
         for cid, off, size in _chunks(f, 12, riff_end):
             if cid != b'LIST':
                 continue
@@ -141,12 +158,11 @@ def _read(path):
                     rec = PDTA[sub]
                     if ssize % rec.size or ssize // rec.size > MAX_RECORDS:
                         raise ValueError(f'Bad {sub!r} table size')
-                    f.seek(soff)
-                    tables[sub] = [rec.unpack_from(buf, i * rec.size) for buf in [f.read(ssize)] for i in range(ssize // rec.size)]
-    missing = [k for k in PDTA if k not in tables]
-    if missing or b'smpl' not in sdta:
-        raise ValueError(f'Incomplete SoundFont tables: {missing}')
-    structure(tables)
+                    where[sub] = (soff, ssize // rec.size)  # found by name, in any order; read once its count holds
+        missing = [k for k in PDTA if k not in where]
+        if missing or b'smpl' not in sdta:
+            raise ValueError(f'Incomplete SoundFont tables: {missing}')
+        tables = structure(f, where)
 
     def zones(headers, bag, gen, mod, terminal):
         out = []
@@ -234,6 +250,8 @@ def write(path, name, samples, instruments, presets, comment='', copyright_notic
     instruments: [{'name','global':{gen:val},'mods':[(src,dest,amount,amount_src,transform)],'zones':[{'gens':{...},'sample':i}]}]
     presets: [{'name','bank','program','global':{...},'zones':[{'gens':{...},'instrument':i}]}]
     An item's 'mods' go to its global zone and apply to all of its zones."""
+    if len(samples) >= 0xFFFF:   # a sample's index, and a stereo half's link to the other, are 16 bits (struct.error past them)
+        raise ValueError(f'SoundFont 2 index limit exceeded ({len(samples)} samples); split the bank')
     smpl, shdr = bytearray(), bytearray()
     for s in samples:
         d = np.asarray(s['data'])
@@ -255,6 +273,8 @@ def write(path, name, samples, instruments, presets, comment='', copyright_notic
             zl = ([{'gens': it.get('global') or {}, 'mods': it.get('mods', [])}] if it.get('global') or it.get('mods')
                   else []) + it['zones']
             for z in zl:
+                if ngen >= 0xFFFF or nbag >= 0xFFFF or nmod >= 0xFFFF:   # before a 16-bit index is packed: past it, struct.error
+                    raise ValueError(f'SoundFont 2 index limit exceeded ({ngen} generators, {nbag} zones); split the bank')   # (the whole review)
                 bag += BAG.pack(ngen, nmod)
                 for m in z.get('mods', []):
                     mod += MOD.pack(*m)

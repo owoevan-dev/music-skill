@@ -15,6 +15,7 @@ Times are written beats (quarter notes); performance timing is left out, velocit
 from collections import Counter
 
 from . import harmony
+from .files import one_line
 from .model import Clock
 from .profile import phrases, tick, top_line
 from .review import _meter, attack_kinds, unpitched
@@ -214,6 +215,8 @@ def describe(v):
         for name, row in r['parts'].items():
             parts.setdefault(name, row.get('role'))
     order = sorted(parts, key=lambda n: (ROLE_ORDER.index(parts[n]) if parts[n] in ROLE_ORDER else len(ROLE_ORDER), n))
+    # A role is the project's own text: escaped before the table is composed, so that it adds no line (0.8 step 1.6)
+    parts = {n: one_line(str(r)) for n, r in parts.items()}
     label = max([len(f'{n} ({parts[n]})') for n in order] + [8])
     width = max([len(r['section']) for r in rows] + [4]) + 2
     for start in range(0, len(rows), WIDE):
@@ -231,7 +234,7 @@ def describe(v):
         kinds = ', '.join(f'{k} {n}' for k, n in sorted(h['kinds'].items(), key=lambda kv: -kv[1]))
         lines.append(f'Harmony: {h["changes"]} chord changes in {h["entries"]} entries (a change is a chord that differs from the '
                      f'one before it; the same chord written again is none), {h["changes_per_bar"]:g} a bar. By section: {by}. '
-                     f'Kinds of chord: {kinds}.' + (f' Not read: {", ".join(h["unknown"])}.' if h['unknown'] else ''))
+                     f'Kinds of chord: {kinds}.' + (f' Not read: {", ".join(one_line(u) for u in h["unknown"])}.' if h['unknown'] else ''))
     for m in v['melody_rhythm']:
         run = m['longest_run']
         rests = ', '.join(f'{s["section"]} {s["rests"]}' for s in m['sections'] if s['attacks'])

@@ -1310,6 +1310,41 @@ def define(S):
         r=run('sfz',src/'own.sfz','--name','Own SFZ','--program',0,'--license',wide_lic,'--output',work/'own_wide.sf2','--receipt',work/'own_wide.json')
         assert r.returncode==0 and json.loads((work/'own_wide.json').read_text(encoding='utf-8'))['license']==wide_lic,r.stderr[-300:]
         assert b'\\u9304\\u97f3\\u6388\\u6b0a, CC0\0' in (work/'own_wide.sf2').read_bytes() and 'keeps it as \\u9304' in r.stdout,r.stdout[-400:]
+        # a take too short to read its pitch is moved by the octave its layer's measured takes agree on, and a key that
+        # leaves MIDI 0-127 that way is refused by its name: +12 wrote a root of 139 into the bank and built, -12 stopped
+        # the writer with struct.error (GPT Pro's second review of 0.8.0)
+        sine=lambda hz,n:np.stack([(np.sin(2*np.pi*hz*np.arange(n)/48000)*.3).astype(np.float32)]*2,1)
+        for tag,takes,short in (('up',(('C4',523.25),('E4',659.26)),'G9'),('down',(('C5',261.63),('E5',329.63)),'C-1')):
+            oct_dir=work/f'own_oct_{tag}';oct_dir.mkdir()
+            for note_name,hz in takes:sb.write_float_wav(oct_dir/f'n_{note_name}.wav',sine(hz,48000),48000)
+            sb.write_float_wav(oct_dir/f'n_{short}.wav',sine(1000,4800),48000)
+            octave={'name':'Oct','presets':[{'name':'Oct','program':0,'layers':[{'dir':'.','template':'n_{note}.wav','dynamics':['default'],'keys':'auto',
+                                                                                    'velocity':{'default':[1,127]},'onset_db':None}]}]}
+            try:sb.build(octave,oct_dir,work/f'own_oct_{tag}.sf2');raise AssertionError(f'a key moved past MIDI 0-127 by the octave fix built ({tag})')
+            except ValueError as e:assert f'n_{short}.wav' in str(e) and 'outside 0-127' in str(e),(tag,str(e))
+            assert not (work/f'own_oct_{tag}.sf2').exists(),tag
+        # a layer's keys, dynamics and velocities, and a preset's layers, are checked before any recording is read: keys or
+        # a velocity range given high first left the preset no key or no velocity that plays, and no layers no zone at all,
+        # and each built and was published (GPT Pro's second review of 0.8.0)
+        base={'dir':'.','template':'x.wav','root':60,'dynamics':['default'],'keys':[60,72],'velocity':{'default':[1,127]}}
+        sb.naming({'presets':[{'name':'p','layers':[base]}]})
+        for field,value in (('keys',[72,60]),('keys',[0,128]),('keys',[60]),('keys',[60.0,72]),('keys',[True,72]),('keys','all'),
+                            ('velocity',{'default':[127,1]}),('velocity',{'pp':[1,127]}),('velocity',{'default':[0,128]}),('velocity',[1,127]),
+                            ('dynamics',[]),('dynamics','default'),('dynamics',['p','p'])):
+            try:sb.naming({'presets':[{'name':'p','layers':[{**base,field:value}]}]});raise AssertionError(f'{field}={value!r} taken')
+            except ValueError as e:assert f'`{field}`' in str(e),(field,value,str(e))
+        # keys "auto" with a key_margin below 0 made [62, 58] of one note, and the bank no key that plays (Astra's fifth
+        # round); a margin of 0 is taken, and one beside fixed keys, which the build does not read, is left alone
+        for margin in (-2,1.5,True,'2'):
+            try:sb.naming({'presets':[{'name':'p','layers':[{**base,'keys':'auto','key_margin':margin}]}]});raise AssertionError(f'key_margin={margin!r} taken')
+            except ValueError as e:assert '`key_margin`' in str(e),(margin,str(e))
+        for keys in ('auto',[60,72]):
+            sb.naming({'presets':[{'name':'p','layers':[{**base,'keys':keys,'key_margin':0 if keys=='auto' else -2}]}]})
+        (work/'own_revkeys.json').write_text(json.dumps({'name':'K','presets':[{'name':'K','program':0,'layers':[{**two['presets'][0]['layers'][0],'keys':[72,60]}]}]}),encoding='utf-8')
+        (work/'own_nolayers.json').write_text(json.dumps({'name':'N','presets':[{'name':'N','program':0,'layers':[]}]}),encoding='utf-8')
+        for spec_name,words in (('revkeys','`keys`'),('nolayers','no layers')):
+            r=run('build',work/f'own_{spec_name}.json','--root',pair,'--output',work/f'own_{spec_name}.sf2','--receipt',work/f'own_{spec_name}_receipt.json')
+            assert r.returncode==2 and words in r.stderr and not (work/f'own_{spec_name}.sf2').exists() and not (work/f'own_{spec_name}_receipt.json').exists(),(spec_name,r.stderr[-300:])
         return {'folder':'2 notes x 2 dynamics, keys Bb3-A4, or G3-C5 as asked; 128 dynamics refused','sfz':'6 regions; a header and 2 opcodes named as not used; 4 refusals',
                 'reading':'9 rules and 9 refusals in this process','fields':'4 refused before reading'}
     def aiff_reader():

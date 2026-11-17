@@ -561,8 +561,15 @@ def define(S):
         import musiclib.starter as starter
         real=starter.script;starter.script=lambda *a:real(*a)+'raise SystemExit("stopped here")\n'   # a compose.py that stops is reported
         try:starter.start(work/'books_stops','B',['a:2'],['lead melody']);raise AssertionError('a stopped compose.py reported as written')
-        except ValueError as e:assert 'compose.py was written, but it stopped: stopped here' in str(e),str(e)
+        except ValueError as e:assert 'compose.py was written, but it stopped: stopped here' in str(e) and 'running compose.py would replace it' in str(e),str(e)
         finally:starter.script=real
+        # that one stopped after its save, so its song.json is there and running it again replaces that file, as the message
+        # says; one that stops before its save leaves none, and is told to fix the line and run it (GPT Pro's second review)
+        starter.script=lambda *a:real(*a).replace('song.save(','raise SystemExit("stopped here"); song.save(')
+        try:starter.start(work/'books_stops_early','B',['a:2'],['lead melody']);raise AssertionError('a compose.py stopped before its save reported as written')
+        except ValueError as e:assert 'stopped here. Fix that line of the script, then run it: python compose.py' in str(e),str(e)
+        finally:starter.script=real
+        assert not (work/'books_stops_early'/'song.json').exists()
         # a compose.py put in the new folder while start writes its own is left as it is (it was written over: the whole review)
         def theirs(*a):
             (work/'books_race'/'compose.py').write_text('# theirs\n',encoding='utf-8');return real(*a)
@@ -581,7 +588,10 @@ def define(S):
             (Path(path).parent/'song.json').write_text('theirs',encoding='utf-8')
         starter.files.staged=then_theirs
         try:starter.start(work/'books_late','B',['a:2'],['lead melody']);raise AssertionError('a song.json made after start looked replaced')
-        except ValueError as e:assert 'made by something else while the song was saved' in str(e),str(e)
+        except ValueError as e:
+            # and start does not tell the user to run compose.py, whose save would replace it (following that instruction
+            # replaced it: GPT Pro's second review of 0.8.0)
+            told=str(e);assert 'made by something else while the song was saved' in told and 'running compose.py would replace it' in told and 'then run it' not in told,told
         finally:starter.files.staged=real_staged
         assert (work/'books_late'/'song.json').read_text(encoding='utf-8')=='theirs'
         r=start(work/'books_piece','--title','B','--section','a:2','--part','lead melody');assert r.returncode==2 and 'exists' in r.stderr,r.stderr[-300:]

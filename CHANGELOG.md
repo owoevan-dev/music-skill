@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.8.0] - 2026-11-17
 
 A piano-roll video of any render, banks from your own samples and SFZ instruments, a starter and a builder that keep a composition script's books, and messages that say where, what and the rule.
 
@@ -35,6 +35,8 @@ A piano-roll video of any render, banks from your own samples and SFZ instrument
 - **`sounds` names what it does not know.** A role is matched without regard to case; a role or character word the catalog does not hold is refused with the nearest one it does (it matched nothing before, silently), and the catalog's phrases such as "fast attack" are taken.
 - **A `key_map` key written with a leading zero (`"048"`) is refused.** It passed validation, and the render, which looks a note up as `"48"`, left it unmapped.
 - **Errors that stopped a command with a traceback now name their cause.** In `soundbank.py`, a FLAC source that FFmpeg cannot decode, or does not decode within ten minutes, and a bank past the SoundFont format's 65,535 zones, generators or samples are refused with a message. In `validate`, a `key_map` key written as a number rather than as text is refused with the part's name.
+- **`soundbank.py build` checks a layer's ranges before it reads a recording.** `dynamics` names each value once, `keys` and each dynamic's `velocity` are `[low, high]` within 0–127, low first (`keys` may be `"auto"`, with a `key_margin` of 0 or more), and a preset has at least one layer. Keys or a velocity range given high first, or a preset of no layers, built a bank with nothing to play there and published it.
+- **A take the pitch check's octave correction moves outside MIDI 0–127 is refused by name.** A take too short to measure moves with the others; at the top of the range it was written with a root key past 127, and at the bottom it stopped the bank's writer.
 
 ## [0.7.0] - 2026-11-14
 

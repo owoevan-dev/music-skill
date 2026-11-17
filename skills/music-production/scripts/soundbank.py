@@ -621,7 +621,11 @@ def naming(spec):
     of step 3 are checked here too (step3_fields)."""
     from musiclib.model import digest
     ours, out = None, []
+    whole = lambda v: isinstance(v, int) and not isinstance(v, bool)
+    span = lambda v: isinstance(v, list) and len(v) == 2 and all(map(whole, v)) and 0 <= v[0] <= v[1] <= 127
     for p in spec['presets']:
+        if not p['layers']:   # a bank of no zone was built and published (GPT Pro's second review of 0.8.0)
+            raise ValueError(f'preset {p.get("name")!r}: no layers; a preset plays the takes of its layers')
         for k, layer in enumerate(p['layers']):
             where = f'preset {p.get("name")!r}, layer {k + 1}'
             if not isinstance(layer, dict):
@@ -661,6 +665,20 @@ def naming(spec):
                                 ('velocity', 'the velocities each dynamic takes, e.g. {"default": [1, 127]}')):
                 if field not in layer:   # each read by the build: a KeyError past the command's handler, as `dir` was
                     raise ValueError(f'{where}: no `{field}`, {what}')
+            # the ranges its zones are made of, as the build reads them: keys or a velocity range given high first left the
+            # preset no key or no velocity that plays, and the bank was published (GPT Pro's second review of 0.8.0)
+            dyns = layer['dynamics']
+            if not (isinstance(dyns, list) and dyns and all(isinstance(d, str) for d in dyns) and len(set(dyns)) == len(dyns)):
+                raise ValueError(f'{where}: `dynamics` is a list of names, each once, softest first (["default"] for one); it is {dyns!r}')
+            if layer['keys'] != 'auto' and not span(layer['keys']):
+                raise ValueError(f'{where}: `keys` is [low, high] as MIDI numbers, 0 <= low <= high <= 127, or "auto"; it is {layer["keys"]!r}')
+            margin = layer.get('key_margin', 2)
+            if layer['keys'] == 'auto' and not (whole(margin) and margin >= 0):   # below 0, one note's span ran high first (Astra's fifth round)
+                raise ValueError(f'{where}: `key_margin` is a whole number of semitones, 0 or more; it is {margin!r}')
+            vel = layer['velocity']
+            if not (isinstance(vel, dict) and all(d in vel and span(vel[d]) for d in dyns)):
+                raise ValueError(f'{where}: `velocity` gives each dynamic [low, high], 0 <= low <= high <= 127, e.g. '
+                                 f'{{"default": [1, 127]}}; it is {vel!r}')
     return out
 
 
@@ -1912,6 +1930,13 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt, parts=None):
             for e in entries:
                 e['named'] += octave_fix
                 e['cents'] = None if e['cents'] is None else e['cents'] - 100 * octave_fix
+            # the names were checked against 0-127 before this fix, which also moves a take whose pitch was not read (a
+            # short one): +12 wrote a root of 139 into the bank, -12 stopped its writer (GPT Pro's second review of 0.8.0)
+            for e in entries:
+                if not 0 <= e['named'] <= 127:
+                    raise ValueError(f"{e['file'].relative_to(root).as_posix()}: its key is MIDI {e['named'] - octave_fix} by its name and "
+                                     f"{e['named']} with the octave ({octave_fix:+d}) its layer's measured takes agree on, outside 0-127; "
+                                     "rename the take or leave it out")
     if layer.get('fold_octaves'):
         # The pitch tracker can lock onto the second harmonic or an octave below the note: a reading an octave or two
         # away from the named note, give or take a few cents, is taken as the named note that many cents out.

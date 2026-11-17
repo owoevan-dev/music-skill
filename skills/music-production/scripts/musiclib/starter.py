@@ -165,6 +165,13 @@ def start(folder, title, sections, parts, tempo=100.0, meter='4/4', config=None)
                          env={**os.environ, START_SAVE: '1'})
     if run.returncode:
         last = (run.stderr.strip().splitlines() or ['(no message)'])[-1]
+        if files.occupied(folder / 'song.json'):
+            # start found none, so unless the script saved this one before it stopped it is another's, which its save
+            # refused to replace; the line below told the user to run compose.py, whose save replaced it (GPT Pro's
+            # second review of 0.8.0)
+            raise ValueError(f"{folder / 'compose.py'} was written, but it stopped: {last}. A song.json is there now that start did not find: "
+                             "unless compose.py saved it before it stopped, it is another's, and running compose.py would replace it, so "
+                             "move it aside first or start in another folder")
         raise ValueError(f'{folder / "compose.py"} was written, but it stopped: {last}. Fix that line of the script, then run it: python compose.py')
     return files.joined([f'Wrote {folder / "compose.py"} and the song.json it writes ({len(parts)} parts, {len(sections)} sections, validated).',
                          'Write the notes in compose.py, run python compose.py, then studio.py validate and studio.py review.'])

@@ -111,6 +111,18 @@ def define(S):
         cut4=extract(x4,4,1);validate(cut4);assert abs(at12-105.788)<1e-3 and abs(dict(map(tuple,effective_tempo(cut4)))[0.0]-at12)<1e-3,(at12,effective_tempo(cut4)[:2])
         # (o) a span ends at its end: no step of its own begins within that hair of it (the step would keep the curve)
         ends,_=played([[0,120]],[[1.333333,7/3,.9]]);assert ends[round(7/3,6)]==120 and ends[max(ends)]==120,sorted(ends.items())[-3:]
+        # The owner's review of the pull request.  (p) Two written tempo points under that hair apart are still two
+        # points: the later one is the tempo from there on, as in 0.8.0 (the walk took them for one event and kept
+        # the first: a piece of 15.75 seconds played in 6.6).  Checked where it lasts: a beat well after them.
+        near,xn=played([[0,120],[1,150],[1.000004,60]],[[15,16,.6]],bars=4);cn=Clock(xn)
+        assert near[1.0]==150 and near[1.000004]==60 and abs(cn.seconds(6)-cn.seconds(5)-1.0)<1e-9,(sorted(near.items())[:4],cn.seconds(6)-cn.seconds(5))
+        # (q) and so where a ritardando ends between them, or a step of one begins there
+        edge,xe=played([[0,120],[4,150],[4.000004,60]],[[3,4,.5]],bars=4);ce=Clock(xe)
+        assert edge[4.000004]==60 and abs(ce.seconds(6)-ce.seconds(5)-1.0)<1e-9,(sorted(edge.items())[-4:],ce.seconds(6)-ce.seconds(5))
+        inside,xi=played([[0,120],[4.125,150],[4.125004,60]],[[4,8,.5]],bars=4)
+        assert abs(inside[4.125004]/inside[4.125]-60/150)<1e-3 and abs(inside[4.25]/60-(1+(.5**2-1)*(4.25+1/16-4)/4)**.5)<1e-3,sorted(inside.items())[:6]
+        # and two points nearer than the map's six decimals: the later written is the one at that place
+        same,_=played([[0,120],[1,150],[1.0000004,60]],[[15,16,.6]],bars=4);assert same[1.0]==60,sorted(same.items())[:3]
         # (i) and where no beat needs more than six decimals, the map is what it was: a phrase's and a final ritardando
         plain=copy.deepcopy(r);plain['clock'].update(bars=3,tempo=[[0,120],[8,96]],rubato={'phrase_beats':1,'phrase_ratio':.9,'final_beats':2,'final_ratio':.6})
         plain['sections']=[dict(plain['sections'][0],start_bar=0,bars=2),dict(plain['sections'][0],id='b',start_bar=2,bars=1)];validate(plain)

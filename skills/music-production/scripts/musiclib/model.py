@@ -297,7 +297,9 @@ def effective_tempo(project):
     out, base, curve, k = {}, tempo[0][1], None, 0
     while k < len(events):
         beat, here = events[k][0], []
-        while k < len(events) and events[k][0] <= beat + together:
+        # (a group holds one written point at most: two written points are two tempi, however near; taken for one
+        # event, the later was lost and the piece played on at the earlier one's tempo)
+        while k < len(events) and events[k][0] <= beat + together and not (events[k][1] == 0 and any(e[1] == 0 for e in here)):
             here.append(events[k])
             k += 1
         point = next((e[3] for e in here if e[1] == 0), None)

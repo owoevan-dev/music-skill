@@ -1048,6 +1048,36 @@ def define(S):
         from musiclib.render import retrigger_trims
         q=on_two_strings(under,2);assert retrigger_trims(q['tracks'][0],Clock(q))==0 and sum(n.get('retrigger_trimmed',False) for n in performed(q['tracks'][0],Clock(q)))==1
         plain=example();assert retrigger_trims(plain['tracks'][0],Clock(plain))==sum(n.get('retrigger_trimmed',False) for n in performed(plain['tracks'][0],Clock(plain)))
+        # (the second review with a place to run code) The same over many seeded cuts: two or three strings, some on
+        # one pitch, held across the cut or struck within a few ticks of it, as written or by their timing, under a
+        # part offset of up to 300 ms either way, swing and a tempo change at the cut.  A string that sounds across
+        # the cut and a quarter beat on is in the passage, to where the piece ends it.  (Placed clear of the other
+        # notes as written alone, a re-attack met one as played, and the ringing string went: 292 of 1,468 such
+        # pieces lost one.)
+        import random
+        def cuts(seed):
+            rng=random.Random(seed);notes=[];each={}
+            def add(i,on,duration,pitch,string,timing=0.0):
+                notes.append({'id':i,'on':on,'duration':duration,'pitch':pitch,'string':string});each[i]={'velocity':90,**({'timing_ms':timing} if timing else {})}
+            add('held6',0,rng.choice([8,11,6.5]),52,6)
+            if rng.random()<.6:add('held5',rng.choice([.5,1,2.25]),rng.choice([7,9]),rng.choice([52,52,57]),5)
+            else:add('stroke5',4+rng.choice([0,1/960,2/960,1/16,1/8,.5]),rng.choice([.25,1]),rng.choice([52,52,57]),5,rng.choice([0,0,1.1,2.1,-1.1,40,-40]))
+            if rng.random()<.4:add('held4',rng.choice([.25,3]),6,rng.choice([52,55]),4)
+            offset=rng.choice([0,0,-20,35,-100,100,-101,-150,150,-300,300])
+            q=on_two_strings([],3);t0=q['tracks'][0];t0['notes']=notes
+            t0['performance']={'notes':each,'cc':[],**({'offset_ms':offset} if offset else {}),**({'swing':{'ratio':rng.choice([.6,.67])}} if rng.random()<.4 else {})}
+            q['clock']['tempo']=rng.choice([[[0,120]],[[0,120],[4,90]],[[0,96],[4,132]]])
+            try:validate(q)
+            except ValueError:return None
+            source={n['id']:n for n in sounded(t0,Clock(q))};second=extract(q,2,1);validate(second)
+            passage={n['id']:n for n in sounded(second['tracks'][0],Clock(second))}
+            late=max(0.0,abs(offset)-100)/1000*960*2.2+16   # a re-attack's timing reaches 100 ms: the rest of an offset is heard (and three notes of one pitch stand two ticks apart, more under swing)
+            for i,n in source.items():
+                if n['tick']<3840 and n['end_tick']>=3840+240:
+                    m=passage.get(i);want=min(7680,n['end_tick'])-3840
+                    assert m is not None and abs(m['end_tick']-want)<=2 and m['tick']<=late,(seed,offset,i,m and (m['tick'],m['end_tick']),want,notes)
+            return True
+        assert sum(1 for seed in range(240) if cuts(seed))>200
         # and a string that holds a pitch across the cut while another strikes it on the cut: the passage is valid, and its own strike is in it
         q=on_two_strings([(0,8,52,{'string':6}),(4,1,52,{'string':5})],2);validate(q);second=extract(q,2,1);validate(second)
         assert ('n1',0,5) in [(n['id'],n['on'],n['string']) for n in second['tracks'][0]['notes']],second['tracks'][0]['notes']

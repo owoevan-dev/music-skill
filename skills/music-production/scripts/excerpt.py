@@ -197,20 +197,29 @@ def extract(p,first_bar,bars):
         # strikes of a key apart, so nothing of it goes here.
         if source.get('strings'):
             # A part played by string: two strings can hold one pitch across the cut (or one holds it while another
-            # strikes it on the cut), and both are then written on the cut's tick, which validate refuses: one key is
-            # not struck twice at once.  A note struck again at the cut is written two ticks from every other note of
-            # its pitch there, the ones the piece struck first staying first; it plays where it is written.
-            fixed=[];top=max(0,int((length-1/TPQ)*TPQ+1e-9))
+            # strikes it at the cut), and both then come onto one tick, as written or as played, which validate
+            # refuses: one key is not struck twice at once.  (The pass further down then left the ringing string out
+            # of the passage.)  A note struck again at the cut is written on the first tick that lies two ticks or
+            # more from every other note of its pitch both as written and as played, the ones the piece struck first
+            # staying first; its timing takes the part's offset back as far as timing reaches (100 ms), so it plays
+            # on or near the tick it is written on.
+            started=lambda m:max(0,tick_of(excerpt_clock.beat(max(0.0,spans[m['id']][2] if m['id'] in spans else inside[m['id']][0]))))   # the tick a note of the passage plays on
+            fixed=[];top=max(0,int((length-1/TPQ)*TPQ+1e-9));timing=min(.1,max(-.1,-offset))
+            plays=lambda k:max(0,tick_of(excerpt_clock.beat(max(0.0,at(k/TPQ)+timing+offset))))   # where a re-attack written on tick k plays
             for n in sorted((n for n in notes if n['id'] in again),key=lambda n:played[n['id']]['tick']):
-                near=[tick_of(m['on']) for m in notes if m['id'] not in again and m['pitch']==n['pitch']]+[k for pitch,k in fixed if pitch==n['pitch']]
-                k=0
-                while k<=top and any(abs(k-x)<=1 for x in near):k+=1
-                if 0<k<=top:
-                    # (its timing takes the part's offset back, so that it plays on the tick it is written on)
-                    _,s1,_=spans[n['id']];o=k/TPQ;timing=min(.1,max(-.1,-offset));begin=at(o)+timing+offset
+                others=[m for m in notes if m['id'] not in again and m['pitch']==n['pitch']]
+                near=[tick_of(m['on']) for m in others]+[k for pitch,k,_ in fixed if pitch==n['pitch']]
+                heard=[started(m) for m in others]+[p for pitch,_,p in fixed if pitch==n['pitch']]
+                clear=lambda k,p:all(abs(k-x)>1 for x in near) and all(abs(p-x)>1 for x in heard)
+                k,p=tick_of(n['on']),started(n)
+                if not clear(k,p):
+                    k=next((k for k in range(top+1) if clear(k,plays(k))),None)
+                    if k is None:
+                        fixed.append((n['pitch'],tick_of(n['on']),p));continue   # no tick of the passage is free: the pass below decides
+                    _,s1,_=spans[n['id']];o=k/TPQ;begin=at(o)+timing+offset;p=plays(k)
                     d,gate=fit(o,max(1/TPQ,min(length-o,n['on']+n['duration']-o)),s1,begin,length-o)
                     n['on']=o;n['duration']=d;perf['notes'][n['id']].update(timing_ms=timing*1000,gate=gate);spans[n['id']]=(o,s1,begin)
-                fixed.append((n['pitch'],tick_of(n['on'])))
+                fixed.append((n['pitch'],k,p))
         gone=set()
         clash=lambda n:any(m is not n and m['id'] not in gone and m['pitch']==n['pitch'] and abs(tick_of(m['on'])-tick_of(n['on']))<=1 for m in notes)
         last=max(0,int((length-1/TPQ)*TPQ+1e-9))

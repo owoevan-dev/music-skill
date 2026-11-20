@@ -392,7 +392,14 @@ def extract(p,first_bar,bars):
         q.setdefault('decisions',[]).append('The excerpt plays as a passage, not a loop; the source keeps its loop.')
     # The chord list moves to the passage's bars; an older free-form harmony object, which schema.md still accepts and
     # does not check, stays as it is (it was read as a list and stopped extract; found by GPT Pro's third review).
-    if isinstance(q.get('harmony'),list):q['harmony']=[{**h,'bar':h['bar']-first_bar+1} for h in q['harmony'] if first_bar<=h['bar']<first_bar+bars]
+    if isinstance(q.get('harmony'),list):
+        # (the chord in force at the cut is the passage's first: with only the chords that begin in it, its first notes
+        # were read against no chord)
+        place=lambda h:(h['bar'],h.get('beat',0));before=[h for h in q['harmony'] if place(h)<(first_bar,0)]
+        kept=[{**h,'bar':h['bar']-first_bar+1} for h in q['harmony'] if first_bar<=h['bar']<first_bar+bars]
+        if before and not any(place(h)==(1,0) for h in kept):
+            kept.insert(0,{**{k:v for k,v in max(before,key=place).items() if k!='beat'},'bar':1})
+        q['harmony']=kept
     # What the piece struck before the cut starts the excerpt: the re-attacks, and the passage's own notes that their
     # timing or the part's earlier offset plays before the cut (the excerpt cannot start before its first beat, so they
     # all sound at its start).  Of these, and of the notes written before the cut whose written onset moved onto it, a

@@ -123,6 +123,16 @@ def define(S):
         assert abs(inside[4.125004]/inside[4.125]-60/150)<1e-3 and abs(inside[4.25]/60-(1+(.5**2-1)*(4.25+1/16-4)/4)**.5)<1e-3,sorted(inside.items())[:6]
         # and two points nearer than the map's six decimals: the later written is the one at that place
         same,_=played([[0,120],[1,150],[1.0000004,60]],[[15,16,.6]],bars=4);assert same[1.0]==60,sorted(same.items())[:3]
+        # (a review of 0.9) The chord in force at the cut is the passage's first chord: only the chords that begin
+        # in the passage were kept, so its first notes were read against no chord.  One written on the cut stands.
+        hq=copy.deepcopy(r);hq['clock'].update(bars=3,tempo=[[0,120]]);hq['clock'].pop('rubato',None);hq['sections']=[dict(hq['sections'][0],start_bar=0,bars=3)]
+        for t in hq['tracks']:t['notes']=[];t['performance']={'notes':{},'cc':[]}
+        hq['harmony']=[{'bar':1,'symbol':'C/E','transpose_semitones':2},{'bar':3,'beat':1,'symbol':'G7'}];validate(hq)
+        assert extract(hq,2,1)['harmony']==[{'bar':1,'symbol':'C/E','transpose_semitones':2}],extract(hq,2,1)['harmony']
+        assert extract(hq,3,1)['harmony']==[{'bar':1,'symbol':'C/E','transpose_semitones':2},{'bar':1,'beat':1,'symbol':'G7'}],extract(hq,3,1)['harmony']
+        assert extract(hq,1,2)['harmony']==[{'bar':1,'symbol':'C/E','transpose_semitones':2}]
+        hq['harmony'].insert(1,{'bar':2,'symbol':'F'});validate(hq);assert extract(hq,2,2)['harmony']==[{'bar':1,'symbol':'F'},{'bar':2,'beat':1,'symbol':'G7'}],extract(hq,2,2)['harmony']
+        hq['harmony']=[{'bar':2,'beat':2,'symbol':'F'}];validate(hq);assert extract(hq,1,1)['harmony']==[] and extract(hq,2,1)['harmony']==[{'bar':1,'beat':2,'symbol':'F'}]
         # (i) and where no beat needs more than six decimals, the map is what it was: a phrase's and a final ritardando
         plain=copy.deepcopy(r);plain['clock'].update(bars=3,tempo=[[0,120],[8,96]],rubato={'phrase_beats':1,'phrase_ratio':.9,'final_beats':2,'final_ratio':.6})
         plain['sections']=[dict(plain['sections'][0],start_bar=0,bars=2),dict(plain['sections'][0],id='b',start_bar=2,bars=1)];validate(plain)

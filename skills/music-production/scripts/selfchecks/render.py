@@ -562,8 +562,8 @@ def define(S):
             drums['notes']=[{'id':'c','on':3,'duration':1,'pitch':49}];drums['performance']={'notes':{'c':{'velocity':120}},'cc':[]}
             # Beside the crash, a pad held through the bar with a release of twenty seconds: what still sounds at the
             # end is then far from the line of -60 dBFS on either side of it, whatever the FFmpeg and the bank (with
-            # the crash alone the end lay 3 dB over the line here, and an audition's pad of six seconds 1 dB over it:
-            # on Ubuntu's FFmpeg 6.1 that pad ended under the line and the check failed, on CI, on a healthy system)
+            # the crash alone the end lay 3 dB over the line here, and an audition's pad of six seconds 1 dB over it;
+            # the check failed on Ubuntu's FFmpeg 6.1, where the mix then lost its parts' last block: the case below)
             pad=copy.deepcopy(next(t for t in p['tracks'] if t['id']=='piano'));pad.update(id='pad',engine='synth',synth={'preset':'warm_pad','amp':{'attack':.01,'decay':.1,'sustain':1.0,'release':20.0}})
             pad['notes']=[{'id':'pn','on':0,'duration':4,'pitch':60}];pad['performance']={'notes':{'pn':{'velocity':100}},'cc':[]}
             q['tracks']=[drums,pad];validate(q);folder=work/'draft_tail';folder.mkdir();save_json(folder/'song.json',q)

@@ -93,14 +93,14 @@ def validate(project, track, total_beats):
         end = clock.total_beats
         # by the ticks the notes are played on (their timing, gate, swing and the part's offset: model.performed): a
         # note reaching the loop's last tick, a note starting on its first
-        from .model import performed
+        from .model import sounded
         first, last = tick_of(start), tick_of(end)
         if track.get('reverse'):
             # a reversed part sounds over each note's written span, whatever its gate, its timing or a later note
             # of its key (render.reversed_notes plays every note by itself)
             spans = [(tick_of(n['on']), tick_of(n['on'] + n['duration'])) for n in track['notes']]
         else:
-            spans = [(e['tick'], e['end_tick']) for e in performed(track, clock)]
+            spans = [(e['tick'], e['end_tick']) for e in sounded(track, clock)]   # (a part played by string: each string by itself, as it is rendered)
         held = any(a < last <= b for a, b in spans)
         struck = any(a <= first < b for a, b in spans)   # sounding at the loop's first tick: struck there, or held into it from the intro
         a, b = (float(v) for v in at_beats(spec, mix.get('pan', 0), np.array([start, end]), clock))

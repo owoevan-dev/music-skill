@@ -34,7 +34,7 @@ import numpy as np
 from . import files
 from .midi import remap
 from .mixbus import bus_of
-from .model import TPQ, Clock, performed
+from .model import TPQ, Clock, sounded
 
 SURFACE, PANEL, GRID = (20, 20, 19), (30, 30, 28), (58, 58, 54)
 BLACK_ROW = (25, 25, 23)
@@ -321,7 +321,7 @@ def as_played(t, clock):
     if t['engine'] == 'soundfont' and layered.wanted(t):
         return [{'start_seconds': clock.seconds(n['tick'] / TPQ), 'end_seconds': clock.seconds(n['end_tick'] / TPQ), 'pitch': n['pitch']}
                 for n in layered.plan(t, clock)]
-    played = performed(t, clock)
+    played = sounded(t, clock)   # (a part played by string: string by string, as it is rendered)
     if t.get('key_map'):
         played = [{**n, 'pitch': n['written'], 'end_seconds': clock.seconds(n['end_tick'] / TPQ)}
                   for n in remap([{**n, 'written': n['pitch']} for n in played], t['key_map'])]

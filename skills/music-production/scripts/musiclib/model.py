@@ -745,8 +745,9 @@ def performed(track,clock,expressive=True,ends=None):
     """Return actual MIDI-grid onset/release. Trim only overlapping same-key retriggers.
     `performance.offset_ms` shifts a whole part (e.g. sounding earlier to offset slow sample attacks).
     On a part played by string (`strings`, musiclib/strung.py) a note also ends where its string's next note begins,
-    as played: the synthesis, the exported MIDI, the roll, review, an excerpt and the mix's figures all read that here
-    (such a note is marked `string_ended`).  `ends` (id -> tick) ends a note no later than its tick: a synthesis pass of
+    as played (such a note is marked `string_ended`).  The whole part's events are the exported MIDI's: one channel,
+    on which a second strike of a key ends the first, whatever string it is on.  The audio plays each string by
+    itself; what reads how long a note sounds reads `sounded` below.  `ends` (id -> tick) ends a note no later than its tick: a synthesis pass of
     a part played by string holds some of a string's notes, and each must end where the whole part has it end; it is
     an argument and not a field of the project, so that no project can set it."""
     notes=[];offset=track['performance'].get('offset_ms',0)/1000 if expressive else 0
@@ -789,6 +790,22 @@ def performed(track,clock,expressive=True,ends=None):
         n['start_seconds']=clock.seconds(n['tick']/TPQ)
         n['end_seconds']=clock.seconds(n['end_tick']/TPQ)
     return sorted(notes,key=lambda n:(n['tick'],n['pitch']))
+
+def sounded(track,clock,expressive=True):
+    """The part's notes as its audio has them.  For a part played by string each string is a voice of its own
+    (strung.passes plays a string's notes alone): its notes are performed string by string, so one pitch held on two
+    strings is held on both.  performed() of the whole part is the exported MIDI's one channel, on which the second
+    strike of a key ends the first; what reads how long a note sounds reads this instead (an excerpt, the loop's
+    guard on a movement, the mix's held spans, the roll, the seam's count, notes.csv: the reviews of 0.9).  Any other
+    part: performed()."""
+    if not track.get('strings'):return performed(track,clock,expressive)
+    per={}
+    for n in track['notes']:per.setdefault(n.get('string'),[]).append(n)
+    out=[]
+    for own in per.values():
+        ids={n['id'] for n in own}
+        out+=performed({**track,'notes':own,'performance':{**track['performance'],'notes':{k:v for k,v in track['performance']['notes'].items() if k in ids}}},clock,expressive)
+    return sorted(out,key=lambda n:(n['tick'],n['pitch']))
 
 def cc_events(track):
     """Controller events as performed. `step` holds each value until the next point; `linear`

@@ -4,7 +4,7 @@ import copy
 import math
 from pathlib import Path
 import sys
-from musiclib.model import TPQ,Clock,curve_at,load_project,performed,rubato_spans,save_json,swung,tick_of,validate
+from musiclib.model import TPQ,Clock,curve_at,load_project,performed,rubato_spans,save_json,sounded,swung,tick_of,validate
 
 REATTACK_GAP_S=.1  # the most a note's own timing may move it (validate: timing_ms within ±100)
 
@@ -13,11 +13,13 @@ def one_line(t):
     leg=t['performance'].get('legato')
     return t['engine']=='additive' or (t['engine']=='soundfont' and isinstance(leg,dict) and leg.get('mode','slur')=='slur')
 
-def collides(track,first,clock,struck,gap=0.0):
+def collides(track,first,clock,struck,gap=0.0,again=()):
     """Whether the note `first`, struck before the cut in the piece and so at the excerpt's start, meets a later strike
     of its key (later in the piece as played, `struck`): on its tick or one tick off, as played or as written, which the
     render's own rule (performed()) stops on, or within `gap` seconds as played.  As played counts the notes' timing,
-    the part's offset and swing."""
+    the part's offset and swing.  `again`: the notes struck again at the cut; within `gap` only a strike of the passage's
+    own doubles a re-attack, not another re-attack (on a part played by string two strings can hold one pitch across
+    the cut, and neither had stopped the other)."""
     h=next((n for n in track['notes'] if n['id']==first),None)
     if h is None:return False
     for n in track['notes']:
@@ -29,7 +31,7 @@ def collides(track,first,clock,struck,gap=0.0):
             played={x['id']:x['start_seconds'] for x in performed(pair,clock,True)};performed(pair,clock,False)
         except ValueError:return True
         # (within `gap` only a strike of the same key doubles it; another pitch on its string simply follows it)
-        if n['pitch']==h['pitch'] and abs(played[n['id']]-played[h['id']])<=gap+1e-9:return True
+        if n['pitch']==h['pitch'] and n['id'] not in again and abs(played[n['id']]-played[h['id']])<=gap+1e-9:return True
     return False
 
 def crop(points,start,end,bend=False):
@@ -115,7 +117,9 @@ def extract(p,first_bar,bars):
         # there) or from where it starts as played, to where it ends as played or to the end of the passage.  Its
         # written onset and length stay inside the passage, on its tick grid, and its timing and gate are worked out
         # (within their bounds) so the excerpt plays it on those ticks.
-        written={n['id']:n for n in performed(source,clock,False)};played={n['id']:n for n in performed(source,clock,True)}
+        # (as the audio has them: on a part played by string each string by itself, so a note held on one string is
+        # in the passage though another string struck its pitch meanwhile)
+        written={n['id']:n for n in sounded(source,clock,False)};played={n['id']:n for n in sounded(source,clock,True)}
         struck[t['id']]={k:n['tick'] for k,n in played.items()}
         notes=[];again=set();shifted=set();spans={};length=end-start;perf=t['performance']
         sw=perf.get('swing');offset=perf.get('offset_ms',0)/1000;bar=excerpt_clock.beats_per_bar
@@ -188,6 +192,21 @@ def extract(p,first_bar,bars):
         # only it (both of two such notes went; found by the excerpt fuzzer's count of notes from before the cut).  (Found
         # by the stress test of 0.4.0.)  A part held to one line is written in the piece's order below, which keeps two
         # strikes of a key apart, so nothing of it goes here.
+        if source.get('strings'):
+            # A part played by string: two strings can hold one pitch across the cut (or one holds it while another
+            # strikes it on the cut), and both are then written on the cut's tick, which validate refuses: one key is
+            # not struck twice at once.  A note struck again at the cut is written two ticks from every other note of
+            # its pitch there, the ones the piece struck first staying first; it plays where it is written.
+            fixed=[];top=max(0,int((length-1/TPQ)*TPQ+1e-9))
+            for n in sorted((n for n in notes if n['id'] in again),key=lambda n:played[n['id']]['tick']):
+                near=[tick_of(m['on']) for m in notes if m['id'] not in again and m['pitch']==n['pitch']]+[k for pitch,k in fixed if pitch==n['pitch']]
+                k=0
+                while k<=top and any(abs(k-x)<=1 for x in near):k+=1
+                if 0<k<=top:
+                    _,s1,_=spans[n['id']];o=k/TPQ;begin=at(o)+offset
+                    d,gate=fit(o,max(1/TPQ,min(length-o,n['on']+n['duration']-o)),s1,begin,length-o)
+                    n['on']=o;n['duration']=d;perf['notes'][n['id']].update(timing_ms=0,gate=gate);spans[n['id']]=(o,s1,begin)
+                fixed.append((n['pitch'],tick_of(n['on'])))
         gone=set()
         clash=lambda n:any(m is not n and m['id'] not in gone and m['pitch']==n['pitch'] and abs(tick_of(m['on'])-tick_of(n['on']))<=1 for m in notes)
         last=max(0,int((length-1/TPQ)*TPQ+1e-9))
@@ -379,7 +398,7 @@ def extract(p,first_bar,bars):
     for t in q['tracks']:
         order=struck[t['id']]
         early={n['id'] for n in t['notes'] if n['id'] not in held[t['id']] and order[n['id']]<cut}|moved[t['id']]
-        drop=({h for h in held[t['id']] if collides(t,h,excerpt_clock,order,REATTACK_GAP_S)}
+        drop=({h for h in held[t['id']] if collides(t,h,excerpt_clock,order,REATTACK_GAP_S,held[t['id']])}
               |{e for e in early if collides(t,e,excerpt_clock,order)})
         if drop:
             t['notes']=[n for n in t['notes'] if n['id'] not in drop]

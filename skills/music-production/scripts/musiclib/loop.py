@@ -30,7 +30,7 @@ from pathlib import Path
 import numpy as np
 
 from . import audio, files, measure
-from .model import TPQ, kit_patch, performed, save_json
+from .model import TPQ, kit_patch, save_json, sounded
 
 BEFORE, AFTER = 5.0, 1.0
 NAMES = ('C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B')
@@ -195,7 +195,7 @@ def seam(p, clock, folded=None, master=None):
     pcs = {'before': set(), 'after': set()}
     held = {}
     for t in p['tracks']:
-        notes = performed(t, clock)
+        notes = sounded(t, clock)   # as the audio has them (a part played by string: string by string)
         pitched = not t.get('drums') and t['engine'] != 'noise' and not kit_patch(t)
         for side, (lo, hi) in (('before', before), ('after', after)):
             hit = [n for n in notes if n['start_seconds'] < hi and n['end_seconds'] > lo]

@@ -981,6 +981,48 @@ def define(S):
         told=[x for x in said.review(r,work/'strung_review').splitlines() if x.startswith('By string')]
         assert told==[f"By string, {q['tracks'][0]['id']}: notes on string 1: 1, 3: 1, 4: 1, 5: 2, 6: 3 (1 the highest); frets 0 to 12, 2 on open strings; 1 palm-muted, 1 dead-muted; widest stretch between stopped notes sounding together: 6 frets (frets 1 and 7, bar 1 beat 4)."],told
         plain=review(example(),work/'strung_review_plain');assert not any(x.startswith('By string') for x in said.review(plain,work/'strung_review_plain').splitlines())
+        # The owner's review of the pull request.  In the audio a string is a voice of its own (strung.passes plays
+        # each string's notes alone), so one pitch held on two strings is held on both; the whole part's MIDI events
+        # end the first where the second is struck (one channel, one key).  An excerpt, the loop's guard on a
+        # movement, the mix's held spans, the roll, the seam's count and notes.csv read the MIDI's events: a note held
+        # for two bars under a short one of its pitch on the next string was gone from the second bar's excerpt, a
+        # jump at the seam was let through, and the clarity was set from spans a quarter as long.  They read
+        # model.sounded, the notes as the audio has them.
+        import csv
+        from excerpt import extract
+        from musiclib import loop as looping, mixbus, roll
+        from musiclib.model import sounded
+        from musiclib.review import review as reviewed
+        def on_two_strings(notes,bars,**more):
+            q=strung_part(notes);q['clock'].update(bars=bars,tempo=[[0,120]]);q['clock'].pop('rubato',None);q['sections']=[dict(q['sections'][0],start_bar=0,bars=bars)]
+            for k in ('harmony','chords','plan','loop'):q.pop(k,None)
+            for other in q['tracks'][1:]:other['notes']=[];other['performance']={'notes':{},'cc':[]}
+            q.update(more);return q
+        under=[(0,8,52,{'string':6}),(1,.25,52,{'string':5})]
+        q=on_two_strings(under,2);validate(q);t0=q['tracks'][0];c=Clock(q)
+        assert {n['id']:n['end_tick'] for n in sounded(t0,c)}=={'n0':7680,'n1':1200} and {n['id']:n['end_tick'] for n in performed(t0,c)}['n0']==959   # (the MIDI's events are as they were)
+        assert [(a,b) for a,b in sorted(mixbus.held_spans(t0,c))]==[(0.0,4.0),(0.5,0.625)],mixbus.held_spans(t0,c)
+        assert {n['id']:round(n['end_seconds'],3) for n in roll.as_played(t0,c)}=={'n0':4.0,'n1':0.625},roll.as_played(t0,c)
+        second=extract(q,2,1);validate(second);kept=second['tracks'][0]['notes']
+        assert [(n['id'],n['on'],n['duration'],n['string']) for n in kept]==[('n0',0,4,6)],kept
+        reviewed(q,work/'strung_sounded');rows={r['note_id']:float(r['end_seconds']) for r in csv.DictReader(open(work/'strung_sounded'/'notes.csv',encoding='utf-8',newline=''))}
+        assert rows=={'n0':4.0,'n1':0.625},rows
+        # in a loop: the held string sounds up to the seam and is struck at it, so a path from one side to the other jumps there
+        q=on_two_strings([(0,4,52,{'string':6}),(1,.25,52,{'string':5})],1,loop={'start_bar':0})
+        assert looping.seam(q,Clock(q))['abruptness']['sounding_at_end']=={q['tracks'][0]['id']:1},looping.seam(q,Clock(q))['abruptness']
+        q['tracks'][0]['mix']['move']={'type':'path','points':[[0,-1],[4,1]]}
+        try:validate(q);raise AssertionError('a jump at the seam on a part played by string')
+        except ValueError as e:assert 'jump at the seam' in str(e),e
+        # two strings holding one pitch across a cut are both struck again there; one key is not struck twice at once
+        # (validate, and the exported MIDI), so the one the piece struck later is written two ticks on
+        q=on_two_strings([(0,8,52,{'string':6}),(.5,7.5,52,{'string':5})],2);validate(q)
+        second=extract(q,2,1);validate(second);kept=sorted(second['tracks'][0]['notes'],key=lambda n:n['on'])
+        assert [(n['id'],round(n['on']*960),n['string']) for n in kept]==[('n0',0,6),('n1',2,5)],kept
+        assert {n['id']:n['end_tick'] for n in sounded(second['tracks'][0],Clock(second))}=={'n0':3840,'n1':3840}
+        whole=extract(q,1,2);validate(whole);assert [(n['id'],n['on'],n['duration']) for n in whole['tracks'][0]['notes']]==[('n0',0,8),('n1',.5,7.5)],whole['tracks'][0]['notes']
+        # and a string that holds a pitch across the cut while another strikes it on the cut: the passage is valid, and its own strike is in it
+        q=on_two_strings([(0,8,52,{'string':6}),(4,1,52,{'string':5})],2);validate(q);second=extract(q,2,1);validate(second)
+        assert ('n1',0,5) in [(n['id'],n['on'],n['string']) for n in second['tracks'][0]['notes']],second['tracks'][0]['notes']
         return {'refused':len(refused)+8,'palm_low_db':round(low,1),'palm_high_db':round(high,1),'widest_reach':got['widest_reach']['frets']}
     def a_stem_too_faint_to_measure_is_silent():
         # A stem with a peak but no half second above a millionth has no level: it is silent, as a stem without a peak is,

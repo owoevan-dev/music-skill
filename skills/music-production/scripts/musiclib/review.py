@@ -8,7 +8,7 @@ from pathlib import Path
 import statistics
 from . import files, harmony
 from .instruments import key_ranges, pairs
-from .model import Clock, TPQ, kit_patch, performed, save_json, tick_of, validate
+from .model import Clock, TPQ, kit_patch, performed, save_json, sounded, tick_of, validate
 
 FOREGROUND = ('melody', 'countermelody')
 NAMES = ('C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B')
@@ -940,7 +940,7 @@ def review(p,out,config=None):
     summary['style']=styles.parse(p.get('style'));summary['limits']=styles.summary(lims)
     csv_rows=[]
     for t in p['tracks']:
-        notes=sorted(t['notes'],key=lambda n:n['on']);actual=performed(t,clock)
+        notes=sorted(t['notes'],key=lambda n:n['on']);actual=sounded(t,clock)   # as the audio has them (notes.csv gives where each note ends)
         a_by_id={n['id']:n for n in actual};vel=[t['performance']['notes'][n['id']]['velocity'] for n in notes]
         hist=Counter(round(n['duration'],3) for n in notes);interval=[];gaps=[]
         for a,b in zip(actual,actual[1:]):

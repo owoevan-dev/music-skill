@@ -16,11 +16,15 @@
   "title": "SADIE II Database",
   "version": "2-2",
   "publisher": "The Audio Lab, University of York",
+  "copyright": "Copyright 2018, University of York",
+  "notice": "SADIE Database Copyright 2018 The University of York. This product includes data developed at The Audio Lab, University of York, UK (Cal Armstrong, Lewis Thresh, Gavin Kearney) as part of the SADIE Project.",
+  "page": "https://www.york.ac.uk/sadie-project/database.html",
+  "paper": "Armstrong, Thresh, Murphy and Kearney (2018), A Perceptual Evaluation of Individual and Non-Individual HRTFs: A Case Study of the SADIE II Database, Applied Sciences 8(11), 2029. DOI 10.3390/app8112029",
   "doi": "10.5281/zenodo.12092466",
   "subject": "D1 (Neumann KU100)",
   "archive": "D1.zip",
   "archive_sha256": "e5b58f6479d90cbc692a75ac2ccb8ad4385d22544121300733d2ef70bf2339e2",
-  "licence": "Apache-2.0 (LICENSE.txt beside this file)"
+  "licence": "Apache-2.0 (LICENSE.txt beside this file; NOTICE.txt holds the notice and the changes)"
  },
  "changes": "The 72 horizontal-plane responses at every 5 degrees of azimuth were selected and their 24-bit integer samples written out as integers in text. Nothing was resampled, cut, aligned, equalised or scaled.",
  "array_sha256": "0d2246078b30a25fd3347f673e601528f6904c54d4492841315ea12f60020a05",

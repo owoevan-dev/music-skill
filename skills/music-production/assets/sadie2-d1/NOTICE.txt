@@ -1,0 +1,21 @@
+SADIE Database
+Copyright 2018 The University of York
+
+This product includes data developed at The Audio Lab, University of York, UK
+(Cal Armstrong, Lewis Thresh, Gavin Kearney) as part of the SADIE Project.
+https://www.york.ac.uk/sadie-project/database.html
+
+The files in this folder are a modified part of the SADIE II Database, version 2-2
+(https://doi.org/10.5281/zenodo.12092466), licensed under the Apache License,
+Version 2.0 (LICENSE.txt in this folder).
+
+Changes made by the music-skill project: ring72_48k.txt holds 72 of the responses of
+subject D1 (a Neumann KU100 dummy head) at 48 kHz, the directions at ear height every
+5 degrees, their 24-bit samples written out as integers in text. Nothing was
+resampled, cut, aligned, equalised or scaled. ring72_48k.json names each source file
+with its SHA-256.
+
+The database's paper: Cal Armstrong, Lewis Thresh, Damian Murphy and Gavin Kearney
+(2018), "A Perceptual Evaluation of Individual and Non-Individual HRTFs: A Case Study
+of the SADIE II Database", Applied Sciences 8(11), 2029.
+https://doi.org/10.3390/app8112029

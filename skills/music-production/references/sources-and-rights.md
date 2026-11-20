@@ -35,7 +35,7 @@ Optional recordings are listed with their evidence in [soundbanks.md](soundbanks
 
 ## Head responses
 
-The headphone version (`mix.headphones`) uses head-related impulse responses from the SADIE II Database, version 2-2 (The Audio Lab, University of York; DOI 10.5281/zenodo.12092466), published under the Apache License 2.0: subject D1, a Neumann KU100 dummy head, at 48 kHz. The skill ships 72 of them, the directions at ear height every 5 degrees, in `assets/sadie2-d1/` with the licence text and a note (`ring72_48k.json`) of the source, each source file's SHA-256 and what was changed: the selection, and the samples written out as integers in text; nothing resampled, cut, aligned, equalised or scaled. The licence's conditions are on passing these files on, with or without changes: keep the licence text and the note beside them.
+The headphone version (`mix.headphones`) uses head-related impulse responses from the SADIE II Database, version 2-2 (The Audio Lab, University of York; DOI 10.5281/zenodo.12092466), published under the Apache License 2.0 (Copyright 2018, University of York): subject D1, a Neumann KU100 dummy head, at 48 kHz. The skill ships 72 of them, the directions at ear height every 5 degrees, in `assets/sadie2-d1/` with the licence text (`LICENSE.txt`), the database's notice and what was changed (`NOTICE.txt`: the selection, and the samples written out as integers in text; nothing resampled, cut, aligned, equalised or scaled) and a note of each source file's SHA-256 (`ring72_48k.json`). The licence's conditions are on passing these files on, with or without changes: keep the three beside them. Music rendered with the responses is not those files.
 
 ## Runtime licenses
 

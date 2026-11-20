@@ -28,8 +28,9 @@ How a part is placed.  It is processed as in the ordinary mix but for its pan, i
   spectrum in every band, and as wide between the ears as between its stem's channels.)
 - a point's signal is given to the two measured directions next to its place by two gains that sum to one and follow
   the place sample by sample; each direction's signal then goes through that direction's own pair of responses,
-  which never change.  All that moves is a gain ahead of a fixed filter: no response is interpolated, nothing is
-  filtered twice and mixed, and no delay moves, so a moving part's pitch stays where it is;
+  whose stored samples never change.  What moves is the gain ahead of each fixed filter; the two directions' filtered
+  signals are then summed as they are.  No response is interpolated, no fade is laid over signals already filtered,
+  and no delay moves, so a moving part's pitch stays where it is;
 - the room's first reflections (unless `"reflections": false`): one fixed pair of filters for every part, made of
   eight reflections with fixed delays, levels and directions, the first and second images (Allen and Berkley 1979)
   in the horizontal plane of a point at the listener's own place in a room of ROOM metres, each through its

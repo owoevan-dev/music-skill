@@ -261,7 +261,10 @@ def define(S):
         # The walkthrough of 0.9: a passage in the tail was named by bars the piece does not have ("26:3-28:1" of 24
         # bars).  A place after the last bar is named by its seconds past the end.
         from musiclib.compare import position
-        last=clock.end;assert position(clock,last-.5)==position(clock,last-.5) and ':' in position(clock,last-.5)
+        # (the owner's review: this compared the result with itself) half a second before the end is a bar and a
+        # beat, worked out here from the clock: the beat to a twentieth
+        last=clock.end;b_=clock.beat(last-.5);want_=f'{int(b_//clock.beats_per_bar)+1}:{round((b_%clock.beats_per_bar+1)/.05)*.05:g}'
+        assert position(clock,last-.5)==want_ and int(want_.split(':')[0])==round(clock.total_beats/clock.beats_per_bar) and want_!=position(clock,last),(position(clock,last-.5),want_)
         assert position(clock,last)=='end+0s' and position(clock,last+1.25)=='end+1.25s' and position(clock,0)=='1:1',(position(clock,last),position(clock,last+1.25))
         # (the third review: a window's edge a hundredth of a second before the end rounds to the end, not to the
         # first beat of a bar the piece does not have)

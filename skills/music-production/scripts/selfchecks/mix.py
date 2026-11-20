@@ -1236,9 +1236,10 @@ def define(S):
         # the mix and the master asked for two ears, on the project without what treats the ears apart
         from musiclib import files as files_mod
         qd=hp(around=90);qd['mix'].update(mono_below_hz=120,loudness='loud',target_lufs=-9);seen={'wrote':[]};frames_d=R
+        qd['tracks'][-1]['mix']['depth_m']=6;validate(qd)   # a stage position, which the headphone mix leaves out: its place is the direction
         kept_d=(mixbus.mix,mixbus.master,mixbus.verify,audio.read_wav,audio.write_wav,files_mod.stage_copy,files_mod.replace)
         try:
-            mixbus.mix=lambda p,clock,cfg,out,frames,**kw:seen.update(mix=(sorted(p['mix']),kw)) or {'assignment':{}}
+            mixbus.mix=lambda p,clock,cfg,out,frames,**kw:seen.update(mix=(sorted(p['mix']),kw),tracks=[dict(t['mix']) for t in p['tracks']]) or {'assignment':{}}
             mixbus.master=lambda p,cfg,out,**kw:seen.update(master=(sorted(p['mix']),kw)) or (None,{'limiting_db':None},{'true_peak_dbtp':-3.0,'clipped_samples':0,'frames':frames_d,'integrated_lufs':-9.0})
             mixbus.verify=lambda p,out,buses:{'adds_up_to_premix':True}
             audio.read_wav=lambda path:(np.zeros((frames_d,2),dtype=np.float32),R)
@@ -1258,7 +1259,9 @@ def define(S):
         assert seen['mix'][1]=={'ears':True} and seen['master'][1]=={'ears':True} and 'mono_below_hz' not in seen['mix'][0] and 'headphones' not in seen['master'][0] and 'loudness' in seen['master'][0],seen
         every=sorted(f'{t["id"]}.wav' for t in qd['tracks'])
         assert sorted(n for d,n,ch in seen['wrote'][:2*len(every)] if (d,ch)==('stems',2))==every and sorted(n for d,n,ch in seen['wrote'][:2*len(every)] if (d,ch)==('mixin',4))==every,seen['wrote']
-        assert delivered['left_out']==['mono_below_hz',"the buses' saturation"] and delivered['file']=='headphones.wav' and all('depth_m' not in t['mix'] for t in [{'mix':{}}])
+        assert delivered['left_out']==['mono_below_hz',"the buses' saturation"] and delivered['file']=='headphones.wav'
+        # (the owner's review: this read a literal empty mix and could not fail) the parts as the mixer got them hold no stage position, and the project's own still does
+        assert len(seen['tracks'])==len(qd['tracks']) and all('depth_m' not in m for m in seen['tracks']) and qd['tracks'][-1]['mix']['depth_m']==6,seen['tracks']
         # the mix's graph for two ears, with stand-ins for FFmpeg: one input a part (four channels: placed, and before its
         # place for the sends), the sends from channels 2 and 3, a stage depth raising no send; the ordinary graph as ever
         qg=hp();g_tracks=qg['tracks'][:4]

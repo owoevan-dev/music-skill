@@ -211,8 +211,12 @@ def extract(p,first_bar,bars):
             started=lambda m:max(0,tick_of(excerpt_clock.beat(max(0.0,spans[m['id']][2] if m['id'] in spans else inside[m['id']][0]))))   # the tick a note of the passage plays on
             fixed=[];top=max(0,int((length-1/TPQ)*TPQ+1e-9));timing=min(.1,max(-.1,-offset))
             plays=lambda k:max(0,tick_of(excerpt_clock.beat(max(0.0,at(k/TPQ)+timing+offset))))   # where a re-attack written on tick k plays
-            for n in sorted((n for n in notes if n['id'] in again),key=lambda n:played[n['id']]['tick']):
-                others=[m for m in notes if m['id'] not in again and m['pitch']==n['pitch']]
+            # (So are the passage's own notes that the piece plays before the cut, by the part's offset or their
+            # timing: they sound at its start too.  Two strings struck on one pitch on a downbeat, under an offset
+            # of -35 ms, both came onto the first tick as played, and one went.)
+            pulled={n['id'] for n in notes if n['id'] in again or (n['id'] in spans and played[n['id']]['tick']<cut and n['id'] not in shifted)}
+            for n in sorted((n for n in notes if n['id'] in pulled),key=lambda n:played[n['id']]['tick']):
+                others=[m for m in notes if m['id'] not in pulled and m['pitch']==n['pitch']]
                 near=[tick_of(m['on']) for m in others]+[k for pitch,k,_ in fixed if pitch==n['pitch']]
                 heard=[started(m) for m in others]+[p for pitch,_,p in fixed if pitch==n['pitch']]
                 clear=lambda k,p:all(abs(k-x)>1 for x in near) and all(abs(p-x)>1 for x in heard)

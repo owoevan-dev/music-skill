@@ -1062,11 +1062,14 @@ def define(S):
             rng=random.Random(seed);notes=[];each={}
             def add(i,on,duration,pitch,string,timing=0.0):
                 notes.append({'id':i,'on':on,'duration':duration,'pitch':pitch,'string':string});each[i]={'velocity':90,**({'timing_ms':timing} if timing else {})}
-            add('held6',0,rng.choice([8,11,6.5]),52,6)
-            if rng.random()<.6:add('held5',rng.choice([.5,1,2.25]),rng.choice([7,9]),rng.choice([52,52,57]),5)
+            unison=rng.random()<.25   # two strings struck on one pitch on the cut and a little after it, no string held from before
+            if unison:add('down6',4,rng.choice([1,2]),52,6);add('brush5',4+rng.choice([1/32,1/16,2/960]),rng.choice([1,2]),52,5)
+            else:add('held6',0,rng.choice([8,11,6.5]),52,6)
+            if unison:pass
+            elif rng.random()<.6:add('held5',rng.choice([.5,1,2.25]),rng.choice([7,9]),rng.choice([52,52,57]),5)
             else:add('stroke5',4+rng.choice([0,1/960,2/960,1/16,1/8,.5]),rng.choice([.25,1]),rng.choice([52,52,57]),5,rng.choice([0,0,1.1,2.1,-1.1,40,-40]))
-            if rng.random()<.4:add('held4',rng.choice([.25,3]),6,rng.choice([52,55]),4)
-            offset=rng.choice([0,0,-20,35,-100,100,-101,-150,150,-300,300])
+            if not unison and rng.random()<.4:add('held4',rng.choice([.25,3]),6,rng.choice([52,55]),4)
+            offset=rng.choice([0,-20,-35,-60,-100]) if unison else rng.choice([0,0,-20,35,-100,100,-101,-150,150,-300,300])
             q=on_two_strings([],3);t0=q['tracks'][0];t0['notes']=notes
             t0['performance']={'notes':each,'cc':[],**({'offset_ms':offset} if offset else {}),**({'swing':{'ratio':rng.choice([.6,.67])}} if rng.random()<.4 else {})}
             q['clock']['tempo']=rng.choice([[[0,120]],[[0,120],[4,90]],[[0,96],[4,132]]])
@@ -1074,9 +1077,9 @@ def define(S):
             except ValueError:return None
             source={n['id']:n for n in sounded(t0,Clock(q))};second=extract(q,2,1);validate(second)
             passage={n['id']:n for n in sounded(second['tracks'][0],Clock(second))}
-            late=max(0.0,abs(offset)-100)/1000*960*2.2+16   # a re-attack's timing reaches 100 ms: the rest of an offset is heard (and three notes of one pitch stand two ticks apart, more under swing)
+            late=max(0.0,abs(offset)-100)/1000*960*2.2+16+240   # a re-attack's timing reaches 100 ms: the rest of an offset is heard (and three notes of one pitch stand two ticks apart, more under swing)
             for i,n in source.items():
-                if n['tick']<3840 and n['end_tick']>=3840+240:
+                if n['tick']<3840+240 and n['end_tick']>=3840+240:   # sounds a quarter beat after the cut, struck before that
                     m=passage.get(i);want=min(7680,n['end_tick'])-3840
                     assert m is not None and abs(m['end_tick']-want)<=2 and m['tick']<=late,(seed,offset,i,m and (m['tick'],m['end_tick']),want,notes)
             return True

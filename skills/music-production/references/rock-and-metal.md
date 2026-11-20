@@ -118,7 +118,7 @@ What a rhythm guitar plays is a choice among several ways of playing. The source
   - a statement, then the same begun again, from the same pitch and place, and altered;
   - a gesture, then the same transposed: the hand's shape moved along the neck, most often upward.
 - **Power chords.** Root, fifth and optional octave: one shape of the fretting hand, slid along the neck and moved from string to string (Easley 2015). In the punk of 1977 they act more as timbre and line than as harmony (Pearson 2019). Written, in standard tuning: `part.shape(bar, beat, [(6, f), (5, f + 2), (4, f + 2)], beats)`, the same offsets from string 5, at any fret `f` that leaves `f + 2` on the neck (24 frets). A string tuned down moves its own frets: in drop D the shape from string 6 is one fret across, `[(6, f), (5, f), (4, f)]`.
-- **What the riff does, by the drums' time feel.** A time feel keeps the tempo and changes how often kick and snare alternate: normal time, half time, double time, and faster. Garza (2021) finds six kinds of riff in metal since 2000, a list he calls not exhaustive, each at home in some feels:
+- **What the riff does, by the drums' time feel.** A time feel keeps the tempo and changes how often kick and snare alternate: normal time, half time, double time, and faster. Garza (2021) finds six kinds of riff in metal since 2000, a list he calls not exhaustive, each at home in some feels. The table is a summary of his six types in this guide's words:
 
   | Riff | What the guitars play | Feel, and where he finds it |
   |---|---|---|

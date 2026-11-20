@@ -129,7 +129,7 @@ funk, disco and boogie grooves, sometimes tropical. `jpop/city-pop`
 | `rhythm` | rhythm-oriented patterns, often on sixteenths ("16-beat"), after R&B, light or smooth jazz, fusion and soul; at times disco, Latin music or synth-pop. Funk, disco, R&B and boogie; of its two styles, one "a thumping rug-cutter" | Sommet 2020; WP City pop |
 | `timbre` | "a bright, clean and polished sound" from a mixture of electronic and analog instruments and production. Soft rock and AOR; tropical touches and borrowings from jazz fusion and from the music of Okinawa, Latin America and the Caribbean; the other style "a lush, tropical romp" | Sommet 2020; WP City pop |
 | `form` | at times structures nearer the American pop and rock of the 1950s and 1960s | Sommet 2020 |
-| `mix` | a bright, clean and polished sound, made by its mixture of electronic and analog instruments and production methods; an urban, sophisticated atmosphere | Sommet 2020; WP City pop |
+| `mix` | no source read on the mix itself; the sound is the `timbre` row's. An urban, sophisticated atmosphere | Sommet 2020; WP City pop |
 
 Sommet (2020) adds a caution: city pop as it emerged in the early 1980s blends so many genres that it "has hardly
 developed a musical identity of its own", and is easier to tell by its covers than by its sound.

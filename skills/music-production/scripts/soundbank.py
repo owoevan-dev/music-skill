@@ -612,6 +612,29 @@ def step3_fields(layer, where):
     env = layer.get('envelope')
     if isinstance(env, dict) and 'delay' in env and not (real(env['delay']) and 0 <= env['delay'] <= 100):
         raise ValueError(f'{where}: the envelope\'s `delay` is seconds from 0 to 100')
+    # 0.9.1: an exclusive class was read with int() and nothing else (true was class 1, 1.7 class 1, 500 a class no
+    # SoundFont has); `attack_noise`'s keys and references, before any recording is read.
+    ec = layer.get('exclusive_class')
+    if ec is not None and ec != 'key' and not (whole(ec) and 0 <= ec <= 127):
+        raise ValueError(f'{where}: `exclusive_class` is a class from 1 to 127 that the layer\'s zones share (0 or absent: none), '
+                         f'or "key": each key its own class, so a key struck again ends its earlier voices; it is {ec!r}')
+    noisy = layer.get('attack_noise')
+    if noisy is not None:
+        def note(v):
+            try:
+                return isinstance(v, str) and 0 <= note_number(v) <= 127
+            except ValueError:
+                return False
+        if not (isinstance(noisy, dict) and noisy and all(note(k) and isinstance(r, list) and 1 <= len(r) <= 4 and all(map(note, r))
+                                                           and k not in r and len(set(r)) == len(r) for k, r in noisy.items())):
+            raise ValueError(f'{where}: `attack_noise` maps a key to the keys its takes are aimed at, one to four other keys, by note '
+                             f'name as the bank plays them (C4 = 60), e.g. {{"G#5": ["E5", "F#5"]}}; it is {noisy!r}')
+        nums = [(note_number(k), [note_number(v) for v in r]) for k, r in noisy.items()]
+        if len({n for n, _ in nums}) != len(nums) or any(n in rs or len(set(rs)) != len(rs) for n, rs in nums):
+            raise ValueError(f'{where}: `attack_noise` names a key twice, or among its own references, perhaps by two spellings of one '
+                             f'key (G#5 and Ab5 are both key 80); it is {noisy!r}')
+        if layer.get('loop'):
+            raise ValueError(f'{where}: `attack_noise` is for takes that ring out from a blow, not for looped layers')
 
 
 def naming(spec):
@@ -1032,6 +1055,145 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
         return np.asarray(x), [{'band': [round(from_hz), round(rate / 2)],
                                 'left': f'closing its bands would take {lost:.1f} dB from the take: they hold more than hiss'}]
     return out.astype(np.asarray(x).dtype), report
+
+# `attack_noise` (0.9.1): the noise of the blow in a take, between its partials, brought to the level its neighbours'
+# takes carry there.  Third-octave bands from 2 kHz up; the repair works from ATTACK_NOISE_FROM_HZ (in full at
+# ATTACK_NOISE_FULL_HZ), in full to ATTACK_NOISE_UNTIL_S and back to the recording by ATTACK_NOISE_BACK_S, and the
+# take is the take as recorded from ATTACK_NOISE_KEEP_S (joined by ATTACK_NOISE_JOINED_S); never more than
+# ATTACK_NOISE_MAX_DB down.
+ATTACK_NOISE_BANDS = [2000 * 2 ** (k / 3) for k in range(11)]
+ATTACK_NOISE_FROM_HZ, ATTACK_NOISE_FULL_HZ, ATTACK_NOISE_MAX_DB = 1500.0, 2500.0, 30.0
+ATTACK_NOISE_UNTIL_S, ATTACK_NOISE_BACK_S, ATTACK_NOISE_KEEP_S, ATTACK_NOISE_JOINED_S = 0.20, 0.30, 0.34, 0.35
+
+def _hann_frames(rate):
+    """The repair's frame (the power of two nearest 46 ms at the rate: 2048 at 44.1 and 48 kHz), its hop (an eighth)
+    and its periodic Hann window."""
+    n = int(2 ** round(math.log2(0.046 * rate)))
+    return n, n // 8, 0.5 - 0.5 * np.cos(2 * np.pi * np.arange(n) / n)
+
+def _hann_stft(x, n, hop, w):
+    """Short-time spectra (bins x frames) of a padded copy, as SciPy's stft pads: half a frame of zeros at each end
+    and the end to whole frames, frame k centred on sample k * hop; and the padded length."""
+    pad = np.concatenate([np.zeros(n // 2), x, np.zeros(n // 2)])
+    pad = np.concatenate([pad, np.zeros((-(len(pad) - n) % hop) % n)])
+    frames = (len(pad) - n) // hop + 1
+    idx = np.arange(n)[None, :] + hop * np.arange(frames)[:, None]
+    return np.fft.rfft(pad[idx] * w, axis=1).T, len(pad)
+
+def _hann_istft(Z, n, hop, w, padded, length):
+    """The inverse of _hann_stft: windowed inverse transforms overlap-added and divided by the summed squared
+    window, as SciPy's istft does; the original span."""
+    y, norm = np.zeros(padded), np.zeros(padded)
+    seg = np.fft.irfft(Z.T, n=n, axis=1) * w
+    for k in range(Z.shape[1]):
+        y[k * hop:k * hop + n] += seg[k]
+        norm[k * hop:k * hop + n] += w * w
+    y = np.where(norm > 1e-10, y / np.maximum(norm, 1e-10), y)
+    return y[n // 2:n // 2 + length]
+
+def attack_partials(x, rate):
+    """The frequencies a take holds narrow and steady: peaks of its spectrum from 0.3 to 2.0 s that stand 18 dB over
+    the median of the 60 Hz either side, and from 0.02 to 0.20 s (upper partials that die early) 12 dB over it,
+    merged within 15 Hz.  The string's partials and, in a piano, the undamped top strings that ring with it."""
+    found = []
+    for a, b, nfft, prom in ((0.3, 2.0, 1 << 16, 18.0), (0.02, 0.20, 1 << 14, 12.0)):
+        seg = np.asarray(x[int(a * rate):int(b * rate)], dtype=np.float64)
+        if len(seg) < int(0.05 * rate):
+            continue
+        S = np.abs(np.fft.rfft(seg * np.hanning(len(seg)), n=nfft))
+        f = np.fft.rfftfreq(nfft, 1 / rate)
+        half = max(3, int(60 / (rate / nfft)))
+        padded = np.concatenate([np.full(half, S[0]), S, np.full(half, S[-1])])
+        floor = np.median(np.lib.stride_tricks.sliding_window_view(padded, 2 * half + 1), axis=1)
+        mid = slice(1, -1)
+        peak = (S[mid] > S[:-2]) & (S[mid] >= S[2:]) & (S[mid] > floor[mid] * 10 ** (prom / 20)) & (f[mid] > 100)
+        found += list(f[mid][peak])
+    merged = []
+    for p in sorted(found):
+        if not merged or p - merged[-1] >= 15:
+            merged.append(p)
+    return np.array(merged)
+
+def _attack_measures(x, rate, frames):
+    """The take's spectra, which bins are protected (within max(45 Hz, 0.5 %) of a partial), its tone (the energy on
+    partials from 300 Hz to 3 kHz over 0.05-0.30 s), and per band and frame the mean energy per bin between partials
+    (U) and on them (V), over the first `frames` frames."""
+    n, hop, w = _hann_frames(rate)
+    Z, padded = _hann_stft(np.asarray(x, dtype=np.float64), n, hop, w)
+    t = np.arange(Z.shape[1]) * hop / rate
+    E = np.abs(Z) ** 2
+    f = np.fft.rfftfreq(n, 1 / rate)
+    P = attack_partials(x, rate)
+    prot = ((np.abs(f[:, None] - P[None, :]) <= np.maximum(45.0, 0.005 * P)[None, :]).any(axis=1) if len(P)
+            else np.zeros(len(f), bool))
+    tone = E[(f >= 300) & (f <= 3000) & prot][:, (t >= 0.05) & (t <= 0.30)].sum(axis=0).mean()
+    U = np.full((len(ATTACK_NOISE_BANDS) - 1, frames), np.nan)
+    V = np.full((len(ATTACK_NOISE_BANDS) - 1, frames), np.nan)
+    for i in range(len(ATTACK_NOISE_BANDS) - 1):
+        band = (f >= ATTACK_NOISE_BANDS[i]) & (f < ATTACK_NOISE_BANDS[i + 1])
+        if (band & ~prot).any():
+            U[i] = E[band & ~prot][:, :frames].mean(axis=0)
+        if (band & prot).any():
+            V[i] = E[band & prot][:, :frames].mean(axis=0)
+    return Z, padded, t, f, prot, tone, U, V
+
+def repair_attack_noise(x, refs, rate):
+    """One channel of a take with the noise between its partials in its attack brought down toward the level the same
+    channel of its reference takes carries there, and what was done.  Each reference aims by the lower of two
+    measures: its noise against its tone, given this take's tone, and its noise against its own partials in the band,
+    given this take's (a take whose upper partials are weaker hides less of the same noise, so by the tone alone it can
+    end cleaner than its references); of several references the cleaner aim wins, band by band and frame by frame.
+    The gain, between ATTACK_NOISE_MAX_DB down and none (never up), is smoothed over three frames and applied only to
+    the bins that lie off the detected peaks, from 1.5 kHz, in the attack (the constants above); the top band's gain
+    holds up to the top of the spectrum.  The detected peaks and everything under 1.5 kHz keep their spectra (in the
+    waveform, what the frames spread lies some 70 dB under), and from 0.35 s the take is the recording's own.  A take
+    or a reference whose tone cannot be read is refused."""
+    x = np.asarray(x, dtype=np.float64)
+    n, hop, w = _hann_frames(rate)
+    frames = int(0.32 * rate / hop) + 4
+    Z, padded, t, f, prot, tone, U, V = _attack_measures(x, rate, frames)
+    if not (math.isfinite(tone) and tone > 0):
+        raise ValueError('its tone (partials from 300 Hz to 3 kHz over 0.05-0.30 s) cannot be read, so nothing can be aimed by it')
+    wants = []
+    with np.errstate(invalid='ignore', divide='ignore'):
+        for k, r in enumerate(refs):
+            _, _, _, _, _, tr, Ur, Vr = _attack_measures(np.asarray(r, dtype=np.float64), rate, frames)
+            if not (math.isfinite(tr) and tr > 0):
+                raise ValueError(f'the tone of its reference {k + 1} (partials from 300 Hz to 3 kHz over 0.05-0.30 s) cannot be read')
+            wants.append(np.fmin(Ur / tr * tone, Ur / Vr * V))
+        want = np.nanmin(np.stack(wants), axis=0)
+        g_db = 10 * np.log10(np.clip(want / np.maximum(U, 1e-30), 10 ** (-ATTACK_NOISE_MAX_DB / 10), 1.0))
+    g_db = np.nan_to_num(g_db, nan=0.0)
+    g_db = np.array([np.convolve(row, np.ones(3) / 3, mode='same') for row in g_db])
+    tt = t[:frames]
+    until, back = ATTACK_NOISE_UNTIL_S, ATTACK_NOISE_BACK_S
+    taper = np.where(tt <= until, 1.0, np.where(tt >= back, 0.0, 0.5 + 0.5 * np.cos(np.pi * (tt - until) / (back - until))))
+    g_db = g_db * taper[None, :]
+    centres = np.sqrt(np.array(ATTACK_NOISE_BANDS[:-1]) * np.array(ATTACK_NOISE_BANDS[1:]))
+    lf = np.log2(np.maximum(f, 1.0))
+    ramp = np.clip((f - ATTACK_NOISE_FROM_HZ) / (ATTACK_NOISE_FULL_HZ - ATTACK_NOISE_FROM_HZ), 0, 1)
+    G = np.stack([np.interp(lf, np.log2(centres), g_db[:, j]) * ramp for j in range(frames)], axis=1)
+    G[prot] = 0.0
+    Z2 = Z.copy()
+    Z2[:, :frames] *= 10 ** (G / 20)
+    y = _hann_istft(Z2, n, hop, w, padded, len(x))
+    a, b = int(ATTACK_NOISE_KEEP_S * rate), int(ATTACK_NOISE_JOINED_S * rate)
+    out = x.copy()
+    out[:a] = y[:a]
+    fade = np.linspace(1, 0, b - a)
+    out[a:b] = y[a:b] * fade + x[a:b] * (1 - fade)
+    band = (f >= 2000) & (f <= 10000)
+    return out, {'deepest_cut_db': round(float(-G.min()), 1), 'protected_share_2_10_khz': round(float(np.mean(prot[band])), 3)}
+
+def attack_noise_db(x, rate):
+    """The noise of a channel's first 80 ms between its partials from 3 to 16 kHz against its tone, in dB (the
+    receipt's measure of what `attack_noise` did)."""
+    n, hop, w = _hann_frames(rate)
+    Z, _, t, f, prot, tone, _, _ = _attack_measures(x, rate, 1)
+    E = np.abs(Z) ** 2
+    sel = (f >= 3000) & (f <= 16000) & ~prot
+    early = t <= 0.08
+    return round(float(10 * np.log10(E[sel][:, early].sum() / max(1, early.sum()) / max(tone, 1e-30) + 1e-30)), 1)
 
 def highpass(x, rate, hz, order=6):
     """A zero-phase high-pass by FFT with a Butterworth magnitude, |H| = 1 / sqrt(1 + (hz / f) ** (2 * order)): no
@@ -1570,6 +1732,20 @@ def _borrowed_cb(layer, src, dyn):
         return 0
     return max(0, int(round(10 * (shape[src] - shape[dyn]))))
 
+def zone_keys(layer, lo_key, hi_key):
+    """The key ranges a take's zones are written over, each with its exclusive class (None for none).  A number in
+    `exclusive_class` is one class for the whole layer, whose zones cut each other (a closed hi-hat cutting an open
+    one).  `"key"` gives each key a zone and a class of its own, its key number: a key struck again ends that key's
+    earlier voices, the pedal down or not (a piano key has one set of strings, which a new blow sets going anew), and
+    never another key's (one take may serve two keys, and one class for its zone would let one cut the other)."""
+    ec = layer.get('exclusive_class')
+    if ec == 'key':
+        if lo_key == 0:
+            raise ValueError('exclusive_class "key": each key\'s class is its key number, and key 0 would be class 0, which is none; '
+                             'start the layer\'s keys at 1')
+        return [((k, k), k) for k in range(lo_key, hi_key + 1)]
+    return [((lo_key, hi_key), int(ec) if ec else None)]
+
 def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
     """The `dynamic_layers` and `legato` presets of a sustained preset.
 
@@ -1616,21 +1792,22 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
                         if kind == 'legato':
                             report['legato_offsets_ms'].append(round(1000 * offset / e['rate'], 1))
                         for span in spans:
-                            for ch, sid in enumerate(ids):
-                                z = {43: (lo_key, hi_key), 44: span, 58: e['named']}
-                                if fine:
-                                    z[52] = fine
-                                if quieter or lift_cb:
-                                    z[48] = c['gens'].get(48, 0) + quieter + lift_cb
-                                if offset:
-                                    z[0], z[4] = offset % 32768, offset // 32768
-                                if e.get('loop'):
-                                    z[54] = 3 if layer.get('loop_mode') == 'sustain' else 1   # as the main preset's zones
-                                if layer.get('exclusive_class'):
-                                    z[57] = int(layer['exclusive_class'])
-                                if len(ids) == 2:
-                                    z[17] = -500 if ch == 0 else 500
-                                zones.append({'gens': z, 'sample': sid})
+                            for keys, cls in zone_keys(layer, lo_key, hi_key):
+                                for ch, sid in enumerate(ids):
+                                    z = {43: keys, 44: span, 58: e['named']}
+                                    if fine:
+                                        z[52] = fine
+                                    if quieter or lift_cb:
+                                        z[48] = c['gens'].get(48, 0) + quieter + lift_cb
+                                    if offset:
+                                        z[0], z[4] = offset % 32768, offset // 32768
+                                    if e.get('loop'):
+                                        z[54] = 3 if layer.get('loop_mode') == 'sustain' else 1   # as the main preset's zones
+                                    if cls:
+                                        z[57] = cls
+                                    if len(ids) == 2:
+                                        z[17] = -500 if ch == 0 else 500
+                                    zones.append({'gens': z, 'sample': sid})
                 gens = dict(c['gens'])
                 if kind == 'legato':
                     gens[34] = sf2.timecents(leg.get('attack', 0.01))
@@ -2006,6 +2183,38 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt, parts=None):
                               'clear_partials': own, **({'curve_of_key': borrowed} if borrowed is not None else {}),
                               'last_clear_hz': round(curve['hz'][-1]), 'gain_db_first_partial': round(curve['db'][0], 1),
                               'gain_db_last_clear': round(curve['db'][-1], 1), 'db_per_octave_above': round(curve['slope'], 1)}
+    noisy = layer.get('attack_noise')
+    if noisy:
+        # `attack_noise`: {"G#5": ["E5", "F#5"]}.  Each take of the named key, in each dynamic, round robin and channel,
+        # gets the references of its dynamic (its round robin's where they have one), checked here; the repair itself is
+        # made in `build`, on the take as it is stored, after its gain and dither (_repair_stored), so that every gain and
+        # every other take is as without it.  A repaired take is stored under a key of its own (its references' keys and
+        # the method's version in it).
+        by = {}
+        for e in entries:
+            by.setdefault((e['named'], e['dyn']), []).append(e)
+        recorded = {e['named'] for e in entries}
+        recorded_take = {id(e): e['take'] for e in entries}   # before any target's key changes: a target may be a reference
+        for name, refs in noisy.items():
+            key, ref_keys = note_number(name), [note_number(r) for r in refs]
+            absent = [n for n, k in [(name, key)] + list(zip(refs, ref_keys)) if k not in recorded]
+            if absent:
+                raise ValueError(f'attack_noise: {", ".join(absent)} {"is" if len(absent) == 1 else "are"} not a key this layer has takes of '
+                                 f'(it has {", ".join(note_name(k) for k in sorted(recorded))}); name keys as the bank plays them, C4 = 60')
+            for dyn in layer['dynamics']:
+                for e in sorted(by.get((key, dyn), []), key=lambda e: str(e['rr'])):
+                    pool = [r for k in ref_keys for r in by.get((k, dyn), [])]
+                    same = [r for r in pool if str(r['rr']) == str(e['rr'])]
+                    refs_here = same or pool
+                    if not refs_here:
+                        raise ValueError(f'attack_noise: {name} in dynamic {dyn!r}: none of {", ".join(refs)} has a take of that dynamic to aim at')
+                    chans = np.asarray(e['x']).shape[1]
+                    if (len(e['x']) < int(0.4 * e['rate']) or any(r['rate'] != e['rate'] or np.asarray(r['x']).shape[1] != chans
+                                                                    or len(r['x']) < int(0.4 * r['rate']) for r in refs_here)):
+                        raise ValueError(f'attack_noise: {name} in dynamic {dyn!r}: its take and its references must have one sample rate '
+                                         'and one channel layout, and be at least 0.4 s long')
+                    e['attack_noise_refs'] = refs_here
+                    e['take'] = json.dumps([e['take'], 'attack_noise v2', [recorded_take[id(r)] for r in refs_here]])
     layer_med = {d: float(np.median([e['rms'] for e in entries if e['dyn'] == d])) for d in layer['dynamics']
                  if any(e['dyn'] == d for e in entries)}
     return entries, octave_fix, layer_med
@@ -2033,6 +2242,52 @@ def _across_levels(local, layer_med):
     for (n, dyn), v in local.items():
         common.setdefault(n, []).append(v / layer_med[dyn])
     return {(n, dyn): float(np.median(common[n])) * layer_med[dyn] for (n, dyn) in local}
+
+def _stored_pcm(e, layer):
+    """A take as `build` stores it: its gain, a cut to 0.98 of full scale where its peak would pass it, the lift of a
+    `full_scale` layer, and TPDF dither to 16 bits seeded by its source's hash; and the gain and the lift applied."""
+    x = e['x'] * e['gain']
+    peak = float(np.abs(x).max())
+    if peak > 0.98:
+        x = x * (0.98 / peak)
+    effective = round(20 * math.log10(e['gain'] * min(1.0, 0.98 / max(peak, 1e-12))), 2)
+    # `full_scale`: a sample is 16 bits, and its dither lies a fixed 93 dB under full scale whatever the take's level.
+    # A take stored 20 dB under full scale carries that floor 20 dB nearer its note, and a soft piece raised 30 dB in
+    # the mix brings it up with the music.  So the take is stored as loud as 16 bits hold and its zone attenuates it by
+    # the same amount: the level heard is the same and the floor lies that much lower.  The lift is a whole number of
+    # the file's attenuation steps (0.04 dB heard, sf2.EMU_ATTENUATION), at most 36 dB.
+    lift_cb = 0.0
+    if layer.get('full_scale') and 0 < peak < 0.98:
+        steps = int(min(36.0, 20 * math.log10(0.98 / peak)) * 10 / sf2.EMU_ATTENUATION)
+        lift_cb = steps * sf2.EMU_ATTENUATION
+        x = x * 10 ** (lift_cb / 200)
+    rng = np.random.default_rng(int(e['sha256'][:8], 16))  # TPDF dither to 16-bit
+    q = np.clip(np.round(x * 32767 + rng.random(x.shape) - rng.random(x.shape)), -32768, 32767).astype(np.int16)
+    return q, effective, lift_cb
+
+def _repair_stored(e, layer, root):
+    """`attack_noise` on a take as it is stored (_stored_pcm), each channel against the same channel of its references
+    as they are stored, all of them read before any is repaired: each channel read as its 16-bit words / 32768,
+    repaired (repair_attack_noise) and rounded back once.  The bank the owner heard was made so, from the stored
+    samples of the build before it; the rest of every take, its gain and every other take are as without the field."""
+    q, _, _ = _stored_pcm(e, layer)
+    refs = [_stored_pcm(r, layer)[0] for r in e['attack_noise_refs']]
+    out, done, before, after = np.array(q), [], [], []
+    for ch in range(q.shape[1]):
+        x = q[:, ch].astype(np.float64) / 32768
+        try:
+            y, info = repair_attack_noise(x, [r[:, ch].astype(np.float64) / 32768 for r in refs], e['rate'])
+        except ValueError as err:
+            raise ValueError(f'attack_noise: {e["file"].relative_to(root).as_posix()}: {err}') from None
+        out[:, ch] = np.clip(np.round(y * 32768), -32768, 32767).astype(np.int16)
+        done.append(info)
+        before.append(attack_noise_db(x, e['rate']))
+        after.append(attack_noise_db(out[:, ch].astype(np.float64) / 32768, e['rate']))
+    e['stored_pcm'] = out
+    e['attack_noise'] = {'references': [str(r['file'].relative_to(root)) for r in e['attack_noise_refs']],
+                         'deepest_cut_db': [d['deepest_cut_db'] for d in done],
+                         'protected_share_2_10_khz': [d['protected_share_2_10_khz'] for d in done],
+                         'noise_first_80ms_db': {'before': before, 'after': after}}
 
 def build(spec, root, output, ffmpeg=None, new=False):
     root = Path(root).resolve()  # once: a link below it is refused where the build opens it (contained, unlinked)
@@ -2086,6 +2341,11 @@ def build(spec, root, output, ffmpeg=None, new=False):
                 for entries, _, _ in prepared:
                     for e in entries:
                         e['gain'] *= 0.95 / loudest
+        # `attack_noise`, once every gain is set: each target and its references as they will be stored.
+        for layer, (entries, _, _) in zip(pspec['layers'], prepared):
+            for e in entries:
+                if e.get('attack_noise_refs') and e.get('stored_pcm') is None:
+                    _repair_stored(e, layer, root)
         contexts = []
         for layer, (entries, octave_fix, layer_med) in zip(pspec['layers'], prepared):
             inst_zones = []
@@ -2131,25 +2391,10 @@ def build(spec, root, output, ffmpeg=None, new=False):
                 if skey in stored:
                     e['effective_gain_db'], e['stored_lift_cb'] = stored[skey][1], stored[skey][2]
                     return stored[skey][0]
-                x = e['x'] * e['gain']
-                peak = float(np.abs(x).max())
-                if peak > 0.98:
-                    x = x * (0.98 / peak)
-                e['effective_gain_db'] = round(20 * math.log10(e['gain'] * min(1.0, 0.98 / max(peak, 1e-12))), 2)
-                # `full_scale`: a sample is 16 bits, and its dither lies a fixed 93 dB under full scale whatever the
-                # take's level.  A take stored 20 dB under full scale carries that floor 20 dB nearer its note, and a
-                # soft piece raised 30 dB in the mix brings it up with the music.  So the take is stored as loud as
-                # 16 bits hold and its zone attenuates it by the same amount: the level heard is the same and the
-                # floor lies that much lower.  The lift is a whole number of the file's attenuation steps (0.04 dB
-                # heard, sf2.EMU_ATTENUATION), at most 36 dB.
-                lift_cb = 0.0
-                if layer.get('full_scale') and 0 < peak < 0.98:
-                    steps = int(min(36.0, 20 * math.log10(0.98 / peak)) * 10 / sf2.EMU_ATTENUATION)
-                    lift_cb = steps * sf2.EMU_ATTENUATION
-                    x = x * 10 ** (lift_cb / 200)
-                e['stored_lift_cb'] = lift_cb
-                rng = np.random.default_rng(int(e['sha256'][:8], 16))  # TPDF dither to 16-bit
-                q = np.clip(np.round(x * 32767 + rng.random(x.shape) - rng.random(x.shape)), -32768, 32767).astype(np.int16)
+                q, e['effective_gain_db'], e['stored_lift_cb'] = _stored_pcm(e, layer)
+                if e.get('stored_pcm') is not None:   # `attack_noise`: the stored take repaired (_repair_stored)
+                    q = e['stored_pcm']
+                lift_cb = e['stored_lift_cb']
                 ids = []
                 for ch in range(q.shape[1]):
                     ids.append(len(samples))
@@ -2186,21 +2431,22 @@ def build(spec, root, output, ffmpeg=None, new=False):
                         spans = ([(v, min(vhi, v + block - 1)) for v in range(vlo, vhi + 1, block)
                                   if ((v - vlo) // block) % len(group) == pos] if len(group) > 1 else [(vlo, vhi)])
                         for span in spans:
-                            for ch, sid in enumerate(ids):
-                                z = {43: (lo_key, hi_key), 44: span, 58: e['named']}
-                                if fine:
-                                    z[52] = fine
-                                if quieter or e.get('stored_lift_cb'):
-                                    z[48] = gens.get(48, 0) + quieter + e.get('stored_lift_cb', 0.0)
-                                if e.get('loop'):
-                                    # loop continuously, the release envelope ending the note; an SFZ loop_sustain
-                                    # (loop_mode "sustain") plays on past the loop after the key is let go (SF2 mode 3)
-                                    z[54] = 3 if layer.get('loop_mode') == 'sustain' else 1
-                                if layer.get('exclusive_class'):
-                                    z[57] = int(layer['exclusive_class'])
-                                if len(ids) == 2:
-                                    z[17] = -500 if ch == 0 else 500
-                                inst_zones.append({'gens': z, 'sample': sid})
+                            for keys, cls in zone_keys(layer, lo_key, hi_key):
+                                for ch, sid in enumerate(ids):
+                                    z = {43: keys, 44: span, 58: e['named']}
+                                    if fine:
+                                        z[52] = fine
+                                    if quieter or e.get('stored_lift_cb'):
+                                        z[48] = gens.get(48, 0) + quieter + e.get('stored_lift_cb', 0.0)
+                                    if e.get('loop'):
+                                        # loop continuously, the release envelope ending the note; an SFZ loop_sustain
+                                        # (loop_mode "sustain") plays on past the loop after the key is let go (SF2 mode 3)
+                                        z[54] = 3 if layer.get('loop_mode') == 'sustain' else 1
+                                    if cls:
+                                        z[57] = cls
+                                    if len(ids) == 2:
+                                        z[17] = -500 if ch == 0 else 500
+                                    inst_zones.append({'gens': z, 'sample': sid})
                         row = {'file': str(e['file'].relative_to(root)), 'sha256': e['sha256'], 'root_key': e['named'],
                                'dynamic': e['dyn'], 'serves_dynamic': dyn, 'round_robin': e['rr'],
                                **({'served_attenuation_db': quieter / 10} if quieter else {}),
@@ -2225,6 +2471,8 @@ def build(spec, root, output, ffmpeg=None, new=False):
                             row['soft_from'] = e['soft_from']
                         if e.get('closed_bands'):
                             row['closed_bands'] = e['closed_bands']
+                        if e.get('attack_noise'):
+                            row['attack_noise'] = e['attack_noise']
                         if e.get('stored_lift_cb'):
                             row['stored_lift_db'] = round(e['stored_lift_cb'] / 10, 2)   # stored this much louder, attenuated as much in the zone
                         receipt['files'].append(row)

@@ -361,6 +361,161 @@ def define(S):
         quiet=soft_curve((soft*0+1e-4*rng.standard_normal(soft.shape)).astype(np.float32),loud,rate,f0)
         assert quiet['clear']<SOFT_PARTIALS,quiet                                    # noise alone shows no partials
         return {'clear':c['clear'],'fall_db':[round(v,2) for v in fall],'slope':round(c['slope'],1)}
+    def piano_takes(root,notes,noisy=(),burst_db=-10.0,clean_db=-30.0,rate=44100,seconds=1.6,dyns=('4',),right_clean_db=None):
+        """0.9.1: made-up piano takes, stereo WAVs named p_{note}_vl{dyn}.wav: stretched partials that decay as a
+        string's, each channel a little apart, under a broadband burst in their first 0.15 s; a key in `noisy` carries
+        the burst at burst_db, the others at clean_db (dB under the first partial; their right channel at right_clean_db
+        when it is given)."""
+        import wave
+        from soundbank import note_number
+        t=np.arange(int(seconds*rate))/rate;rng=np.random.default_rng(91)
+        for name in notes:
+            f0=440*2**((note_number(name)-69)/12)
+            for dyn in dyns:
+                chans=[]
+                for ch in range(2):
+                    x=sum(10**((-3.0*k)/20)*np.exp(-t*(1.2+0.6*k))*np.sin(2*np.pi*f0*(k+1)*np.sqrt(1+4e-4*(k+1)**2)*t+0.7*k*ch)
+                          for k in range(24) if f0*(k+1)<20000)
+                    level=burst_db if name in noisy else (right_clean_db if ch==1 and right_clean_db is not None else clean_db)
+                    x=0.2*x+0.2*10**(level/20)*rng.standard_normal(len(t))*np.exp(-t/0.05)+10**(-80/20)*rng.standard_normal(len(t))
+                    chans.append(x)
+                q=np.clip(np.round(np.stack(chans,axis=1)*32767),-32768,32767).astype('<i2')
+                path=root/f'p_{name}_vl{dyn}.wav';path.parent.mkdir(parents=True,exist_ok=True)
+                with wave.open(str(path),'wb') as w:w.setnchannels(2);w.setsampwidth(2);w.setframerate(rate);w.writeframes(q.tobytes())
+        return rate
+    def attack_noise_is_brought_to_its_neighbours():
+        # `attack_noise` (0.9.1): the noise of the blow between a take's partials, in its attack, brought down toward the
+        # level its neighbours' takes carry there, never raised.  Known answers on made-up takes (piano_takes): the noisy
+        # key's measure of that noise brought down into the references' own (not under the cleaner by more than the
+        # measure's spread), its partials kept, under 1.4 kHz nothing but what the frames spread (under -50 dB) and the
+        # take from 0.35 s on bit for bit; a take aimed at itself unchanged; in a build, the repaired takes alone differ
+        # from a build without the field, from 0.35 s on not even they, each with its receipt; the refusals.
+        import wave
+        from musiclib import sf2
+        from soundbank import attack_noise_db,build,repair_attack_noise
+        root=work/'attack_noise_source';rate=piano_takes(root,['E5','F#5','G#5'],noisy=['G#5'],dyns=('2','4'),right_clean_db=-14.0)
+        def read(name,dyn='4'):
+            with wave.open(str(root/f'p_{name}_vl{dyn}.wav'),'rb') as w:
+                return np.frombuffer(w.readframes(w.getnframes()),dtype='<i2').reshape(-1,2).astype(np.float64)/32768
+        x,e5,fs5=read('G#5'),read('E5'),read('F#5')
+        y,info=repair_attack_noise(x[:,0],[e5[:,0],fs5[:,0]],rate)
+        before,after=attack_noise_db(x[:,0],rate),attack_noise_db(y,rate);refs=sorted([attack_noise_db(e5[:,0],rate),attack_noise_db(fs5[:,0],rate)]);aim=refs[0]
+        assert before>refs[1]+8 and after<before-8 and refs[0]-3<after<refs[1]+2,(before,after,refs)   # into the references' level (within the measure's 2 dB), no further
+        assert info['deepest_cut_db']<=30 and 0<info['protected_share_2_10_khz']<0.6,info
+        f0=440*2**((80-69)/12);seg=lambda z:z[int(.05*rate):int(.3*rate)];n=np.arange(int(.3*rate)-int(.05*rate))/rate
+        amp=lambda z,hz:float(abs(np.mean(seg(z)*np.exp(-2j*np.pi*hz*n))))
+        kept=[20*np.log10(amp(y,f0*k*np.sqrt(1+4e-4*k**2))/amp(x[:,0],f0*k*np.sqrt(1+4e-4*k**2))) for k in range(1,10)]
+        assert max(abs(v) for v in kept)<0.5,kept                                      # the partials where they stand clear
+        low=lambda z:np.fft.irfft(np.fft.rfft(z)*(np.fft.rfftfreq(len(z),1/rate)<1400),n=len(z))
+        under=10*np.log10(np.sum((low(y)-low(x[:,0]))**2)/np.sum(low(x[:,0])**2))      # under 1.4 kHz: only what the frames spread
+        assert under<-50,under                                                          # from the bands above (-54 dB here, 69-72 dB on the bank's own takes)
+        assert np.array_equal(y[int(.35*rate):],x[int(.35*rate):,0])                     # the take from 0.35 s is the recording
+        assert np.max(np.abs(y[int(.32*rate):int(.34*rate)]-x[int(.32*rate):int(.34*rate),0]))<1e-9   # back to it by 0.3 s
+        try:repair_attack_noise(x[:,0],[np.zeros(len(x))],rate);raise AssertionError('a silent reference')
+        except ValueError as e:assert 'cannot be read' in str(e),e
+        try:repair_attack_noise(np.zeros(len(x)),[e5[:,0]],rate);raise AssertionError('a silent take')
+        except ValueError as e:assert 'its tone' in str(e) and 'cannot be read' in str(e),e
+        _,deep=repair_attack_noise(x[:,0],[0.2*np.sin(2*np.pi*659.26*np.arange(len(x))/rate)*np.exp(-np.arange(len(x))/rate)],rate)
+        assert 29.5<=deep['deepest_cut_db']<=30.0,deep                                  # never more than 30 dB down
+        z,_=repair_attack_noise(e5[:,0],[e5[:,0].copy()],rate)                         # aimed at its own level: unchanged
+        assert np.max(np.abs(z-e5[:,0]))<1e-9,np.max(np.abs(z-e5[:,0]))
+        burst=0.2*10**(-12/20)*np.random.default_rng(5).standard_normal(len(e5))*np.exp(-np.arange(len(e5))/rate/0.05)
+        z,_=repair_attack_noise(e5[:,0],[e5[:,0]+burst],rate)                           # cleaner than its reference: never raised
+        hf=lambda zz:float(np.sum(np.abs(np.fft.rfft(zz[:int(.3*rate)])[np.fft.rfftfreq(int(.3*rate),1/rate)>=1500])**2))
+        assert hf(z)<=hf(e5[:,0])*(1+1e-9),(hf(z),hf(e5[:,0]))
+        # A take whose upper partials are much weaker than its references' (10 dB a partial, theirs 3) hides less of the
+        # same noise: it is aimed by its own partials in each band too, which takes 8 dB off its noise against its partials
+        # here, where its tone alone would take under 5.
+        from soundbank import _attack_measures,_hann_frames
+        tt=np.arange(len(e5))/rate;f0=440*2**((80-69)/12)
+        weak=0.2*sum(10**((-10.0*k)/20)*np.exp(-tt*(1.2+0.6*k))*np.sin(2*np.pi*f0*(k+1)*np.sqrt(1+4e-4*(k+1)**2)*tt) for k in range(24) if f0*(k+1)<20000)
+        weak=weak+0.2*10**(-20/20)*np.random.default_rng(6).standard_normal(len(tt))*np.exp(-tt/0.05)
+        w2,_=repair_attack_noise(weak,[e5[:,0],fs5[:,0]],rate)
+        def between_on(zz):                                                             # 2-16 kHz, first 80 ms: between partials against on them
+            n_,hop_,_=_hann_frames(rate);k_=int(0.08*rate/hop_)+1;_,_,_,_,_,_,U_,V_=_attack_measures(zz,rate,k_)
+            return 10*np.log10(np.nansum(U_)/np.nansum(V_))
+        assert between_on(w2)<between_on(weak)-6,(between_on(w2),between_on(weak),between_on(e5[:,0]),between_on(fs5[:,0]))
+        layer={'dir':'.','template':'p_{note}_vl{dyn}.wav','dynamics':['2','4'],'velocity':{'2':[1,80],'4':[81,127]},'keys':[76,81],
+               'level':'peak','match_notes':False}
+        plain=build({'name':'an','presets':[{'name':'p','program':0,'layers':[layer]}]},root,work/'attack_plain.sf2')
+        fixed=build({'name':'an','presets':[{'name':'p','program':0,'layers':[{**layer,'attack_noise':{'G#5':['E5','F#5']}}]}]},root,work/'attack_fixed.sf2')
+        a,b=sf2.read(work/'attack_plain.sf2'),sf2.read(work/'attack_fixed.sf2')
+        assert [s['name'] for s in a['samples']]==[s['name'] for s in b['samples']]
+        changed=[s['name'] for i,s in enumerate(a['samples']) if not np.array_equal(sf2.load_sample(a,i),sf2.load_sample(b,i))]
+        assert sorted(changed)==['p_G#5_vl2L','p_G#5_vl2R','p_G#5_vl4L','p_G#5_vl4R'],changed   # the repaired takes alone
+        for i,s in enumerate(a['samples']):                                             # and, as stored, each from 0.35 s on is
+            if s['name'] in changed:                                                    # the plain build's sample, word for word
+                assert np.array_equal(sf2.load_sample(a,i)[int(.35*rate):],sf2.load_sample(b,i)[int(.35*rate):]),s['name']
+        names={s['name']:i for i,s in enumerate(a['samples'])}
+        words=lambda bank,nm:np.asarray(sf2.load_sample(bank,names[nm]),dtype=np.float64)   # the 16-bit words / 32768, exactly
+        for nm in changed:                                                              # each repaired take is the plain build's stored
+            dyn,side=nm[-2],nm[-1]                                                      # take repaired against its stored references,
+            y,_=repair_attack_noise(words(a,nm),[words(a,f'p_E5_vl{dyn}{side}'),words(a,f'p_F#5_vl{dyn}{side}')],rate)   # rounded once:
+            assert np.array_equal(np.clip(np.round(y*32768),-32768,32767),words(b,nm)*32768),nm   # how the bank the owner heard was made
+        rows=[r for r in fixed['files'] if r.get('attack_noise')]
+        assert sorted(r['file'] for r in rows)==['p_G#5_vl2.wav','p_G#5_vl4.wav'],rows
+        for r in rows:                                                                  # each channel aimed at the same channel of its references:
+            got=r['attack_noise'];b_,a_=got['noise_first_80ms_db']['before'],got['noise_first_80ms_db']['after']
+            assert a_[0]<b_[0]-8 and a_[1]>a_[0]+3,got                                # the right references are noisier: the right channel ends noisier
+        assert all(sorted(r['attack_noise']['references'])==['p_E5_vl'+r['dynamic']+'.wav','p_F#5_vl'+r['dynamic']+'.wav'] for r in rows),rows
+        assert not any(r.get('attack_noise') for r in plain['files'])
+        both=build({'name':'an','presets':[{'name':'fixed','program':0,'layers':[{**layer,'attack_noise':{'G#5':['E5','F#5']}}]},
+                                            {'name':'plain','program':1,'layers':[layer]}]},root,work/'attack_both.sf2');c=sf2.read(work/'attack_both.sf2')
+        def take_of(bank,program,key=80,dyn_vel=127,pan=-500):                       # the sample a preset plays for a key
+            pr=next(q for q in bank['presets'] if q['program']==program);ins=bank['instruments'][pr['zones'][0]['target']]
+            z=next(z for z in ins['zones'] if z['target'] is not None and z['gens'][43][0]<=key<=z['gens'][43][1] and z['gens'][44][0]<=dyn_vel<=z['gens'][44][1] and z['gens'].get(17)==pan)
+            return sf2.load_sample(bank,z['target'])
+        assert np.array_equal(take_of(c,0),take_of(b,0)) and np.array_equal(take_of(c,1),take_of(a,0))   # a repaired take is stored apart
+        for bad,said in (({'C6':['E5']},'not a key this layer has'),({'G#5':['E5','A5']},'not a key this layer has'),
+                         ({'G#5':['G#5']},'maps a key'),({'G#5':[]},'maps a key'),({'G#5':'E5'},'maps a key'),({'H5':['E5']},'maps a key')):
+            try:build({'name':'an','presets':[{'name':'p','program':0,'layers':[{**layer,'attack_noise':bad}]}]},root,work/'attack_bad.sf2');raise AssertionError(bad)
+            except ValueError as e:assert said in str(e),(bad,e)
+        for bad in ({'G#5':['E5'],'Ab5':['F#5']},{'G#5':['Ab5','E5']}):
+            try:build({'name':'an','presets':[{'name':'p','program':0,'layers':[{**layer,'attack_noise':bad}]}]},root,work/'attack_bad.sf2');raise AssertionError(bad)
+            except ValueError as e:assert 'two spellings' in str(e),(bad,e)
+        mono=work/'attack_noise_mono';piano_takes(mono,['F#5','G#5'],noisy=['G#5'])
+        with wave.open(str(root/'p_E5_vl4.wav'),'rb') as w:both=np.frombuffer(w.readframes(w.getnframes()),dtype='<i2').reshape(-1,2)
+        with wave.open(str(mono/'p_E5_vl4.wav'),'wb') as w:w.setnchannels(1);w.setsampwidth(2);w.setframerate(rate);w.writeframes(np.ascontiguousarray(both[:,0]).tobytes())
+        try:build({'name':'an','presets':[{'name':'p','program':0,'layers':[{**layer,'dynamics':['4'],'velocity':{'4':[1,127]},'attack_noise':{'G#5':['E5','F#5']}}]}]},mono,work/'attack_bad.sf2');raise AssertionError('a mono reference')
+        except ValueError as e:assert 'channel layout' in str(e),e
+        try:build({'name':'an','presets':[{'name':'p','program':0,'layers':[{**layer,'loop':'recorded','attack_noise':{'G#5':['E5']}}]}]},root,work/'attack_bad.sf2');raise AssertionError('looped')
+        except ValueError as e:assert 'looped layers' in str(e),e
+        (root/'p_E5_vl2.wav').unlink();(root/'p_F#5_vl2.wav').unlink()                   # no reference of the soft dynamic
+        try:build({'name':'an','presets':[{'name':'p','program':0,'layers':[{**layer,'attack_noise':{'G#5':['E5','F#5']}}]}]},root,work/'attack_bad.sf2');raise AssertionError('no reference')
+        except ValueError as e:assert 'to aim at' in str(e),e
+        assert not (work/'attack_bad.sf2').exists()
+        return {'noise_db':[round(before,1),round(after,1)],'aim_db':round(aim,1),'partials_db':round(max(abs(v) for v in kept),3),'deepest_cut_db':info['deepest_cut_db']}
+    def each_key_its_own_exclusive_class():
+        # `exclusive_class: "key"` (0.9.1): each key a zone and a class of its own, its key number, so a key struck again
+        # ends its earlier voices and never another key's (one take serves two keys in a bank recorded every whole
+        # tone).  A number keeps one class for the layer; anything else is refused before a take is read.
+        from musiclib import sf2
+        from soundbank import build
+        root=work/'class_source';piano_takes(root,['C4','D4'],seconds=.6)
+        layer={'dir':'.','template':'p_{note}_vl{dyn}.wav','dynamics':['4'],'velocity':{'4':[1,127]},'keys':[60,63],'level':'peak','match_notes':False}
+        def zones(spec_layer,name):
+            build({'name':'c','presets':[{'name':'p','program':0,'layers':[spec_layer]}]},root,work/name);b=sf2.read(work/name)
+            return b,[z for z in b['instruments'][0]['zones'] if z['target'] is not None]
+        b0,z0=zones(layer,'class_none.sf2');b1,z1=zones({**layer,'exclusive_class':'key'},'class_key.sf2');b2,z2=zones({**layer,'exclusive_class':5},'class_five.sf2')
+        build({'name':'c','presets':[{'name':'p','program':0,'dynamic_layers':{'bank':16},'layers':[{**layer,'exclusive_class':'key'}]}]},root,work/'class_layers.sf2')
+        dl=sf2.read(work/'class_layers.sf2');dz=[z for z in dl['instruments'][1]['zones'] if z['target'] is not None]   # the velocity-deaf preset too
+        assert next(p for p in dl['presets'] if p['bank']==16) and sorted((z['gens'][43],z['gens'].get(57)) for z in dz)==[((k,k),k) for k in (60,60,61,61,62,62,63,63)],[(z['gens'][43],z['gens'].get(57)) for z in dz]
+        assert sorted((z['gens'][43],z['gens'].get(57)) for z in z1)==[((k,k),k) for k in (60,60,61,61,62,62,63,63)],[(z['gens'][43],z['gens'].get(57)) for z in z1]
+        assert sorted(z['gens'][43] for z in z0)==[(60,61),(60,61),(62,63),(62,63)] and not any(57 in z['gens'] for z in z0)
+        assert all(z['gens'].get(57)==5 for z in z2) and len(z2)==len(z0)
+        for k in (60,61):                                                               # one take, both channels, each key
+            assert sorted(z['gens'][17] for z in z1 if z['gens'][43]==(k,k))==[-500,500]
+        same=lambda a,b:[s['name'] for s in a['samples']]==[s['name'] for s in b['samples']] and all(np.array_equal(sf2.load_sample(a,i),sf2.load_sample(b,i)) for i in range(len(a['samples'])))
+        assert same(b0,b1) and same(b0,b2)                                               # the samples are the same takes
+        strip=lambda zs:sorted(tuple(sorted((g,v) for g,v in z['gens'].items() if g not in (43,57))) for z in zs)
+        assert set(strip(z1))==set(strip(z0))                                           # nothing else in a zone moves
+        for bad in (True,1.5,128,-1,'keys',[1]):
+            try:build({'name':'c','presets':[{'name':'p','program':0,'layers':[{**layer,'exclusive_class':bad}]}]},root,work/'class_bad.sf2');raise AssertionError(bad)
+            except ValueError as e:assert 'exclusive_class' in str(e),(bad,e)
+        try:build({'name':'c','presets':[{'name':'p','program':0,'layers':[{**layer,'keys':[0,63],'exclusive_class':'key'}]}]},root,work/'class_bad.sf2');raise AssertionError('key 0')
+        except ValueError as e:assert 'class 0' in str(e),e
+        assert not (work/'class_bad.sf2').exists()
+        return {'zones_none':len(z0),'zones_per_key':len(z1)}
     def settled_bands_are_closed_once():
         # `close_hiss` (0.7): a band of a take that has come down to the recording's hiss is taken out from then on,
         # once.  Known answers on a made-up take: two low partials that ring for seconds, one at 5 kHz gone within half
@@ -1639,7 +1794,7 @@ def define(S):
             assert not [s for c in opened for s in c.spans if s[0]<forbidden[1] and s[1]>forbidden[0]],(label,[c.spans for c in opened])
             out[label]={'bytes_read':read,'peak_kb':round(peak/1024)}
         return {'forms_kept':6,'refused':3,'early':out}
-    found = {'sf2_writer_reader_roundtrip': sf2_roundtrip, 'sf2_inventory_reports_keys_layers_seconds_and_loops': sf2_inventory, 'soundbank_builds_a_kit_with_microphones_and_choke': kit_build, 'soundbank_keeps_recorded_loops_and_evens_takes': loop_build, 'soundbank_levels_every_dynamic_of_a_note_together': across_levels, 'soundbank_builds_dynamic_layers_and_legato_presets': expressive_bank, 'soundbank_ring_db_keeps_each_take_to_its_own_decay': ring_cut, 'soundbank_denoise_keeps_each_layers_partials': denoise_keeps_each_layers_partials, 'split_finds_each_note_of_a_chromatic_run': split_run, 'split_reads_a_high_passed_copy_and_leaves_out_takes': split_highpass, 'a_soft_take_made_from_the_loud_one': soft_take_from_the_loud_one, 'settled_bands_are_closed_once': settled_bands_are_closed_once, 'full_scale_storage_keeps_the_level_heard': full_scale_keeps_the_level, 'soundbank_tunes_split_notes_and_quiets_borrowed_dynamics': split_bank, 'noise_reduction_lowers_hiss_and_keeps_the_note': noise_reduction, 'click_repair_takes_out_a_knock_and_keeps_the_ring': click_repair, 'denoise_keeps_a_soft_low_note_out_of_the_rumble': denoise_keeps_low_partials, 'noise_profile_reads_gated_and_breathy_recordings': noise_profile, 'split_keeps_the_note_not_its_faint_ring': split_ignores_faint_rings, 'a_cut_manifest_writes_only_inside_its_folder': files_stay_inside, 'wav_readers_decode_each_encoding_and_keep_their_header_rules': wav_readers, 'wav_readers_keep_their_policies_on_the_same_bytes': wav_policies_side_by_side, 'bank_files_named_by_template': bank_files_named_by_template, 'bank_build_opens_no_link_below_its_root': bank_build_opens_no_link_below_its_root, 'bank_cut_checks_each_span_first': bank_cut_checks_each_span_first, 'aiff_reader_walks_headers_and_refuses_what_it_cannot_hold': aiff_reader_walks_headers_and_refuses_what_it_cannot_hold, 'sounds_search_names_what_it_does_not_know': sounds_search_names_what_it_does_not_know, 'instruments_reads_keys_and_layers_from_the_bank': instruments_reads_keys_and_layers_from_the_bank, 'own_folder_and_sfz_build_banks': own_folder_and_sfz_build_banks,'aiff_reader_decodes_each_kind_it_takes': aiff_reader, 'flac_source_must_be_flac': flac_source_must_be_flac, 'soundfont_tables_must_hold_together': soundfont_tables_must_hold_together, 'sf2_tables_are_refused_by_their_size': sf2_tables_by_their_size, 'sf2_tables_may_end_without_their_terminal_records': sf2_tables_without_terminal_records, 'sf2_reader_refuses_early_and_keeps_its_forms': sf2_reader_refuses_early_and_keeps_its_forms}
+    found = {'sf2_writer_reader_roundtrip': sf2_roundtrip, 'sf2_inventory_reports_keys_layers_seconds_and_loops': sf2_inventory, 'soundbank_builds_a_kit_with_microphones_and_choke': kit_build, 'soundbank_keeps_recorded_loops_and_evens_takes': loop_build, 'soundbank_levels_every_dynamic_of_a_note_together': across_levels, 'soundbank_builds_dynamic_layers_and_legato_presets': expressive_bank, 'soundbank_ring_db_keeps_each_take_to_its_own_decay': ring_cut, 'soundbank_denoise_keeps_each_layers_partials': denoise_keeps_each_layers_partials, 'split_finds_each_note_of_a_chromatic_run': split_run, 'split_reads_a_high_passed_copy_and_leaves_out_takes': split_highpass, 'a_soft_take_made_from_the_loud_one': soft_take_from_the_loud_one, 'settled_bands_are_closed_once': settled_bands_are_closed_once, 'attack_noise_is_brought_to_its_neighbours': attack_noise_is_brought_to_its_neighbours, 'each_key_its_own_exclusive_class': each_key_its_own_exclusive_class, 'full_scale_storage_keeps_the_level_heard': full_scale_keeps_the_level, 'soundbank_tunes_split_notes_and_quiets_borrowed_dynamics': split_bank, 'noise_reduction_lowers_hiss_and_keeps_the_note': noise_reduction, 'click_repair_takes_out_a_knock_and_keeps_the_ring': click_repair, 'denoise_keeps_a_soft_low_note_out_of_the_rumble': denoise_keeps_low_partials, 'noise_profile_reads_gated_and_breathy_recordings': noise_profile, 'split_keeps_the_note_not_its_faint_ring': split_ignores_faint_rings, 'a_cut_manifest_writes_only_inside_its_folder': files_stay_inside, 'wav_readers_decode_each_encoding_and_keep_their_header_rules': wav_readers, 'wav_readers_keep_their_policies_on_the_same_bytes': wav_policies_side_by_side, 'bank_files_named_by_template': bank_files_named_by_template, 'bank_build_opens_no_link_below_its_root': bank_build_opens_no_link_below_its_root, 'bank_cut_checks_each_span_first': bank_cut_checks_each_span_first, 'aiff_reader_walks_headers_and_refuses_what_it_cannot_hold': aiff_reader_walks_headers_and_refuses_what_it_cannot_hold, 'sounds_search_names_what_it_does_not_know': sounds_search_names_what_it_does_not_know, 'instruments_reads_keys_and_layers_from_the_bank': instruments_reads_keys_and_layers_from_the_bank, 'own_folder_and_sfz_build_banks': own_folder_and_sfz_build_banks,'aiff_reader_decodes_each_kind_it_takes': aiff_reader, 'flac_source_must_be_flac': flac_source_must_be_flac, 'soundfont_tables_must_hold_together': soundfont_tables_must_hold_together, 'sf2_tables_are_refused_by_their_size': sf2_tables_by_their_size, 'sf2_tables_may_end_without_their_terminal_records': sf2_tables_without_terminal_records, 'sf2_reader_refuses_early_and_keeps_its_forms': sf2_reader_refuses_early_and_keeps_its_forms}
     if config:
         def preset_list_matches_the_banks():
             # 0.8 step 2.6: what `instruments` reads from each configured bank against references/soundbank-presets.md, row
@@ -1674,5 +1829,56 @@ def define(S):
                 except ValueError as e:assert 'cut it first' in str(e),e
             finally:soundbank.MAX_SOURCE_SECONDS=limit
             return {'limit_s':limit}
-        found.update({'preset_list_keys_match_the_banks': preset_list_matches_the_banks, 'flac_sources_decode_within_a_limit': flac_sources_decode_within_a_limit})
+        def a_key_struck_again_ends_its_earlier_voice():
+            # 0.9.1: what the renderer's FluidSynth makes of `exclusive_class: "key"`, on a bank built here from made-up
+            # takes (CI's configured jobs have the default bank alone).  Key 60 plays a 440 Hz take below velocity 64 and
+            # a 523 Hz take above, and so does key 61, a semitone up (one take serves both, as in a bank recorded every
+            # whole tone); key 64 plays a 659 Hz take; each rings 6 s.  The pedal down: key 60 softly at 0 s, key 61
+            # softly at 0.3 s (466 Hz), key 64 at 0.5 s, key 60 loudly at 1.0 s, all let go at once, the pedal up at 4 s.
+            # With a class per key the first strike of key 60 is gone after its restrike, whatever the pedal; the restrike's
+            # own two channels, key 61 on the same take and key 64 sound as without classes, and so does all before the
+            # restrike.  Then without the pedal: key 60 let go at 0.2 s and struck again at 0.35 s ends its fading first
+            # voice sooner than without classes.
+            import struct,wave
+            from soundbank import build
+            cfg=audio.load_config(config);root=work/'restrike_source';rate=44100;t=np.arange(6*rate)/rate
+            for name,hz in (('C4_vl1',440.0),('C4_vl2',523.25),('E4_vl1',659.26)):
+                x=0.3*np.exp(-t*0.3)*np.sin(2*np.pi*hz*t);q=np.clip(np.round(np.stack([x,x],axis=1)*32767),-32768,32767).astype('<i2')
+                root.mkdir(parents=True,exist_ok=True)
+                with wave.open(str(root/f't_{name}.wav'),'wb') as w:w.setnchannels(2);w.setsampwidth(2);w.setframerate(rate);w.writeframes(q.tobytes())
+            layer={'dir':'.','template':'t_{note}_vl{dyn}.wav','dynamics':['1','2'],'velocity':{'1':[1,63],'2':[64,127]},'keys':[60,64],
+                   'level':'peak','match_notes':False,'pitch_check':False,'envelope':{'release':0.6}}
+            def vlq(n):
+                o=[n&127];n>>=7
+                while n:o.append((n&127)|128);n>>=7
+                return bytes(reversed(o))
+            tick=lambda s:int(round(s/0.5*480))
+            def midi(path,ev):
+                trk=vlq(0)+b'\xff\x51\x03'+(500000).to_bytes(3,'big')+vlq(0)+bytes([0xC0,0]);last=0
+                for tk,msg in sorted(ev,key=lambda e:e[0]):trk+=vlq(tk-last)+msg;last=tk
+                trk+=vlq(0)+b'\xff\x2f\x00';path.write_bytes(b'MThd'+struct.pack('>IHHH',6,0,1,480)+b'MTrk'+struct.pack('>I',len(trk))+trk)
+            midi(work/'restrike.mid',[(0,bytes([0xB0,64,127])),(tick(0),bytes([0x90,60,40])),(tick(.2),bytes([0x80,60,0])),(tick(.3),bytes([0x90,61,40])),
+                                       (tick(.45),bytes([0x80,61,0])),(tick(.5),bytes([0x90,64,80])),(tick(.7),bytes([0x80,64,0])),(tick(1),bytes([0x90,60,100])),
+                                       (tick(1.2),bytes([0x80,60,0])),(tick(4),bytes([0xB0,64,0])),(tick(5.5),bytes([0xB0,7,100]))])
+            midi(work/'restrike_dry.mid',[(tick(0),bytes([0x90,60,40])),(tick(.2),bytes([0x80,60,0])),(tick(.35),bytes([0x90,60,100])),
+                                           (tick(.55),bytes([0x80,60,0])),(tick(2),bytes([0xB0,7,100]))])
+            got={}
+            for label,extra in (('none',{}),('key',{'exclusive_class':'key'})):
+                build({'name':'r','presets':[{'name':'p','program':0,'layers':[{**layer,**extra}]}]},root,work/f'restrike_{label}.sf2')
+                for take in ('','_dry'):
+                    audio.fluidsynth(cfg,work/f'restrike_{label}.sf2',work/f'restrike{take}.mid',work/f'restrike_{label}{take}.wav',work/f'logs_restrike_{label}{take}')
+                x=np.asarray(audio.read_wav(work/f'restrike_{label}.wav')[0],dtype=np.float64)
+                y=np.asarray(audio.read_wav(work/f'restrike_{label}_dry.wav')[0],dtype=np.float64)
+                def amp(z,ch,hz,a,b):                                                      # one partial's amplitude, Hann-windowed so the
+                    s=z[int(a*audio.RATE):int(b*audio.RATE),ch];w=np.hanning(len(s))        # louder takes nearby do not leak into it
+                    return float(2*abs(np.sum(s*w*np.exp(-2j*np.pi*hz*np.arange(len(s))/audio.RATE)))/np.sum(w))
+                got[label]={'first_before':amp(x,0,440,.6,.9),'first_after':amp(x,0,440,2.0,3.0),'new_l':amp(x,0,523.25,2.0,3.0),'new_r':amp(x,1,523.25,2.0,3.0),
+                            'same_take_key':amp(x,0,466.16,2.0,3.0),'other_key':amp(x,0,659.26,2.0,3.0),'dry_first_after':amp(y,0,440,.40,.60)}
+            db=lambda k:20*np.log10(got['key'][k]/got['none'][k])
+            assert db('first_after')<-30,got                                               # the first strike's voice, gone under the pedal
+            assert db('dry_first_after')<-6,got                                            # and without it, ended sooner than its release
+            assert all(abs(db(k))<0.5 for k in ('first_before','new_l','new_r','same_take_key','other_key')),{k:round(db(k),2) for k in got['key']}
+            return {k:round(float(db(k)),1) for k in got['key']}
+        found.update({'preset_list_keys_match_the_banks': preset_list_matches_the_banks, 'flac_sources_decode_within_a_limit': flac_sources_decode_within_a_limit,
+                      'a_key_struck_again_ends_its_earlier_voice': a_key_struck_again_ends_its_earlier_voice})
     return found

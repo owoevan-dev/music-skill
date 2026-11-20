@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] - Unreleased
+
+One sound bank rebuilt for two noises of its piano, with two fields of the bank builder that take them out.
+
+### Fixed
+
+- **A key of the Steinway struck again keeps one voice.** In `vcsl` build b12 a key struck again under the pedal started a new voice while its earlier ones rang on: up to a dozen copies of one recording at once in a fast pedalled passage, whose recordings' hiss added up into a hiss of its own. From build b13 each key is a class of its own, and a key struck again ends its earlier voices, as a piano key has one set of strings, which a new blow sets going anew. A note restruck without the pedal while its last one fades also ends that fading voice sooner (FluidSynth fades a voice its class ends by about 54 dB in 0.18 s).
+- **The Steinway's G#5 and A5 lose a noise of the blow their neighbours do not have.** The recording that plays both carried a diffuse noise from 2 to 20 kHz between its partials for about 0.15 s, which stood out in a melody among cleaner notes. Build b13 brings it down toward its neighbours' level, between the partials only; the bins at its partials are left as they are, and the take from 0.35 s is as recorded.
+
+### Added
+
+- **`exclusive_class: "key"` and `attack_noise` for building banks** ([soundbank-building.md](skills/music-production/references/soundbank-building.md)): each key a class of its own; the noise of the blow in named takes brought down toward named neighbours' level. `exclusive_class` is checked now: a class from 1 to 127, or `"key"`.
+
+### Changed
+
+- **`vcsl` build b13.** The setup installs it in place of b12 (its prebuilt asset, or a build from the same sources). Every other preset of the bank and every other take of the Steinway is as in b12. A piece that plays the Steinway renders differently where a key is struck again while it still sounds or where G#5 and A5 sound, and as before elsewhere.
+
 ## [0.9.0] - 2026-11-20
 
 An electric guitar and bass played by string through an amplifier, parts that move across the stereo image, a headphone version of a mix, and a review that asks fewer questions it has no business asking.

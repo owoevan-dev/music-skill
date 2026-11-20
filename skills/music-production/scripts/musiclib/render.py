@@ -29,7 +29,12 @@ import threading
 import time
 import numpy as np
 from . import audio, drums, files, layered, midi, production, stage, surge, synth, variation
-from .model import Clock, load_project, validate, performed, save_json, digest, file_hash, TPQ
+from .model import Clock, load_project, validate, performed, save_json, sounded, digest, file_hash, TPQ
+
+def retrigger_trims(t,clock):
+    """How many of a part's notes a second strike of their key cuts short in its audio (the stem's receipt): of a part
+    played by string, string by string (model.sounded), not on the exported MIDI's one channel."""
+    return sum(n.get('retrigger_trimmed',False) for n in sounded(t,clock))
 
 def engine_hash():
     """The renderer's code: every musiclib module and the Surge host the renderer starts."""
@@ -656,7 +661,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
                 with contextlib.suppress(OSError):
                     files.register_tree(folder,keep=entry_keep)
                     files.drop_journal(folder)
-        receipt_data={'track':t['id'],'soundfont':font_name,'cache_key':key,'cache_hit':cached,'stem_reused':reused,'raw_sha256':raw_sha,'stem_sha256':stem_sha,'reference_level_dbfs':done['reference_level_dbfs'],'gain_db':done['gain_db'],'processed_stem':str(stem.relative_to(output)),'filter_chain':done['filter_chain'],'same_pitch_retrigger_trims':sum(n.get('retrigger_trimmed',False) for n in performed(t,clock))}
+        receipt_data={'track':t['id'],'soundfont':font_name,'cache_key':key,'cache_hit':cached,'stem_reused':reused,'raw_sha256':raw_sha,'stem_sha256':stem_sha,'reference_level_dbfs':done['reference_level_dbfs'],'gain_db':done['gain_db'],'processed_stem':str(stem.relative_to(output)),'filter_chain':done['filter_chain'],'same_pitch_retrigger_trims':retrigger_trims(t,clock)}
         if not held:receipt_data['unlocked_cache']=True  # made in the render's own folder: nothing cached (C04)
         if rejected:receipt_data['cache_rejected']=rejected  # a cached take or stem found unfit and made again (1.4)
         if expressive:receipt_data['expressive']=expressive

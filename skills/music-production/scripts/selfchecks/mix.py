@@ -1020,6 +1020,24 @@ def define(S):
         assert [(n['id'],round(n['on']*960),n['string']) for n in kept]==[('n0',0,6),('n1',2,5)],kept
         assert {n['id']:n['end_tick'] for n in sounded(second['tracks'][0],Clock(second))}=={'n0':3840,'n1':3840}
         whole=extract(q,1,2);validate(whole);assert [(n['id'],n['on'],n['duration']) for n in whole['tracks'][0]['notes']]==[('n0',0,8),('n1',.5,7.5)],whole['tracks'][0]['notes']
+        # (a review of these fixes, run with a place to run code) the part's offset: a note written two ticks on plays
+        # two ticks on, whatever the offset (its timing was set to nothing, so an offset of -20 ms brought both onto
+        # the cut and one went, and +35 ms played the second 53 ticks late); swung, the two ticks are three
+        for offset in (0,-20,35):
+            q=on_two_strings([(0,8,52,{'string':6}),(.5,7.5,52,{'string':5})],2);q['clock']['tempo']=[[0,120],[4,90]]
+            q['tracks'][0]['performance'].update(offset_ms=offset,swing={'ratio':.67});validate(q);second=extract(q,2,1);validate(second)
+            played={n['id']:(n['tick'],n['end_tick']) for n in sounded(second['tracks'][0],Clock(second))}
+            end=min(n['end_tick'] for n in sounded(q['tracks'][0],Clock(q)))-3840   # where the piece ends them (an earlier offset ends them earlier)
+            assert played=={'n0':(0,end),'n1':(3,end)} and 3800<end<=3840,(offset,played,end)
+        # a string left to ring across the cut while another string strikes its pitch just after it (a palm-muted
+        # answer 62.5 ms on): both are in the passage.  On a part played by string only a strike on the same string
+        # stops a note; the rule that drops a re-attack doubled within 100 ms took the ringing string's whole bar.
+        q=on_two_strings([(0,11,52,{'string':6}),(4.125,.25,52,{'string':5,'mute':'palm'})],3);validate(q);second=extract(q,2,1);validate(second)
+        assert {n['id']:(n['tick'],n['end_tick']) for n in sounded(second['tracks'][0],Clock(second))}=={'n0':(0,3840),'n1':(120,360)},second['tracks'][0]['notes']
+        # the stem's receipt counts the notes a second strike of their key cut short in the audio, string by string
+        from musiclib.render import retrigger_trims
+        q=on_two_strings(under,2);assert retrigger_trims(q['tracks'][0],Clock(q))==0 and sum(n.get('retrigger_trimmed',False) for n in performed(q['tracks'][0],Clock(q)))==1
+        plain=example();assert retrigger_trims(plain['tracks'][0],Clock(plain))==sum(n.get('retrigger_trimmed',False) for n in performed(plain['tracks'][0],Clock(plain)))
         # and a string that holds a pitch across the cut while another strikes it on the cut: the passage is valid, and its own strike is in it
         q=on_two_strings([(0,8,52,{'string':6}),(4,1,52,{'string':5})],2);validate(q);second=extract(q,2,1);validate(second)
         assert ('n1',0,5) in [(n['id'],n['on'],n['string']) for n in second['tracks'][0]['notes']],second['tracks'][0]['notes']

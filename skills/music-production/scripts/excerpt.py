@@ -13,13 +13,13 @@ def one_line(t):
     leg=t['performance'].get('legato')
     return t['engine']=='additive' or (t['engine']=='soundfont' and isinstance(leg,dict) and leg.get('mode','slur')=='slur')
 
-def collides(track,first,clock,struck,gap=0.0,again=()):
+def collides(track,first,clock,struck,gap=0.0):
     """Whether the note `first`, struck before the cut in the piece and so at the excerpt's start, meets a later strike
     of its key (later in the piece as played, `struck`): on its tick or one tick off, as played or as written, which the
     render's own rule (performed()) stops on, or within `gap` seconds as played.  As played counts the notes' timing,
-    the part's offset and swing.  `again`: the notes struck again at the cut; within `gap` only a strike of the passage's
-    own doubles a re-attack, not another re-attack (on a part played by string two strings can hold one pitch across
-    the cut, and neither had stopped the other)."""
+    the part's offset and swing.  On a part played by string only a stroke on the note's own string counts within
+    `gap`: two strings can hold one pitch across the cut, or one ring on while another strikes it, and neither stops
+    the other."""
     h=next((n for n in track['notes'] if n['id']==first),None)
     if h is None:return False
     for n in track['notes']:
@@ -31,7 +31,10 @@ def collides(track,first,clock,struck,gap=0.0,again=()):
             played={x['id']:x['start_seconds'] for x in performed(pair,clock,True)};performed(pair,clock,False)
         except ValueError:return True
         # (within `gap` only a strike of the same key doubles it; another pitch on its string simply follows it)
-        if n['pitch']==h['pitch'] and n['id'] not in again and abs(played[n['id']]-played[h['id']])<=gap+1e-9:return True
+        # (on a part played by string only its own string's next stroke ends a note: a strike of its pitch on another
+        # string a moment after the cut is no double of it, and it rings on)
+        other_string=h.get('string') is not None and n.get('string')!=h.get('string')
+        if n['pitch']==h['pitch'] and not other_string and abs(played[n['id']]-played[h['id']])<=gap+1e-9:return True
     return False
 
 def crop(points,start,end,bend=False):
@@ -203,9 +206,10 @@ def extract(p,first_bar,bars):
                 k=0
                 while k<=top and any(abs(k-x)<=1 for x in near):k+=1
                 if 0<k<=top:
-                    _,s1,_=spans[n['id']];o=k/TPQ;begin=at(o)+offset
+                    # (its timing takes the part's offset back, so that it plays on the tick it is written on)
+                    _,s1,_=spans[n['id']];o=k/TPQ;timing=min(.1,max(-.1,-offset));begin=at(o)+timing+offset
                     d,gate=fit(o,max(1/TPQ,min(length-o,n['on']+n['duration']-o)),s1,begin,length-o)
-                    n['on']=o;n['duration']=d;perf['notes'][n['id']].update(timing_ms=0,gate=gate);spans[n['id']]=(o,s1,begin)
+                    n['on']=o;n['duration']=d;perf['notes'][n['id']].update(timing_ms=timing*1000,gate=gate);spans[n['id']]=(o,s1,begin)
                 fixed.append((n['pitch'],tick_of(n['on'])))
         gone=set()
         clash=lambda n:any(m is not n and m['id'] not in gone and m['pitch']==n['pitch'] and abs(tick_of(m['on'])-tick_of(n['on']))<=1 for m in notes)
@@ -398,7 +402,7 @@ def extract(p,first_bar,bars):
     for t in q['tracks']:
         order=struck[t['id']]
         early={n['id'] for n in t['notes'] if n['id'] not in held[t['id']] and order[n['id']]<cut}|moved[t['id']]
-        drop=({h for h in held[t['id']] if collides(t,h,excerpt_clock,order,REATTACK_GAP_S,held[t['id']])}
+        drop=({h for h in held[t['id']] if collides(t,h,excerpt_clock,order,REATTACK_GAP_S)}
               |{e for e in early if collides(t,e,excerpt_clock,order)})
         if drop:
             t['notes']=[n for n in t['notes'] if n['id'] not in drop]

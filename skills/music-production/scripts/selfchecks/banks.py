@@ -1838,7 +1838,9 @@ def define(S):
             # With a class per key the first strike of key 60 is gone after its restrike, whatever the pedal; the restrike's
             # own two channels, key 61 on the same take and key 64 sound as without classes, and so does all before the
             # restrike.  Then without the pedal: key 60 let go at 0.2 s and struck again at 0.35 s ends its fading first
-            # voice sooner than without classes.
+            # voice sooner than without classes.  The takes' release is a long 4 s, so that holds on every FluidSynth
+            # the renderer may run: one class fades its voices by -2000 timecents from FluidSynth 2.5 and by -200 (about
+            # 0.9 s for 96 dB, slower than a 0.6 s release) before it, Ubuntu 24.04's 2.3 among them.
             import struct,wave
             from soundbank import build
             cfg=audio.load_config(config);root=work/'restrike_source';rate=44100;t=np.arange(6*rate)/rate
@@ -1847,7 +1849,7 @@ def define(S):
                 root.mkdir(parents=True,exist_ok=True)
                 with wave.open(str(root/f't_{name}.wav'),'wb') as w:w.setnchannels(2);w.setsampwidth(2);w.setframerate(rate);w.writeframes(q.tobytes())
             layer={'dir':'.','template':'t_{note}_vl{dyn}.wav','dynamics':['1','2'],'velocity':{'1':[1,63],'2':[64,127]},'keys':[60,64],
-                   'level':'peak','match_notes':False,'pitch_check':False,'envelope':{'release':0.6}}
+                   'level':'peak','match_notes':False,'pitch_check':False,'envelope':{'release':4.0}}
             def vlq(n):
                 o=[n&127];n>>=7
                 while n:o.append((n&127)|128);n>>=7
@@ -1873,7 +1875,7 @@ def define(S):
                     s=z[int(a*audio.RATE):int(b*audio.RATE),ch];w=np.hanning(len(s))        # louder takes nearby do not leak into it
                     return float(2*abs(np.sum(s*w*np.exp(-2j*np.pi*hz*np.arange(len(s))/audio.RATE)))/np.sum(w))
                 got[label]={'first_before':amp(x,0,440,.6,.9),'first_after':amp(x,0,440,2.0,3.0),'new_l':amp(x,0,523.25,2.0,3.0),'new_r':amp(x,1,523.25,2.0,3.0),
-                            'same_take_key':amp(x,0,466.16,2.0,3.0),'other_key':amp(x,0,659.26,2.0,3.0),'dry_first_after':amp(y,0,440,.40,.60)}
+                            'same_take_key':amp(x,0,466.16,2.0,3.0),'other_key':amp(x,0,659.26,2.0,3.0),'dry_first_after':amp(y,0,440,.45,.75)}
             db=lambda k:20*np.log10(got['key'][k]/got['none'][k])
             assert db('first_after')<-30,got                                               # the first strike's voice, gone under the pedal
             assert db('dry_first_after')<-6,got                                            # and without it, ended sooner than its release

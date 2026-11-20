@@ -7,7 +7,9 @@ build:   a JSON spec maps sample files (regex on file names) to presets.  Each f
          within and across layers, and round robins alternate on neighbouring velocities.
          Unpitched layers (drums) give a fixed `root` key instead of a note in the name, may mix
          several microphones of one hit (`mics`, each with a gain and, for mono, a pan), and may
-         share an `exclusive_class` (a closed hi-hat cutting an open one).  A sustained layer can keep
+         share an `exclusive_class` (a closed hi-hat cutting an open one); `"key"` gives each key a class of
+         its own, so a key struck again ends its earlier voices.  `attack_noise` brings the noise of the blow
+         between named takes' partials down toward named neighbours' level.  A sustained layer can keep
          each recording's own loop (`loop: "recorded"`, from the WAV `smpl` chunk), or have one cut from
          the steady part of a take that has none (`loop: "found"`), so a held note lasts as long as the
          key.  A sustained preset can add one velocity-deaf preset per recorded dynamic (`dynamic_layers`)
@@ -1056,8 +1058,8 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
                                 'left': f'closing its bands would take {lost:.1f} dB from the take: they hold more than hiss'}]
     return out.astype(np.asarray(x).dtype), report
 
-# `attack_noise` (0.9.1): the noise of the blow in a take, between its partials, brought to the level its neighbours'
-# takes carry there.  Third-octave bands from 2 kHz up; the repair works from ATTACK_NOISE_FROM_HZ (in full at
+# `attack_noise` (0.9.1): the noise of the blow in a take, between its partials, brought down toward the level its
+# neighbours' takes carry there.  Third-octave bands from 2 kHz up; the repair works from ATTACK_NOISE_FROM_HZ (in full at
 # ATTACK_NOISE_FULL_HZ), in full to ATTACK_NOISE_UNTIL_S and back to the recording by ATTACK_NOISE_BACK_S, and the
 # take is the take as recorded from ATTACK_NOISE_KEEP_S (joined by ATTACK_NOISE_JOINED_S); never more than
 # ATTACK_NOISE_MAX_DB down.

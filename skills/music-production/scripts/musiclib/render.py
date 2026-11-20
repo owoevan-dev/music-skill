@@ -949,11 +949,14 @@ def room_mix(p,clock,cfg,output,frames,duration):
         buses.append('[delay]');exports.append(('delay_export','delay_return.wav'))
     from .loop import starts_at_zero
     fade='' if starts_at_zero(p) else ',afade=t=in:st=0:d=0.005'
-    # The fades count from the mix's own first sample (asetpts): afade goes by the timestamps, and FFmpeg 6 starts the
-    # mix's a block late where a reverb's convolution is in the graph, so the fade-out had run out about 40 ms before
-    # the file's end and left that much silence (measured on Ubuntu 24.04's FFmpeg 6.1: the last 50 ms 13 dB lower
-    # than with FFmpeg 7 and newer, every quarter second before it the same).
-    graph.append(''.join(buses)+f'amix=inputs={len(buses)}:normalize=0:duration=longest,atrim=end_sample={frames},asetpts=N/SR/TB{fade},afade=t=out:st={duration-1.7:.8f}:d=1.7[mix]')
+    # Every input of the last mix is padded by a second before it is added, and the sum cut to the piece's length.
+    # A return comes out of its convolution a block late; where the parts end with it, FFmpeg 6's amix lets go of the
+    # parts' last block when they end first (measured on Ubuntu 24.04's FFmpeg 6.1: the mix's last 50 ms held the
+    # return alone, 13 dB lower than with FFmpeg 7 and newer; stem, return and every quarter second before it the
+    # same).  Padded, what it lets go of is silence past the cut.
+    padded=[f'[last{i}]' for i in range(len(buses))]
+    graph+=[f'{b}apad=pad_dur=1{q}' for b,q in zip(buses,padded)]
+    graph.append(''.join(padded)+f'amix=inputs={len(buses)}:normalize=0:duration=longest,atrim=end_sample={frames}{fade},afade=t=out:st={duration-1.7:.8f}:d=1.7[mix]')
     graph_options=audio.graph_file(cfg,output/'mix.filtergraph.txt',';\n'.join(graph))
     premaster=output/'premaster.wav'
     outs=['-map','[mix]','-ar',str(audio.RATE),'-c:a','pcm_f32le',premaster]

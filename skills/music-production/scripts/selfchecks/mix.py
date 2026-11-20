@@ -1450,6 +1450,8 @@ def define(S):
             # under version 1, and its filter in the graph is the same text.
             change=r['buses']['level_change_db'];old=one['buses']['level_change_db']
             graph=(out/'mix.filtergraph.txt').read_text(encoding='utf-8')
+            last_mix=graph.split('[mix]')[0].rsplit(';',1)[1]   # each input of the bus chain's last mix is padded before it (render.py, the room chain's mix)
+            assert last_mix.strip().startswith('[last0]') and graph.count('apad=pad_dur=1[last')==last_mix.count('[last')>=2,graph[-500:]
             assert set(change)==set(old) and all(abs(change[b]-old[b])<=.05 for b in change if b not in mixbus.SATURATING+('lead',)),(change,old)
             assert all(mixbus.BUS_FILTER[b] in graph for b in ('ensemble',) if b in change) and 'lead' not in mixbus.BUS_FILTER_2
             # The lead's compressor stands 6 dB over the loudest lead part's written level, with 0.4 dB of make-up:

@@ -593,14 +593,15 @@ def define(S):
                 return {'file':name,'frames':len(x),'quarters':[peak(x[len(x)-k*q4:len(x)-(k-1)*q4]) for k in range(10,0,-1)],'last_50ms':peak(x[-2400:])}
             assert pre['checks']['tail_quiet'] is False and pre['tail']['last_50ms_dbfs']>-52,('the pad alone under a tail of 2 s',pre['checks'].get('tail_quiet'),pre.get('tail'),
                 [shape(n) for n in ('stems/pad.wav','returns/room_return.wav','premaster.wav','master.wav')],(folder/'pad_alone'/'mix.filtergraph.txt').read_text(encoding='utf-8'))
-            # The fade-out lies where it is written, whatever the FFmpeg: the mix's last 50 ms are the stem and the
-            # room's return under the last 50 ms of a fade of 1.7 seconds (on FFmpeg 6.1 the fade had ended 40 ms
-            # early: -73.4 dBFS here for -60.0).  The graph says how: the fades count the mix's own samples.
+            # The mix holds its parts to its last sample, whatever the FFmpeg: its last 50 ms are the stem and the
+            # room's return under the last 50 ms of a fade of 1.7 seconds (on FFmpeg 6.1 they held the return alone:
+            # -73.4 dBFS here for -60.0).  The graph says how: each input of the last mix is padded before it.
             read=lambda name:np.asarray(audio.read_wav(folder/'pad_alone'/name)[0],dtype=np.float64)
             sent=read('stems/pad.wav')+read('returns/room_return.wav');mixed=read('premaster.wav');last=2400
             ramp=(np.arange(last,0,-1)/(1.7*audio.RATE))[:,None];want=float(np.max(np.abs(sent[-last:]*ramp)));got=float(np.max(np.abs(mixed[-last:])))
-            assert abs(20*np.log10(got/want))<1.0,('the fade-out is not where it is written',round(float(20*np.log10(got)),1),round(float(20*np.log10(want)),1))
-            assert ',asetpts=N/SR/TB,afade=t=in:st=0:d=0.005,afade=t=out:' in (folder/'pad_alone'/'mix.filtergraph.txt').read_text(encoding='utf-8')
+            assert abs(20*np.log10(got/want))<1.0,("the mix's end is not its parts' under the fade",round(float(20*np.log10(got)),1),round(float(20*np.log10(want)),1))
+            mix_graph=(folder/'pad_alone'/'mix.filtergraph.txt').read_text(encoding='utf-8')
+            assert '[d0]apad=pad_dur=1[last0]' in mix_graph and '[room]apad=pad_dur=1[last1]' in mix_graph and '[last0][last1]amix=inputs=2:normalize=0:duration=longest,atrim=end_sample=192000,' in mix_graph,mix_graph
             audition(folder/'audition.json','pad',[parse_sound('synth:fm_bell')],1,1,folder/'audition',config,folder/'cache')
             def ended(version):
                 x=audio.read_wav(version/'render'/'master.wav')[0];made=json.loads((version/'render'/'report.json').read_text(encoding='utf-8'))

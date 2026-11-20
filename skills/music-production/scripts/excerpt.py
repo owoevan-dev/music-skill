@@ -122,7 +122,12 @@ def extract(p,first_bar,bars):
         # (within their bounds) so the excerpt plays it on those ticks.
         # (as the audio has them: on a part played by string each string by itself, so a note held on one string is
         # in the passage though another string struck its pitch meanwhile)
-        written={n['id']:n for n in sounded(source,clock,False)};played={n['id']:n for n in sounded(source,clock,True)}
+        # A part played backwards is read here by its performed events, as before: its render leaves the part's offset,
+        # swing and timing out, and the placing below works with them (read by its written spans, a part offset of
+        # 150 ms emptied the passage's part).  Cutting a reversed note changes its sound in any case: its swell is
+        # made again over what is left of it.
+        read=performed if source.get('engine')=='soundfont' and source.get('reverse') else sounded
+        written={n['id']:n for n in read(source,clock,False)};played={n['id']:n for n in read(source,clock,True)}
         struck[t['id']]={k:n['tick'] for k,n in played.items()}
         notes=[];again=set();shifted=set();spans={};length=end-start;perf=t['performance']
         sw=perf.get('swing');offset=perf.get('offset_ms',0)/1000;bar=excerpt_clock.beats_per_bar

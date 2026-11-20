@@ -798,7 +798,8 @@ def sounded(track,clock,expressive=True):
     strike of a key ends the first; what reads how long a note sounds reads this instead (an excerpt, the loop's
     guard on a movement, the mix's held spans, the roll, the seam's count, notes.csv: the reviews of 0.9).  Any other
     part: performed().  A sampled part played backwards (`reverse`) sounds over each note's written span, whatever
-    its gate, its timing, swing or a later note of its key: render.reversed_notes plays every note by itself."""
+    its gate, its timing, swing or a later note of its key: render.reversed_notes plays every note by itself.  (An
+    excerpt reads such a part by performed(), as it always did: excerpt.py says why.)"""
     if track.get('engine')=='soundfont' and track.get('reverse'):
         played=[{'id':n['id'],'pitch':n['pitch'],'tick':tick_of(n['on']),'end_tick':max(tick_of(n['on'])+1,tick_of(n['on']+n['duration'])),
                  'velocity':track['performance']['notes'][n['id']]['velocity'] if expressive else 80} for n in track['notes']]

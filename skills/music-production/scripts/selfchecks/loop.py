@@ -71,9 +71,9 @@ def define(S):
         once=mast.copy();once[e_f+lap:]=0;once[e_f:e_f+R48]=noise;one=loop.seam(q,Clock(q),loop.fold(once,s_f,e_f),once)['abruptness']
         assert abs(one['folded_tail_lufs']-told['folded_tail_lufs'])<.01,(one,told)   # (a tail of one lap reads as it did)
         # (a review of 0.9) A part played backwards sounds over each note's written span, whatever its gate, its
-        # timing or a later note of its key (render.reversed_notes plays every note by itself): the seam's count, an
-        # excerpt and notes.csv read that.  A reversed note written for twelve beats at a gate of a quarter was
-        # ended after three: not counted at the seam, and gone from the excerpt of its third bar.
+        # timing or a later note of its key (render.reversed_notes plays every note by itself): the seam's count and
+        # notes.csv read that.  A reversed note written for twelve beats at a gate of a quarter was ended after
+        # three, and not counted at the seam.
         import csv
         from excerpt import extract
         from musiclib.model import performed, sounded
@@ -81,7 +81,10 @@ def define(S):
         rv=copy.deepcopy(q);rv['tracks'].append(part('rev',[(4,12,60)]));rv['tracks'][-1]['reverse']=True;rv['tracks'][-1]['performance']['notes']['n0']['gate']=.25;validate(rv)
         assert [(n['tick'],n['end_tick']) for n in sounded(rv['tracks'][-1],Clock(rv))]==[(3840,15360)] and performed(rv['tracks'][-1],Clock(rv))[0]['end_tick']==6720
         assert loop.seam(rv,Clock(rv))['abruptness']['sounding_at_end'].get('rev')==1,loop.seam(rv,Clock(rv))['abruptness']
-        third=extract(rv,3,1);validate(third);assert [(n['on'],n['duration']) for n in next(t for t in third['tracks'] if t['id']=='rev')['notes']]==[(0,4)],third['tracks'][-1]['notes']
+        # (an excerpt reads such a part as before, by its performed events: read by its written spans, a part offset
+        # of 150 ms emptied the passage's part.  A reversed note that ends 60 ticks into the next bar is in that bar's passage.)
+        ro=copy.deepcopy(q);ro['tracks'].append(part('rev',[(0,4+60/960,60)]));ro['tracks'][-1]['reverse']=True;ro['tracks'][-1]['performance']['offset_ms']=150;validate(ro)
+        assert len(next(t for t in extract(ro,2,1)['tracks'] if t['id']=='rev')['notes'])==1
         reviewed(rv,work/'reverse_sounded');ends={r['note_id']:float(r['end_seconds']) for r in csv.DictReader(open(work/'reverse_sounded'/'notes.csv',encoding='utf-8',newline='')) if r['track']=='rev'}
         assert ends=={'n0':8.0},ends
         # (the confirmation review) a kit written by its patch (bank 128) without the `drums` flag: its keys are no pitches

@@ -40,7 +40,7 @@ An electric guitar and bass played by string through an amplifier, parts that mo
 - **`review` names the chord that sounds.** A chord written with `transpose_semitones` was judged as transposed and named by its written symbol.
 - **A duck's `keys` is checked.** One number in place of a list passed `validate` and stopped the render with a traceback.
 - **A loop's report measures every lap of its tail.** `folded_tail_lufs` read the tail's first second alone: in a short loop, an echo that comes round a lap later was reported as silence.
-- **A part played backwards is read by its written spans** in an excerpt, the seam's count and notes.csv, as it is rendered: a reversed note at a short gate was ended early in all three.
+- **A part played backwards is read by its written spans** in the seam's count and notes.csv, as it is rendered: a reversed note at a short gate was ended early in both.
 - **A summary's last line names what was written.** A review of a score without a note pointed to a `notes.csv` it had not written (the file is now written with its header alone); a render through the room chain pointed to figures that only the bus chain's report holds.
 - **A composition script prints a name its console cannot encode.** A script that writes a song with the builder prints such a character as an escape (a chord quality's sign on a Traditional Chinese Windows console stopped it).
 - **A stem too faint to measure no longer stops the level meter.** A part whose only audible moment was shorter than half a second ended in a traceback; the render now names the part as silent.

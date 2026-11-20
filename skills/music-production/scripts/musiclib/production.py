@@ -43,7 +43,7 @@ def duck(stem, project, track, clock):
     if source is None:
         raise ValueError(f'{track["id"]}: duck.by names no part')
     from .model import performed
-    keys = set(spec.get('keys', []))
+    keys = set(spec.get('keys') or [])   # (`null`, like none written, is every key: it stopped here with a traceback)
     hits = sorted({round(e['start_seconds'], 6) for e in performed(source, clock) if not keys or e['pitch'] in keys})
     n = len(stem)
     floor = 10 ** (-spec.get('depth_db', 6) / 20)
@@ -282,10 +282,11 @@ def validate(project, track):
             raise ValueError(f'{track["id"]}: duck.by names another part')
         number(d.get('depth_db', 6), 0, 30, 'duck depth dB')
         keys = d.get('keys')
-        if keys is not None and not (isinstance(keys, list) and keys and all(isinstance(k, int) and not isinstance(k, bool) and 0 <= k <= 127 for k in keys)):
+        # (an empty list, like no `keys` at all, is every key of that part, as it always was)
+        if keys is not None and not (isinstance(keys, list) and all(isinstance(k, int) and not isinstance(k, bool) and 0 <= k <= 127 for k in keys)):
             # (one number passed here and stopped the render with a traceback)
             raise ValueError(f'{track["id"]}: duck keys are a list of MIDI keys 0-127 of the part it follows, as in [36] or [36, 38]; '
-                             f'not {keys!r}' + (f': write [{keys}]' if isinstance(keys, int) and not isinstance(keys, bool) else ''))
+                             f'not {keys!r}' + (f': write [{keys}]' if isinstance(keys, int) and not isinstance(keys, bool) and 0 <= keys <= 127 else ''))
         for k, hi in (('attack_ms', 50), ('hold_ms', 500), ('release_ms', 2000)):
             number(d.get(k, 1), 0, hi, 'duck ' + k)
     if mix.get('delay'):

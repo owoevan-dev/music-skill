@@ -357,7 +357,10 @@ def define(S):
         try:validate(dq);raise AssertionError('duck keys as one number')
         except ValueError as e:assert 'duck keys' in str(e) and '[36]' in str(e),e
         dq['tracks'][0]['mix']['duck']['keys']=[36];validate(dq)
-        for bad in ([36.5],['36'],[True],[128],'36',[]):
+        for good in ([],None,[36,38],[0,127]):   # an empty list and null are every key, as no `keys` at all (a review: [] was refused here, which older projects write)
+            dq['tracks'][0]['mix']['duck']['keys']=good;validate(dq)
+        assert production.duck(np.ones((n,2)),q,{'id':'pad','mix':{'duck':{'by':'kick','keys':None}}},clock)[1]['hits']==production.duck(np.ones((n,2)),q,{'id':'pad','mix':{'duck':{'by':'kick','keys':[]}}},clock)[1]['hits']==4
+        for bad in ([36.5],['36'],[True],[128],'36',[None],128,-1):
             dq['tracks'][0]['mix']['duck']['keys']=bad
             try:validate(dq);raise AssertionError(bad)
             except ValueError as e:assert 'duck keys' in str(e),(bad,e)

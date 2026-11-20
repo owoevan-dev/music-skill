@@ -89,7 +89,7 @@ memory while other parts held it), `synthesis` and `processing`.
 | `melody_sections` | per section: phrases (a phrase ends at a rest of half a beat or at a note held a beat and a half), the longest of them (`longest_without_breath_*`: a guess at phrasing, not a measure of rest, which `views.melody_rhythm.longest_run` is), leaps, bars restated, the peak and where it falls |
 | `transposed_samples`, `cannot_render` | with `--config`: notes played from samples far from their pitch, notes outside a preset, parts the banks cannot play |
 | (question `piano:<part>`) | with `--config` and the `vcsl` bank installed: a piano part played on another piano than the Steinway grand ([piano-and-chamber.md](piano-and-chamber.md)); it has no field of its own, and a decision that begins with its identifier answers it. It is asked of the project's own banks only: a bank that someone configured themselves, the default bank included, may hold anything at any program |
-| `loop_seam` | a game loop's seam from the score |
+| `loop_seam` | a game loop's seam from the score. The pitches are the keys as written: a `performance.bend` is not read into them. `folded_tail_lufs` is every lap of the tail that lies over the loop's first second. |
 
 `notes.csv` lists every note with its bar, beat, pitch, velocity, timing and performed seconds (its header alone for a score without a note); `arrangement.md` is
 the sections, the authored decisions and the questions as a page.

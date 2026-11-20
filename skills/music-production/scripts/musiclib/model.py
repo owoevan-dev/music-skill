@@ -797,7 +797,13 @@ def sounded(track,clock,expressive=True):
     strings is held on both.  performed() of the whole part is the exported MIDI's one channel, on which the second
     strike of a key ends the first; what reads how long a note sounds reads this instead (an excerpt, the loop's
     guard on a movement, the mix's held spans, the roll, the seam's count, notes.csv: the reviews of 0.9).  Any other
-    part: performed()."""
+    part: performed().  A sampled part played backwards (`reverse`) sounds over each note's written span, whatever
+    its gate, its timing, swing or a later note of its key: render.reversed_notes plays every note by itself."""
+    if track.get('engine')=='soundfont' and track.get('reverse'):
+        played=[{'id':n['id'],'pitch':n['pitch'],'tick':tick_of(n['on']),'end_tick':max(tick_of(n['on'])+1,tick_of(n['on']+n['duration'])),
+                 'velocity':track['performance']['notes'][n['id']]['velocity'] if expressive else 80} for n in track['notes']]
+        for n in played:n['start_seconds']=clock.seconds(n['tick']/TPQ);n['end_seconds']=clock.seconds(n['end_tick']/TPQ)
+        return sorted(played,key=lambda n:(n['tick'],n['pitch']))
     if not track.get('strings'):return performed(track,clock,expressive)
     per={}
     for n in track['notes']:per.setdefault(n.get('string'),[]).append(n)

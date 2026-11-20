@@ -61,6 +61,29 @@ def define(S):
         assert s['timbre']['continuing']==['lead'] and s['timbre']['leaving']==['kit','pad'] and s['meter']['same_tempo']
         assert s['pitch']['after']==['E','F#'] and s['pitch']['not_before']==['F#'] and s['pitch']['share_after_in_before']==.5
         assert s['abruptness']['sounding_at_end']=={'lead':1,'pad':1}
+        # (a review of 0.9) The folded tail is every lap of the tail that lies over the loop's first second, as fold
+        # lays them: the loop is 6 seconds here and the tail was read for its first second alone, so an echo that
+        # comes round on the second lap was reported as silence (-120 LUFS for -20).
+        R48=audio.RATE;s_f,e_f=round(Clock(q).seconds(4)*R48),round(Clock(q).end*R48);lap=e_f-s_f
+        noise=np.random.default_rng(5).standard_normal((R48,2))*.05;mast=np.zeros((e_f+2*lap,2));mast[e_f+lap:e_f+lap+R48]=noise   # nothing in the tail's first lap, an echo at the start of its second
+        mast[s_f:s_f+R48]=noise*2;fold2=loop.fold(mast,s_f,e_f);told=loop.seam(q,Clock(q),fold2,mast)['abruptness']
+        assert -25<told['folded_tail_lufs']<-15 and 4<told['tail_below_own_db']<8,told
+        once=mast.copy();once[e_f+lap:]=0;once[e_f:e_f+R48]=noise;one=loop.seam(q,Clock(q),loop.fold(once,s_f,e_f),once)['abruptness']
+        assert abs(one['folded_tail_lufs']-told['folded_tail_lufs'])<.01,(one,told)   # (a tail of one lap reads as it did)
+        # (a review of 0.9) A part played backwards sounds over each note's written span, whatever its gate, its
+        # timing or a later note of its key (render.reversed_notes plays every note by itself): the seam's count, an
+        # excerpt and notes.csv read that.  A reversed note written for twelve beats at a gate of a quarter was
+        # ended after three: not counted at the seam, and gone from the excerpt of its third bar.
+        import csv
+        from excerpt import extract
+        from musiclib.model import performed, sounded
+        from musiclib.review import review as reviewed
+        rv=copy.deepcopy(q);rv['tracks'].append(part('rev',[(4,12,60)]));rv['tracks'][-1]['reverse']=True;rv['tracks'][-1]['performance']['notes']['n0']['gate']=.25;validate(rv)
+        assert [(n['tick'],n['end_tick']) for n in sounded(rv['tracks'][-1],Clock(rv))]==[(3840,15360)] and performed(rv['tracks'][-1],Clock(rv))[0]['end_tick']==6720
+        assert loop.seam(rv,Clock(rv))['abruptness']['sounding_at_end'].get('rev')==1,loop.seam(rv,Clock(rv))['abruptness']
+        third=extract(rv,3,1);validate(third);assert [(n['on'],n['duration']) for n in next(t for t in third['tracks'] if t['id']=='rev')['notes']]==[(0,4)],third['tracks'][-1]['notes']
+        reviewed(rv,work/'reverse_sounded');ends={r['note_id']:float(r['end_seconds']) for r in csv.DictReader(open(work/'reverse_sounded'/'notes.csv',encoding='utf-8',newline='')) if r['track']=='rev'}
+        assert ends=={'n0':8.0},ends
         # (the confirmation review) a kit written by its patch (bank 128) without the `drums` flag: its keys are no pitches
         bare=copy.deepcopy(q);next(t for t in bare['tracks'] if t['id']=='kit')['drums']=False;validate(bare)
         assert loop.seam(bare,Clock(bare))['pitch']==s['pitch'],loop.seam(bare,Clock(bare))['pitch']

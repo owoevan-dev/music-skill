@@ -228,7 +228,13 @@ def seam(p, clock, folded=None, master=None):
         b5, a1 = folded[max(start_f, end_f - round(BEFORE * audio.RATE)):end_f], folded[start_f:start_f + round(AFTER * audio.RATE)]
         short = round(.4 * audio.RATE)
         own = np.asarray(master[start_f:start_f + round(AFTER * audio.RATE)], dtype=np.float64)
-        tail = np.asarray(master[end_f:end_f + round(AFTER * audio.RATE)], dtype=np.float64)
+        # the tail as it lies over the loop's first second: every lap of it, as fold lays them (the first second of
+        # the tail alone was read, so an echo that comes round a lap later was reported as silence)
+        lap, first = end_f - start_f, min(round(AFTER * audio.RATE), end_f - start_f)
+        tail = np.zeros((first, np.asarray(master).shape[1]), dtype=np.float64)
+        for at in range(end_f, len(master), max(1, lap)):
+            seg = np.asarray(master[at:at + first], dtype=np.float64)
+            tail[:len(seg)] += seg
         report['volume'] = {'before_lufs': round(win(b5), 2), 'after_lufs': round(win(a1), 2), 'change_db': round(win(a1) - win(b5), 2),
                             'last_400ms_lufs': round(win(folded[end_f - short:end_f]), 2), 'first_400ms_lufs': round(win(folded[start_f:start_f + short]), 2)}
         local = np.abs(np.diff(folded[end_f - 4800:end_f], axis=0))

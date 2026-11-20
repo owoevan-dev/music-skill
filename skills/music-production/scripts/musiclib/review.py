@@ -523,7 +523,7 @@ def outside_chord(p,clock,limit=40):
                 kind=embellishment(approach,departure,continues,continues and pitch%12 in nxt['pcs'] and ce-first<=1+1e-9)
                 kinds[kind or 'not resolved by step']+=1
                 if kind is None:
-                    found.append({'track':t['id'],'role':t.get('role'),'at':where(clock,first),'beat':round(first,4),'id':ids.get((pitch,round(s0,4))),'struck':where(clock,s0),'pitch':pitch,'note':note_name(pitch),'chord':ch['symbol'],'held_into_chord':held,'approach':MOTION[approach],'departure':'held on' if continues else MOTION[departure]})
+                    found.append({'track':t['id'],'role':t.get('role'),'at':where(clock,first),'beat':round(first,4),'id':ids.get((pitch,round(s0,4))),'struck':where(clock,s0),'pitch':pitch,'note':note_name(pitch),'chord':ch['sounding'],'held_into_chord':held,'approach':MOTION[approach],'departure':'held on' if continues else MOTION[departure]})
         if kinds:tracks[t['id']]={'role':t.get('role'),'outside_chord':dict(kinds)}
     found.sort(key=lambda x:x['beat']);groups={}
     for g,test in (('melody',lambda r:r in FOREGROUND),('bass',lambda r:r=='bass'),('accompaniment',lambda r:r not in FOREGROUND and r!='bass')):

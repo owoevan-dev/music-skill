@@ -219,6 +219,13 @@ def define(S):
         # to and from under G.  Pad: E held into F and rising to F, C held into G and leaving by a leap.
         assert r['tracks']['lead']['outside_chord']=={'passing':2,'suspension':1,'escape tone':1,'appoggiatura':1,'anticipation':1,'not resolved by step':1},r['tracks']
         assert r['tracks']['bass']['outside_chord']=={'pedal':1,'not resolved by step':1} and r['tracks']['pad']['outside_chord']=={'retardation':1,'not resolved by step':1},r['tracks']
+        # (a review of 0.9) the chord named is the one that sounds: an entry with transpose_semitones was judged as
+        # transposed and named by its written symbol ("C4 on C" for a C read against D)
+        from musiclib import harmony as harm
+        assert harm.parse('C/E',2)['sounding']=='D/F#' and harm.parse('F#m7')['sounding']=='F#m7' and harm.parse('Bbmaj7',-1)['sounding']=='Amaj7' and harm.parse('C',2)['symbol']=='C'
+        qt=copy.deepcopy(q)
+        for h in qt['harmony']:h['transpose_semitones']=2
+        rt=outside_chord(qt,Clock(qt));assert rt['examples'] and {x['chord'] for x in rt['examples']}<={'D','A','G'},[x['chord'] for x in rt['examples']]
         assert [(x['track'],x['note'],x['chord'],x['approach'],x['departure']) for x in r['examples']]==[('lead','A5','C','leap up','leap down'),('bass','F2','G','leap up','leap down'),('pad','C4','G','held or repeated','leap down')],r['examples']
         prompts=run_review(q,work/'review_smoothness')['prompts']
         assert sum('melody note on strong positions sits outside the written chord and is not resolved by step' in x for x in prompts)==1,prompts

@@ -22,6 +22,9 @@ def _pc(name):
         v += 1 if ch in '#♯' else -1 if ch in 'b♭' else 0
     return v % 12
 
+NAMES = 'C C# D Eb E F F# G Ab A Bb B'.split()   # as review spells pitches
+
+
 def parse(symbol, transpose=0):
     """'F#m7/A' -> {'root': 6, 'bass': 9, 'pcs': {...}, 'quality': 'm7'}; None when the quality is unknown.  `pcs`
     includes a slash bass; QUALITIES[quality] gives the chord's own intervals above the root.  A slash starts a bass
@@ -32,7 +35,10 @@ def parse(symbol, transpose=0):
         return None
     root = (_pc(m.group(1)) + transpose) % 12
     bass = (_pc(m.group(3)) + transpose) % 12 if m.group(3) else root
-    return {'symbol': symbol, 'root': root, 'bass': bass, 'quality': m.group(2),
+    # `sounding`: the chord's name as it sounds, the symbol itself unless it is transposed (review named a C read
+    # against D as C)
+    sounding = symbol if not transpose else NAMES[root] + m.group(2) + ('/' + NAMES[bass] if m.group(3) else '')
+    return {'symbol': symbol, 'sounding': sounding, 'root': root, 'bass': bass, 'quality': m.group(2),
             'pcs': {(root + i) % 12 for i in QUALITIES[m.group(2)]} | {bass}}
 
 def timeline(project, beats_per_bar):

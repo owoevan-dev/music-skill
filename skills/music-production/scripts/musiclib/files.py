@@ -857,13 +857,15 @@ def staged_path(dest, suffix='.part', new=False):
         raise
 
 
-def loads(text):
+def loads(text, pairs=None):
     """json.loads, refusing as ValueError a document nested more than MAX_DEPTH levels deep, or deeper than Python
     parses (json raises RecursionError): a record, a project or a report someone else made is refused with a reason,
     not a crash (found by the stress test of 0.4.0; the depth limit by CI on Python 3.14).  The depth is measured a
-    level at a time, without recursion: about a quarter of a second for a project of 500,000 notes."""
+    level at a time, without recursion: about a quarter of a second for a project of 500,000 notes.  `pairs`, if
+    given, makes each object from its members in order (json's object_pairs_hook), for a reader that must see a
+    member named twice."""
     try:
-        value = json.loads(text)
+        value = json.loads(text, object_pairs_hook=pairs)
     except RecursionError:
         raise ValueError('a JSON document nested too deeply to read') from None
     level, depth = ([value] if isinstance(value, (dict, list)) else []), 0
@@ -875,7 +877,7 @@ def loads(text):
     return value
 
 
-def read_json(path, limit=None):
+def read_json(path, limit=None, pairs=None):
     """The JSON in a regular file someone else may have made (a report, a receipt, a record), refused as ValueError
     where it is a link or larger than `limit` (MAX_RECORD by default) before any of it is read, or nested too deeply
     (found by GPT Pro's third review of 0.4.0: the limits did not reach every reader)."""
@@ -891,16 +893,16 @@ def read_json(path, limit=None):
         raise ValueError(f'{path} is {s.st_size} bytes, more than a record of the tools is: it is not read')
     # As bytes: json takes UTF-8 with or without a byte order mark, UTF-16 and UTF-32 (RFC 8259, 8.1, lets a parser
     # ignore the mark), as Windows PowerShell 5.1 writes them (0.8 step 2.2); the tools write UTF-8 without one.
-    return loads(path.read_bytes())
+    return loads(path.read_bytes(), pairs)
 
 
 
-def read_object(path, what, limit=None, needs=()):
+def read_object(path, what, limit=None, needs=(), pairs=None):
     """read_json for a document that must be a JSON object (a spec, a manifest, a configuration) holding the fields
     `needs` names, as (key, type, what it holds): anything else is refused with what it should be (a list there, or an
     object without the field the command reads first, stopped it with a traceback; found by GPT Pro's fifth review of
     0.4.0)."""
-    value = read_json(path, limit)
+    value = read_json(path, limit, pairs)
     if not isinstance(value, dict):
         raise ValueError(f'{path}: {what} is a JSON object, not {type(value).__name__}')
     for key, kind, holds in needs:

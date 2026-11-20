@@ -90,6 +90,8 @@ ROSTER = (
     'a_soft_take_made_from_the_loud_one',
     'settled_bands_are_closed_once',
     'attack_noise_is_brought_to_its_neighbours',
+    'attack_noise_spares_what_it_finds',
+    'attack_noise_keeps_each_repair_its_own',
     'each_key_its_own_exclusive_class',
     'full_scale_storage_keeps_the_level_heard',
     'the_code_review_of_0_7_stays_fixed',

@@ -621,6 +621,9 @@ def step3_fields(layer, where):
         raise ValueError(f'{where}: `exclusive_class` is a class from 1 to 127 that the layer\'s zones share (0 or absent: none), '
                          f'or "key": each key its own class, so a key struck again ends its earlier voices; it is {ec!r}')
     noisy = layer.get('attack_noise')
+    if getattr(noisy, 'twice', ()):
+        raise ValueError(f'{where}: `attack_noise` names {", ".join(noisy.twice)} twice, and a JSON object keeps only the '
+                         f'last; give each key once, with all its references in one list')
     if noisy is not None:
         def note(v):
             try:
@@ -637,6 +640,21 @@ def step3_fields(layer, where):
                              f'key (G#5 and Ab5 are both key 80); it is {noisy!r}')
         if layer.get('loop'):
             raise ValueError(f'{where}: `attack_noise` is for takes that ring out from a blow, not for looped layers')
+
+
+class RecipeObject(dict):
+    """A JSON object of a recipe as read, with the member names it held more than once (`twice`; JSON keeps the
+    last, so an `attack_noise` key written twice lost its first list unseen: Astra's first review of PR 18)."""
+    twice = ()
+
+
+def recipe_members(pairs):
+    """files.read_object's `pairs` for a bank spec: each object a RecipeObject."""
+    obj = RecipeObject(pairs)
+    if len(obj) != len(pairs):
+        names = [k for k, _ in pairs]
+        obj.twice = sorted({k for k in names if names.count(k) > 1})
+    return obj
 
 
 def naming(spec):
@@ -1066,6 +1084,7 @@ def close_settled_bands(x, rate, from_hz=1000.0, settled_db=6.0, not_before_s=0.
 ATTACK_NOISE_BANDS = [2000 * 2 ** (k / 3) for k in range(11)]
 ATTACK_NOISE_FROM_HZ, ATTACK_NOISE_FULL_HZ, ATTACK_NOISE_MAX_DB = 1500.0, 2500.0, 30.0
 ATTACK_NOISE_UNTIL_S, ATTACK_NOISE_BACK_S, ATTACK_NOISE_KEEP_S, ATTACK_NOISE_JOINED_S = 0.20, 0.30, 0.34, 0.35
+ATTACK_NOISE_TONE_OVER_DITHER_DB = 30.0   # a tone nearer 16-bit dither than this cannot be read (_attack_measures)
 
 def _hann_frames(rate):
     """The repair's frame (the power of two nearest 46 ms at the rate: 2048 at 44.1 and 48 kHz), its hop (an eighth)
@@ -1118,8 +1137,9 @@ def attack_partials(x, rate):
 
 def _attack_measures(x, rate, frames):
     """The take's spectra, which bins are protected (within max(45 Hz, 0.5 %) of a partial), its tone (the energy on
-    partials from 300 Hz to 3 kHz over 0.05-0.30 s), and per band and frame the mean energy per bin between partials
-    (U) and on them (V), over the first `frames` frames."""
+    partials from 300 Hz to 3 kHz over 0.05-0.30 s; NaN where it does not stand ATTACK_NOISE_TONE_OVER_DITHER_DB over
+    what 16-bit dither alone puts in those bins), and per band and frame the mean energy per bin between partials (U)
+    and on them (V), over the first `frames` frames."""
     n, hop, w = _hann_frames(rate)
     Z, padded = _hann_stft(np.asarray(x, dtype=np.float64), n, hop, w)
     t = np.arange(Z.shape[1]) * hop / rate
@@ -1128,7 +1148,14 @@ def _attack_measures(x, rate, frames):
     P = attack_partials(x, rate)
     prot = ((np.abs(f[:, None] - P[None, :]) <= np.maximum(45.0, 0.005 * P)[None, :]).any(axis=1) if len(P)
             else np.zeros(len(f), bool))
-    tone = E[(f >= 300) & (f <= 3000) & prot][:, (t >= 0.05) & (t <= 0.30)].sum(axis=0).mean()
+    toned = (f >= 300) & (f <= 3000) & prot
+    tone = E[toned][:, (t >= 0.05) & (t <= 0.30)].sum(axis=0).mean()
+    # 0.9.1, Astra's first review of PR 18: a channel stored silent carries the dither alone, in which the peak finder
+    # can find a "partial"; a tone so near that floor aims at nothing.  The dither and rounding of a 16-bit take put a
+    # quarter of a step squared in every sample, the Hann window's summed square in every bin.
+    dither = int(toned.sum()) * float(np.sum(w * w)) * 0.25 / 32768 ** 2
+    if not tone > dither * 10 ** (ATTACK_NOISE_TONE_OVER_DITHER_DB / 10):
+        tone = float('nan')
     U = np.full((len(ATTACK_NOISE_BANDS) - 1, frames), np.nan)
     V = np.full((len(ATTACK_NOISE_BANDS) - 1, frames), np.nan)
     for i in range(len(ATTACK_NOISE_BANDS) - 1):
@@ -1141,15 +1168,18 @@ def _attack_measures(x, rate, frames):
 
 def repair_attack_noise(x, refs, rate):
     """One channel of a take with the noise between its partials in its attack brought down toward the level the same
-    channel of its reference takes carries there, and what was done.  Each reference aims by the lower of two
-    measures: its noise against its tone, given this take's tone, and its noise against its own partials in the band,
-    given this take's (a take whose upper partials are weaker hides less of the same noise, so by the tone alone it can
-    end cleaner than its references); of several references the cleaner aim wins, band by band and frame by frame.
+    channel of its reference takes carries there, and what was done (the deepest cut, the share of 2-10 kHz protected,
+    and per third-octave band and frame the gain aimed at and the gain applied, in dB).  Each reference aims by the
+    lower of two measures: its noise against its tone, given this take's tone, and its noise against its own partials
+    in the band, given this take's (a take whose upper partials are weaker hides less of the same noise, so by the tone
+    alone it can end cleaner than its references); of several references the cleaner aim wins, band by band and frame
+    by frame.
     The gain, between ATTACK_NOISE_MAX_DB down and none (never up), is smoothed over three frames and applied only to
     the bins that lie off the detected peaks, from 1.5 kHz, in the attack (the constants above); the top band's gain
     holds up to the top of the spectrum.  The detected peaks and everything under 1.5 kHz keep their spectra (in the
     waveform, what the frames spread lies some 70 dB under), and from 0.35 s the take is the recording's own.  A take
-    or a reference whose tone cannot be read is refused."""
+    or a reference whose tone cannot be read is refused (a tone within ATTACK_NOISE_TONE_OVER_DITHER_DB of 16-bit
+    dither counts as none)."""
     x = np.asarray(x, dtype=np.float64)
     n, hop, w = _hann_frames(rate)
     frames = int(0.32 * rate / hop) + 4
@@ -1165,7 +1195,7 @@ def repair_attack_noise(x, refs, rate):
             wants.append(np.fmin(Ur / tr * tone, Ur / Vr * V))
         want = np.nanmin(np.stack(wants), axis=0)
         g_db = 10 * np.log10(np.clip(want / np.maximum(U, 1e-30), 10 ** (-ATTACK_NOISE_MAX_DB / 10), 1.0))
-    g_db = np.nan_to_num(g_db, nan=0.0)
+    g_db = aim_db = np.nan_to_num(g_db, nan=0.0)
     g_db = np.array([np.convolve(row, np.ones(3) / 3, mode='same') for row in g_db])
     tt = t[:frames]
     until, back = ATTACK_NOISE_UNTIL_S, ATTACK_NOISE_BACK_S
@@ -1185,17 +1215,19 @@ def repair_attack_noise(x, refs, rate):
     fade = np.linspace(1, 0, b - a)
     out[a:b] = y[a:b] * fade + x[a:b] * (1 - fade)
     band = (f >= 2000) & (f <= 10000)
-    return out, {'deepest_cut_db': round(float(-G.min()), 1), 'protected_share_2_10_khz': round(float(np.mean(prot[band])), 3)}
+    return out, {'deepest_cut_db': round(float(-G.min()), 1), 'protected_share_2_10_khz': round(float(np.mean(prot[band])), 3),
+                 'aim_db': aim_db, 'gain_db': g_db}   # per band and frame: the gain aimed at, and the gain applied
 
 def attack_noise_db(x, rate):
     """The noise of a channel's first 80 ms between its partials from 3 to 16 kHz against its tone, in dB (the
-    receipt's measure of what `attack_noise` did)."""
-    n, hop, w = _hann_frames(rate)
+    receipt's measure of what `attack_noise` did); None where its tone cannot be read (_attack_measures)."""
     Z, _, t, f, prot, tone, _, _ = _attack_measures(x, rate, 1)
+    if not math.isfinite(tone):
+        return None
     E = np.abs(Z) ** 2
     sel = (f >= 3000) & (f <= 16000) & ~prot
     early = t <= 0.08
-    return round(float(10 * np.log10(E[sel][:, early].sum() / max(1, early.sum()) / max(tone, 1e-30) + 1e-30)), 1)
+    return round(float(10 * np.log10(E[sel][:, early].sum() / max(1, early.sum()) / tone + 1e-30)), 1)
 
 def highpass(x, rate, hz, order=6):
     """A zero-phase high-pass by FFT with a Butterworth magnitude, |H| = 1 / sqrt(1 + (hz / f) ** (2 * order)): no
@@ -2188,15 +2220,14 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt, parts=None):
     noisy = layer.get('attack_noise')
     if noisy:
         # `attack_noise`: {"G#5": ["E5", "F#5"]}.  Each take of the named key, in each dynamic, round robin and channel,
-        # gets the references of its dynamic (its round robin's where they have one), checked here; the repair itself is
-        # made in `build`, on the take as it is stored, after its gain and dither (_repair_stored), so that every gain and
-        # every other take is as without it.  A repaired take is stored under a key of its own (its references' keys and
-        # the method's version in it).
+        # gets the references of its dynamic (each named key's take of its round robin, or all that key's takes of the
+        # dynamic where it has none), checked here; the repair itself is made in `build`, on the take as it is stored,
+        # after its gain and dither (_repair_stored), so that every gain and every other take is as without it, and the
+        # repaired take is stored under a key of its own there.
         by = {}
         for e in entries:
             by.setdefault((e['named'], e['dyn']), []).append(e)
         recorded = {e['named'] for e in entries}
-        recorded_take = {id(e): e['take'] for e in entries}   # before any target's key changes: a target may be a reference
         for name, refs in noisy.items():
             key, ref_keys = note_number(name), [note_number(r) for r in refs]
             absent = [n for n, k in [(name, key)] + list(zip(refs, ref_keys)) if k not in recorded]
@@ -2205,9 +2236,13 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt, parts=None):
                                  f'(it has {", ".join(note_name(k) for k in sorted(recorded))}); name keys as the bank plays them, C4 = 60')
             for dyn in layer['dynamics']:
                 for e in sorted(by.get((key, dyn), []), key=lambda e: str(e['rr'])):
-                    pool = [r for k in ref_keys for r in by.get((k, dyn), [])]
-                    same = [r for r in pool if str(r['rr']) == str(e['rr'])]
-                    refs_here = same or pool
+                    # Each named key's take of the same round robin, or all of that key's takes of the dynamic where it
+                    # has none: a key with fewer round robins is not dropped for another that has the one (Astra's
+                    # first review of PR 18).
+                    refs_here = []
+                    for k in ref_keys:
+                        takes = by.get((k, dyn), [])
+                        refs_here += [r for r in takes if str(r['rr']) == str(e['rr'])] or takes
                     if not refs_here:
                         raise ValueError(f'attack_noise: {name} in dynamic {dyn!r}: none of {", ".join(refs)} has a take of that dynamic to aim at')
                     chans = np.asarray(e['x']).shape[1]
@@ -2216,7 +2251,6 @@ def _load_layer(layer, root, ffmpeg, loaded, receipt, parts=None):
                         raise ValueError(f'attack_noise: {name} in dynamic {dyn!r}: its take and its references must have one sample rate '
                                          'and one channel layout, and be at least 0.4 s long')
                     e['attack_noise_refs'] = refs_here
-                    e['take'] = json.dumps([e['take'], 'attack_noise v2', [recorded_take[id(r)] for r in refs_here]])
     layer_med = {d: float(np.median([e['rms'] for e in entries if e['dyn'] == d])) for d in layer['dynamics']
                  if any(e['dyn'] == d for e in entries)}
     return entries, octave_fix, layer_med
@@ -2286,6 +2320,11 @@ def _repair_stored(e, layer, root):
         before.append(attack_noise_db(x, e['rate']))
         after.append(attack_noise_db(out[:, ch].astype(np.float64) / 32768, e['rate']))
     e['stored_pcm'] = out
+    # The repaired take is stored under a key of its own, which holds the method's version and the repaired words'
+    # hash: one take repaired twice alike is stored once, and repaired otherwise, apart.  (The key held the
+    # references' takes instead, and two presets giving a take one gain and its references other gains stored two
+    # repairs a few steps apart under one key, the second preset playing the first's: Astra's first review of PR 18.)
+    e['take'] = json.dumps([e['take'], 'attack_noise v2', hashlib.sha256(np.ascontiguousarray(out).tobytes()).hexdigest()])
     e['attack_noise'] = {'references': [str(r['file'].relative_to(root)) for r in e['attack_noise_refs']],
                          'deepest_cut_db': [d['deepest_cut_db'] for d in done],
                          'protected_share_2_10_khz': [d['protected_share_2_10_khz'] for d in done],
@@ -2863,7 +2902,8 @@ def main():
         raise ValueError('--output and --receipt name one file: the receipt would replace the bank; give each its own')
     # The bank and its receipt are published only where nothing has taken their names since they were found free:
     # a build takes minutes (GPT Pro's fourth review of 0.4.0).
-    spec = files.read_object(args.spec, 'a bank spec', needs=(('name', str, "the bank's name"), ('presets', list, 'the presets the bank holds')))
+    spec = files.read_object(args.spec, 'a bank spec', needs=(('name', str, "the bank's name"), ('presets', list, 'the presets the bank holds')),
+                             pairs=recipe_members)
     # Each preset's own fields, as build reads them (a spec without them stopped it with a traceback; found by GPT Pro's
     # sixth review of 0.4.0).  A layer's own fields are read as each layer is loaded, unchecked there (a known limit).
     for k, p in enumerate(spec['presets']):

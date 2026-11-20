@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [0.9.0] - Unreleased
+## [0.9.0] - 2026-11-20
 
 An electric guitar and bass played by string through an amplifier, parts that move across the stereo image, a headphone version of a mix, and a review that asks fewer questions it has no business asking.
 

@@ -582,9 +582,21 @@ def define(S):
             # seconds, held to the passage's end) is made again with a longer tail, as before; the other is not
             from musiclib.audition import audition,parse_sound
             qa=copy.deepcopy(q);qa['tracks']=[copy.deepcopy(pad)];validate(qa);save_json(folder/'audition.json',qa)
+            # What the audition is checked on, measured first: the pad by itself under the tail an audition starts
+            # with (two seconds) still sounds at its end, by a margin (on CI's Ubuntu the audition made nothing
+            # again, and the check could not say how its renders had ended: it says so now).
+            q_pre=copy.deepcopy(qa);q_pre['clock']['tail_seconds']=2;save_json(folder/'pad_alone.json',q_pre)
+            pre=render(folder/'pad_alone.json',folder/'pad_alone',config,folder/'cache',draft=True)
+            assert pre['checks']['tail_quiet'] is False and pre['tail']['last_50ms_dbfs']>-52,('the pad alone under a tail of 2 s',pre['checks'].get('tail_quiet'),pre.get('tail'),pre['master'])
             audition(folder/'audition.json','pad',[parse_sound('synth:fm_bell')],1,1,folder/'audition',config,folder/'cache')
-            tails=sorted(json.loads(x.read_text(encoding='utf-8'))['clock']['tail_seconds'] for x in (folder/'audition').glob('*/song.json'))
-            assert len(tails)==2 and tails[0]<10<=tails[1],tails
+            def ended(version):
+                x=audio.read_wav(version/'render'/'master.wav')[0];made=json.loads((version/'render'/'report.json').read_text(encoding='utf-8'))
+                return {'version':version.name,'tail_seconds':json.loads((version/'song.json').read_text(encoding='utf-8'))['clock']['tail_seconds'],
+                        'last_50ms_dbfs':round(float(20*np.log10(max(1e-12,float(np.max(np.abs(x[-2400:])))))),1),'seconds':round(len(x)/audio.RATE,3),
+                        'tail_quiet':made['checks'].get('tail_quiet'),'status':made['status'],'lufs':made['master']['integrated_lufs']}
+            ends=[ended(x.parent) for x in sorted((folder/'audition').glob('*/song.json'))]
+            tails=sorted(e['tail_seconds'] for e in ends)
+            assert len(tails)==2 and tails[0]<10<=tails[1],(tails,ends,pre.get('tail'))
             assert all(json.loads(x.read_text(encoding='utf-8'))['checks']['tail_quiet'] for x in (folder/'audition').glob('*/render/report.json'))
             # a tail long enough: nothing of this in the report or the text
             q2=copy.deepcopy(q);q2['clock']['tail_seconds']=15;save_json(folder/'long.json',q2)

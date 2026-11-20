@@ -587,7 +587,12 @@ def define(S):
             # again, and the check could not say how its renders had ended: it says so now).
             q_pre=copy.deepcopy(qa);q_pre['clock']['tail_seconds']=2;save_json(folder/'pad_alone.json',q_pre)
             pre=render(folder/'pad_alone.json',folder/'pad_alone',config,folder/'cache',draft=True)
-            assert pre['checks']['tail_quiet'] is False and pre['tail']['last_50ms_dbfs']>-52,('the pad alone under a tail of 2 s',pre['checks'].get('tail_quiet'),pre.get('tail'),pre['master'])
+            def shape(name):   # the peak of each quarter second of a file's last two and a half seconds, in dBFS, and of its last 50 ms
+                x=np.asarray(audio.read_wav(folder/'pad_alone'/name)[0],dtype=np.float64);q4=audio.RATE//4
+                peak=lambda seg:round(float(20*np.log10(max(1e-12,float(np.max(np.abs(seg))) if len(seg) else 1e-12))),1)
+                return {'file':name,'frames':len(x),'quarters':[peak(x[len(x)-k*q4:len(x)-(k-1)*q4]) for k in range(10,0,-1)],'last_50ms':peak(x[-2400:])}
+            assert pre['checks']['tail_quiet'] is False and pre['tail']['last_50ms_dbfs']>-52,('the pad alone under a tail of 2 s',pre['checks'].get('tail_quiet'),pre.get('tail'),
+                [shape(n) for n in ('stems/pad.wav','returns/room_return.wav','premaster.wav','master.wav')],(folder/'pad_alone'/'mix.filtergraph.txt').read_text(encoding='utf-8'))
             audition(folder/'audition.json','pad',[parse_sound('synth:fm_bell')],1,1,folder/'audition',config,folder/'cache')
             def ended(version):
                 x=audio.read_wav(version/'render'/'master.wav')[0];made=json.loads((version/'render'/'report.json').read_text(encoding='utf-8'))

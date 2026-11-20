@@ -50,6 +50,7 @@ limiter (deliver_2, musiclib/limiter.py), with no delay; and a project may ask h
 which sets one gain on the spaces' returns from what the project writes and from the spaces' own responses
 (clarity_setting; returns/mix_rules.json records it and a loop's layers read it back).
 """
+import contextlib
 import math
 import numpy as np
 
@@ -328,18 +329,32 @@ def space_ir(name, seed=20261101):
     return out.astype(np.float32)
 
 
-def mix(p, clock, cfg, output, frames, tracks=None, premix=None):
+def unsaturated(line):
+    """A bus's filter line without its saturation (the headphone version: a curve bends each ear's signal by itself,
+    where a compressor gives both one gain)."""
+    for s in (_saturation_2(2), _saturation_2(1.5), 'volume=2dB,asoftclip=type=tanh:threshold=1,volume=-2dB',
+              'volume=1.5dB,asoftclip=type=tanh:threshold=1,volume=-1.5dB'):
+        line = line.replace(',' + s, '').replace(s + ',', '').replace(s, 'anull')
+    return line
+
+
+def mix(p, clock, cfg, output, frames, tracks=None, premix=None, ears=False):
     """Mix the render's processed stems through the buses and spaces into premix.wav.  Each bus, reverb and delay
     return and impulse response is kept in returns/; `verify` then checks that the buses and returns add up to the
     premix and compares every bus with its stems' sum.
 
     With `tracks` (a layer of a game loop) only those parts go through the same buses and spaces into `premix`; the
-    impulse responses of the full mix are reused and nothing else is written."""
+    impulse responses of the full mix are reused and nothing else is written.
+
+    With `ears` (the headphone version, musiclib/ears.py; `output` is its folder) each part's file has four
+    channels (mixin/): the part placed around the head, and the part before its place, from which its reverb and
+    delay sends are taken, so that the returns are the room's own field in both ears; the buses run without their
+    saturation."""
     full = tracks is None
     tracks = p['tracks'] if full else tracks
     premix = output / 'premix.wav' if premix is None else premix
     returns = output / 'returns'
-    stems = [output / 'stems' / f'{t["id"]}.wav' for t in tracks]
+    stems = [output / ('mixin' if ears else 'stems') / f'{t["id"]}.wav' for t in tracks]
     irs = {name: returns / f'{name}_ir.wav' for name in SPACES}
     for name, path in irs.items():
         if full or not path.is_file():
@@ -362,7 +377,16 @@ def mix(p, clock, cfg, output, frames, tracks=None, premix=None):
         fx = t['mix']
         outs = [f'[d{k}]'] + ([f'[r{k}]'] if fx.get('reverb_db') is not None else []) + (
             [f'[e{k}]'] if fx.get('delay_db') is not None else [])
-        graph.append(f'[{k}:a]asplit={len(outs)}' + ''.join(outs))
+        if ears:
+            # channels 0 and 1: the part placed; 2 and 3: the part before its place, for its sends
+            if len(outs) > 1:
+                graph.append(f'[{k}:a]asplit=2[pl{k}][un{k}]')
+                graph.append(f'[pl{k}]pan=stereo|c0=c0|c1=c1[d{k}]')
+                graph.append(f'[un{k}]pan=stereo|c0=c2|c1=c3,asplit={len(outs) - 1}' + ''.join(outs[1:]))
+            else:
+                graph.append(f'[{k}:a]pan=stereo|c0=c0|c1=c1[d{k}]')
+        else:
+            graph.append(f'[{k}:a]asplit={len(outs)}' + ''.join(outs))
         dry[bus_of(t)].append(f'[d{k}]')
         if fx.get('reverb_db') is not None:
             graph.append(f'[r{k}]volume={send_db(t):.6f}dB[rs{k}]')
@@ -382,9 +406,10 @@ def mix(p, clock, cfg, output, frames, tracks=None, premix=None):
             made = list(DRUM_BUS_2) if b == 'drums' else [f'[sum_{b}]{lead_filter_2(p) if b == "lead" else BUS_FILTER_2[b]}[bus_{b}]']
             if b in SATURATING:  # the resamplers may hand back a few frames more or fewer
                 made[-1] = made[-1].replace(f'[bus_{b}]', f',apad,atrim=end_sample={frames}[bus_{b}]')
-            graph += made
+            graph += [unsaturated(line) for line in made] if ears else made
         else:
-            graph += DRUM_BUS if b == 'drums' else [f'[sum_{b}]{BUS_FILTER[b]}[bus_{b}]']
+            made = DRUM_BUS if b == 'drums' else [f'[sum_{b}]{BUS_FILTER[b]}[bus_{b}]']
+            graph += [unsaturated(line) for line in made] if ears else made
         graph.append(f'[bus_{b}]asplit=2[busmix_{b}][busexp_{b}]' if full else f'[bus_{b}]anull[busmix_{b}]')
         sums.append(f'[busmix_{b}]')
     returned = []  # each return the full mix writes to returns/: (graph label, file)
@@ -464,7 +489,7 @@ def adds_up(total, mag, mixed, skip=0):
     return share <= 1, float(d.max()), share
 
 
-def soft_clip(x, ceiling, knee=.75, factor=4, block=1 << 16, margin=2048, split=False):
+def soft_clip(x, ceiling, knee=.75, factor=4, block=1 << 16, margin=2048, split=False, linked=False):
     """Peaks rounded toward `ceiling` (linear amplitude): unchanged below `knee` times it, a tanh curve above that
     meets the line with the same slope and approaches the ceiling.  Computed at `factor` times the rate, in blocks
     whose margins are discarded, and brought back through an FFT low-pass, so the harmonics the curve adds above the
@@ -474,7 +499,10 @@ def soft_clip(x, ceiling, knee=.75, factor=4, block=1 << 16, margin=2048, split=
     a negative frequency; at the higher rate each gets half of it, and both come back into it (limiter.interpolate).
     The rules of version 2 clip so.  Without it the bin goes up whole, as in 0.5.0 and before, and a part of the
     signal at exactly half the rate meets the curve doubled; the rules of version 1 keep that, so that their masters
-    stay what they were.  A signal that the curve leaves alone comes back the same either way."""
+    stay what they were.  A signal that the curve leaves alone comes back the same either way.
+
+    `linked` (the headphone version): the curve is read from the larger of the two channels at each instant and both
+    are lowered by the one gain it gives, so the two ears keep their level against each other."""
     n, t = len(x), knee * ceiling
     out = np.empty((n, x.shape[1]), dtype=np.float32)
     for s in range(0, n, block):
@@ -486,9 +514,16 @@ def soft_clip(x, ceiling, knee=.75, factor=4, block=1 << 16, margin=2048, split=
         if halved:
             spec[m // 2] *= .5
         up = np.fft.irfft(spec, n=m * factor, axis=0) * factor
-        mag = np.abs(up)
-        over = mag > t
-        up[over] = np.sign(up[over]) * (t + (ceiling - t) * np.tanh((mag[over] - t) / (ceiling - t)))
+        if linked:
+            most = np.abs(up).max(axis=1)
+            over = most > t
+            gain = np.ones(len(most))
+            gain[over] = (t + (ceiling - t) * np.tanh((most[over] - t) / (ceiling - t))) / most[over]
+            up *= gain[:, None]
+        else:
+            mag = np.abs(up)
+            over = mag > t
+            up[over] = np.sign(up[over]) * (t + (ceiling - t) * np.tanh((mag[over] - t) / (ceiling - t)))
         back = np.fft.rfft(up, axis=0)[:m // 2 + 1]
         if halved:
             back[m // 2] *= 2
@@ -514,10 +549,11 @@ def premix_production(p, x=None):
     return x
 
 
-def master(p, cfg, output):
+def master(p, cfg, output, ears=False):
     """premix.wav (or master_input.wav) -> master chain -> mixed.wav -> delivery gain and limiter -> master.wav (24-bit).
     Returns the premix measurement, the mastering record and the measurement of master.wav as delivered (the last
-    delivery pass measured the file the render keeps, so it is not measured again)."""
+    delivery pass measured the file the render keeps, so it is not measured again).  `ears`: the headphone version,
+    whose loud master is clipped with one gain for both channels (soft_clip, `linked`)."""
     logs = output / 'logs'
     source_in = output / 'premix.wav'
     if premix_production(p):
@@ -552,39 +588,43 @@ def master(p, cfg, output):
             delivered['range'] = ranged
         return before, delivered, measured
     if second:
-        delivered, measured = deliver_2(p, cfg, output, mixed, source, target)
+        delivered, measured = deliver_2(p, cfg, output, mixed, source, target, ears)
         return before, {'chain': 'bus', 'rules': 2, 'mix_gain_db': round(gain, 6), 'master_chain': chain, **delivered}, measured
     tp_max = true_peak_ceiling(target)
     # The sample-peak limiter starts as far under the true-peak ceiling as at -1 dBTP (half a dB).
     delivery, passes, ceiling = target - source['integrated_lufs'], [], LIMIT_DBFS + tp_max + 1
     loud = p['mix'].get('loudness') == 'loud'
     clipped = output / 'clipped.wav'
-    for k in range(4):
-        # A loud master (dense electronic genres) rounds the peaks with an oversampled soft clipper before the limiter,
-        # so the limiter works less and pumps less at -8 to -10 LUFS.
+    try:
+        for k in range(4):
+            # A loud master (dense electronic genres) rounds the peaks with an oversampled soft clipper before the limiter,
+            # so the limiter works less and pumps less at -8 to -10 LUFS.
+            if loud:
+                x, _ = audio.read_wav(mixed)
+                audio.write_wav(clipped, soft_clip(np.asarray(x, dtype=np.float64) * 10 ** (delivery / 20), 10 ** (ceiling / 20), linked=ears))
+                del x
+                source_file, limiter = clipped, f'alimiter=limit={10 ** (ceiling / 20):.6f}:attack=5:release=60:level=disabled'
+            else:
+                source_file = mixed
+                limiter = f'volume={delivery:.6f}dB,alimiter=limit={10 ** (ceiling / 20):.6f}:attack=5:release=60:level=disabled'
+            audio.ffmpeg(cfg, ['-i', source_file, '-af', limiter, '-ar', str(RATE), '-c:a', 'pcm_s24le', output / 'master.wav'], logs, f'deliver_{k}')
+            m = audio.measure(cfg, output / 'master.wav', logs, f'measure_delivery_{k}')
+            passes.append({'gain_db': round(delivery, 3), 'limit_dbfs': round(ceiling, 3), 'lufs': m['integrated_lufs'],
+                           'true_peak_dbtp': m['true_peak_dbtp']})
+            close, peak = abs(m['integrated_lufs'] - target) <= .3, m['true_peak_dbtp'] <= tp_max
+            if close and peak:
+                break
+            if not peak:
+                # The limiter holds sample peaks; bright transients (cymbals, mallets) can still overshoot between samples.
+                # Lower its ceiling by the overshoot and a margin, and let the gain restore the loudness.
+                ceiling -= m['true_peak_dbtp'] - tp_max + .2
+            delivery += target - m['integrated_lufs']
+    finally:   # the clipped mix is this loop's scratch file: gone whether the passes ended or one of them failed
         if loud:
-            x, _ = audio.read_wav(mixed)
-            audio.write_wav(clipped, soft_clip(np.asarray(x, dtype=np.float64) * 10 ** (delivery / 20), 10 ** (ceiling / 20)))
-            del x
-            source_file, limiter = clipped, f'alimiter=limit={10 ** (ceiling / 20):.6f}:attack=5:release=60:level=disabled'
-        else:
-            source_file = mixed
-            limiter = f'volume={delivery:.6f}dB,alimiter=limit={10 ** (ceiling / 20):.6f}:attack=5:release=60:level=disabled'
-        audio.ffmpeg(cfg, ['-i', source_file, '-af', limiter, '-ar', str(RATE), '-c:a', 'pcm_s24le', output / 'master.wav'], logs, f'deliver_{k}')
-        m = audio.measure(cfg, output / 'master.wav', logs, f'measure_delivery_{k}')
-        passes.append({'gain_db': round(delivery, 3), 'limit_dbfs': round(ceiling, 3), 'lufs': m['integrated_lufs'],
-                       'true_peak_dbtp': m['true_peak_dbtp']})
-        close, peak = abs(m['integrated_lufs'] - target) <= .3, m['true_peak_dbtp'] <= tp_max
-        if close and peak:
-            break
-        if not peak:
-            # The limiter holds sample peaks; bright transients (cymbals, mallets) can still overshoot between samples.
-            # Lower its ceiling by the overshoot and a margin, and let the gain restore the loudness.
-            ceiling -= m['true_peak_dbtp'] - tp_max + .2
-        delivery += target - m['integrated_lufs']
+            with contextlib.suppress(OSError):
+                clipped.unlink()
     applied = passes[-1]['gain_db']
     if loud:
-        clipped.unlink()
         limiter = f'volume={applied:.6f}dB, soft clip to {10 ** (ceiling / 20):.4f} above {.75 * 10 ** (ceiling / 20):.4f} at 4x (NumPy), ' + limiter
     return before, {'chain': 'bus', 'mix_gain_db': round(gain, 6), 'master_chain': chain,
                     'mixed': {k: source[k] for k in ('integrated_lufs', 'true_peak_dbtp', 'lra_lu')},
@@ -593,7 +633,7 @@ def master(p, cfg, output):
                     'limiting_db': section_limiting(p, mixed, output / 'master.wav', applied)}, m
 
 
-def deliver_2(p, cfg, output, mixed, source, target):
+def deliver_2(p, cfg, output, mixed, source, target, ears=False):
     """The delivery of the rules of version 2: mixed.wav at the target loudness under the true-peak ceiling, by one
     gain and the true-peak limiter of musiclib/limiter.py; a loud master first passes the oversampled soft clipper, as
     under version 1.  Returns the mastering record's delivery part and the measurement of master.wav.
@@ -609,38 +649,41 @@ def deliver_2(p, cfg, output, mixed, source, target):
     release = LIMITER_RELEASE_S
     peak = None if loud else limiter.true_peak(x)  # scales with the gain; a clipped mix's peaks are found again
     wanted, margin, passes, scratch = target - source['integrated_lufs'], LIMITER_MARGIN_DB, [], output / 'limited.wav'
-    for k in range(4):
-        ceiling = 10 ** ((tp_max - margin) / 20)
-        gain = wanted
-        for attempt in range(4):
-            driven = x * 10 ** (gain / 20)
-            power = float(np.mean(driven ** 2))
-            if loud:
-                driven = np.asarray(soft_clip(driven, ceiling, split=True), dtype=np.float64)
-            g = limiter.gain_db(limiter.true_peak(driven) if loud else peak * 10 ** (gain / 20), ceiling, release)
-            y = driven * (10 ** (g / 20))[:, None]
-            lost = 10 * math.log10(max(float(np.mean(y ** 2)), 1e-30) / max(power, 1e-30))  # at most 0
-            # `gain` stays the gain of the `y` that is written: after the last try it is not moved on (it was, and a
-            # mix that four tries did not settle was recorded with a gain it never had; a loop's layers and the
-            # limiting by section read that record).  0.03 dB is this skill's: a tenth of the 0.3 LU the delivery
-            # may miss its target by.
-            if attempt == 3 or abs(gain + lost - wanted) <= .03:
+    try:
+        for k in range(4):
+            ceiling = 10 ** ((tp_max - margin) / 20)
+            gain = wanted
+            for attempt in range(4):
+                driven = x * 10 ** (gain / 20)
+                power = float(np.mean(driven ** 2))
+                if loud:
+                    driven = np.asarray(soft_clip(driven, ceiling, split=True, linked=ears), dtype=np.float64)
+                g = limiter.gain_db(limiter.true_peak(driven) if loud else peak * 10 ** (gain / 20), ceiling, release)
+                y = driven * (10 ** (g / 20))[:, None]
+                lost = 10 * math.log10(max(float(np.mean(y ** 2)), 1e-30) / max(power, 1e-30))  # at most 0
+                # `gain` stays the gain of the `y` that is written: after the last try it is not moved on (it was, and a
+                # mix that four tries did not settle was recorded with a gain it never had; a loop's layers and the
+                # limiting by section read that record).  0.03 dB is this skill's: a tenth of the 0.3 LU the delivery
+                # may miss its target by.
+                if attempt == 3 or abs(gain + lost - wanted) <= .03:
+                    break
+                gain = wanted - lost
+            audio.write_wav(scratch, y.astype(np.float32))
+            del driven, y
+            audio.ffmpeg(cfg, ['-i', scratch, '-ar', str(RATE), '-c:a', 'pcm_s24le', output / 'master.wav'], logs, f'deliver_{k}')
+            m = audio.measure(cfg, output / 'master.wav', logs, f'measure_delivery_{k}')
+            passes.append({'gain_db': round(gain, 3), 'limit_dbtp': round(tp_max - margin, 3), 'taken_db': round(-lost, 3),
+                           'lufs': m['integrated_lufs'], 'true_peak_dbtp': m['true_peak_dbtp']})
+            close, under = abs(m['integrated_lufs'] - target) <= .3, m['true_peak_dbtp'] <= tp_max
+            if close and under:
                 break
-            gain = wanted - lost
-        audio.write_wav(scratch, y.astype(np.float32))
-        del driven, y
-        audio.ffmpeg(cfg, ['-i', scratch, '-ar', str(RATE), '-c:a', 'pcm_s24le', output / 'master.wav'], logs, f'deliver_{k}')
-        m = audio.measure(cfg, output / 'master.wav', logs, f'measure_delivery_{k}')
-        passes.append({'gain_db': round(gain, 3), 'limit_dbtp': round(tp_max - margin, 3), 'taken_db': round(-lost, 3),
-                       'lufs': m['integrated_lufs'], 'true_peak_dbtp': m['true_peak_dbtp']})
-        close, under = abs(m['integrated_lufs'] - target) <= .3, m['true_peak_dbtp'] <= tp_max
-        if close and under:
-            break
-        if not under:
-            margin += m['true_peak_dbtp'] - tp_max + .05
-        if not close:
-            wanted += target - m['integrated_lufs']
-    scratch.unlink()
+            if not under:
+                margin += m['true_peak_dbtp'] - tp_max + .05
+            if not close:
+                wanted += target - m['integrated_lufs']
+    finally:   # the limited mix is this loop's scratch file: gone whether the passes ended or one of them failed
+        with contextlib.suppress(OSError):
+            scratch.unlink()
     applied = passes[-1]['gain_db']
     described = (f'volume={applied:.6f}dB, ' + (f'soft clip to {ceiling:.4f} above {.75 * ceiling:.4f} at 4x (NumPy), ' if loud else '')
                  + f'true-peak limiter to {passes[-1]["limit_dbtp"]:g} dBTP (look-ahead {limiter.LOOKAHEAD * 1000:g} ms, '

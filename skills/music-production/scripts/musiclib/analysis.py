@@ -130,6 +130,41 @@ def tonal_balance(master):
             'reference': 'popular recordings fall about 4.5-5 dB per octave over 100 Hz-4 kHz (Pestana et al. 2013; Elowsson and Friberg 2017)'}
 
 
+TOP_BAND = (6000, 16000)   # the last of BANDS: where the master's top is read from
+
+
+def top_power(stem):
+    """A stem's mean power from 6 to 16 kHz, its two channels' power added.  (Folded to one channel first, a part
+    panned to one side at equal power had half the power of the same part in the middle, and a top out of phase
+    between the sides had none: the second review of 0.9's step 4.)"""
+    y = np.asarray(stem, dtype=np.float64)
+    y = y.reshape(len(y), -1)
+    return float(sum(band_powers(y[:, c], list(TOP_BAND))[0].mean() for c in range(y.shape[1])))
+
+
+def top_end(p, power):
+    """Which parts carry the top of the mix: each part's share of the stems' power from 6 to 16 kHz (`power`: part id ->
+    its stem's mean power in the band, top_power), the largest first, with what bounds its top beside it: a `lowpass`
+    under the band's top, an amplifier's loudspeaker (`mix.amp`).  The shares are rounded for reading; the order and
+    the drum parts' share are the powers' own.  A drum part is one by what it is (review.kit), wherever the mix sends it.  The stems are the parts after their own processing and before
+    the buses, the shared reverbs and the master, so the shares say where the top comes from, not how loud it is.
+    More percussion gives more top (Elowsson and Friberg 2017): `drums_share_pct` is the drum parts' share.  A
+    description; nothing here is a target."""
+    from .review import kit
+    total = sum(power.values())
+    rows = []
+    for t in sorted(p['tracks'], key=lambda t: -power.get(t['id'], 0)):   # by the powers themselves (the sort keeps ties in the project's order)
+        if t['id'] not in power or total <= 0:
+            continue
+        low, amp = t['mix'].get('lowpass'), t['mix'].get('amp')
+        rows.append({'part': t['id'], 'share_pct': round(100 * power[t['id']] / total, 6),
+                     'drums': kit(t),
+                     **({'lowpass_hz': low} if isinstance(low, (int, float)) and low < TOP_BAND[1] else {}),
+                     **({'amp': amp.get('voice')} if isinstance(amp, dict) else {})})
+    drums = sum(power[x['part']] for x in rows if x['drums'])
+    return {'band_hz': list(TOP_BAND), 'by_part': rows, 'drums_share_pct': round(100 * drums / total, 1) if rows else None}
+
+
 def log_log_slope(mono, rate=RATE, block=256):
     """Pestana et al. (2013)'s spectral slope of a whole song: the long-term spectrum as the mean magnitude of frames of
     about 10.8 Hz resolution (4096 samples at 44.1 kHz, 4458 at 48 kHz; no window, as their equation 1), and the slope
@@ -466,9 +501,10 @@ def analyze(render_dir, bar_spans=(), reference=None):
         if not isinstance(buses, dict) or any(k not in parts or not isinstance(b, str) or b not in BUSES for k, b in buses.items()):
             raise ValueError(f'{report_file}: its buses assign a part the project does not have, or to a bus that is none of '
                              f'{", ".join(BUSES)}; this is not a report the render wrote')
-    stems, lead, accompaniment = {}, None, None
+    stems, lead, accompaniment, tops = {}, None, None, {}
     for t in p['tracks']:
         y, _ = audio.read_wav(render_dir / 'stems' / f'{t["id"]}.wav')
+        tops[t['id']] = top_power(y)
         ky = k_filter(y)
         stems[t['id']] = {sid: round(level(ky[a:b]), 2) for sid, a, b in regions}
         del ky
@@ -551,6 +587,7 @@ def analyze(render_dir, bar_spans=(), reference=None):
                             'disagree in phase (the correction ran past 1.25 or under 0.8); play it in dynamics_mode "take" (the default), or keep a solo near one recorded dynamic.')
     measured = {'render': render_dir.name, 'sections': rows, 'tonal_balance': here['tonal_balance'],
                 'side_minus_mid_db': here['side_minus_mid_db'], 'published_genre': genre, 'reference_comparison': comparison, 'stem_levels_lufs_ungated': stems,
+                'top_end': top_end(p, tops),
                 'lead_tracks': lead_tracks, 'lead_source': 'buses' if buses is not None else 'stems',
                 'lead_presence': lead_presence(lead, accompaniment, regions) if lead is not None and accompaniment is not None else [],
                 'melody_groups': melody, 'reverb': mixed['reverb'],

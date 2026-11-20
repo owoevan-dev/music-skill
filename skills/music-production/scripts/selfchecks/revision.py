@@ -23,6 +23,98 @@ def define(S):
         p=example();q=extract(p,3,2);validate(q);a=Clock(p);b=Clock(q)
         assert q['clock']['tempo'][0]==[0,112] and abs(b.end-(a.seconds(16)-a.seconds(8)))<1e-8
         assert q['sections'][0]['start_bar']==0 and q['clock']['bars']==2
+        # 0.9 step 5 (left by the reviews of the movement and of the headphone version).
+        # 1. A written tempo point inside a ritardando, off the ritardando's steps of an eighth of a beat, put the
+        #    written tempo back until the next step: a sixteenth of a beat at 60 in the middle of a slowing that had
+        #    reached 70 and went on to 30.  The point changes what the curve multiplies, not the curve.  A passage cut
+        #    there had the curve at its first beat, so the two differed (0.2325 s against 0.1875 s for the first
+        #    eighth of a beat); with the piece corrected they agree.
+        from musiclib.model import effective_tempo
+        r=example();r['clock'].update(bars=3,tempo=[[0,120],[4,60]],rubato={'spans':[[3.0625,4.125,.5]]})
+        r['sections']=[dict(r['sections'][0],start_bar=0,bars=3)]
+        for k in ('harmony','chords','plan','loop'):r.pop(k,None)
+        for t in r['tracks']:
+            keep=[n for n in t['notes'] if n['on']+n['duration']<=12];t['notes']=keep;t['performance']['notes']={n['id']:t['performance']['notes'][n['id']] for n in keep}
+            t['performance']['cc']=[c for c in t['performance'].get('cc',[]) if c[0]<=12]
+        validate(r);whole=Clock(r);played=dict(map(tuple,effective_tempo(r)))
+        x=(3.9375+1/16-3.0625)/(4.125-3.0625);curve=(1+(.5**2-1)*x)**.5
+        assert abs(played[3.9375]-120*curve)<1e-3 and abs(played[4.0]-60*curve)<1e-3,(played,curve)
+        assert abs(played[4.0625]-30)<1e-3 and played[4.125]==60,played
+        cut=extract(r,2,1);validate(cut);part=Clock(cut)
+        for d in (1/16,1/8,1,3.5,4):
+            assert abs(part.seconds(d)-(whole.seconds(4+d)-whole.seconds(4)))<1e-6,(d,part.seconds(d),whole.seconds(4+d)-whole.seconds(4))
+        # a point on a step, at a span's start or at its end is as before
+        on=copy.deepcopy(r);on['clock']['rubato']={'spans':[[3,5,.5]]};on=dict(map(tuple,effective_tempo(on)))
+        assert abs(on[4.0]-60*(1+(.5**2-1)*((4+1/16-3)/2))**.5)<1e-3 and on[5.0]==60,on
+        # and a point after the span is the written tempo
+        later=copy.deepcopy(r);later['clock']['tempo']=[[0,120],[4,60],[8,100]];later=dict(map(tuple,effective_tempo(later)))
+        assert later[8.0]==100 and abs(later[4.0]-60*curve)<1e-3,later
+        # 2. A tempo point at a passage's end was dropped, so its tail ran at the tempo before: what still moves
+        #    there by the beat (a swing, a turn) moved at another rate than in the piece.
+        e=copy.deepcopy(r);e['clock'].pop('rubato');e['clock']['tempo']=[[0,120],[4,60],[8,90]];validate(e)
+        tail=extract(e,2,1);validate(tail);assert tail['clock']['tempo']==[[0,60],[4,90]],tail['clock']['tempo']
+        assert abs(Clock(tail).seconds(5)-Clock(tail).seconds(4)-60/90)<1e-6
+        assert extract(e,1,1)['clock']['tempo']==[[0,120],[4,60]] and extract(e,3,1)['clock']['tempo']==[[0,90]]
+        # The review of step 5, four inputs, each with the figures it gave.
+        def played(tempo,spans,bars=3):
+            x=copy.deepcopy(r);x['clock'].update(bars=bars,tempo=tempo,rubato={'spans':spans});x['sections']=[dict(x['sections'][0],start_bar=0,bars=bars)];validate(x);return dict(map(tuple,effective_tempo(x))),x
+        curve_at=lambda a,b,w,beat:(1+(w**2-1)*min(1,(a+int((beat-a)*8+1e-9)/8+1/16-a)/(b-a)))**.5
+        # (a) a point on a beat that six decimals do not hold (a triplet's): the tempo slowed is the point's own,
+        #     not the one before it (105 for 52.5: the rounded place lay a hair before the point)
+        third,_=played([[0,120],[1/3,60]],[[0,1,.5]]);assert abs(third[round(1/3,6)]-60*curve_at(0,1,.5,1/3))<1e-3 and abs(third[round(1/3,6)]-52.5)<.6,third
+        # (b) two ritardandi over one another: a point written between their steps takes the curve of the step
+        #     sounding there, so a point that repeats the tempo changes nothing
+        plain,_=played([[0,120]],[[0,3,.5],[.95,2,.7]]);same,_=played([[0,120],[1.05,120]],[[0,3,.5],[.95,2,.7]])
+        assert abs(same[1.05]-plain[1.0])<1e-3 and {k:v for k,v in same.items() if k!=1.05}==plain,(same.get(1.05),plain.get(1.0))
+        # (c) a passage that ends on the point, inside the ritardando: its tail runs at the tempo the piece plays there
+        whole_map,x=played([[0,120],[4,60]],[[3.0625,4.125,.5]]);first_bar=extract(x,1,1);validate(first_bar)
+        tail_map=dict(map(tuple,effective_tempo(first_bar)));assert abs(tail_map[4.0]-whole_map[4.0])<1e-3 and abs(tail_map[4.0]-34.8948)<1e-3,(tail_map,whole_map[4.0])
+        # (d) a ritardando shorter than a step was read past its own end: no tempo, and a division by it
+        short,x=played([[0,120],[3.9,100]],[[3.859375,4,.5]]);assert min(short.values())>=50-1e-6 and Clock(x).seconds(12)>0,short
+        # The second review: the map was still laid through places rounded to six decimals, so a beat that they do
+        # not hold went wrong at a span's edges.  It is laid by walking the events at their exact beats.
+        # (e) a tempo change exactly where a ritardando ends, on a triplet's beat: the written tempo from there on
+        #     (120 stayed for the rest of the piece after a span to 1/3, and 30 after one to 2/3)
+        for end in (1/3,2/3):
+            m,_=played([[0,120],[end,60]],[[0,end,.5]]);assert m[round(end,6)]==60 and all(v==60 for k,v in m.items() if k>end-1e-6),(end,m)
+        # (f) a span that begins on such a beat, with a point one step into it: the point is on the step
+        m,_=played([[0,120],[2/3+1/8,60]],[[2/3,5/3,.5]]);on_step=(1+(.5**2-1)*((1/8+1/16)/1))**.5
+        assert abs(m[round(2/3+1/8,6)]-60*on_step)<1e-3 and abs(m[round(2/3+1/8,6)]-55.6215)<1e-3,m
+        # (g) a passage that ends on a point lying on a step: its tail runs at what the piece plays there
+        whole_map,x=played([[0,120],[16,60]],[[15,17,.5]],bars=5);cut4=extract(x,1,4);validate(cut4);tail_map=dict(map(tuple,effective_tempo(cut4)))
+        assert abs(whole_map[16.0]-46.5363)<1e-3 and abs(tail_map[16.0]-whole_map[16.0])<1e-3,(whole_map[16.0],tail_map[16.0])
+        # (h) a span that has ended when the piece begins slows nothing (the whole piece played at 77 for 120)
+        m,_=played([[0,120]],[[-.08,0,.5]]);assert m=={0.0:120.0},m
+        # The third review.  (j) Two ritardandi that start a step on one tick (thirds of a beat, added up two ways,
+        # differ in their last bit): the later written lays its step over the earlier, as it always did; the order of
+        # two floats a rounding apart decided it.
+        m,_=played([[0,120]],[[1/3,10/3,.5],[4/3,7/3,.9]]);assert abs(m[round(25/12,6)]-110.3494)<1e-3,m[round(25/12,6)]
+        # (k) A passage cut where two ritardandi are both at work: at its first beat the step that began last sounds,
+        # as in the piece (both were laid on beat 0, and the later written won).
+        whole_map,x=played([[0,120]],[[0,8,.5],[2.0625,6,.8]]);cut2=extract(x,2,1);validate(cut2)
+        assert abs(whole_map[4.0]-94.4226)<1e-3 and abs(dict(map(tuple,effective_tempo(cut2)))[0.0]-whole_map[4.0])<1e-3,(whole_map[4.0],effective_tempo(cut2)[:2])
+        # (l) A passage that ends where a ritardando begins, on a written point: its tail takes the first step's curve
+        fin=copy.deepcopy(r);fin['clock'].update(bars=2,tempo=[[0,120],[4,60]],rubato={'final_beats':4,'final_ratio':.5});fin['sections']=[dict(fin['sections'][0],start_bar=0,bars=2)]
+        for t in fin['tracks']:
+            keep=[n for n in t['notes'] if n['on']+n['duration']<=8];t['notes']=keep;t['performance']['notes']={n['id']:t['performance']['notes'][n['id']] for n in keep};t['performance']['cc']=[c for c in t['performance'].get('cc',[]) if c[0]<=8]
+        validate(fin);at4=dict(map(tuple,effective_tempo(fin)))[4.0];first=extract(fin,1,1);validate(first)
+        assert abs(at4-59.6474)<1e-3 and abs(dict(map(tuple,effective_tempo(first)))[4.0]-at4)<1e-3,(at4,effective_tempo(first))
+        # The confirmation review.  (m) Two places under a 200th of a tick apart are one beat (a passage's spans are
+        # written to six decimals: 4/3 as 1.333333 beside a span counted from 1/3): the later written span's step
+        # sounds there, as on one tick; the hair between them decided it.
+        m6,_=played([[0,120]],[[1/3,10/3,.5],[1.333333,2.333333,.9]]);assert abs(m6[round(25/12,6)]-110.3494)<1e-3,m6[round(25/12,6)]
+        # (n) and so at a passage's first beat: two spans whose steps begin together in the piece, their starts a
+        # millionth apart once the passage has rounded them, are still together (105.788, not the earlier span's 89.2885)
+        a0=6+3/128;b0=a0
+        for _ in range(3):b0+=1/3
+        whole4,x4=played([[0,120]],[[a0,16,.5],[b0,15,.8]],bars=4);at12=[v for beat,v in sorted(whole4.items()) if beat<=12][-1]
+        cut4=extract(x4,4,1);validate(cut4);assert abs(at12-105.788)<1e-3 and abs(dict(map(tuple,effective_tempo(cut4)))[0.0]-at12)<1e-3,(at12,effective_tempo(cut4)[:2])
+        # (o) a span ends at its end: no step of its own begins within that hair of it (the step would keep the curve)
+        ends,_=played([[0,120]],[[1.333333,7/3,.9]]);assert ends[round(7/3,6)]==120 and ends[max(ends)]==120,sorted(ends.items())[-3:]
+        # (i) and where no beat needs more than six decimals, the map is what it was: a phrase's and a final ritardando
+        plain=copy.deepcopy(r);plain['clock'].update(bars=3,tempo=[[0,120],[8,96]],rubato={'phrase_beats':1,'phrase_ratio':.9,'final_beats':2,'final_ratio':.6})
+        plain['sections']=[dict(plain['sections'][0],start_bar=0,bars=2),dict(plain['sections'][0],id='b',start_bar=2,bars=1)];validate(plain)
+        assert effective_tempo(plain)==[[0.0, 120.0], [7.0, 119.2854], [7.125, 117.8431], [7.25, 116.383], [7.375, 114.9043], [7.5, 113.4063], [7.625, 111.8883], [7.75, 110.3494], [7.875, 108.7888], [8.0, 96.0], [10.0, 95.0352], [10.125, 93.0755], [10.25, 91.0736], [10.375, 89.0267], [10.5, 86.9317], [10.625, 84.7849], [10.75, 82.5823], [10.875, 80.3194], [11.0, 77.9908], [11.125, 75.5905], [11.25, 73.1114], [11.375, 70.5453], [11.5, 67.8823], [11.625, 65.1104], [11.75, 62.2151], [11.875, 59.1784]],effective_tempo(plain)
         return {'bars':2,'notes':sum(len(t['notes']) for t in q['tracks'])}
     def excerpt_curves():
         from musiclib.model import curve_at
@@ -107,7 +199,12 @@ def define(S):
             out=work/'compare_unit'/name;(out/'stems').mkdir(parents=True,exist_ok=True)
             save_json(out/'project.json',proj);save_json(out/'report.json',{'renderer_sha256':'one','master':{'integrated_lufs':-18}})
             again=lambda k:k+('2' if name in ('note','quiet_bass') and k=='piano' else '')
-            save_json(out/'stem_receipts.json',[{'track':k,'cache_key':again(k),'raw_sha256':again(k)} for k in parts])
+            # 0.9 step 5: in "louder" the bass was synthesized again and came out the same (its cache entry gone,
+            # say), the other parts were taken from the cache; "note" has receipts of before 0.9, which do not say
+            # in "quiet_bass" every part came from the cache: the piano, whose audio differs from "before", was
+            # synthesized in an earlier render of that version (versions A, B, then A again: the review of step 5)
+            hit=(lambda k:{'cache_hit':k!='bass'}) if name=='louder' else (lambda k:{'cache_hit':True}) if name=='quiet_bass' else (lambda k:{})
+            save_json(out/'stem_receipts.json',[{'track':k,'cache_key':again(k),'raw_sha256':again(k),**hit(k)} for k in parts])
             for k,x in parts.items():audio.write_wav(out/'stems'/f'{k}.wav',x.astype(np.float32))
             mix=sum(parts.values());audio.write_wav(out/'premix.wav',mix.astype(np.float32));audio.write_wav(out/'master.wav',(mix*10**(master_db/20)).astype(np.float32))
         real=lambda e:[q for q in e.get('passages',[]) if not q.get('follows_part_levels')]
@@ -122,6 +219,12 @@ def define(S):
         assert d[:a-480].max()<1e-5 and d[b+480:].max()<1e-5 and d[a:b].max()>.05,'the difference is the changed note alone'
         m=compare(work/'compare_unit'/'before',work/'compare_unit'/'louder');g=m['files']
         assert m['summary']['project']==['lead mix: level_dbfs -25 -> -24'] and m['synthesis']['synthesized_again']==[]
+        # a part is "reused" where the later render took its synthesis from the cache, not wherever the audio is the
+        # same (left by the reviews of 0.8 and 0.9); neither list is a change, so the summary has neither
+        others=sorted(k for k in stems if k!='bass')
+        assert sorted(m['synthesis']['reused'])==others and m['synthesis']['same_audio_synthesized_again']==['bass'],m['synthesis']
+        assert 'reused' not in m['summary'] and 'same_audio_synthesized_again' not in m['summary'],m['summary']
+        assert sorted(r['synthesis']['reused'])==sorted(k for k in stems if k!='piano') and r['synthesis']['same_audio_synthesized_again']==[],r['synthesis']
         assert g['stems']['lead']['level_db']==1 and not g['stems']['lead']['passages'] and m['summary']['changed']['stems']=={'lead':'level only, +1.00 dB'}
         assert not real(g['premix']['premix']) and not real(g['master']['master']),(g['premix'],g['master'])
         # A clip not made says why: the masters identical, or only one gain apart (that was said to leave them alike:
@@ -133,6 +236,24 @@ def define(S):
         assert 'Clip: not made, no passage differs once the levels are matched (the master moved -4.00 dB as a whole)' in level_only,level_only
         assert 'Clip: not made, the masters are identical' in alike,alike
         q=compare(work/'compare_unit'/'before',work/'compare_unit'/'quiet_bass');h=q['files']
+        # a part whose audio changed and that the later render took from the cache was not synthesized again
+        from musiclib import summary as said
+        assert q['synthesis']['changed_from_cache']==['piano'] and q['synthesis']['synthesized_again']==[] and q['summary']['changed_from_cache']==['piano'],q['synthesis']
+        told=said.compare(q,work/'compare_unit'/'quiet.json');assert 'Changed, taken from the cache: piano.' in told and 'Synthesized again' not in told,told
+        assert r['synthesis']['changed_from_cache']==[] and 'Synthesized again: piano.' in said.compare(r,work/'compare_unit'/'note.json')
+        # (the second review: so is a take of the same inputs that the later render took from the cache, a Surge XT
+        # part's earlier take: it is other audio from the cache, not a new take)
+        from musiclib.compare import synthesis
+        take=lambda hit:synthesis({'receipts':{'lead':{'cache_key':'k','raw_sha256':'one'}}},{'receipts':{'lead':{'cache_key':'k','raw_sha256':'two','cache_hit':hit}}})
+        assert take(True)['changed_from_cache']==['lead'] and take(True)['same_inputs_new_take']==[] and take(False)['same_inputs_new_take']==['lead'] and take(False)['changed_from_cache']==[]
+        # The walkthrough of 0.9: a passage in the tail was named by bars the piece does not have ("26:3-28:1" of 24
+        # bars).  A place after the last bar is named by its seconds past the end.
+        from musiclib.compare import position
+        last=clock.end;assert position(clock,last-.5)==position(clock,last-.5) and ':' in position(clock,last-.5)
+        assert position(clock,last)=='end+0s' and position(clock,last+1.25)=='end+1.25s' and position(clock,0)=='1:1',(position(clock,last),position(clock,last+1.25))
+        # (the third review: a window's edge a hundredth of a second before the end rounds to the end, not to the
+        # first beat of a bar the piece does not have)
+        assert position(clock,last-.01)=='end+0s' and ':' in position(clock,last-.2),position(clock,last-.01)
         assert h['stems']['bass']['level_db']==6.02 and not h['stems']['bass']['passages'],h['stems']['bass']
         for e in (h['premix']['premix'],h['master']['master']):
             assert real(e) and abs(real(e)[0]['start_s']-on)<.02 and all(x['start_s']>on-.02 for x in real(e)),e

@@ -111,7 +111,7 @@ def build_parser():
     snd.add_argument('--seed',type=int,help="the piece's seed (musiclib.blocks.seed(title)): which patch each band of the spread shows, so two pieces see different ones")
     ins=command('instruments','Find presets in the configured banks by words of their name, family or bank: the bank and program a part takes, the keys their samples cover, their velocity layers',
                 'python studio.py instruments violin --config config.json')
-    ins.add_argument('words',nargs='+',help='words of the preset name (violin), a General MIDI family (strings, brass, reed) or a bank (vsco); all of them must match')
+    ins.add_argument('words',nargs='+',help='words of the preset name (violin), a General MIDI family (strings, brass, reed) or a bank (vsco), or a bank number and program (0:41); where no preset has them all, those that have the most are listed; a word that no preset has is refused, with the nearest word where one is near')
     ins.add_argument('--config',type=Path,required=True,help='the renderer configuration bootstrap.py wrote');ins.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
     stl=command('still',"Draw a render's piano roll at one moment as a PNG: the notes as played, coloured by what the part does, every part named in the legend (needs Pillow)",
                 'python studio.py still render_final --at 42 --output roll_42.png')
@@ -369,4 +369,5 @@ if __name__=='__main__':
     except KeyError as e:
         print('ERROR: missing field',files.one_line(str(e)),file=sys.stderr);sys.exit(2)
     except (ValueError,OSError,RuntimeError,TimeoutError) as e:
-        print('ERROR:',files.one_line(str(e)),file=sys.stderr);sys.exit(2)  # one line, whatever text it carries (0.8 step 1.6)
+        # (0.9 step 1: an error on a path past Windows' limit, where the system's long paths are off, says so)
+        print('ERROR:',files.one_line(str(e)+files.path_limit_hint(e)),file=sys.stderr);sys.exit(2)  # one line, whatever text it carries (0.8 step 1.6)

@@ -93,7 +93,8 @@ pianos and scratching guitars. `pop/disco`
 - **In this skill**: `blocks.drums` in the `dance` feel with `kick="four_floor"` and `pulse="offbeat"`;
   `bass_darkblack` in broken octaves; `vsco_strings` and `vsco` brass; electric pianos (`studio.py sounds --name ep`);
   muted guitar chords on `fsbs_clean`, short (`gate` about 0.3) and strummed (this skill's approximation of the
-  scratch); the flute and piccolo of `vsco`; congas and bongos in `vcsl_world`.
+  scratch), or the scratch itself on the direct guitar played by string (`"mute": "dead"`:
+  [rock-and-metal.md](rock-and-metal.md), Writing the guitar part); the flute and piccolo of `vsco`; congas and bongos in `vcsl_world`.
 - **Neighbours**: `electronic/house` (disco's descendant); `jpop/city-pop`; Up-tempo pop.
 
 ## Synth-pop

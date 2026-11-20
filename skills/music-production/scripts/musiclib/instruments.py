@@ -5,6 +5,7 @@ were the 0.7 agents' most frequent failure, 7 of 43).  The bank and program it r
 and `patch` take (schema.md), so a part need not guess them."""
 import difflib
 import functools
+import json
 import os
 import re
 from pathlib import Path
@@ -127,26 +128,49 @@ def banks(config_file):
 
 def search(config_file, words, bank=None):
     """The presets every word matches (in the preset's name, its family or its bank's name, without regard to case),
-    by bank, bank number and program, in every configured bank or in `bank` alone (then words may be none); a word
-    that matches no preset is refused with the nearest one that would."""
+    by bank, bank number and program, in every configured bank or in `bank` alone (then words may be none).  A word
+    of the form "0:41" is a bank number and program, as a part's instrument is written.  Where no preset has every
+    word, those that have the most are given (`every_word` false, each with the words it `has`): a search for
+    "electric bass slap" is answered with "Slap Bass".  Where no word matches, the refusal names the nearest word
+    that would, and the synthesizers' own lists."""
     words = [w.lower() for w in words if w.strip()]
-    if not words and bank is None:
+    numbers = [w for w in words if re.fullmatch(r'\d+:\d+', w)]
+    if len(numbers) > 1:
+        raise ValueError(f'instruments takes one bank number and program at a time, not {" and ".join(numbers)}')
+    patch = tuple(int(x) for x in numbers[0].split(':')) if numbers else None
+    words = [w for w in words if w not in numbers]
+    if not words and patch is None and bank is None:
         raise ValueError('instruments takes one or more words: a part of a preset\'s name (violin), a family (strings) or a bank (vsco)')
     configured = banks(config_file)
     if bank is not None and bank not in configured:
         raise ValueError(f'No configured bank is named {files.one_line(bank)!r}; the configuration names {", ".join(sorted(configured))}')
-    listed, rows, vocabulary = documented(), [], set()
+    listed, rows, vocabulary, texts = documented(), [], set(), []
+    # first what each preset has of the words, then the rows of those that have the most
+    candidates, most = [], 0
     for name, path in sorted(configured.items()):
         if bank is not None and name != bank:
             continue
-        sounds, spent = read(path), [0]   # one bound for the bank's presets together (pairs)
+        sounds = read(path)
         for p in sounds['presets']:
             family = 'drum kit' if p['bank'] >= 128 else FAMILIES[p['program'] // 8] if p['program'] < 128 else 'no General MIDI family'
             text = f'{p["name"]} {family} {name}'.lower()
             vocabulary.update(re.findall(r'[a-z0-9_]+', text))   # a bank's name whole (iowa_strings), as a word may give it
-            if not all(w in text for w in words):
+            texts.append(text)
+            if patch is not None and (p['bank'], p['program']) != patch:
                 continue
-            keys, ranges = measured(sounds, p, spent)
+            has = [w for w in words if w in text]
+            if has or not words:
+                candidates.append((name, sounds, p, family, has))
+                most = max(most, len(has))
+    every = most == len(words)
+    # a word is some preset's where it is in that preset's text as written: "honky-tonk" is in no single word of it
+    held = lambda w: any(w in x for x in texts)
+    if not every and any(not held(w) for w in words):
+        candidates = []   # a word that no preset has at all is a slip of the pen: refused with the nearest word (below)
+    spent = {}
+    for name, sounds, p, family, has in candidates:
+        if len(has) == most:
+            keys, ranges = measured(sounds, p, spent.setdefault(name, [0]))   # one bound for a bank's presets together (pairs)
             row = {'bank': name, 'patch': {'bank': p['bank'], 'program': p['program']}, 'preset': p['name'], 'family': family,
                    'keys': f'{note(min(keys))}-{note(max(keys))}' if keys else None, 'keys_midi': [min(keys), max(keys)] if keys else None,
                    'keys_without_a_sample': (max(keys) - min(keys) + 1 - len(keys)) if keys else None, 'key_ranges': key_ranges(keys),
@@ -156,31 +180,49 @@ def search(config_file, words, bank=None):
                                     'orchestration.md')
             if (name, p['bank'], p['program']) in listed:
                 row['preset_list'] = listed[(name, p['bank'], p['program'])]
+            if not every:
+                row['has'] = has
             rows.append(row)
     if not rows:
-        near = [w for w in words if not any(w in v for v in vocabulary)]
+        asked = ' '.join(words + numbers)
+        near = [w for w in words if not held(w)]
         hint = difflib.get_close_matches(near[0], sorted(vocabulary), n=1) if near else []
-        raise ValueError(f'No configured preset matches {" ".join(words)!r}' + (f'; did you mean {hint[0]!r}?' if hint else '')
-                         + ' Words match a preset\'s name, its family (' + ', '.join(FAMILIES) + ') or its bank.')
+        # the built-in synthesizer's presets are not in any bank: a word that names one says so
+        synth_file = Path(__file__).resolve().parents[2] / 'references' / 'synth-presets.json'
+        builtin = sorted(json.loads(synth_file.read_text(encoding='utf-8')).get('presets', {})) if synth_file.is_file() else []
+        named = [w for w in words if w in builtin]
+        raise ValueError(f'No configured preset matches {asked!r}' + (f'; did you mean {hint[0]!r}?' if hint else '')
+                         + (f' {named[0]!r} is a built-in synth preset: "engine": "synth", "synth": {{"preset": "{named[0]}"}}.' if named else '')
+                         + ' Words match a preset\'s name, its family (' + ', '.join(FAMILIES) + ') or its bank; a bank number and '
+                         'program are written 0:41. The synthesizers are not in the banks: references/synth-presets.json lists the '
+                         'built-in presets, and studio.py sounds finds the Surge XT patches.')
     rows.sort(key=lambda r: (r['bank'], r['patch']['bank'], r['patch']['program']))
-    return {'count': len(rows), 'presets': rows,
+    return {'count': len(rows), 'every_word': every, 'words': len(words), 'presets': rows,
             'note': ('A part plays one with "soundfont": <bank> and "patch": {"bank": ..., "program": ...} (schema.md). keys: the '
                      'notes its samples cover (MIDI 60 is C4), read from the bank; write inside them, and nearer the middle for an '
-                     'even tone. velocity_ranges counts its dynamic layers, and in the banks built here its round robins too, and '
-                     'velocities lists them (a note below every range sounds nothing); '
+                     'even tone. family is General MIDI\'s name for the program number, which a bank of one instrument need not '
+                     'follow (a guitar on program 0 is listed under piano). velocity_ranges counts the ranges of velocity its '
+                     'samples are split into: dynamic layers, and where a bank chooses among takes by the velocity\'s value '
+                     '(the banks built here, fsbs_direct) those too; velocities lists them (a note below every range sounds '
+                     'nothing); '
                      'preset_list gives the recorded layers as references/soundbank-presets.md lists them.')}
 
 
 def summary(found):
     """One line a preset."""
     lines = [f'{found["count"]} preset{"s" if found["count"] != 1 else ""}:']
+    if not found.get('every_word', True):   # the nearest, said as such
+        most = max(len(r.get('has', ())) for r in found['presets'])
+        lines = [f'No preset has every word; {found["count"]} ha{"s" if found["count"] == 1 else "ve"} {most} of the {found["words"]}:']
     for r in found['presets'][:60]:
         listed = r.get('preset_list')
-        lines.append(f'  {r["bank"]} {r["patch"]["bank"]}:{r["patch"]["program"]} {r["preset"]} ({r["family"]}): keys {r["keys"]}'
+        family = r['family'] if r['patch']['bank'] >= 128 or r['patch']['program'] >= 128 else f'GM family of program {r["patch"]["program"]}: {r["family"]}'
+        lines.append(f'  {r["bank"]} {r["patch"]["bank"]}:{r["patch"]["program"]} {r["preset"]} ({family}): keys {r["keys"]}'
                      + (f', {r["keys_without_a_sample"]} without a sample' if r['keys_without_a_sample'] else '')
                      + (f' (stretched over {r["keys_midi"][1] - r["keys_midi"][0] + 1 - r["keys_without_a_sample"]} keys: the instrument\'s range is in orchestration.md)' if r.get('every_key') else '')
                      + f', {r["velocity_ranges"]} velocity range{"s" if r["velocity_ranges"] != 1 else ""}'
-                     + (f'; the preset list: keys {listed["keys"]}, velocity layers {listed["velocity_layers"]}' if listed else ''))
+                     + (f'; the preset list: keys {listed["keys"]}, velocity layers {listed["velocity_layers"]}' if listed else '')
+                     + (f'; has: {", ".join(r["has"])}' if 'has' in r else ''))
     if found['count'] > 60:
         lines.append(f'  and {found["count"] - 60} more (--json lists all)')
     lines.append(found['note'])

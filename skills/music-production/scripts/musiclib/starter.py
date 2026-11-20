@@ -87,7 +87,13 @@ def script(title, sections, parts, tempo, meter, config):
              + (f', config={spelled(config)})' if config else ')'),
              '']
     lines += [f'song.section({q(s)}, {b}, intent={q("what this section does")})' for s, b in sections]
-    lines.append('')
+    lines += ['',
+              '# The harmony, written once and read by every part: song.harmony(bar, beat, symbol) writes a chord into the project,',
+              '# where review reads the pitched parts\' notes against it.  song.changes() gives the chords in order as (bar, beat, symbol,',
+              '# beats) for a part\'s own loop, and song.chord_at(bar, beat) the chord sounding at a place, so that no part is',
+              '# written from a chord list of its own.',
+              "# song.harmony(1, 1, 'Cmaj7')",
+              '']
     for ident, role, instrument, _, _, _ in parts:
         lines.append(f'{ident} = song.part({q(ident)}, {q(role)}' + (f', {q(instrument)})' if instrument else
                                                                        ")  # the default bank's program 0; name a preset: song.part(id, role, '<bank> <bank number>:<program>') or words (studio.py instruments)"))
@@ -111,6 +117,7 @@ def start(folder, title, sections, parts, tempo=100.0, meter='4/4', config=None)
     of 0.8.0), but no compose.py or song.json; it is made where it is missing.  With a configuration, a part that names no
     instrument plays the default bank's program 0 (its kit at 128:0 for a drum part), written out so that it is checked."""
     folder = Path(folder)
+    files.program_folder(folder)   # the script runs in its folder: one Windows starts nothing in is refused before anything is written
     if files.occupied(folder) and not files.real_folder(folder):
         raise ValueError(f'{folder} is a file or a link; start writes into a folder of its own (give the folder itself)')
     for name in ('compose.py', 'song.json'):

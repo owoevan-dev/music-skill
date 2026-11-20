@@ -10,7 +10,7 @@ Contents: [Brief](#brief) · [Form](#form) · [Harmony](#harmony) · [Melody for
 
 ## Brief
 
-Settle these from the request, deciding what it leaves open and saying so:
+Settle these from the request; what it leaves open is decided after the piece's words are drawn (SKILL.md, steps 1 and 2), and said so:
 
 - **Length**: "TV size" is about 90 seconds. TV openings have ranged from 70 to 110 seconds and average about 90 (Anime Nation's "Ask John" column). A full-size version runs about four minutes and repeats verse, build and chorus with a bridge.
 - **Tempo**: from the brief. In Li's (2026) survey the openings with a postchorus had a median tempo more than 20 BPM faster than those without: to keep about 90 seconds, a slow opening drops the postchorus.
@@ -118,7 +118,7 @@ The table is an example plan. Build by addition from verse to chorus (McAdams, G
 - **Brightness comes from the band.** Elowsson and Friberg (2017) found that the more percussion a popular-music track has, the more energy it has in the bass and the treble, and that much of the spectral difference between genres follows from that. Commercial recordings also lean toward a consistent target spectrum (Pestana et al. 2013).
   - So a band cue should show far more energy above 2.5 kHz in `analyze` than a strings-and-harp loop.
   - If the 2.5–6 kHz and 6–16 kHz bands still hold only a fraction of a percent, look for the cause before reaching for EQ: hi-hat and cymbal levels, a low `lowpass` on the guitars or the reverb returns, or a lead with no presence.
-- **Guitars.** High-pass the rhythm guitars so the bass owns the low end, and tame distortion's fizz with a low-pass ([rock-and-metal.md](rock-and-metal.md) gives the practitioners' starting points).
+- **Guitars.** High-pass the rhythm guitars so the bass owns the low end, and tame distortion's fizz with a low-pass ([rock-and-metal.md](rock-and-metal.md) gives the practitioners' starting points; a part through `mix.amp` needs no such low-pass, its loudspeaker filter falls away above 5 kHz).
 - **The lead sits on top.** Read `lead_minus_accompaniment` in `analyze`; to find what masks the lead, see the piano bullets above.
 - **Loudness.** Deliver at −14 LUFS, Spotify's playback level ([pop-and-ballad.md](pop-and-ballad.md)).
 
@@ -128,8 +128,8 @@ The table is an example plan. Build by addition from verse to chorus (McAdams, G
 |---|---|
 | Drums | `rusty` (rock kit on GM keys) |
 | Bass | `bass_darkblack` 0:33 (five-string, four dynamics, ghost notes on low velocities), 1:33 staccato; `bass_pick` for a brighter pick sound |
-| Rhythm guitars | `fsbs_dist1` and `fsbs_dist2` (distorted), `fsbs_clean` for arpeggios |
-| Lead | `fsbs_dist2` with legato and bends; `vsco` Solo Violin 0:40; `vsco` Trumpet 0:56, Trumpet Vibrato 2:56 (samples about 4.7 s); `vcsl` Grand 0:0; `vsco` Flute 0:73 |
+| Rhythm guitars | `fsbs_direct` through `mix.amp`, played by string (`crunch` or `high_gain`; `clean` or `edge` for chords left to ring): [rock-and-metal.md](rock-and-metal.md), Writing the guitar part. The amplified banks remain: `fsbs_dist1` and `fsbs_dist2` (distorted), `fsbs_clean` for arpeggios |
+| Lead | `fsbs_direct` through `mix.amp` on `lead` with bends (joined with `performance.legato` and without `strings`, or played by string without legato), or `fsbs_dist2` with legato and bends; `vsco` Solo Violin 0:40; `vsco` Trumpet 0:56, Trumpet Vibrato 2:56 (samples about 4.7 s); `vcsl` Grand 0:0; `vsco` Flute 0:73 |
 | Strings, brass | `vsco` section strings, spiccato, Brass Section 0:61, Brass Stab 0:62 |
 | Synths | Surge XT patches for pads, plucks and leads, chosen for the part's job ([sound-selection.md](sound-selection.md)) |
 | Colour | `vsco` Glockenspiel 0:9, `vcsl` Tubular Bells 0:14, `vcsl` Orchestra Kit 128:48 (clash cymbals, timed cymbal swells, mark tree), `vcsl` Timpani 0:47 for an orchestral intro |

@@ -61,6 +61,17 @@ def review(r, folder, since=None, plan_changed=None):
         glance = describe(r['views'])
         if glance:
             lines += glance.split('\n')  # line by line: `joined` prints a line break inside a line as its escape
+    for t in r['tracks']:
+        s = t.get('strung')
+        if s:   # a part played by string: where its notes lie on the neck (counted from the score; nothing is judged)
+            used = ', '.join(f'{k}: {n}' for k, n in s['notes_by_string'].items() if n) or 'none'
+            mutes = ', '.join(f'{n} {m}-muted' for m, n in s['muted'].items() if n)
+            reach = s['widest_reach']
+            lines.append(f'By string, {t["id"]}: notes on string {used} (1 the highest)'
+                         + (f'; frets {s["lowest_fret"]} to {s["highest_fret"]}, {s["open_notes"]} on open strings' if s['lowest_fret'] is not None else '')
+                         + (f'; {mutes}' if mutes else '')
+                         + (f'; widest stretch between stopped notes sounding together: {reach["frets"]} frets (frets {reach["lowest_fret"]} '
+                            f'and {reach["highest_fret"]}, {reach["at"]})' if reach else '') + '.')
     if r.get('plan'):
         from .plan import describe as plan_line
         lines.append(plan_line(r['plan']))
@@ -88,7 +99,7 @@ def review(r, folder, since=None, plan_changed=None):
     if lim.get('ours'):
         set_by = sorted({row['set_by'] for row in lim['checks'].values() if row['set_by']})
         lines.append(f'Limits: {len(lim["ours"])} of the {len(lim["checks"])} checks use a number this project set itself, '
-                     f'not one from a source ({", ".join(lim["ours"])}); review.json lists each limit and its origin'
+                     f'not one from a source ({", ".join(lim["ours"])}); score_review.json lists each limit and its origin'
                      + (f'; set by the style map: {", ".join(set_by)}' if set_by else '') + '.')
     where = []
 
@@ -96,9 +107,13 @@ def review(r, folder, since=None, plan_changed=None):
         return '/'.join(x.get('notes') or [note_name(p) for p in x.get('pitches', [])])
 
     v = r.get('vertical_minor_seconds_ninths') or {}
+    wider = sum((v.get('wider') or {}).values())
+    if wider and not v.get('count'):
+        where.append(f'vertical_minor_seconds_ninths (0; {wider} more two octaves or more apart, not counted)')
     if v.get('count'):
         ex = v['examples']
-        where.append(f'vertical_minor_seconds_ninths ({v["count"]}, {v["foreground_count"]} touching the foreground): ' + '; '.join(
+        where.append(f'vertical_minor_seconds_ninths ({v["count"]}, {v["foreground_count"]} touching the foreground'
+                     + (f'; {wider} more two octaves or more apart, not counted' if wider else '') + '): ' + '; '.join(
             f'{x["at"]} {"+".join(x["parts"])} {notes(x)}{" [" + ", ".join(i for i in x["ids"] if i) + "]" if any(x.get("ids") or []) else ""}{" (foreground)" if x.get("involves_foreground") else ""}'
             for x in ex[:EXAMPLES]) + _more(ex, count=v['count']))
     oc = r.get('outside_chord') or {}
@@ -124,9 +139,21 @@ def review(r, folder, since=None, plan_changed=None):
     if where:
         lines += ['Where (first examples):'] + [f'- {w}' for w in where]
     lines.append(f'Full figures: {_rel(Path(folder) / "score_review.json")}: examples under the keys above, and '
-                 'tracks, sections, repetition, stiffness, melody_sections, loop_seam, views (the tables above in full) and '
+                 'tracks, sections, repetition, stiffness, melody_sections, ' + ('loop_seam, ' if r.get('loop_seam') else '')
+                 + 'views (the tables above in full) and '
                  'questions (each question with its identifier); notes.csv lists every note.')
     return joined(lines)
+
+
+def tail_line(report):
+    """What a draft's summary says where its master still sounds at its end (render.delivered), or None."""
+    if 'tail_quiet' not in (report.get('delivery_needs') or ()):
+        return None
+    from .render import tail_advice
+    state = report.get('tail') or {}
+    advice = tail_advice(state)
+    return (f'The master still sounds at its end ({state.get("last_50ms_dbfs", 0):g} dBFS in its last 50 ms; a delivered file '
+            f'needs under -60): this draft goes on, a full render fails `tail_quiet`. ' + advice[0].upper() + advice[1:] + '.')
 
 
 def render(report, folder):
@@ -166,15 +193,43 @@ def render(report, folder):
     lines.append('Failed checks: ' + (', '.join(failed) if failed else 'none') + '.')
     if report.get('left_out'):
         lines.append('Left out of this draft: ' + '; '.join(report['left_out']) + '. Deliver a full render.')
+    if report.get('earlier_delivery_removed'):
+        lines.append("Removed, as an earlier full render's: " + ', '.join(report['earlier_delivery_removed']) + '.')
+    if tail_line(report):
+        lines.append(tail_line(report))
     lines.append(f'Parts: {report["stem_count"]}; raw synthesis from the cache {report["cache_hits"]}, processed stems from the '
                  f'cache {report.get("stems_reused", 0)} (stem_receipts.json names which).')
     loop = report.get('loop')
     if loop:
         lines.append(f'Loop: bars {loop["start_bar"] + 1}-{loop["end_bar"]}, {loop["length_samples"]} samples, loop.wav'
                      + (', loop.ogg' if 'ogg' in loop['files'] else '') + (f', {len(loop["layers"]["parts"])} layers' if loop.get('layers') else '') + '.')
-    lines.append(f'Full figures: {_rel(Path(folder) / "report.json")}: checks, master, mastering (passes, limiting_db), '
-                 'sections, buses (level_change_db), loop, stage_seconds, process_seconds; stem_receipts.json per part.')
+    heard = report.get('headphones')
+    if heard:
+        moving = sorted(k for k, v in heard['parts'].items() if v.get('lowest_degrees') != v.get('highest_degrees'))
+        lines.append(f'Headphone version: {heard["file"]} and headphones.mp3, {heard["integrated_lufs"]:g} LUFS, true peak '
+                     f'{heard["true_peak_dbtp"]:g} dBTP, ' + ('with' if heard['reflections'] else 'without') + ' the room\'s first reflections'
+                     + (f'; moving: {", ".join(moving)}' if moving else '') + f'; left out of it: {", ".join(heard["left_out"])}. '
+                     'For headphones only: the master is the delivery for loudspeakers.')
+    bus = report.get('chain') == 'bus'   # (a room-chain render's report has no passes, limiting or buses)
+    lines.append(f'Full figures: {_rel(Path(folder) / "report.json")}: checks, master, mastering' + (' (passes, limiting_db), ' if bus else ', ')
+                 + 'sections, ' + ('buses (level_change_db), ' if bus else '') + ('loop, ' if report.get('loop') else '') + ('headphones (parts), ' if heard else '')
+                 + 'stage_seconds, process_seconds; stem_receipts.json per part.')
     return joined(lines)
+
+
+def top_end_line(r, shown=8):
+    """One line on which parts carry the top of the mix (analysis.top_end), or '' where there is nothing to say."""
+    rows = (r.get('top_end') or {}).get('by_part') or []
+    if not rows:
+        return ''
+    def one(x):
+        notes = ([f'low-pass {x["lowpass_hz"]:g} Hz'] if 'lowpass_hz' in x else []) + ([f'amp {x["amp"]}'] if 'amp' in x else [])
+        return f'{x["part"]} {round(x["share_pct"], 1):g}%' + (f' ({", ".join(notes)})' if notes else '')   # (the shares are kept to six decimals: a figure printed here is rounded once)
+    rest = rows[shown:]
+    others = round(max(0.0, 100 - sum(x['share_pct'] for x in rows[:shown])), 1)   # what the shown leave, not the hidden rows' rounded shares added up
+    return ('Top end (6-16 kHz) by part, from the stems: ' + ', '.join(one(x) for x in rows[:shown])
+            + (f', the other {len(rest)} parts {others:g}%' if rest else '')
+            + f'; drum parts {r["top_end"]["drums_share_pct"]:g}%.')
 
 
 def analysis(r, path, render=None):
@@ -203,6 +258,8 @@ def analysis(r, path, render=None):
     t = r['tonal_balance']
     lines.append(f'Tonal balance: {_g(t.get("slope_db_per_octave_100hz_4khz"))} dB per octave over 100 Hz-4 kHz; {t.get("reference", "")}; '
                  f'low end {_signed(t["low_end_vs_line_db"])} dB and top end {_signed(t["top_end_vs_line_db"])} dB off that line.')
+    if top_end_line(r):
+        lines.append(top_end_line(r))
     c = r.get('reference_comparison')
     if c:
         lines.append(f'Against {c["reference"]}: slope {_signed(c["slope_difference_db_per_octave"], 2)} dB per octave, octaves minus '
@@ -232,7 +289,8 @@ def compare(r, path):
     lines = [f'Compare {_label(r["before"])} -> {_label(r["after"])}: master '
              + ' -> '.join('n/a' if x is None else f'{x:g}' for x in r.get('master_lufs', [])) + ' LUFS.']
     lines.append('Project changes: ' + ('; '.join(s.get('project') or []) or 'none') + '.')
-    for key, label in (('synthesized_again', 'Synthesized again'), ('same_inputs_new_take', 'Same inputs, a new take (Surge XT)')):
+    for key, label in (('synthesized_again', 'Synthesized again'), ('same_inputs_new_take', 'Same inputs, a new take (Surge XT)'),
+                       ('changed_from_cache', 'Changed, taken from the cache')):
         if s.get(key):
             lines.append(f'{label}: {", ".join(s[key])}.')
     changed = s.get('changed') or {}

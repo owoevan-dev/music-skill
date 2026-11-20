@@ -1035,5 +1035,92 @@ def define(S):
         finally:audio.MAX_WAV_SECONDS=limit
         audio.read_wav(long)
         return {'refused':2}
-    found = {'cache_entry_locked_across_renders': entry_lock_across_renders, 'clean_removes_only_what_the_tools_made': clean_only_what_the_tools_made, 'cache_entries_go_by_their_own_record': cache_entries_by_their_record, 'files_never_overwrite_or_write_through': files_never_overwrite_or_write_through, 'journal_proves_a_stopped_run': journal_proves_a_stopped_run, 'writers_leave_whole_files_when_a_write_fails': writers_leave_whole_files_when_a_write_fails, 'run_stops_its_program_when_stopped': run_stops_its_program_when_stopped, 'clean_and_runs_never_share_a_folder': clean_and_runs_never_share_a_folder, 'render_refuses_a_linked_output': render_refuses_a_linked_output, 'bounded_reads_of_records_and_wav_headers': bounded_reads_of_records_and_wav_headers, 'shared_reports_name_folders_relatively': shared_reports_name_folders_relatively, 'selfcheck_work_must_be_new_or_empty': selfcheck_work_must_be_new_or_empty, 'render_folders_are_read_without_links': render_folders_are_read_without_links}
+    def long_paths_for_programs():
+        # 0.9 step 1 (design-0.9.md): Windows' plain file calls stop at 260 characters, the terminating null included
+        # (Microsoft Learn, Maximum Path Length Limitation).  FluidSynth opens its files through them, so a path at the
+        # limit or past it goes to it in the extended-length form, which those calls take at any length; a shorter one
+        # goes as it is, so the receipts of a render in an ordinary folder read as they did.  No program is started in a
+        # working folder Windows refuses to start one in (measured: design-0.9.md), and an error on a long path where the
+        # system's long paths are off says so.  The forms are tested with Windows' rules on every system.
+        from musiclib import files as fs
+        B=chr(92);X=B*2+'?'+B;L=fs.WINDOWS_PATH_LIMIT;F=fs.WINDOWS_FOLDER_LIMIT
+        (work/'room').mkdir(exist_ok=True)   # where this check writes, on every system (made on Windows alone, the new-file names failed everywhere else)
+        def of_length(n,head='C:'+B+'work',tail='take.wav'):
+            parts=[head];left=n-len(head)-1-len(tail)
+            while left>40:parts.append('d'*30);left-=31
+            if left>0:parts.append('e'*(left-1))
+            path=B.join(parts+[tail]);assert len(path)==n,(len(path),n);return path
+        short=of_length(fs.PROGRAM_PATH_MAX);assert fs.for_program(short,windows=True)==short   # the longest that goes as it is
+        edge=of_length(fs.PROGRAM_PATH_MAX+1);assert fs.for_program(edge,windows=True)==X+edge
+        far=of_length(400);assert fs.for_program(far,windows=True)==X+far and fs.for_program(far,windows=False)==far
+        assert fs.PROGRAM_PATH_MAX<L-1   # the form changes before the calls stop, never after
+        assert fs.for_program(X+far,windows=True)==X+far   # already extended: left alone
+        assert fs.for_program(far.replace(B,'/'),windows=True)==X+far   # the extended form takes backslashes only
+        assert fs.for_program(of_length(400,tail='x'+B+'..'+B+'take.wav'),windows=True)==X+of_length(400-5)   # and no . or .. (they are not resolved in it)
+        unc=of_length(400,head=B*2+'server'+B+'share');assert fs.for_program(unc,windows=True)==X+'UNC'+B+unc[2:]
+        assert fs.for_program(Path('take.wav'),windows=False)=='take.wav'
+        assert not fs.past_path_limit(of_length(L-1),windows=True) and fs.past_path_limit(of_length(L),windows=True) and not fs.past_path_limit(far,windows=False)
+        # counted in UTF-16 units, as Windows counts: a character outside the Basic Multilingual Plane is two
+        note=chr(0x1F3B5);wide=short[:-9]+note+short[-8:];assert len(wide)==len(short) and fs.for_program(wide,windows=True)==X+wide
+        assert fs.past_path_limit(of_length(L-1)[:-9]+note+'take.wav',windows=True)
+        try:fs.program_folder(of_length(F-1,tail='f')[:-1]+note,windows=True);raise AssertionError('a working folder of 259 units taken')
+        except ValueError as e:assert f'is {F} characters long' in str(e),e
+        if os.name=='nt':   # a relative path is measured as Windows resolves it, against the working folder
+            here=os.getcwd()
+            try:
+                room=work/'room';room.mkdir(exist_ok=True);os.chdir(room);base=os.getcwd()
+                name='n'*(fs.PROGRAM_PATH_MAX+1-len(base.encode('utf-16-le','surrogatepass'))//2-1)   # in the units Windows counts
+                if len(name)>=2:   # (a work folder that leaves no room for a name has no such case)
+                    full=(X+'UNC'+base[1:] if base.startswith(B*2) else X+base)+B+name   # a work folder on a share takes the UNC form
+                    assert fs.for_program(name)==full and fs.for_program(name[:-1])==name[:-1]
+            finally:os.chdir(here)
+        # a working folder: one a program can be started in is given back as it came, a longer one is refused by name
+        ok=of_length(F-1,tail='f');assert fs.program_folder(ok,windows=True)==ok and fs.program_folder(None,windows=True) is None
+        assert fs.program_folder(far,windows=False)==far
+        assert not fs.past_folder_limit(ok,windows=True) and fs.past_folder_limit(of_length(F,tail='f'),windows=True) and not fs.past_folder_limit(far,windows=False)
+        try:fs.program_folder(of_length(F,tail='f'),windows=True);raise AssertionError('a working folder at the limit taken')
+        except ValueError as e:assert f'is {F} characters long' in str(e),e
+        # the hint: only on Windows, only for a path at the limit or past it, only where long paths are off
+        gone=FileNotFoundError(2,'No such file or directory',far)
+        hint=fs.path_limit_hint(gone,windows=True,long_paths=False);assert '400 characters' in hint and '260' in hint and 'shorter' in hint,hint
+        assert fs.path_limit_hint(gone,windows=True,long_paths=True)=='' and fs.path_limit_hint(gone,windows=False,long_paths=False)==''
+        assert fs.path_limit_hint(FileNotFoundError(2,'No such file or directory',short),windows=True,long_paths=False)==''
+        assert fs.path_limit_hint(OSError(22,'Invalid argument'),windows=True,long_paths=False)==''
+        assert fs.path_limit_hint(ValueError('x'),windows=True,long_paths=False)==''
+        assert fs.path_limit_hint(FileNotFoundError(2,'No such file or directory',X+far),windows=True,long_paths=False)==''   # the extended form opens at any length
+        both=OSError(2,'No such file or directory',short,None,far);assert '400 characters' in fs.path_limit_hint(both,windows=True,long_paths=False)
+        assert '400 characters' in fs.path_limit_hint(far,windows=True,long_paths=False) and fs.path_limit_hint(short,windows=True,long_paths=False)==''   # a path itself, for a message that it was not found
+        # a new file's own name is short whatever its destination is called (the journal, not the name, proves it the run's)
+        for suffix in ('.part','.wav','.log','.mid','.copy'):
+            fd,temp=fs.new_file(work/'room'/('fluidsynth_take_12_1.process'+'x'*40+'.json'),suffix);os.close(fd)
+            assert temp.is_file() and temp.parent==work/'room' and temp.name.startswith('.fluidsynth_take_.') and len(temp.name)==1+fs.TEMP_STEM+1+12+len(suffix)==30+len(suffix),temp.name
+        fd,temp=fs.new_file(work/'room'/'a.json');os.close(fd);assert temp.name.startswith('.a.json.') and len(temp.name)==8+12+5   # a short name is whole
+        # a record or a configuration that is not there: the error names the file, so the hint reads it, in the words it had
+        try:fs.read_json(far);raise AssertionError('read')
+        except FileNotFoundError as e:assert str(e)==far+' is not there' and '400 characters' in fs.path_limit_hint(e,windows=True,long_paths=False),e
+        used='on Windows only'
+        if os.name=='nt':
+            # where the rules are used: a program is not started in a folder past the limit (the run, the starter's
+            # script), and the commands' error line carries the hint (long paths taken as off for the two commands)
+            import subprocess,sys
+            from musiclib import starter
+            there=work/'room'/B.join(['w'*40]*7)   # not made: each stops before it touches the folder
+            for start in (lambda:audio.run([sys.executable,'-c','pass'],work/'room'/'logs','deep_cwd',cwd=there),lambda:starter.start(there,'A piece','a:4','piano')):
+                try:start();raise AssertionError('started in a folder past the limit')
+                except ValueError as e:assert 'characters long, and Windows starts no program' in str(e),e
+            assert not there.exists() and not (work/'room'/'logs'/'deep_cwd.log').exists()
+            off=('import sys,runpy;from musiclib import files;files.long_paths_enabled=lambda:False;'
+                 'sys.argv=["studio.py"]+sys.argv[1:];runpy.run_path("studio.py",run_name="__main__")')
+            cases=[('validate',there/'song.json'),('inspect-midi',there/'song.mid')]   # a message of the tools' own; the system's error
+            # a render folder of 247 units, the longest Windows makes with long paths off (a folder's limit is 248), whose
+            # project.json lies at 260; made only where the work folder leaves a name of that length
+            render=work/'room'/('r'*max(1,247-fs._full_length(work/'room')[0]-1))
+            if fs._full_length(render)[0]==247 and fs._full_length(render/'project.json')[0]==L:
+                render.mkdir(exist_ok=True);cases.append(('still',render,'--at','0','--output',work/'room'/'hint.png'))
+            for args in cases:
+                done=subprocess.run([sys.executable,'-c',off,*map(str,args)],cwd=SCRIPTS,capture_output=True,text=True,encoding='utf-8',errors='replace')
+                assert done.returncode==2 and 'characters long: this Windows opens no path of 260' in done.stderr and done.stderr.count('\n')==1,(args[0],done.stderr[-400:])
+            used='the run, the starter, the commands\' error line'
+        return {'used':used,'extended_from':fs.PROGRAM_PATH_MAX+1,'folder_limit':F,'counted_in':'UTF-16 units','forms':['as it is','extended','UNC','slashes','dot segments','relative: on Windows, where the work folder leaves room']}
+    found = {'long_paths_reach_programs_in_a_form_they_open': long_paths_for_programs, 'cache_entry_locked_across_renders': entry_lock_across_renders, 'clean_removes_only_what_the_tools_made': clean_only_what_the_tools_made, 'cache_entries_go_by_their_own_record': cache_entries_by_their_record, 'files_never_overwrite_or_write_through': files_never_overwrite_or_write_through, 'journal_proves_a_stopped_run': journal_proves_a_stopped_run, 'writers_leave_whole_files_when_a_write_fails': writers_leave_whole_files_when_a_write_fails, 'run_stops_its_program_when_stopped': run_stops_its_program_when_stopped, 'clean_and_runs_never_share_a_folder': clean_and_runs_never_share_a_folder, 'render_refuses_a_linked_output': render_refuses_a_linked_output, 'bounded_reads_of_records_and_wav_headers': bounded_reads_of_records_and_wav_headers, 'shared_reports_name_folders_relatively': shared_reports_name_folders_relatively, 'selfcheck_work_must_be_new_or_empty': selfcheck_work_must_be_new_or_empty, 'render_folders_are_read_without_links': render_folders_are_read_without_links}
     return found

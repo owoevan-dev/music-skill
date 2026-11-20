@@ -90,6 +90,98 @@ def joined(rows):
     return '\n'.join(one_line(row) for row in rows)
 
 
+# Windows' plain file calls take a path of fewer than MAX_PATH = 260 characters, the terminating null counted, so 259
+# at most, and a folder's path of fewer than 248 (Microsoft Learn, Maximum Path Length Limitation).  A program that is
+# not long-path aware opens nothing past that, whatever the system's setting: FluidSynth 2.6.1 wrote and read files at
+# 259 characters and not at 260, and no program was started in a working folder of 259 or more (258 started; measured
+# 2026-11-19 with long paths turned on, research/design-0.9.md, step 1).  The same calls take a path of any length in
+# the extended-length form (the same page: the prefix, a full path, backslashes only, no . or .. segments).
+WINDOWS_PATH_LIMIT = 260
+WINDOWS_FOLDER_LIMIT = 259   # a working folder: Windows adds the backslash that ends it, then the null
+PROGRAM_PATH_MAX = 247       # the longest path a program is given as it is: under the 248 of a folder's path
+_EXTENDED = '\\\\?\\'
+
+
+def _windows(windows):
+    return os.name == 'nt' if windows is None else windows
+
+
+def _full_length(path):
+    """The length of `path` as Windows resolves it, and that form (ntpath: the same rules on every system).  Windows
+    counts a path in UTF-16 units, so a character outside the Basic Multilingual Plane (an emoji in a folder's name)
+    is two: FluidSynth wrote a path of 258 characters and 259 units, and not one of 259 characters and 260 units
+    (measured 2026-11-19)."""
+    import ntpath
+    full = ntpath.abspath(str(path))
+    return len(full.encode('utf-16-le', 'surrogatepass')) // 2, full
+
+
+def for_program(path, windows=None):
+    """`path` as the text to give a program that opens files through Windows' plain calls (FluidSynth): as it is while
+    its full form is PROGRAM_PATH_MAX characters or fewer, so an ordinary folder's commands and receipts read as they
+    always did, and in the extended-length form past that, which those calls open at any length.  Elsewhere, and for a
+    path already in that form, the text unchanged."""
+    text = str(path)
+    if not _windows(windows) or text.startswith(_EXTENDED):
+        return text
+    length, full = _full_length(text)
+    if length <= PROGRAM_PATH_MAX:
+        return text
+    return _EXTENDED + 'UNC' + full[1:] if full.startswith('\\\\') else _EXTENDED + full
+
+
+def past_path_limit(path, windows=None):
+    """Whether a program using Windows' plain calls cannot open `path` (its full form has WINDOWS_PATH_LIMIT
+    characters or more)."""
+    return _windows(windows) and _full_length(path)[0] >= WINDOWS_PATH_LIMIT
+
+
+def past_folder_limit(folder, windows=None):
+    """Whether Windows starts no program in `folder` (its full form has WINDOWS_FOLDER_LIMIT characters or more)."""
+    return _windows(windows) and _full_length(folder)[0] >= WINDOWS_FOLDER_LIMIT
+
+
+def program_folder(folder, windows=None):
+    """`folder` as a working folder to start a program in, or ValueError where Windows starts none there (its full
+    path has WINDOWS_FOLDER_LIMIT characters or more): the start failed with "the directory name is invalid", which
+    names neither the folder nor its length."""
+    if folder is None or not _windows(windows):
+        return folder
+    length = _full_length(folder)[0]
+    if length >= WINDOWS_FOLDER_LIMIT:
+        raise ValueError(f'{folder} is {length} characters long, and Windows starts no program in a folder of '
+                         f'{WINDOWS_FOLDER_LIMIT} characters or more: work in a folder with a shorter path')
+    return folder
+
+
+def long_paths_enabled():
+    """Whether this Windows opens paths of 260 characters and more for a long-path aware program, as Python is: the
+    system-wide LongPathsEnabled value, off unless someone turned it on (Microsoft Learn, the same page)."""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SYSTEM\CurrentControlSet\Control\FileSystem') as key:
+            return winreg.QueryValueEx(key, 'LongPathsEnabled')[0] == 1
+    except (ImportError, OSError):
+        return False
+
+
+def path_limit_hint(error, windows=None, long_paths=None):
+    """A sentence to add to an OSError on a path at Windows' limit or past it, or to a message that a path (given
+    instead of an error) was not found, where the system's long paths are off: the system then says only that there is
+    no such path.  Else ''."""
+    if not _windows(windows):
+        return ''
+    names = ((error.filename, error.filename2, getattr(error, 'named', None)) if isinstance(error, OSError)
+             else () if isinstance(error, BaseException) else (error,))
+    # (a path already in the extended form opens at any length, long paths on or off: no hint for it)
+    lengths = [_full_length(name)[0] for name in names if isinstance(name, (str, os.PathLike)) and not str(name).startswith(_EXTENDED)]
+    longest = max(lengths, default=0)
+    if longest < WINDOWS_PATH_LIMIT or (long_paths_enabled() if long_paths is None else long_paths):
+        return ''
+    return (f' (that path is {longest} characters long: this Windows opens no path of {WINDOWS_PATH_LIMIT} characters '
+            f'or more while its long paths are off; work in a folder with a shorter path, or turn long paths on)')
+
+
 def escape_unprintable():
     """Make a script print a character its output cannot encode as an escape (喆 as \\u5586), not stop on it.  On
     Windows, Python writes to a pipe or a file, as an agent reads a script's output, in the ANSI code page (Python
@@ -97,7 +189,10 @@ def escape_unprintable():
     code page 950, Traditional Chinese Windows' (Python's cp950 codec).  stderr already escapes so (Python gives it the
     backslashreplace handler); this does the same for stdout."""
     for stream in (sys.stdout, sys.stderr):
-        stream.reconfigure(errors='backslashreplace')
+        # an output that is no text file of Python's own (replaced by an object, as a notebook or a test does), a
+        # closed one, or none at all (a program without a console) is left as it is
+        with contextlib.suppress(AttributeError, ValueError):
+            stream.reconfigure(errors='backslashreplace')
 
 
 # The files this process put in place (replace, publish_new) or wrote itself (wrote), each as it was then (its device,
@@ -684,6 +779,13 @@ def _opened(fd):
     return fd
 
 
+# A new file's own name holds the first TEMP_STEM characters of its destination's, not all of it (0.9 step 1): with
+# the whole name these were the longest paths below a piece (a receipt in a cache entry was written as
+# .fluidsynth_take_1_1.process.json.<12 hex>.part, 52 characters; our measurement), and the name is only there to tell a
+# reader of the folder what was being written.  What makes it the run's own is its random part and the journal.
+TEMP_STEM = 16
+
+
 def new_file(dest, suffix='.part'):
     """A new, empty file beside `dest`, opened for writing: (descriptor, path).  It is created exclusively under a name
     no other run uses, as tempfile.mkstemp makes one (a random part, O_EXCL, retried when taken), and in a journaled
@@ -695,7 +797,7 @@ def new_file(dest, suffix='.part'):
     journal = _journal_for(dest)
     flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NOFOLLOW', 0)
     for _ in range(100):
-        name = dest.parent / f'.{dest.name}.{secrets.token_hex(6)}{suffix}'
+        name = dest.parent / f'.{dest.name[:TEMP_STEM]}.{secrets.token_hex(6)}{suffix}'
         if journal is not None:
             journal.append({'t': _rel(journal.root, name)})
         try:
@@ -780,7 +882,9 @@ def read_json(path, limit=None):
     path = Path(path)
     s = lstat(path)
     if s is None:
-        raise FileNotFoundError(f'{path} is not there')
+        missing = FileNotFoundError(f'{path} is not there')
+        missing.named = str(path)   # for path_limit_hint (setting filename would change the error's text)
+        raise missing
     if not stat.S_ISREG(s.st_mode) or linked(path):
         raise ValueError(f'{path} is no regular file (a link or a folder): it is not read')
     if s.st_size > (MAX_RECORD if limit is None else limit):

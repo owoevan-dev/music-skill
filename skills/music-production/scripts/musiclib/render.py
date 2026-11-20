@@ -20,6 +20,7 @@ import errno
 import json
 import math
 import os
+import re
 import stat
 from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from pathlib import Path
@@ -84,6 +85,9 @@ def default_jobs():
 # peak working set, which is its bank's size and some 50 MB (an SF3 bank's compressed samples decoded, about ten times).
 TOOL_COPIES={'wow_flutter':1.5,'filter_sweep':17.5,'saturate':9.0,'gate':4.5,'delay':10.6,'duck':2.5}
 STAGE_COPIES,CHORUS_COPIES,AUTOMATION_COPIES,WRITE_COPIES=6.0,4.8,0.5,1.0
+AMP_COPIES,AMP_BLOCK_BYTES=1.5,3.0e8  # our arithmetic, not measured: the dry part read, one channel in float64 and the result; a block at eight times the rate with its transforms
+STRUNG_COPIES=3.0  # our arithmetic, not measured: a pass and the sum of the passes in float64, and a pass as it is read
+MOVE_COPIES=1.0  # our arithmetic, not measured: the stem a movement reads (which automation may have made) and the one it writes, both float32
 ENGINE_COPIES={'drum_synth':3.5,'noise':4.9,'layered':5.2}  # layered: two layers and five alike
 ADDITIVE_COPIES,ADDITIVE_HELD_COPIES=1.5,5.1  # eighths; a note held through the whole song adds the second
 SYNTH_COPIES,SYNTH_PER_HELD_SECOND=2.5,3.0e7  # eighths; each second of its longest voice adds 30 MB (trance_pad)
@@ -123,7 +127,7 @@ def part_memory(t,clock,frames,font,surge_plays=False):
     engine=t['engine']
     if engine=='soundfont':
         bank=Path(font['path']).stat().st_size*(10 if Path(font['path']).suffix.lower()=='.sf3' else 1)+5e7
-        made=max(bank,ENGINE_COPIES['layered']*copy if layered.wanted(t) else 0)
+        made=max(bank,ENGINE_COPIES['layered']*copy if layered.wanted(t) else 0,STRUNG_COPIES*copy if t.get('strings') else 0)
     elif engine=='additive':made=(ADDITIVE_COPIES+ADDITIVE_HELD_COPIES*min(1.0,held/song))*copy
     elif engine=='surge' and surge_plays:
         made=5e8+copy  # our allowance: the plugin's process, and the part it hands back as float32 stereo
@@ -137,6 +141,8 @@ def part_memory(t,clock,frames,font,surge_plays=False):
     tools=[TOOL_COPIES[k] for k in TOOL_COPIES if mix.get(k)]+[STAGE_COPIES]*(mix.get('depth_m') is not None)
     tools+=[CHORUS_COPIES]*any(e.get('type')=='chorus' for e in mix.get('effects',[]))
     tools+=[AUTOMATION_COPIES]*any(v for _,v in mix.get('automation',[]))
+    tools+=[MOVE_COPIES]*bool(mix.get('move'))
+    if mix.get('amp'):return PART_OVERHEAD+max(made,(WRITE_COPIES+max(tools,default=0))*copy,AMP_COPIES*copy+AMP_BLOCK_BYTES)
     return PART_OVERHEAD+max(made,(WRITE_COPIES+max(tools,default=0))*copy)
 
 class MemoryBudget:
@@ -168,7 +174,10 @@ def synthesis_identity(p,clock,t,deps,renderer):
     """What a part's raw synthesis depends on, hashed into its cache key: the clock and the tempo as played (phrase
     rubato slows into section boundaries, so moving a section changes it), the part without its mix, the configured
     dependencies and the synthesis code and preset files.  A mix edit leaves it unchanged and reuses the part."""
-    return {'cache':2,'clock':p['clock'],'played_tempo':clock.tempo,'track':{k:v for k,v in t.items() if k!='mix'},'dependencies':deps,'renderer':renderer,'sample_rate':audio.RATE}
+    identity={'cache':2,'clock':p['clock'],'played_tempo':clock.tempo,'track':{k:v for k,v in t.items() if k!='mix'},'dependencies':deps,'renderer':renderer,'sample_rate':audio.RATE}
+    # a part played by string is synthesized for the loop it is in: a string's last note is ended by the loop's first
+    if t.get('strings') and 'loop' in p:identity['loop_start_bar']=p['loop'].get('start_bar',0)
+    return identity
 
 def process_seconds(logs):
     """Seconds spent in the FFmpeg processes a render logged, by kind: each run's own `seconds` from its
@@ -188,6 +197,14 @@ BOTH_AT_ONCE=15
 # The mix fields only the mixer reads (the sends, the delay's time, the bus and the reverb space); the processing of a
 # stem (process_stem, stage, production) never reads them, so editing one keeps the part's stem.
 MIXER_ONLY=('reverb_db','delay_db','delay_quarters','bus','space')
+
+# A cache entry's folder is named by the first ENTRY_KEY characters of its key, the SHA-256 of what the take depends
+# on; the whole key is in the entry's receipt and a take is used only where it is the same (0.9 step 1).  The folder's
+# name is the longest part of every path below a piece (65 of up to 115 characters with the whole key, our measurement),
+# and where the system opens no path of 260 characters a piece in a deep folder could not be rendered.  20 characters
+# are 80 bits: two of a million entries share them once in about 10^12 caches, and then one take is made again in the
+# other's place; neither is ever played for the other.
+ENTRY_KEY=20
 
 def stem_identity(p,t,key,raw_sha256,frames,code_hash,cfg):
     """What a part's processed stem depends on, hashed into the key of the stem its cache entry keeps: its raw
@@ -286,7 +303,7 @@ def check_entry(folder):
         raise ValueError(f'Cache entry {folder} holds {odd[0].name}, a link or a file with another name; remove the entry '
                          'and render again')
 
-SYNTHESIS=('model.py','midi.py','audio.py','layered.py','sf2.py','synth.py','drums.py','variation.py','surge.py','wavfile.py')
+SYNTHESIS=('model.py','midi.py','audio.py','layered.py','strung.py','sf2.py','synth.py','drums.py','variation.py','surge.py','wavfile.py')
 
 def module_closure(names):
     """The musiclib modules `names` import, directly or through one another, with themselves: the code a cached
@@ -310,7 +327,63 @@ def stopped(folder):
     failed=r.get('failed') if isinstance(r,dict) else None
     return (failed.get('error') or 'stopped') if isinstance(failed,dict) else None
 
-def render(project_file,output,config_file,cache=None,resume=False,jobs=None,draft=False,quiet=()):
+def delivered(checks,draft,tail_fails=None):
+    """(passed, needs) of a render's delivery checks.  That a piece ends in silence (`tail_quiet`) is a property of the
+    delivered file: a draft whose master still sounds at its end passes, and `needs` names the check for the report
+    and the summary to say so at every draft until the tail is long enough (three of nine real sessions of 0.8.0 lost
+    a round to it: the render stopped, with no analysis and no comparison).  A full render fails on it, and so does a
+    draft told to (`tail_fails`: an audition's render, which is made again with a longer tail).  Any other failed
+    check fails either."""
+    strict=(not draft) if tail_fails is None else tail_fails
+    needs=[] if strict or checks.get('tail_quiet',True) else ['tail_quiet']
+    return all(ok for k,ok in checks.items() if k not in needs),needs
+
+def earlier_delivery(report):
+    """The files, by their names in the render's folder, that an earlier full render made for delivery and a draft
+    leaves out: what a draft taken up in that folder removes.  From that render's own report, and only what it
+    lists: a full render that got as far as its checks (passed, or failed one: its files were made before it was
+    checked) made master.flac, the loop's Ogg copy where its report has one, and of each layer the files its report
+    names; a full render stopped before its report, a draft, or no report at all made nothing that is known.  (By the
+    mode alone, a draft after a full render that had stopped removed a file a tool had written under a layer's name;
+    by the project's layers, an Ogg copy the render never made: the reviews of 0.9.)"""
+    if not isinstance(report,dict) or report.get('draft') is not False or 'failed' in report or not isinstance(report.get('checks'),dict):return []
+    loop=report.get('loop') if isinstance(report.get('loop'),dict) else {}
+    listed=lambda files,kind:isinstance(files,dict) and kind in files
+    names=['master.flac']+(['loop.ogg'] if listed(loop.get('files'),'ogg') else [])
+    parts=loop['layers'].get('parts') if isinstance(loop.get('layers'),dict) else None
+    for lid,layer in (parts.items() if isinstance(parts,dict) else ()):
+        if not (isinstance(lid,str) and re.fullmatch(r'[a-z][a-z0-9_]{0,47}',lid) and isinstance(layer,dict)):continue   # (a layer's id, as validate takes it)
+        names+=[f'layers/{lid}.{kind}' for kind in ('wav','ogg') if listed(layer.get('files'),kind)]+[f'layers/{lid}_premix.filtergraph.txt']
+    return names
+
+def tail_state(data):
+    """How a master (frames, 2) ends: the peak of its last 50 ms in dBFS (`tail_quiet` asks for less than -60), how
+    fast its level falls (dB a second: a straight line through the peaks of its last second, 50 ms by 50 ms), and from
+    the two an estimate of how many more seconds would bring it under -60 dBFS, to the next half second.  An
+    estimate: a cymbal's ring falls nearly so, a reverb's last second need not.  No figure where the end is quiet
+    already, where the level is not falling by 3 dB a second, or where it rises again by as much in its last fifth of a second
+    (`rises_at_the_end`: another note or an echo begins there, and the second's fall says nothing of it)."""
+    peaks=np.max(np.abs(np.asarray(data,dtype=np.float64)).reshape(len(data),-1),axis=1) if len(data) else np.zeros(0)
+    step=2400;n=min(20,len(peaks)//step)
+    level=lambda x:20*math.log10(max(float(x),1e-9))
+    last=level(np.max(peaks[-step:])) if len(peaks) else level(0)
+    falling=0.0;rises=False
+    if n>=4:
+        levels=[level(np.max(peaks[len(peaks)-(k+1)*step:len(peaks)-k*step])) for k in range(n)][::-1]
+        falling=-float(np.polyfit(np.arange(n)*step/audio.RATE,levels,1)[0])
+        rises=last>-60 and float(np.polyfit(np.arange(4)*step/audio.RATE,levels[-4:],1)[0])>=3   # its last four 50 ms peaks, by their own line: 3 dB a second or more, as for the fall
+    more=math.ceil((last+60)/falling*2)/2 if last>-60 and falling>=3 and not rises else None
+    return {'last_50ms_dbfs':round(last,1),'falling_db_per_second':round(falling,1),'rises_at_the_end':bool(rises),'more_seconds_estimated':more}
+
+def tail_advice(state):
+    """What to do about a tail that still sounds, with the estimate where there is one."""
+    more=state.get('more_seconds_estimated');falling=state.get('falling_db_per_second') or 0
+    if state.get('rises_at_the_end'):return 'its level rises in its last moments (a note or an echo that begins there, or a level that is raised): let it end, or give clock.tail_seconds the time it needs'
+    if more is None and falling>=.05:return f'its level falls only {falling:g} dB a second at the end, too slowly for an estimate: look for a note or an effect that rings on (a long release, a held pedal, a delay\'s feedback), then give clock.tail_seconds the time it needs'
+    if more is None:return 'its level is not falling at the end: look for a note or an effect that does not stop, then give clock.tail_seconds the time it needs'
+    return (f'by the fall of its last second, about {more:g} more second{"s" if more!=1 else ""} of clock.tail_seconds would bring it under (an estimate)')
+
+def render(project_file,output,config_file,cache=None,resume=False,jobs=None,draft=False,quiet=(),tail_fails=None):
     """Render a project into the new folder `output` (or take up an unfinished render of the same project there with
     `resume`, stopped at any moment, killed even).  Whatever happens, what it wrote is recorded in the folder's
     files.json, and while it works its journal proves each file it is writing (musiclib.files): all clean ever removes of
@@ -327,7 +400,7 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
     with contextlib.ExitStack() as held:  # the folder's work lock (files.working), let go after its record is written
         claim['hold']=held.enter_context
         try:
-            return _render(project_file,output,config_file,cache,resume,jobs,draft,claim,set(quiet))
+            return _render(project_file,output,config_file,cache,resume,jobs,draft,claim,set(quiet),tail_fails)
         except BaseException as e:
             # A render stopped before its report: report.json says so, after which stage, in which part and why, as a
             # round's record does for its steps.  (A failed delivery check has written its full report already.)
@@ -344,7 +417,7 @@ def render(project_file,output,config_file,cache=None,resume=False,jobs=None,dra
                     files.register_tree(output,keep=claim.get('kept'))
                     files.drop_journal(output)  # the record lists everything the journal proved
 
-def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet):
+def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,tail_fails=None):
     started=time.monotonic();p=load_project(project_file);clock=Clock(p);cfg=audio.load_config(config_file)
     # Seconds per stage, each from the end of the one before, so they add up to the runtime (profiling the stages
     # before any is optimized: what a change saves shows here).
@@ -412,10 +485,34 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
     if files.linked(cache):raise ValueError(f'The cache {cache} is a link; give the folder itself')
     # The half-written files of a stopped stage go; what had taken its name stays the run's (files.adopt).
     claim['kept']=files.adopt(output) if resumed else {}
+    earlier=read_json(output/'report.json') if resumed and draft and files.regular_file(output/'report.json') else None
+    if earlier_delivery(earlier):
+        # A draft taken up in a full render's folder (its report says it was one: over an earlier draft, or a render
+        # stopped before its report, nothing is taken for a delivery).  What only delivery makes (master.flac, a loop's Ogg copy and
+        # its layers) would lie there as files of an earlier master, in a folder whose report says a draft leaves
+        # them out: they go first, by the names the delivery gives them and nothing else in those folders (an
+        # analysis saved beside the layers is the folder's own too, by its record, and stays), before the draft does
+        # any work, so that one that cannot be removed (read-only: left so, it may be meant) stops it with the folder as it was.
+        named=[output/name for name in earlier_delivery(earlier)]
+        there=[x for x in named if files.regular_file(x) and files.relative(output,x) in claim['kept']]
+        gone=[]
+        for x in there:
+            try:x.unlink()
+            except OSError as e:
+                raise ValueError(f'{output} holds a full render\'s {files.relative(output,x)}, which a draft leaves out and which could not be removed '
+                                 f'({e.strerror or e}); remove it, or render the draft into a new folder'
+                                 +(f' (already removed: {", ".join(gone)}; a full render makes them again)' if gone else '')) from None
+            gone.append(files.relative(output,x))
+        with contextlib.suppress(OSError):(output/'layers').rmdir()
+        claim['earlier_delivery']=gone
     output.mkdir(parents=True,exist_ok=True)
     if not resumed:claim['hold'](files.working(output))  # a render started into the same new folder meanwhile is refused
     claim['hold'](files.journaled(output))  # from the first file it writes, the marker
     for d in (cache,output/'logs',output/'stems',output/'midi',output/'returns'):d.mkdir(parents=True,exist_ok=True)
+    from . import ears
+    if ears.wanted(p):
+        # the headphone version (musiclib/ears.py): each part is also processed without its place, where its take is held
+        for d in (output/'headphones'/'centre'/'stems',output/'headphones'/'centre'/'logs'):d.mkdir(parents=True,exist_ok=True)
     # The render's first file, which names the piece too: clean tells a render killed before its project.json for the piece's.
     save_json(marker,{'project_sha256':project_key,'renderer_sha256':code_hash,'title':p['title']})
     claim.update(folder=True,resumed=resumed)
@@ -438,7 +535,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         deps={'fluidsynth':cfg['fluidsynth']['sha256'],'soundfont':font['sha256'] if font else None}
         if t['engine']=='surge':deps['surge']=surge_deps[t['id']]
         identity=synthesis_identity(p,clock,t,deps,synthesis_hash)
-        key=digest(identity);folder=cache/key
+        whole=digest(identity);key=whole[:ENTRY_KEY];folder=cache/key
         if files.linked(folder):raise ValueError(f'Cache entry {folder} is a link; remove it and render again')
         raw=folder/'raw.wav';receipt=folder/'receipt.json'
         track_midi=output/'midi'/(t['id']+'.mid')
@@ -478,13 +575,24 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
                        or (t['engine']=='surge' and deps['surge'].get('plays')!='Surge XT'))
                 fault=audio.take_fault(raw,frames if exact else None)
                 if fault:rejected['raw']=fault
-                else:raw_sha=audio.audio_hash(raw);cached=old.get('key')==key and raw_sha==old.get('sha256')
+                else:
+                    raw_sha=audio.audio_hash(raw);cached=old.get('key')==key and old.get('identity')==whole and raw_sha==old.get('sha256')
+                    # a part played by string is its take and the record of how it was played: without the record it is made again
+                    if cached and t.get('strings') and not read_json(folder/'strung.json'):cached=False;rejected['raw']='its record of the strings is missing'
             if not cached:
                 # Synthesized into a new file of its own (musiclib.files), which then takes raw.wav's place whole.
                 fresh=files.stage_name(raw,'.wav')
                 try:
-                    if not t['notes']:audio.write_wav(fresh,np.zeros((frames,2),dtype=np.float32))
+                    if not t['notes']:
+                        audio.write_wav(fresh,np.zeros((frames,2),dtype=np.float32))
+                        if t.get('strings'):
+                            from . import strung
+                            save_json(folder/'strung.json',strung.empty())
                     elif t['engine']=='soundfont' and t.get('reverse'):reversed_notes(p,t,clock,cfg,font,folder,fresh)
+                    elif t['engine']=='soundfont' and t.get('strings'):
+                        # Played by string (musiclib/strung.py): passes of the ordinary synthesis, summed.
+                        from . import strung
+                        save_json(folder/'strung.json',strung.render(p,t,clock,cfg,font,folder,fresh))
                     elif t['engine']=='soundfont' and layered.wanted(t):layered.render(p,t,clock,cfg,font,folder,fresh)
                     elif t['engine']=='soundfont':
                         # The synthesis MIDI applies the track's render patch/key map; the exported part MIDI does not.
@@ -511,14 +619,14 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
                     with contextlib.suppress(OSError):fresh.unlink()
                     raise
                 raw_sha=audio.audio_hash(raw)
-                save_json(receipt,{'key':key,'sha256':raw_sha,'track':t['id']})
+                save_json(receipt,{'key':key,'identity':whole,'sha256':raw_sha,'track':t['id']})
             synthesized=time.monotonic()
             audio.check_cancel(t['id'])  # between synthesis and processing, which runs no program to stop
             stem=output/'stems'/(t['id']+'.wav')
             # The processed stem the cache entry keeps, used when nothing it depends on has changed: the copy this
             # render mixes is what is checked against the receipt read before it.
             frozen,frozen_receipt=folder/'stem.wav',folder/'stem.json'
-            stem_key=digest({**stem_identity(p,t,key,raw_sha,frames,code_hash,cfg),'quiet':t['id'] in quiet})
+            stem_key=digest({**stem_identity(p,t,whole,raw_sha,frames,code_hash,cfg),'quiet':t['id'] in quiet})
             kept=read_json(frozen_receipt);reused=False
             usable=kept.get('key')==stem_key and isinstance(kept.get('processing'),dict) and {'reference_level_dbfs','gain_db','filter_chain'}<=set(kept['processing']) and frozen.is_file()
             if usable and (fault:=audio.take_fault(frozen,frames)):rejected['stem'],usable=fault,False  # exactly the render's frames (1.4)
@@ -537,8 +645,12 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
             else:
                 done=process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=t['id'] in quiet);stem_sha=file_hash(stem)
                 keep_stem(folder,stem,{'key':stem_key,'sha256':stem_sha,'track':t['id'],'processing':done})
+            if ears.wanted(p):
+                unplaced=output/'headphones'/'centre'
+                process_stem(p,ears.unplaced(t),clock,cfg,unplaced,raw,unplaced/'stems'/(t['id']+'.wav'),frames,quiet=t['id'] in quiet)
             expressive=read_json(folder/'layered.json') if (folder/'layered.json').is_file() else None
             heard=read_json(folder/'surge.json') if t['engine']=='surge' and (folder/'surge.json').is_file() else None
+            by_string=read_json(folder/'strung.json') if t.get('strings') and (folder/'strung.json').is_file() else None
           finally:
             if held:
                 with contextlib.suppress(OSError):
@@ -549,9 +661,12 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         if rejected:receipt_data['cache_rejected']=rejected  # a cached take or stem found unfit and made again (1.4)
         if expressive:receipt_data['expressive']=expressive
         if heard:receipt_data['surge']=heard
+        if by_string:receipt_data['strung']=by_string
         if done.get('nearly_silent'):receipt_data['nearly_silent']=True
         if done.get('automation_points'):receipt_data['automation_points']=done['automation_points']
         if done.get('stage'):receipt_data['stage']=done['stage']
+        if done.get('move'):receipt_data['move']=done['move']
+        if done.get('amp'):receipt_data['amp']=done['amp']
         if done.get('production'):receipt_data['production']=done['production']
         # Each part's own seconds (they overlap: parts run `jobs` at a time); synthesis includes the cache lookup.
         receipt_data['seconds']={'waiting':round(waited,3),'synthesis':round(synthesized-began-waited,3),'processing':round(time.monotonic()-synthesized,3)}
@@ -624,6 +739,11 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
         raise ValueError(f'Master delivery check failed: true peak {after["true_peak_dbtp"]:g} dBTP (at most {tp_max:g}), '
                          f'{after["clipped_samples"]} clipped samples, {after["frames"]} of {frames} frames')
     lap('master_check')
+    heard=None
+    if ears.wanted(p):
+        heard=ears.deliver(p,clock,cfg,output,frames)
+        audio.ffmpeg(cfg,['-i',output/'headphones.wav','-c:a','libmp3lame','-b:a','256k',output/'headphones.mp3'],output/'logs','mp3_headphones')
+        lap('headphones')
     # The files made from the master do not depend on each other and are made at once: the MP3 (and in a full bus
     # render the check that it decodes to the master's loudness), master.flac and a game loop.
     def preview():
@@ -673,16 +793,28 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet)
     if buses:checks['buses_and_returns_add_up_to_premix']=buses['adds_up_to_premix']
     if looped:checks.update(looped.pop('checks'))
     lap('sections_and_checks')
-    passed=all(checks.values())
+    passed,needs=delivered(checks,draft,tail_fails)
     report={'status':('DRAFT_PASS' if draft else 'TECHNICAL_PASS_AUDITION_PENDING') if passed else 'FAIL','title':p['title'],'version':p.get('version'),'draft':draft,'runtime_seconds':round(time.monotonic()-started,2),'stage_seconds':stages,'process_seconds':process_seconds(output/'logs'),'jobs':jobs,'project_sha256':project_key,'renderer_sha256':code_hash,'validation':validate(p),'checks':checks,'chain':chain_name,'premaster':before,'master':after,'sections':sections,'mastering':mastering,'buses':buses,'mp3':mp3,'cache_hits':sum(r['cache_hit'] for r in receipts),'stems_reused':sum(r['stem_reused'] for r in receipts),'stem_count':len(receipts),'direct_audio_listening_performed':False,'perceptual_quality':'Not certified by numeric checks; user audition pending','dependencies':{**{k:{x:v for x,v in cfg[k].items() if x!='path'} for k in ('fluidsynth','ffmpeg')},'soundfonts':{n:{x:v for x,v in f.items() if x!='path'} for n,f in used_fonts.items()}}}
     if draft:
         # The same audio as a full render; what only delivery needs is left out. Deliver a full render.
         report['left_out']=['master.flac']+(['the check that preview.mp3 decodes to the master\'s loudness'] if chain_name=='bus' else [])+(['loop.ogg and the loop layers'] if 'loop' in p else [])
+        # A draft taken up in a full render's folder: that render's files of this kind are of an earlier master, in a
+        # folder whose report now says they are left out.  They are the folder's own (the resume was let in on that),
+        # so they go, and the report says which; a full render makes them again.
+        if claim.get('earlier_delivery'):report['earlier_delivery_removed']=claim['earlier_delivery']
     if looped:report['loop']=looped
+    if not checks['tail_quiet']:
+        # the master still sounds at its end: how loud, how fast it falls, and how much longer the tail would have to be
+        report['tail']=tail_state(data)
+        if needs:report['delivery_needs']=needs
+    if heard:
+        report['headphones']=heard
+        # the headphone version's own FFmpeg runs (its parts before their places, its mix and master), in one figure
+        report['process_seconds']['headphone version']=round(report['process_seconds'].pop('mp3_headphones',0)+sum(v for d in (output/'headphones'/'logs',output/'headphones'/'centre'/'logs') for v in process_seconds(d).values()),3)
     save_json(output/'report.json',report);claim['reported']=True
     if not passed:
         failed=[k for k,ok in checks.items() if not ok]
-        advice={'tail_quiet':'the master still sounds in its last 50 ms (above -60 dBFS): give the note releases and the reverb more time with clock.tail_seconds'}
+        advice={'tail_quiet':'the master still sounds in its last 50 ms (above -60 dBFS): give the note releases and the reverb more time with clock.tail_seconds'+(('; '+tail_advice(report['tail'])) if 'tail' in report else '')}
         raise ValueError('Delivery checks failed ('+', '.join(failed)+'); '+''.join(advice[k]+'; ' for k in failed if k in advice)+f'see {output/"report.json"}')
     return report
 
@@ -690,6 +822,31 @@ def process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=False):
     """The part's raw synthesis to its processed stem: the gain to its level, filters, EQ, effects, compressor, width,
     pan or stage position and automation, then the production tools.  Returns what the receipt records of it.  With
     `quiet`, a part that barely sounds, or not at all, keeps its own level rather than stopping the render."""
+    amped=None
+    if t['mix'].get('amp'):
+        # The part's amplifier (musiclib/amp.py), on its dry synthesis before anything else: what leaves it is levelled
+        # and mixed as a synthesis is.
+        from . import amp
+        x,_=audio.read_wav(raw);y,amp_facts=amp.apply(x,t,audio.soundfont_for(cfg,t)[1] if t['engine']=='soundfont' else None);del x
+        amped=output/'stems'/f'.{t["id"]}.amp.wav';audio.write_wav(amped,y);del y;raw=amped
+    try:return _process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet,amp_facts if amped else None)
+    except BaseException as e:
+        # What failed may still hold the amplifier's file open in a frame of its traceback (a memory map of it, read
+        # for its level): Windows then refuses to remove the file.  The frames' variables are let go first.
+        import traceback
+        seen=e
+        while seen is not None:
+            if seen.__traceback__ is not None:traceback.clear_frames(seen.__traceback__)
+            seen=seen.__context__
+        raise
+    finally:
+        # the passes' own intermediate files (round a chorus: ".<part>.pass<k>.wav"), which a pass that fails leaves
+        for left in (output/'stems').glob(f'.{t["id"]}.pass*.wav'):
+            with contextlib.suppress(OSError):left.unlink()
+        if amped is not None:
+            with contextlib.suppress(OSError):amped.unlink()
+
+def _process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet,amp_facts):
     try:
         ref=audio.reference_level(raw,t['mix'].get('level_mode','active_rms')) if t['notes'] else 0
     except ValueError as e:
@@ -726,9 +883,10 @@ def process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=False):
         # uncorrelated left/right, which leaves a lead diffuse and off-centre and partly cancels in mono.
         a,b=(1+width)/2,(1-width)/2
         filters.append(f'pan=stereo|c0={a:.9f}*c0+{b:.9f}*c1|c1={b:.9f}*c0+{a:.9f}*c1')
-    depth=fx.get('depth_m')
-    # A part placed on the stage gets its pan with its early reflections (musiclib/stage.py), after the chain.
-    if depth is None:filters.append(f'pan=stereo|c0={math.sqrt(1-pan):.9f}*c0|c1={math.sqrt(1+pan):.9f}*c1')
+    depth=fx.get('depth_m');moving=fx.get('move')
+    # A part placed on the stage gets its pan with its early reflections (musiclib/stage.py), after the chain; a part
+    # that moves gets its place sample by sample (musiclib/move.py), there too.
+    if depth is None and not moving:filters.append(f'pan=stereo|c0={math.sqrt(1-pan):.9f}*c0|c1={math.sqrt(1+pan):.9f}*c1')
     filters.append(f'apad,atrim=end_sample={frames}')  # a chorus or phaser delays the signal and would lengthen the stem
     # One FFmpeg pass, or, around each chorus, a pass up to it, the chorus in NumPy on that file, and on. A later
     # pass's log takes ".pass{k}": a part id cannot hold a dot, so the label never names another part's log.
@@ -744,14 +902,19 @@ def process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=False):
         x,_=audio.read_wav(src);x,_=production.chorus(x,f[1]);audio.write_wav(src,x)
     done={'reference_level_dbfs':ref,'gain_db':gain,'filter_chain':','.join(f if isinstance(f,str) else f'chorus(depth={f[1]}, production.chorus)' for f in filters)}
     if nearly_silent:done['nearly_silent']=True
+    if amp_facts:done['amp']=amp_facts
     points=fx.get('automation',[])
     ride=any(v for _,v in points)
-    if ride or depth is not None or production.wanted(t):
-        # In NumPy on the stem read once: the automation (where the FFmpeg chain had it, after the pan), the stage
-        # position, then the sweeps, saturation, gates, tempo-synced delays and ducking (musiclib/production.py).
+    if ride or depth is not None or moving or production.wanted(t):
+        # In NumPy on the stem read once: the automation (where the FFmpeg chain had it, after the pan), the movement
+        # or the stage position, then the sweeps, saturation, gates, tempo-synced delays and ducking
+        # (musiclib/production.py).
         x,_=audio.read_wav(stem)
         if ride:
             x=audio.automated(x,points,clock);done['automation_points']=len(points)
+        if moving:
+            from . import move
+            x,done['move']=move.apply(x,moving,pan,clock)
         if depth is not None:
             x,placed=stage.place(x,pan,depth,fx.get('facing','front'))
             if placed:done['stage']={'depth_m':depth,'facing':fx.get('facing','front'),**placed}

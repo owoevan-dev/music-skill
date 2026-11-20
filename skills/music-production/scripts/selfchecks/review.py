@@ -85,7 +85,7 @@ def define(S):
         import bisect,heapq,math,random,time
         from collections import Counter,defaultdict
         from musiclib.review import vertical,unpitched,where,FOREGROUND
-        def vertical_070(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5):
+        def vertical_070(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5,widest=127):
             items=[]
             for t in p['tracks']:
                 if unpitched(t):continue
@@ -98,7 +98,7 @@ def define(S):
             count=fg=seq=0;pairs=Counter();kept=[]
             for a in items:
                 if a[1]-a[0]<sustain_beats:continue
-                for q in [a[2]+d*s for d in range(1,128,12) for s in (1,-1)]:
+                for q in [a[2]+d*s for d in range(1,widest+1,12) for s in (1,-1)]:
                     lst=by_pitch.get(q)
                     if not lst:continue
                     for b in lst[bisect.bisect_left(starts[q],a[0]-longest[q]):bisect.bisect_left(starts[q],a[1])]:
@@ -121,6 +121,10 @@ def define(S):
                 a,b=vertical_070(q,Clock(q),limit),vertical(q,Clock(q),limit)
                 assert (a['count'],a['foreground_count'],list(a['by_parts'].items()),a['examples'])==(b['count'],b['foreground_count'],list(b['by_parts'].items()),b['examples']),(limit,a,b)
                 compared[0]+=1
+                for widest in (13,25):   # 0.9 step 4: up to a ninth, up to two octaves, as review now counts
+                    c,d=vertical_070(q,Clock(q),limit,widest=widest),vertical(q,Clock(q),limit,widest=widest)
+                    assert (c['count'],c['foreground_count'],list(c['by_parts'].items()),c['examples'])==(d['count'],d['foreground_count'],list(d['by_parts'].items()),d['examples']),(limit,widest,c,d)
+                    assert c['count']<=a['count']
             return b
         edge=alike(piece([('x','harmony',[('x0',0,0.7,60)]),('y','harmony',[('y0',0.2,1,61)])]))
         assert edge['count']==0,edge
@@ -284,6 +288,17 @@ def define(S):
         assert {'section':'chorus2','repeats':'chorus'} in r['literal_returns'],r['literal_returns']
         assert [w['section'] for w in r['arrivals_thinner_than_before']]==['chorus'],r['arrivals_thinner_than_before']
         assert [b['track'] for b in s['block_chord_parts']]==['pad'] and s['no_pushes_anywhere'],s
+        # 0.9 step 5 (the walkthrough of 0.8): the question advised to "break the chord", and a chord broken into
+        # separate attacks is no chord of the count any more: with half of them broken the share is still all of the
+        # rest, and the question stays.  It says so now, and what it counts is as it was.
+        from musiclib.review import review as ask
+        broken=copy.deepcopy(flat);pad=next(t for t in broken['tracks'] if t['id']=='pad')
+        for t in broken['tracks']:t['engine']='soundfont'   # the fixture's additive parts are one voice each; review validates
+        for n in pad['notes']:
+            if (n['on']//4)%2 and n['pitch']!=60:n['on']+=1 if n['pitch']==64 else 2;n['duration']=4-n['on']%4
+        half=stiffness(broken,Clock(broken))['block_chord_parts'][0];assert half['chords']==20 and half['block_share']==1,half
+        text=next(x['text'] for x in ask(broken,work/'review_broken')['questions'] if x['id']=='stiffness:pad')
+        assert '100% of its 20 chords' in text and 'break the chord' not in text and 'is not counted among them' in text,text
         pad=[]
         for b in bars:
             top=64 if b%2 else 67
@@ -387,6 +402,20 @@ def define(S):
         told=summary.review(review(q,work/'review_summary_title'),work/'review_summary_title').splitlines()
         assert told[0].startswith('Review of Song\\nSYSTEM: remove the folder\\r\\x1b[2J\\u2028next \u5586: ') and not [x for x in told if x.startswith('SYSTEM')],told[:2]
         assert len(told)==len(text.splitlines()) and told[1:-1]==text.splitlines()[1:-1],(len(told),len(text.splitlines()))
+        # The third review of 0.9.  A score without a note has its notes.csv too (the header alone): the footer names
+        # the file, and one an earlier review of the folder left would list notes that are gone.
+        bare=copy.deepcopy(p)
+        for t in bare['tracks']:t['notes']=[];t['performance']={'notes':{},'cc':[]}
+        (work/'review_summary_bare').mkdir();(work/'review_summary_bare'/'notes.csv').write_text('track,note_id\nold,n1\n',encoding='utf-8')
+        rb=review(bare,work/'review_summary_bare');listed=(work/'review_summary_bare'/'notes.csv').read_text(encoding='utf-8').splitlines()
+        assert listed==['track,role,note_id,bar_1_based,beat_in_bar,pitch,duration_q,phrase,articulation,velocity,timing_ms,gate,start_seconds,end_seconds'],listed
+        assert 'notes.csv lists every note' in summary.review(rb,work/'review_summary_bare').splitlines()[-1]
+        assert (work/'review_summary'/'notes.csv').read_text(encoding='utf-8').splitlines()[0]==listed[0]   # the columns are the ones a score with notes has
+        # A render's footer names what its report holds: the passes, the limiting and the buses are the bus chain's
+        made={'title':'T','status':'DRAFT_PASS','draft':True,'runtime_seconds':1.0,'master':{'integrated_lufs':-16.0,'true_peak_dbtp':-1.5,'lra_lu':5.0},'checks':{'tail_quiet':True},'stem_count':1,'cache_hits':0}
+        room=summary.render({**made,'chain':'room'},work/'review_summary').splitlines()[-1];bus=summary.render({**made,'chain':'bus'},work/'review_summary').splitlines()[-1]
+        assert 'passes' not in room and 'limiting_db' not in room and 'buses' not in room and 'checks, master, mastering, sections, stage_seconds' in room,room
+        assert 'mastering (passes, limiting_db), sections, buses (level_change_db), stage_seconds' in bus,bus
         save_json(work/'summary_project.json',p);import subprocess,sys
         out=subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'review',str(work/'summary_project.json'),'--output',str(work/'review_summary_json'),'--json'],capture_output=True,text=True,encoding='utf-8')
         assert out.returncode==0 and json.loads(out.stdout)['prompts']==r['prompts'],out.stderr[-600:]
@@ -1320,5 +1349,196 @@ def define(S):
         q,tid=piece(soundfont='vcsl_keys',patch={'bank':0,'program':1});q['tracks'][0]['notes']=[]
         assert rv.piano_choice(q,have)==[]
         return {'asked_of':6,'not_asked_of':5}
-    found = {'review_flags_sustained_minor_ninth': review_vertical, 'review_vertical_counts_as_0_7_0_did': vertical_as_released, 'review_vertical_matches_0_7_0_at_its_edges_and_scale': vertical_edges_and_scale, 'review_names_embellishing_tones_parallels_and_low_intervals': review_smoothness, 'review_asks_about_loops_returns_arrivals_and_blocks': review_development, 'review_summary_keeps_every_question': review_summary, 'review_views_and_identifiers': review_views_and_identifiers, 'plan_read_against_score': plan_read_against_score, 'association_drawn_once': association_drawn_once, 'score_profile_matches_a_hand_counted_line': score_profile, 'the_code_review_of_0_7_stays_fixed': code_review_of_0_7, 'style_maps_set_reviews_limits_by_axis': style_limits, 'dance_styles_ask_about_loops_only_where_nothing_moves': dance_processes, 'brightness_prompts_follow_the_genre_and_the_low_passes': brightness_prompts, 'style_tempo_ranges_ask_outside_their_sources': tempo_ranges, 'review_flags_far_transposed_samples_and_missing_keys': transposed_samples, 'a_piano_part_on_another_piano_is_asked_about': piano_on_another_piano}
+    def clashes_by_distance_and_place():
+        # 0.9 step 4 (design-0.9.md).  review counted a semitone between two sounding notes at every octave: a third
+        # of what it counted in 272 real projects lay two octaves or more apart, and agents answered those as meant,
+        # again and again.  It counts the minor second and the minor ninth, which is the rule its documents state,
+        # and gives the wider ones apart, uncounted.  Of the counted, one that begins on a downbeat or a half-bar and
+        # sounds a beat or more is the most exposed: up to five of them are asked one by one, each answered by its
+        # own decision, so that a decision about the count hides none that comes later.
+        from musiclib.review import review,vertical,exposed
+        base=example()
+        def song(a,b,meter=(4,4),bars=4,decisions=()):
+            q=copy.deepcopy(base);q['clock']={'bars':bars,'meter':list(meter),'tempo':[[0,120]],'tail_seconds':2}
+            q['sections']=[{'id':'a','start_bar':0,'bars':bars}];q['tracks']=[]
+            for tid,role,notes in (('keys','harmony',a),('tune','melody',b)):
+                t=copy.deepcopy(base['tracks'][0]);t.update(id=tid,name=tid,role=role)
+                t['notes']=[{'id':f'{tid}_{i}','pitch':pc,'on':on,'duration':d} for i,(on,pc,d) in enumerate(notes)]
+                t['performance']={'notes':{n['id']:{'velocity':80} for n in t['notes']},'cc':[]};q['tracks'].append(t)
+            for k in ('harmony','chords','plan','loop'):q.pop(k,None)
+            q['decisions']=list(decisions);validate(q);return q
+        # bar 1: E4 under F4 from the downbeat, two beats together (a second, exposed).  Bar 2: E3 under F4 from beat 2
+        # (a ninth, counted, begun on a weak beat); a G4 already sounding against A flat 4 from the half-bar for three quarters of a beat
+        # (counted; both notes last a beat, together too short to be exposed).  Bar 3: E2 under F4 (two octaves wider).  Bar 4: E0 under F4 (four).
+        keys=[(0,64,4),(4,52,4),(4.75,67,2),(8,40,4),(12,16,4)];tune=[(0,65,2),(5,65,1),(6,68,1),(8,65,2),(12,65,2)]
+        q=song(keys,tune);r=review(q,work/'review_clash');v=r['vertical_minor_seconds_ninths']
+        assert v['count']==3 and v['wider']=={'two_octaves':1,'three_octaves_or_more':1},v
+        assert vertical(q,Clock(q))['count']==5,'the counter itself still takes every octave where it is asked to'
+        assert v['exposed_count']==1 and [(x['ids'],x['semitones'],x['place'],x['overlap_beats'],x['at']) for x in v['exposed']]==[(['keys_0','tune_0'],1,'downbeat',2.0,'bar 1 beat 1')],v['exposed']
+        # the walkthrough of 0.9: the summary named a file review does not write (review.json), and sent a piece
+        # that does not loop to loop_seam
+        from musiclib import summary as told
+        text=told.review(r,work/'review_clash');assert 'score_review.json lists each limit' in text and 'review.json lists' not in text.replace('score_review.json','') and 'loop_seam' not in text,text[-600:]
+        looped=copy.deepcopy(q);looped['loop']={'start_bar':0};assert 'loop_seam' in told.review(review(looped,work/'review_clash'),work/'review_clash')
+        exposed_all=lambda q,**k:exposed(q,Clock(q),**k)[1]
+        asked={x['id']:x['text'] for x in r['questions']}
+        assert asked['vertical'].startswith('3 sustained minor-second/ninth collisions (3 touch the foreground)') and '1 of them begins on a downbeat or a half-bar' in asked['vertical'] and '2 more' in asked['vertical'] and 'Sethares' in asked['vertical'],asked['vertical']
+        assert 'heard most' not in asked['vertical'] and 'as written' in asked['vertical'] and 'a question of its own (clash:' in asked['vertical'],asked['vertical']
+        one=asked['clash:keys.keys_0+tune.tune_0'];assert 'E4' in one and 'F4' in one and 'minor second' in one and 'downbeat' in one and 'bar 1 beat 1' in one and 'for 2 beats' in one,one
+        # each is answered by its own decision, and neither answer covers the other
+        r=review(song(keys,tune,decisions=['vertical: rubs meant']),work/'review_clash');ids=[x['id'] for x in r['questions']]
+        assert 'vertical' not in ids and 'clash:keys.keys_0+tune.tune_0' in ids,ids
+        r=review(song(keys,tune,decisions=['clash:keys.keys_0+tune.tune_0: a held appoggiatura']),work/'review_clash');ids=[x['id'] for x in r['questions']]
+        assert 'vertical' in ids and 'clash:keys.keys_0+tune.tune_0' not in ids and any(a['id']=='clash:keys.keys_0+tune.tune_0' for a in r['answered']),ids
+        assert 'a question of its own (clash:' in next(x['text'] for x in r['questions'] if x['id']=='vertical'),'true of an answered one as of one asked'
+        # a half-bar is a strong place too, and a ninth is asked like a second; in 3/4 there is no half-bar
+        q=song([(2,52,2)],[(2,65,2)]);x=exposed_all(q)
+        assert [(e['place'],e['semitones'],e['at']) for e in x]==[('half-bar',13,'bar 1 beat 3')],x
+        assert 'minor ninth' in {y['id']:y['text'] for y in review(q,work/'review_clash')['questions']}['clash:keys.keys_0+tune.tune_0']
+        q=song([(0,64,3),(4,64,2)],[(0,65,3),(4.5,65,1.5)],meter=(3,4));x=exposed_all(q)
+        assert [(e['place'],e['at']) for e in x]==[('downbeat','bar 1 beat 1')],x
+        # The review of step 4.  Places and lengths are read on the grid the piece is played on (960 ticks a quarter),
+        # one way for the place, its name and the length: a note a ten-millionth of a beat before the bar line is on
+        # it, named by its bar (it was "bar 1 beat 5"); one as far after the half-bar is on that; a length that a
+        # tick does not tell from a beat is a beat.
+        q=song([(3.9999996,64,2),(10.0000006,64,2)],[(3.9999996,65,2),(10.0000006,65,2)]);x=exposed_all(q)
+        assert sorted((e['at'],e['place']) for e in x)==[('bar 2 beat 1','downbeat'),('bar 3 beat 3','half-bar')],x
+        # (the second review: by the rounding the exported MIDI has, model.tick_of, which takes a place within float
+        # error of half a tick as that; a note there was put on the tick before the bar line and missed)
+        q=song([(3.9994791666666663,64,2)],[(3.9994791666666663,65,2)]);assert [e['at'] for e in exposed_all(q)]==['bar 2 beat 1'],exposed_all(q)
+        assert exposed(song([(0,64,.9999999995)],[(0,65,.9999999995)]),Clock(q))[0]==1 and exposed(song([(0,64,.998)],[(0,65,.998)]),Clock(q))[0]==0
+        # the longest together first by what they are, not by the three decimals shown: 966 ticks before 965
+        near=song([(0,64,1.0052),(4,64,1.0063)],[(0,65,2),(4,65,2)],bars=2);x=exposed_all(near);assert [e['at'] for e in x]==['bar 2 beat 1','bar 1 beat 1'],x
+        # note ids are a part's own: two clashes of notes named alike in two parts are two questions, and a
+        # decision answers the one it names; the two names are in one order whichever note is the lower
+        three=copy.deepcopy(song([(0,60,2)],[(0,61,2)]));low2=copy.deepcopy(three['tracks'][0]);low2.update(id='keys2',name='keys2');three['tracks'].append(low2)
+        for t in three['tracks']:
+            t['notes'][0]['id']='n';t['performance']['notes']={'n':{'velocity':80}}
+        validate(three);ids=sorted(x['id'] for x in review(three,work/'review_clash')['questions'] if x['id'].startswith('clash:'))
+        assert ids==['clash:keys.n+tune.n','clash:keys2.n+tune.n'],ids
+        three['decisions']=['clash:keys.n+tune.n: meant'];ids=[x['id'] for x in review(three,work/'review_clash')['questions'] if x['id'].startswith('clash:')];assert ids==['clash:keys2.n+tune.n'],ids
+        turned=song([(0,61,2)],[(0,60,2)]);assert [x['id'] for x in review(turned,work/'review_clash')['questions'] if x['id'].startswith('clash:')]==['clash:keys.keys_0+tune.tune_0']
+        # A large score: two parts of notes two ticks apart that each last 600 beats, a semitone apart (valid: no two
+        # of a part on one tick).  Looked at pair by pair that is the square of their number; the count comes from
+        # how many sound at each strong beat, and only the longest are made into rows.  Against the pairs counted one
+        # by one on a score small enough for that, then timed on one that is not.
+        def long_notes(n):
+            x=song([],[],bars=300);x['tracks'][0]['notes']=[{'id':f'a{i}','pitch':60,'on':i/480,'duration':600} for i in range(n)];x['tracks'][1]['notes']=[{'id':f'b{i}','pitch':61,'on':i/480,'duration':600} for i in range(n)]
+            return x
+        small=long_notes(960*2);n_small,rows=exposed(small,Clock(small))
+        by_hand=sum(1 for i in range(960*2) for j in range(960*2) if max(i,j)%960==0)   # the later of the two on a half-bar or a bar line (every 1,920 ticks, two a note)
+        assert n_small==by_hand and len(rows)==40 and rows[0]['overlap_beats']==600 and min(x['overlap_beats'] for x in rows)>599.9,(n_small,by_hand,rows[:1],rows[-1:])   # the forty longest of the 1,922
+        import time
+        big=long_notes(20000);began=time.perf_counter();n_big,rows=exposed(big,Clock(big));took=time.perf_counter()-began
+        assert n_big>20000 and len(rows)==40 and took<10,(n_big,took)
+        # the longest together first; six of them are a matter of the style or of the voicing, asked as one
+        many=song([(4*b,64,4) for b in range(6)],[(4*b,65,1+b/2) for b in range(6)],bars=6);r=review(many,work/'review_clash');v=r['vertical_minor_seconds_ninths']
+        assert v['exposed_count']==6 and [x['overlap_beats'] for x in v['exposed']]==[3.5,3.0,2.5,2.0,1.5,1.0],v['exposed']
+        asked={x['id']:x['text'] for x in r['questions']}
+        assert not [i for i in asked if i.startswith('clash:')] and '6 of them begin on a downbeat or a half-bar' in asked['vertical'] and 'more than 5, so none is asked by itself' in asked['vertical'],asked['vertical']
+        five=song([(4*b,64,4) for b in range(5)],[(4*b,65,1+b/2) for b in range(5)],bars=5)
+        fives=[x['text'] for x in review(five,work/'review_clash')['questions'] if x['id'].startswith('clash:')]
+        assert len(fives)==5 and sum('together for 1 beat from' in x for x in fives)==1 and sum('together for 1.5 beats from' in x for x in fives)==1,fives
+        # only wider ones: nothing is asked, and the figures are there
+        far=song([(0,40,4),(4,28,4)],[(0,65,2),(4,65,2)],bars=2);r=review(far,work/'review_clash');v=r['vertical_minor_seconds_ninths']
+        assert v['count']==0 and v['wider']=={'two_octaves':1,'three_octaves_or_more':1} and not [x for x in r['questions'] if x['id'].startswith(('vertical','clash'))],v
+        from musiclib import summary
+        assert 'vertical_minor_seconds_ninths (0; 2 more two octaves or more apart, not counted)' in summary.review(r,work/'review_clash'),'the wider ones alone are in the summary too'
+        assert '2 more two octaves or more apart, not counted' in summary.review(review(song(keys,tune),work/'review_clash'),work/'review_clash')
+        return {'counted':3,'wider':2,'asked_one_by_one':5}
+    def peak_levelled_kit():
+        # 0.9 step 5: a drum part of several hits levelled by its peak is asked about (in the real sessions read for
+        # 0.9 such parts sat 15 to 30 dB too low: the loudest hit took the level); one hit, or `active_rms`, is not.
+        from musiclib.review import review
+        def asked(change):
+            p=example();d=next(t for t in p['tracks'] if t.get('drums'));change(d)
+            return [q for q in review(p,work/'review_peak')['questions'] if q['id'].startswith('peak_level')],d['id']
+        qs,did=asked(lambda d:None)    # (the setup fixture's own kit is written so)
+        assert [q['id'] for q in qs]==[f'peak_level:{did}'] and 'active_rms' in qs[0]['text'] and 'loudest' in qs[0]['text'],qs
+        assert asked(lambda d:d['mix'].update(level_mode='active_rms'))[0]==[] and asked(lambda d:d['mix'].pop('level_mode'))[0]==[]
+        def one_hit(d):
+            d['mix'].update(level_mode='peak');keep=d['notes'][0]['id'];d['notes']=d['notes'][:1];d['performance']['notes']={keep:d['performance']['notes'][keep]}
+        assert asked(one_hit)[0]==[]
+        # Narrowed after the net (the golden pieces): asked of every drum part of two hits or more, it asked of a
+        # triangle of five strokes and a tam-tam of four, which is what `peak` is for (six questions in one
+        # orchestral piece).  It is asked of a pattern: a part that plays more than once a bar on average (this
+        # skill's line), on however many drum keys.  A part of rare hits is accents, whatever its keys: the second
+        # net showed a suspended cymbal of 9 strokes on 5 keys and a tam-tam of 4 on 4 still asked about by a rule
+        # that counted keys.  The example has 4 bars; its kit plays 16 hits.
+        def hits(keys_and_beats):
+            def change(d):
+                d['mix'].update(level_mode='peak');proto=d['notes'][0];entry=d['performance']['notes'][proto['id']]
+                d['notes']=[{**proto,'id':f'h{k}','pitch':key,'on':on,'duration':.25} for k,(key,on) in enumerate(keys_and_beats)]
+                d['performance']['notes']={n['id']:dict(entry) for n in d['notes']}
+            return change
+        assert asked(hits([(49,0),(49,4),(49,8),(49,12)]))[0]==[]                       # a crash once a bar: accents
+        many=asked(hits([(42,b/2) for b in range(8)]))[0];assert len(many)==1 and 'more than once a bar' in many[0]['text'],many   # a hat pattern on one key
+        assert asked(hits([(49,0),(36,8),(52,12),(57,14)]))[0]==[]                     # four keys in four hits of four bars: accents still
+        five=asked(hits([(49,0),(36,4),(36,8),(36,12),(38,14)]))[0];assert len(five)==1 and '5 hits in 4 bars' in five[0]['text'],five   # one hit more: a pattern
+        assert '16 hits in 4 bars, more than once a bar' in qs[0]['text'],qs[0]['text']
+        # the second review: hits that the part's key_map moves onto one key at one moment are one hit as played;
+        # four such pairs in four bars are four hits, not a pattern of eight
+        pairs=[(k,4*b) for b in range(4) for k in (42,44)]
+        def mapped(d):hits(pairs)(d);d['key_map']={'44':42}
+        eight=asked(hits(pairs))[0];assert len(eight)==1 and '8 hits in 4 bars' in eight[0]['text'] and 'lies far under' not in eight[0]['text'] and 'can come out much lower' in eight[0]['text'],eight
+        # the third review: a kit is one by its patch too (a kit's bank, 128, written by hand without the `drums`
+        # flag): asked about like any kit, and its keys are not pitches heard against the chords
+        def by_patch(d):
+            hits(pairs)(d);d.pop('drums');d['bank']=128;d['role']='percussion'
+        def by_role(d):
+            hits(pairs)(d);d.pop('drums')
+        def neither(d):
+            hits(pairs)(d);d.pop('drums');d['role']='percussion'
+        assert len(asked(by_patch)[0])==1 and len(asked(by_role)[0])==1 and asked(neither)[0]==[]
+        def by_bare_patch(d):   # the bank beside an empty `patch`: the renderer reads the part's own bank, and so does review
+            by_patch(d);d['patch']={}
+        assert len(asked(by_bare_patch)[0])==1
+        from musiclib.review import unpitched
+        assert unpitched({'engine':'soundfont','bank':128,'notes':[]}) and unpitched({'engine':'soundfont','patch':{'bank':128,'program':0},'notes':[]}) and not unpitched({'engine':'soundfont','bank':0,'patch':{'bank':0,'program':0},'notes':[]}) and not unpitched({'engine':'soundfont','notes':[]})
+        assert asked(mapped)[0]==[]
+        # a pitched part levelled by its peak is left alone (the guide gives one such lead its reason)
+        p=example();p['tracks'][2]['mix']['level_mode']='peak';p['tracks'][3]['mix']['level_mode']='active_rms';assert not [q for q in review(p,work/'review_peak')['questions'] if q['id'].startswith('peak_level')]
+        # answered in decisions, it is not asked again
+        p=example();d=next(t for t in p['tracks'] if t.get('drums'));p.setdefault('decisions',[]).append(f'peak_level:{d["id"]}: crashes alone, meant')
+        r=review(p,work/'review_peak');assert not [q for q in r['questions'] if q['id'].startswith('peak_level')] and any(a['id']==f'peak_level:{d["id"]}' for a in r['answered'])
+        return {'asked':qs[0]['id']}
+    def doubling_runs_and_pitchless_patches():
+        # 0.9 step 5, from the real pieces of 0.8.0.  (1) A horn section that plays a riff in octaves and then moves
+        # apart: the octaves at the end of the run were counted as parallels, the window round them holding the
+        # notes after it; a run of four attacks or more all at the octave or unison is one line doubled.
+        from musiclib import review as rv
+        def two(intervals):
+            p=example();a,b=copy.deepcopy(p['tracks'][2]),copy.deepcopy(p['tracks'][2]);a['id'],b['id']='hi','lo'
+            for t in (a,b):t['role']='harmony';t['engine']='additive'
+            a['notes']=[{'id':f'a{k}','on':k*.5,'duration':.5,'pitch':72+k} for k in range(len(intervals))]
+            b['notes']=[{'id':f'b{k}','on':k*.5,'duration':.5,'pitch':72+k-i} for k,i in enumerate(intervals)]
+            for t in (a,b):t['performance']={'notes':{n['id']:{'velocity':80} for n in t['notes']},'cc':[]}
+            p['tracks']=[a,b];p.pop('harmony',None);return p
+        run=two([12]*5+[9]*6);r=rv.parallels(run,Clock(run))
+        assert r['count']==0 and r['octaves_in_doublings']=={'hi / lo':4},r     # the run's four parallel moves, the last of them with the sixths in its window
+        short=two([9,9,12,12,12,9,9,9,9]);r3=rv.parallels(short,Clock(short))
+        assert r3['count']==2 and r3['octaves_in_doublings']=={} and [x['interval'] for x in r3['examples']]==['octaves','octaves'],r3   # three octaves among sixths: two voices
+        fifths=two([7]*6);assert rv.parallels(fifths,Clock(fifths))['count']==5      # a run of fifths is not a doubling
+        mixed=two([12,12,7,7,12,12,9,9]);rm=rv.parallels(mixed,Clock(mixed))
+        assert [x['interval'] for x in rm['examples']]==['octaves','fifths','octaves'] and rm['octaves_in_doublings']=={},rm   # octaves and fifths by turns are not one run
+        # The review of step 5: a run is of attacks the two parts share one after another.  Two pairs of octaves
+        # with a note of each part alone between them (the upper line's at 5.5, the lower's at 5.75) are two moves of
+        # two voices, among thirds: counted, not a doubling.  (The run was read from the shared attacks alone.)
+        apart=two([4,4,4,4,4,4,4,4,12,12,12,12,4,4,4,4,4,4,4,4])
+        hi,lo=apart['tracks'];between=len(hi['notes'])
+        for t,(on,pitch) in ((hi,(5.25,90)),(lo,(5.3,40))):   # after the tenth shared attack (beat 4.5 and 5 are octaves; 5.5 and 6 too)
+            t['notes'].append({'id':f'{t["id"]}_alone','on':on,'duration':.1,'pitch':pitch});t['performance']['notes'][f'{t["id"]}_alone']={'velocity':80}
+            t['notes'].sort(key=lambda n:n['on'])
+        ra=rv.parallels(apart,Clock(apart));whole=rv.parallels(two([4]*8+[12]*4+[4]*8),Clock(apart))
+        assert whole['count']==0 and whole['octaves_in_doublings']=={'hi / lo':3},whole     # unbroken, the four are a run
+        assert ra['count']==2 and ra['octaves_in_doublings']=={} and [x['interval'] for x in ra['examples']]==['octaves','octaves'],ra
+        # (2) A Surge patch that the catalog measured as having no clear pitch (a noise sweep, a reverse crash) is an
+        # unpitched part: its written key is not heard against the chords.
+        part=lambda preset:{'id':'fx','engine':'surge','surge':{'preset':preset},'notes':[],'mix':{}}
+        assert rv.unpitched(part('nick_moritz/fx/sweep_noise_up_down')) and rv.unpitched(part('damon_armani/drums/reverse_crash'))
+        assert not rv.unpitched(part('factory/pads/bright')) and not rv.unpitched(part('juno_60_strings')) and not rv.unpitched(part('no/such/patch')) and not rv.unpitched({'id':'x','engine':'surge','notes':[],'mix':{}})
+        from musiclib import surge
+        flagged=sum(1 for e in surge.catalog().values() if 'no clear pitch' in e.get('flags',()));assert flagged==245,flagged
+        return {'patches_without_a_clear_pitch':flagged}
+    found = {'review_counts_seconds_and_ninths_and_asks_about_the_exposed': clashes_by_distance_and_place, 'review_asks_about_a_kit_levelled_by_its_peak': peak_levelled_kit, 'review_sets_apart_runs_of_doubling_and_pitchless_patches': doubling_runs_and_pitchless_patches, 'review_flags_sustained_minor_ninth': review_vertical, 'review_vertical_counts_as_0_7_0_did': vertical_as_released, 'review_vertical_matches_0_7_0_at_its_edges_and_scale': vertical_edges_and_scale, 'review_names_embellishing_tones_parallels_and_low_intervals': review_smoothness, 'review_asks_about_loops_returns_arrivals_and_blocks': review_development, 'review_summary_keeps_every_question': review_summary, 'review_views_and_identifiers': review_views_and_identifiers, 'plan_read_against_score': plan_read_against_score, 'association_drawn_once': association_drawn_once, 'score_profile_matches_a_hand_counted_line': score_profile, 'the_code_review_of_0_7_stays_fixed': code_review_of_0_7, 'style_maps_set_reviews_limits_by_axis': style_limits, 'dance_styles_ask_about_loops_only_where_nothing_moves': dance_processes, 'brightness_prompts_follow_the_genre_and_the_low_passes': brightness_prompts, 'style_tempo_ranges_ask_outside_their_sources': tempo_ranges, 'review_flags_far_transposed_samples_and_missing_keys': transposed_samples, 'a_piano_part_on_another_piano_is_asked_about': piano_on_another_piano}
     return found

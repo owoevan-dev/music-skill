@@ -21,12 +21,15 @@ def collides(track,first,clock,struck,gap=0.0):
     h=next((n for n in track['notes'] if n['id']==first),None)
     if h is None:return False
     for n in track['notes']:
-        if n is h or n['pitch']!=h['pitch'] or struck[n['id']]<=struck[h['id']]:continue
+        # its key, or on a part played by string its string, which sounds one note at a time as a key does
+        same=n['pitch']==h['pitch'] or (h.get('string') is not None and n.get('string')==h.get('string'))
+        if n is h or not same or struck[n['id']]<=struck[h['id']]:continue
         pair={**track,'notes':[h,n],'performance':{**track['performance'],'notes':{k:track['performance']['notes'][k] for k in (h['id'],n['id'])}}}
         try:
             played={x['id']:x['start_seconds'] for x in performed(pair,clock,True)};performed(pair,clock,False)
         except ValueError:return True
-        if abs(played[n['id']]-played[h['id']])<=gap+1e-9:return True
+        # (within `gap` only a strike of the same key doubles it; another pitch on its string simply follows it)
+        if n['pitch']==h['pitch'] and abs(played[n['id']]-played[h['id']])<=gap+1e-9:return True
     return False
 
 def crop(points,start,end,bend=False):
@@ -74,7 +77,8 @@ def extract(p,first_bar,bars):
     q=copy.deepcopy(p);clock=Clock(p);start=(first_bar-1)*clock.beats_per_bar;end=start+bars*clock.beats_per_bar
     q['clock']['bars']=bars
     bpm=next(bpm for beat,bpm in reversed(p['clock']['tempo']) if beat<=start)
-    q['clock']['tempo']=[[0,bpm]]+[[beat-start,bpm] for beat,bpm in p['clock']['tempo'] if start<beat<end]
+    # a tempo point at the passage's end is kept: its tail runs at the tempo the piece goes on at
+    q['clock']['tempo']=[[0,bpm]]+[[beat-start,bpm] for beat,bpm in p['clock']['tempo'] if start<beat<=end]
     q['sections']=[]
     for sec in p['sections']:
         a=max(first_bar-1,sec['start_bar']);b=min(first_bar-1+bars,sec['start_bar']+sec['bars'])
@@ -93,7 +97,7 @@ def extract(p,first_bar,bars):
         # The piece's ritardandi that reach into the passage, as spans in its beats, so it keeps the piece's tempo as
         # played: one into a section boundary at or after its end, one begun before its first bar, the close where
         # the passage reaches it.  Its own sections would put a boundary at neither edge.
-        spans=[[round(a-start,6),round(b-start,6),w] for a,b,w in rubato_spans(p) if a<end and b>start]
+        spans=[[round(a-start,6),round(b-start,6),w] for a,b,w in rubato_spans(p) if a<=end and b>start]   # (one that begins on the passage's last beat sets its tail's tempo where a point is written there)
         if spans:q['clock']['rubato']={'spans':spans,**({'q':rubato['q']} if 'q' in rubato else {})}
     excerpt_clock=Clock(q)
     held={};moved={};struck={};cut=round(start*TPQ);stop=round(end*TPQ)
@@ -142,7 +146,7 @@ def extract(p,first_bar,bars):
             if on<cut and w['end_tick']<=cut and a0<cut:continue
             # (A note a later strike of its key cut short in the piece takes the boundary's way too, so it ends where it
             # ended even where that strike is not in the passage.)
-            if (start<=n['on'] and n['on']+n['duration']<=end and cut<=a0 and a1<=stop and not played[n['id']].get('retrigger_trimmed')
+            if (start<=n['on'] and n['on']+n['duration']<=end and cut<=a0 and a1<=stop and not played[n['id']].get('retrigger_trimmed') and not played[n['id']].get('string_ended')
                     and not early_whole):
                 a=n['on']-start;d=n['duration']
                 if not (a<=length-1/TPQ and 1/TPQ<=d and a+d<=length+1e-9):
@@ -340,6 +344,14 @@ def extract(p,first_bar,bars):
                 if a<=beat<=b:return x+(y-x)*(clock.seconds(beat)-clock.seconds(a))/(clock.seconds(b)-clock.seconds(a))
             return points[-1][1]
         if points:t['mix']['automation']=[[0,value_at(start)]]+[[beat-start,v] for beat,v in points if start<beat<end]+[[end-start,value_at(end)]]
+        if t['mix'].get('move'):
+            # A movement goes on where the piece's stands at the cut: a path keeps the places it has at both ends, a
+            # swing its phase (as the rhythmic gate below).
+            from musiclib import move
+            t['mix']['move']=move.excerpt(t['mix']['move'],t['mix'].get('pan',0),start,end,clock)
+        if t['mix'].get('around') is not None:
+            from musiclib import ears
+            t['mix']['around']=ears.excerpt(t['mix']['around'],t['mix'].get('pan',0),start,end,clock)
         perf=t['performance']
         if perf.get('dynamics'):perf['dynamics']=crop(perf['dynamics'],start,end)
         if perf.get('bend'):
@@ -369,6 +381,25 @@ def extract(p,first_bar,bars):
         early={n['id'] for n in t['notes'] if n['id'] not in held[t['id']] and order[n['id']]<cut}|moved[t['id']]
         drop=({h for h in held[t['id']] if collides(t,h,excerpt_clock,order,REATTACK_GAP_S)}
               |{e for e in early if collides(t,e,excerpt_clock,order)})
+        if drop:
+            t['notes']=[n for n in t['notes'] if n['id'] not in drop]
+            t['performance']['notes']={k:v for k,v in t['performance']['notes'].items() if k not in drop}
+    # A part played by string is written as its strings let it sound (musiclib/strung.py), and the passage's notes were
+    # placed above by where they played: of two strokes of a string that came onto one tick the one struck later in the
+    # piece stays (it had ended the other), and a note written past its string's next note is written to it, its gate
+    # raised by as much, so that it still plays to that stroke.
+    for t in q['tracks']:
+        if not t.get('strings'):continue
+        order=struck[t['id']];strings={};drop=set()
+        for n in sorted(t['notes'],key=lambda n:(tick_of(n['on']),order[n['id']])):strings.setdefault(n['string'],[]).append(n)
+        for own in strings.values():
+            for a,b in zip(own,own[1:]):
+                if tick_of(a['on'])==tick_of(b['on']):drop.add(a['id'])
+            own=[n for n in own if n['id'] not in drop]
+            for a,b in zip(own,own[1:]):
+                if tick_of(a['on']+a['duration'])>tick_of(b['on']):
+                    to=max(b['on']-a['on'],1/TPQ);e=t['performance']['notes'][a['id']]
+                    e['gate']=min(1.6,max(.05,e.get('gate',1)*a['duration']/to));a['duration']=to
         if drop:
             t['notes']=[n for n in t['notes'] if n['id'] not in drop]
             t['performance']['notes']={k:v for k,v in t['performance']['notes'].items() if k not in drop}

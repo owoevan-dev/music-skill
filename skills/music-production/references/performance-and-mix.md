@@ -2,7 +2,7 @@
 
 Performance (touch, timing, player-like deviation) and the mix (levels by role, the bus chain). How to read what `analyze` and `compare` measure is in [measuring.md](measuring.md).
 
-Contents: [Tested baseline and its boundaries](#tested-baseline-and-its-boundaries) · [Touch and timing](#touch-and-timing) · [Player-like deviation: musiclib.expression](#player-like-deviation-musiclibexpression) · [Mix from musical roles](#mix-from-musical-roles) · [A bright pop piano](#a-bright-pop-piano) · [Brightness and air](#brightness-and-air) · [The bus chain (mix.chain: "bus")](#the-bus-chain-mixchain-bus) · [Sources](#sources)
+Contents: [Tested baseline and its boundaries](#tested-baseline-and-its-boundaries) · [Touch and timing](#touch-and-timing) · [Player-like deviation: musiclib.expression](#player-like-deviation-musiclibexpression) · [Mix from musical roles](#mix-from-musical-roles) · [A bright pop piano](#a-bright-pop-piano) · [Brightness and air](#brightness-and-air) · [The bus chain (mix.chain: "bus")](#the-bus-chain-mixchain-bus) · [A part that moves (mix.move)](#a-part-that-moves-mixmove) · [A headphone version (mix.headphones)](#a-headphone-version-mixheadphones) · [Sources](#sources)
 
 **Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own banks and tools, measured here or read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources named give the sound and the practice; a starting value is no norm of the style.
 
@@ -28,7 +28,7 @@ FluidSynth runs in MMA bank-select mode, so a project `bank` below 128 selects t
 - Sustained orchestral parts on a bank with dynamic layers (`vsco`, `vsco_extra`, `cello_bigcat`) have two better tools ([orchestration.md](orchestration.md), [schema.md](schema.md)):
   - `performance.dynamics` moves a part through its recorded dynamics along a curve (one take per note by default, or crossfaded renders), so a crescendo brightens as it grows. In a selfcheck instrument with a soft sine take and a bright take, a crescendo from 40 to 127 took the spectral centroid from about 490 to 1550 Hz.
   - crossfade legato enters each slurred note past its recording's attack. On takes that swell in over 300 ms, the level at a slurred note change dipped at most 3–4 dB, against 11–16 dB when every note was attacked.
-- A strum sounds the strings one after another, low to high on a downstroke; `strum` writes that order instead of every note on one sample.
+- A strum sounds the strings one after another, low to high on a downstroke; `strum` writes that order instead of every note on one sample. On a part played by string ([schema.md](schema.md), `strings`) the order is the strings' own; otherwise it is by pitch, which is the same on most shapes.
 - The built-in additive voice is intentionally synthetic. Its spectrum, glide, delayed vibrato and envelopes are editable in `instrument`. It is not an acoustic emulator, and its MIDI export carries the notes, not the timbre.
 
 ## Player-like deviation: `musiclib.expression`
@@ -56,7 +56,7 @@ Profiles come from the track role; `overrides` maps track ids to changed profile
 
 ## Mix from musical roles
 
-Each part has a chosen reference level (`level_dbfs`). `active_rms` measures the 70th percentile of non-silent half-second blocks; `peak` suits drum accents. This makes setup reproducible but is not a balance oracle: a rare accent should not become as loud as the melody just because both were normalized.
+Each part has a chosen reference level (`level_dbfs`). `active_rms` measures the 70th percentile of non-silent half-second blocks. With `peak`, `level_dbfs` is the level of the part's loudest sample: it suits a part of single hits alike (crashes on a part of their own) or one long sound (a riser, a noise bed). A kit, hats or a shaker stay `active_rms`: levelled by their peak, one crash or one hard hit takes the level and the rest lies far under it (15 to 30 dB too low in the pieces of 0.8.0 read for this; `review` asks about a drum part written so that plays more than once a bar on average). This makes setup reproducible but is not a balance oracle: a rare accent should not become as loud as the melody just because both were normalized.
 
 Build the balance from the most important part down. Senior (2009) starts a mix with its most important track and adds less important ones in turn, cutting a newly added part where it masks a more important one; rock and dance mixes often start from the rhythm section, pop mixes from the lead. Check sustained background notes as well as attacks: to find what masks the lead, mute the other parts one at a time (Senior 2018). Keep the bass clear by controlling overlapping low material, such as a pad's energy below about 200 Hz (Senior 2010), before raising the lead.
 
@@ -187,9 +187,42 @@ The other compressors' thresholds, ratios, times and make-ups, the knee, the sat
 
 The room chain applies constant gain into an oversampled limiter with a bounded peak allowance and may finish below the requested loudness rather than crush the dynamics.
 
+## A part that moves (`mix.move`)
+
+A part can cross the stereo image while it plays: along a `path` of places, or in a `swing` to and fro around its `pan` ([schema.md](schema.md) has the fields).
+
+```json
+"mix": {"level_dbfs": -26, "move": {"type": "path", "points": [[0, -0.8], [16, 0.8], [31.9, 0.8], [32, 0]]}}
+"mix": {"level_dbfs": -28, "pan": 0.2, "move": {"type": "swing", "beats": 8, "width": 0.6}}
+```
+
+- **What is rendered.** The part becomes one point (its two channels are folded to one), and at every sample it gets the two gains of the place it has then, by the same law as a static `pan`. Only the level differs between the sides. Its delay's repeats keep the place the part had when it sounded, so an echo trails the part (with `ping_pong` the odd repeats swap sides; the shared `delay_db` send returns the right side 1.5 times later than the left); the reverb takes the placed part, and the room itself stays still.
+- **What it costs.** The receipt's `move` says both.
+  - `fold_loss_db`: a sample recorded wide loses its width in the fold, and what its two channels carry in opposite polarity cancels. Near 0 for a part that is one signal; check it before moving a wide piano, pad or drum kit.
+  - `mono_dip_db`: summed to mono, a part is 3 dB lower at a hard side than in the centre. A swing of width 0.5 around the centre dips 0.3 dB; one that reaches a hard side dips 3 dB.
+- **Which parts.** The kick, the snare, the bass and the lead are conventionally kept in the centre (Flint 2005), and `review` asks about a part of role `bass`, or a drum part with a kick (keys 35 and 36), whose place changes. Movement suits what decorates: an arpeggio or a pad, a percussion line, a riser or another effect, an answer to the lead. A part that moves in one section and stands in the next needs nothing more: it stays at its path's last point. Two points close together with different places are a quick move.
+- **How fast.** `review` (from the score) and the receipt (from the part's sound as it reaches the movement, before a gate or a duck) give the movement's fastest rate in pan units a second (the whole image is 2 units wide). No rate is called wrong: the listening experiments measure how small a movement of a test sound can be told at a given speed (reviewed by Carlile and Leung 2016), not what a piece needs. As a starting point of this skill, not taken from a source: let a sweep across the image take a bar or more, and a swing 2 to 8 beats; a much faster swing is a tremolo between the sides, which can be what is wanted.
+- **In a loop** the movement comes back to the place it has where the loop starts, which after an intro is `loop.start_bar` (a swing's period divides the loop's length; a path ends at that place), or the part rests across the seam (it is refused where the part sounds up to the loop's end and at its start, struck there or held into it, more than 0.05 of pan apart).
+- **On headphones** a movement made of level alone is heard between the ears, from one side to the other.
+
+## A headphone version (`mix.headphones`)
+
+`"headphones": true` in the project's mix makes the render write `headphones.wav` and `headphones.mp3` beside the master: the same piece with every part at a direction around the listener's head ([schema.md](schema.md) has the fields). One render gives both; the master is the file it would be without it. Use it when the brief asks for a headphone, surround, binaural or "8D" version. The master stays the piece's delivery everywhere else: on loudspeakers the headphone version is heard with a changed tone and no surround.
+
+- **What it is.** Each part is heard through the responses measured in the two ears of a dummy head for the part's direction: each ear's own delay, level and colour. A room's first reflections arrive from other directions, and the parts' reverb sends are that room's field in both ears.
+- **What a listener gets.** Left and right are plain. Front and back are in the signal and are often heard reversed or unclear; a sound may stay inside the head or close to it. Both differ from listener to listener and from one pair of headphones to the next, and the image turns with the listener's head. Nothing is placed above or below ear height. Describe the file as a headphone version in which parts stand and move around the head, not as more.
+- **Where parts stand.** Without anything more a part stands where its `pan` puts it, 70 degrees to the right at a pan of 1, so a mix written for loudspeakers becomes a stage of 140 degrees ahead; a part with `mix.move` moves across it.
+- **`mix.around`** places a part anywhere: degrees clockwise, 0 ahead, 90 to the right, 180 behind, -90 to the left. A number is a part that stands. `{"type": "turn", "beats": 16}` turns it once every four bars of 4/4; `{"type": "path", "points": [[32, 0], [48, 360]]}` takes it once round between two beats and leaves it ahead before and after.
+- **Which parts.** As with `mix.move`, the kick, the bass and the lead stay ahead, and what decorates may stand to the side, behind, or move. Behind is where a listener most often hears a sound as ahead or inside the head: put there what may be vague (a pad, an answer, an effect), not what must be found. One or two moving parts are heard as movement; many at once are heard as a blur.
+- **What the mix does differently.** A part whose two channels differ (a drum kit, a piano) keeps its width: what the channels share stands at its place and what differs between them is spread 30 degrees either side; `mix.width` narrows it as before. The reverb is the parts' own sends, as in the master: a part without `reverb_db` has the room's first reflections and no more. A stage position (`depth_m`) is not used: the part stands at its direction. The buses' saturation is left out (its curve would bend each ear's signal by itself), and so is `mono_below_hz` (it would make the two ears alike in the low end, where the difference between them is the direction). The compressors, the limiter and a loud master's soft clip stay, each giving both ears one gain, and the EQ is the same for both. The loudness target and the true-peak ceiling are the master's.
+- **Not** for a looped piece, and with the bus chain only. An audition renders the ordinary mix alone.
+- **The numbers.** The 70 degrees, the 30 degrees and the room (7.2 m by 9.6 m, eight reflections 19 to 39 ms after the direct sound and 14 to 22 dB under it) are this skill's choices (on clips, the version with reflections was preferred to the one without: a preference, not a calibration). The file's folder `headphones/` holds its stems, buses and returns, more than the render's own, and the render takes about as long again for its mix and master.
+- **The responses** are those of the SADIE II database, subject D1 (a Neumann KU100 dummy head), 72 directions around the head at ear height, shipped with the skill with their licence ([sources-and-rights.md](sources-and-rights.md#head-responses)).
+
 ## Sources
 
 - Bresin, R. and Battel, G. U. (2000). Articulation strategies in expressive piano performance: analysis of legato, staccato, and repeated notes in performances of the Andante movement of Mozart's Sonata in G major (K 545). *Journal of New Music Research* 29(3), 211–224.
+- Carlile, S. and Leung, J. (2016). [The perception of auditory motion](https://doi.org/10.1177/2331216516644254). *Trends in Hearing* 20. A review of how movement of a sound is detected: the smallest movement told from stillness by speed, bandwidth and duration.
 - De Man, B., Leonard, B., King, R. and Reiss, J. D. (2014). [An analysis and evaluation of audio features for multitrack music mixtures](https://archives.ismir.net/ismir2014/paper/000293.pdf). *Proceedings of the 15th ISMIR Conference*, Taipei, 137–142.
 - De Man, B., McNally, K. and Reiss, J. D. (2017). [Perceptual evaluation and analysis of reverberation in multitrack music production](https://doi.org/10.17743/jaes.2016.0062). *Journal of the Audio Engineering Society* 65(1/2), 108–116. Open access (CC BY). Relative reverb loudness, the mixes called too reverberant and too dry, and the 5–6 dB it cites as the just-noticeable difference of the direct-to-reverberant ratio.
 - Elowsson, A. and Friberg, A. (2017). [Long-term average spectrum in popular music and its relation to the level of the percussion](https://www.aes.org/e-lib/browse.cfm?elib=18638). AES 142nd Convention, Berlin, paper 9762. Read in its abstract.

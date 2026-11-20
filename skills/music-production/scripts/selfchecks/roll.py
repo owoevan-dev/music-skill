@@ -160,7 +160,30 @@ def define(S):
             done=run('still',folder,*args,'--output',work/'roll_bad.png');assert done.returncode==2 and words in done.stderr and not (work/'roll_bad.png').exists(),done.stderr[-300:]
         return {'frame':'a function of its time','contrast':'bars 3:1, text 4.5:1','legend':'48 parts under 30 %','flash':'none',
                 'title_font':os.path.basename(font) if font else 'none here: the built-in font, as far as it goes'}
-    found = {'piano_roll_draws_the_notes_as_played': piano_roll_draws_the_notes_as_played}
+    def video_fits_its_size_by_encoding_again():
+        # 0.9 step 5: an encoder's two passes aim at a rate and can end a little over the size asked (a real session:
+        # 10.12 MB for 10, then 9.44 for the 9.38 the message suggested, then 8.88 for 8.85: three refused encodes of
+        # about a minute each).  The command lowers the rate by the overshoot it measured and encodes again itself,
+        # the first pass's statistics kept; where three encodes all come out over, it says so and writes nothing.
+        from musiclib import roll as rl
+        calls=[]
+        def over_by(share):   # an encoder that makes share times the bytes its rate asks for (10 seconds, no sound)
+            def encode(vbr,again):
+                calls.append((vbr,again));return int(vbr*10/8*share)
+            return encode
+        limit=1_000_000;vbr=int(limit*8/10)
+        calls.clear();got=rl.fit_size(over_by(.98),vbr,limit);assert got==(vbr,980_000,[(vbr,980_000)]) and calls==[(vbr,False)],got
+        calls.clear();rate,size,made=rl.fit_size(over_by(1.012),vbr,limit)
+        assert len(made)==2 and size<=limit and rate==int(vbr*limit*.97/1_012_000) and calls==[(vbr,False),(rate,True)],(rate,size,made)
+        assert .955*limit<size<=.975*limit,size     # the second lands 3 % under: the overshoot taken off, and 3 % more
+        calls.clear()
+        def stubborn(v,again):
+            calls.append((v,again));return 1_200_000-40_000*(len(calls)-1)
+        try:rl.fit_size(stubborn,vbr,limit);raise AssertionError('a video over its size put out')
+        except ValueError as e:assert '1.20, 1.16 and 1.12 MB in three encodes, each over' in str(e) and 'is not written' in str(e),str(e)   # every encode's size (it said the last "in each": the review of step 5)
+        assert len(calls)==3 and [a for _,a in calls]==[False,True,True] and calls[0][0]>calls[1][0]>calls[2][0],calls
+        return {'second_try_bytes':size}
+    found = {'piano_roll_draws_the_notes_as_played': piano_roll_draws_the_notes_as_played, 'a_video_over_its_size_is_encoded_again_lower': video_fits_its_size_by_encoding_again}
     if config:
         p, cache, render = S['p'], S['cache'], S['render']
         def piano_roll_video_carries_the_master():
@@ -265,5 +288,87 @@ def define(S):
             except ValueError as e:assert 'within 30 seconds' in str(e),str(e)
             finally:subprocess.run=real_run
             return out
-        found.update({'piano_roll_video_carries_the_master': piano_roll_video_carries_the_master})
+        def deep_folder_video():
+            # 0.9 step 1 (design-0.9.md): the video of a render in a deep folder is made.  x264 opens its first pass's
+            # statistics by Windows' plain calls, and FFmpeg was started in the staging folder beside the output: past
+            # the limits the encoder could not be opened (a real session of 0.8.0 wrote its video to another drive and
+            # copied it back).  The staging folder and the video in it have short names of their own, and where even
+            # those lie too deep the statistics go to the temporary folder.  Each expectation below is asked of the
+            # command's own rules first, so the check holds wherever the work and temporary folders lie.
+            from musiclib import audio,files as fs,roll as rl
+            from selfchecks.render import deep_folder
+            import re,tempfile
+            try:
+                import PIL  # noqa: F401
+            except ImportError:
+                return {'pillow':'not installed here: the video is not made'}
+            deep=deep_folder(work)
+            if deep is None:
+                return {'long_paths':'off on this system: its Python opens no path of 260 characters, so nothing is made that deep'}
+            cfg=audio.load_config(config);have=rl.encoders(cfg['ffmpeg']['path']);out={}
+            source=deep/'r1'/'render'
+            if not (source/'master.wav').is_file():   # the render check's, when it ran first
+                save_json(deep/'example.json',p);render(deep/'example.json',source,config,deep/'cache')
+            total=rl.Roll(source,640,360).total
+            vdir=deep/('d'*40);vdir.mkdir(exist_ok=True)   # deeper still: on Windows even the short staging folder is past what a program starts in
+            staging_left=lambda folder:[f.name for f in folder.iterdir() if f.name.startswith('.roll.')]
+            make=lambda to:rl.video(source,to,config,mp4=mp4,size_mb=1,fps=10,width=640,height=360)
+            for suffix,mp4,codecs in (('.webm',False,{'libvpx-vp9','libopus'}),('.mp4',True,{'libx264','aac'})):
+                if not codecs<=have:
+                    out[suffix]='this FFmpeg lacks '+', '.join(sorted(codecs-have));continue
+                video=vdir/('a-piece-with-a-name-as-long-as-a-title_roll_640x360'+suffix)
+                too_deep=(lambda folder:fs.past_path_limit(folder/'passlog-0.log.mbtree.temp')) if mp4 else fs.past_folder_limit   # the command's rule for this kind
+                moved=too_deep(vdir/'.roll.12345678.extract')   # whether the statistics leave the staging folder (on Windows; nowhere else)
+                own=Path(tempfile.mkdtemp(prefix='sc-'));before=tempfile.tempdir   # a temporary folder of the check's, to see what is left in it
+                watched=not too_deep(own/'roll-12345678')
+                if moved and not watched and too_deep(Path(tempfile.gettempdir())/'roll-12345678'):   # nor from the system's own: the command refuses here, rightly
+                    own.rmdir();out[suffix]='the temporary folder here lies too deep for the statistics: not made';continue
+                real=subprocess.Popen
+                try:
+                    if moved:
+                        # a temporary folder as deep: the command says so and makes nothing
+                        far=deep/('t'*60);far.mkdir(exist_ok=True);tempfile.tempdir=str(far)
+                        try:make(video);raise AssertionError('made with its statistics past the limit')
+                        except ValueError as e:assert 'set TEMP and TMP to a folder with a shorter path' in str(e),e
+                        assert not video.exists() and not list(far.iterdir()) and not staging_left(vdir)
+                        if not mp4 and not too_deep(deep/'.roll.12345678.extract'):
+                            # a WebM whose staging folder a program can start in is made beside its output even then:
+                            # FFmpeg writes VP9's statistics itself, at any length, and x264's longer names do not count
+                            near=deep/('near'+suffix);make(near)
+                            assert near.stat().st_size>0 and not list(far.iterdir()) and not staging_left(deep)
+                    tempfile.tempdir=str(own) if watched else before
+                    # stopped while FFmpeg finishes a pass (Ctrl+C in the last wait): FFmpeg is stopped and waited for
+                    # before the folders go, and nothing is put out
+                    seen=[]
+                    class Stopped:
+                        def __init__(self,argv,*a,**k):
+                            self.proc=real(argv,*a,**k);self.stdin=self.proc.stdin;self.calls=[];seen.append(self)
+                        def wait(self,*a,**k):
+                            self.calls.append('wait')
+                            if self.calls==['wait']:raise KeyboardInterrupt
+                            return self.proc.wait(*a,**k)
+                        def kill(self):self.calls.append('kill');self.proc.kill()
+                    subprocess.Popen=lambda argv,*a,**k:Stopped(argv,*a,**k) if '-pass' in argv else real(argv,*a,**k)
+                    try:make(video);raise AssertionError('made though stopped')
+                    except KeyboardInterrupt:pass
+                    finally:subprocess.Popen=real
+                    assert seen and seen[0].calls==['wait','kill','wait'] and seen[0].proc.poll() is not None,seen and seen[0].calls
+                    assert not video.exists() and not list(own.iterdir()) and not staging_left(vdir)
+                    # made: the file FFmpeg writes has a short name in a staging folder with a short name, beside the output
+                    asked=[]
+                    subprocess.Popen=lambda argv,*a,**k:(asked.append([str(x) for x in argv]) if '-pass' in argv else None) or real(argv,*a,**k)
+                    try:make(video)
+                    finally:subprocess.Popen=real
+                    staged=Path(asked[-1][-1])
+                    assert staged.name=='roll'+suffix and re.fullmatch(r'\.roll\.[a-z0-9_]{8}\.extract',staged.parent.name) and staged.parent.parent.resolve()==vdir.resolve(),asked[-1][-1]
+                finally:subprocess.Popen=real;tempfile.tempdir=before
+                assert not list(own.iterdir()),[f.name for f in own.iterdir()]   # nothing of the run's is left there
+                own.rmdir()
+                probe=subprocess.run([cfg['ffmpeg']['path'],'-hide_banner','-i',str(video)],capture_output=True,text=True,errors='replace').stderr
+                h,m,sec=re.search(r'Duration: (\d+):(\d+):([\d.]+)',probe).groups();seconds=int(h)*3600+int(m)*60+float(sec)
+                assert 0<video.stat().st_size<=1_000_000 and abs(seconds-total)<.25 and 'Audio:' in probe,(suffix,seconds,total,probe[-300:])
+                assert not staging_left(vdir)   # the staging folder beside the output is gone
+                out[suffix]=f'{seconds:.2f} s, as long as the master'
+            return out
+        found.update({'piano_roll_video_carries_the_master': piano_roll_video_carries_the_master, 'a_video_in_a_deep_folder_is_made': deep_folder_video})
     return found

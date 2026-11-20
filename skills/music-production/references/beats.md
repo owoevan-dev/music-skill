@@ -15,7 +15,7 @@ These are loops first: a two-, four- or eight-bar figure of drums, bass and chor
 
 ## Brief
 
-Settle these from the request, deciding what it leaves open and saying so:
+Settle these from the request; what it leaves open is decided after the piece's words are drawn (SKILL.md, steps 1 and 2), and said so:
 
 - **Style and tempo.** From the sources named; take the tempo from the brief and a reference of the style:
 

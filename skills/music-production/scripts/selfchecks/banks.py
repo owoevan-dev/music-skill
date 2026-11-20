@@ -1014,6 +1014,45 @@ def define(S):
             assert code==0 and found['count']==1 and row['patch']=={'bank':0,'program':41} and row['family']=='strings' and row['keys']=='G3-G4' and row['velocity_ranges']==2,(words,found)
             assert row['velocities']==[[1,64],[65,127]],row   # the ranges themselves (a preset of 90-127 alone read as one of 1-127: the review of 0.8.0)
         code,err=ins('viloa');assert code==2 and "did you mean 'viola'?" in err and err.count('\n')==1,err
+        # 0.9 step 5, from real sessions.  A bank number and program, as a part's instrument is written, find the preset
+        # ("vsco_strings 1:41" was refused with a did-you-mean); where no preset has every word, those that have the
+        # most are listed with the words each has ("electric bass slap" found nothing: the preset is "Slap Bass");
+        # a word that is a built-in synth preset's name, or no match at all, points to the synthesizers.
+        for words in (('default','0:41'),('0:41',),('viola','0:41')):
+            code,found=ins(*words);assert code==0 and found['count']==1 and found['presets'][0]['preset']=='Test Viola' and found['every_word'],(words,found)
+        code,err=ins('default','0:40');assert code==2 and '0:40' in err and err.count('\n')==1,err
+        code,err=ins('0:41','1:41');assert code==2 and 'one bank number and program' in err,err
+        spec2={'name':'ins2','presets':[{**spec['presets'][0]},{**spec['presets'][0],'name':'Slap Bass','program':36}]};sb.build(spec2,src,work/'ins2.sf2')
+        save_json(work/'ins2_config.json',{'soundfont':{'path':str(work/'ins2.sf2'),'sha256':file_hash(work/'ins2.sf2')}})
+        import musiclib.instruments as mi2
+        part=mi2.search(work/'ins2_config.json',['viola','slap','bass'])   # no preset has all three: the one that has two
+        assert part['count']==1 and part['every_word'] is False and part['words']==3 and part['presets'][0]['preset']=='Slap Bass' and part['presets'][0]['has']==['slap','bass'],part
+        shown=mi2.summary(part);assert shown.startswith('No preset has every word; 1 has 2 of the 3:') and 'has: slap, bass' in shown,shown
+        both=mi2.search(work/'ins2_config.json',['viola','slap']);assert both['count']==2 and not both['every_word'] and [r['has'] for r in both['presets']]==[['slap'],['viola']],both
+        whole=mi2.search(work/'ins2_config.json',['slap','bass']);assert whole['count']==1 and whole['every_word'] and 'has' not in whole['presets'][0] and mi2.summary(whole).startswith('1 preset:')
+        code,err=ins('electric','viola');assert code==2 and 'No configured preset matches' in err and err.count('\n')==1,err   # a word no preset has at all is still refused
+        rejects(lambda:mi2.search(work/'ins2_config.json',['viola','viloa']))
+        # The review of step 5.  (1) A word with a hyphen is in a preset's name as written ("Honky-tonk Piano"), not
+        # among the name's separate words: it was called a word no preset has, and the search refused.  (2) The
+        # builder, and start through it, took the one nearest preset for the instrument asked: "viola slap bass"
+        # gave a part the Slap Bass.  A part plays a preset that has every word, or the script is told which have some.
+        spec3={'name':'ins3','presets':[{**spec['presets'][0]},{**spec['presets'][0],'name':'Honky-tonk Piano','program':3}]};sb.build(spec3,src,work/'ins3.sf2')
+        save_json(work/'ins3_config.json',{'soundfont':{'path':str(work/'ins3.sf2'),'sha256':file_hash(work/'ins3.sf2')}})
+        hy=mi2.search(work/'ins3_config.json',['honky-tonk','viola']);assert hy['count']==2 and not hy['every_word'] and [r['has'] for r in hy['presets']]==[['honky-tonk'],['viola']],hy
+        assert mi2.search(work/'ins3_config.json',['honky-tonk'])['presets'][0]['preset']=='Honky-tonk Piano'
+        try:mi2.search(work/'ins3_config.json',['honky-tonk','viloa']);raise AssertionError('a word no preset has, taken')
+        except ValueError as e:assert "did you mean 'viola'" in str(e),str(e)
+        from musiclib.builder import Song
+        try:Song('near',bars=1,config=work/'ins2_config.json').part('p','bass','viola slap bass');raise AssertionError('the nearest preset taken for the one asked')
+        except ValueError as e:assert 'no preset has every word' in str(e) and 'Slap Bass' in str(e) and 'has: slap, bass' in str(e),str(e)
+        assert Song('whole',bars=1,config=work/'ins2_config.json').part('p','bass','slap bass').track['patch']=={'bank':0,'program':36}
+        # The walkthrough of 0.9: the summary printed a guitar bank's preset on program 0 as "(piano)".  The family
+        # is General MIDI's name for the program number, which a bank of one instrument need not follow: said as
+        # that, and the note says what velocity_ranges counts where a bank chooses among takes by the velocity.
+        line=mi2.summary(whole).splitlines()[1];assert '(GM family of program 36: bass)' in line and '(bass)' not in line,line
+        assert 'General MIDI' in whole['note'] and 'takes by the velocity' in whole['note'],whole['note']
+        code,err=ins('fm_epiano');assert code==2 and "'fm_epiano' is a built-in synth preset" in err and 'studio.py sounds' in err and err.count('\n')==1,err
+        code,err=ins('qqqq');assert code==2 and 'studio.py sounds' in err and 'built-in synth preset' not in err,err
         # The Astra review of step 2: a preset zone and an instrument zone sound together only where their keys and their
         # velocities both overlap, each zone taking its global zone's ranges; the keys come as runs (holes kept); a
         # preset of no General MIDI program and a bank named with an underscore are read; the pairs measured are bounded.

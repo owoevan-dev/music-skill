@@ -10,7 +10,7 @@ Contents: [Brief](#brief) · [Swing and time](#swing-and-time) · [The rhythm se
 
 ## Brief
 
-Settle these from the request, deciding what it leaves open and saying so:
+Settle these from the request; what it leaves open is decided after the piece's words are drawn (SKILL.md, steps 1 and 2), and said so:
 
 - **Ensemble.** A piano trio (piano, upright bass, drums) is the core; a quartet adds a horn or guitar. Funk adds electric bass, a rhythm guitar, keys and horns.
 - **Feel**, from the sources below (take the tempo from the brief):
@@ -62,7 +62,7 @@ Funk grooves are built from short figures, each part repeating its own pattern w
 
 - **Drums**: straight or lightly swung sixteenths (`performance.swing` 0.52–0.56 on unit 0.25), a strong kick on 1, snare on 2 and 4 with ghost notes between, sixteenth hats with accents.
 - **Bass**: `bass_darkblack` or `bass_pick` (electric): the root on the One, then syncopated sixteenths, octaves, ghost notes (low velocities) and rests; leave the space just before the next One.
-- **Guitar**: a clean electric (`fsbs_clean`) playing short sixteenth-note chord stabs and single-note riffs, high on the neck, many muted or very short notes (`gate` 0.3–0.5 in `performance.notes`).
+- **Guitar**: a clean electric (`fsbs_clean`) playing short sixteenth-note chord stabs and single-note riffs, high on the neck, many muted or very short notes (`gate` 0.3–0.5 in `performance.notes`). On the direct guitar (`fsbs_direct` through `mix.amp` on `clean`, played by string) the muted strokes are written as such, `"mute": "dead"`, between the stabs: [rock-and-metal.md](rock-and-metal.md), Writing the guitar part (sixteenth-note strumming with scratches).
 - **Keys**: the TX81Z Clavisynth (`vcsl_keys` 0:7) for clavinet-like figures, an electric piano, a Surge organ (`studio.py sounds --role keys --name organ`) or organ-like pads (`pwm_strings`).
 - **Horns**: short unison or octave stabs on off-beats, a brass section hit (`vsco` 0:62 Brass Stab) on the One of a new section, falls (`vsco_colors` 1:57).
 - **Pop-funk and city pop** add major-seventh and ninth harmony, a melodic electric bass, strings or synth brass, and a clear vocal-like lead (a sax, a synth lead or the guitar).

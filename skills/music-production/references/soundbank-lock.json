@@ -51,6 +51,22 @@
       "version": "2026-08-07"
     },
     {
+      "name": "fsbs_direct",
+      "format": "7z",
+      "bytes": 63256498,
+      "url": "https://github.com/freepats/electric-guitar-FSBS-direct/releases/download/2022-09-11/EGuitarFSBS-direct-SF2-20220911.7z",
+      "sha256": "dcdadeab31c7aff67ace2556ede4021897743b7ae88c187f2d12988483403295",
+      "checksum_evidence": "GitHub release asset digest",
+      "member": "EGuitarFSBS-direct SF2-20220911/EGuitarFSBS-direct bridge 20220911.sf2",
+      "member_sha256": "cd0b9d1e239148c3ad29acc43090b463c6d887f7d3cecb05b4b292be84a86fd8",
+      "notices": [
+        "EGuitarFSBS-direct SF2-20220911/LICENSE.txt",
+        "EGuitarFSBS-direct SF2-20220911/README.txt"
+      ],
+      "license": "CC0-1.0: FreePats Electric Guitar FSBS (direct)",
+      "version": "2022-09-11"
+    },
+    {
       "name": "bass_pick",
       "format": "7z",
       "bytes": 2345077,
@@ -4143,6 +4159,11 @@
         "bytes": 148523748,
         "sha256": "76290716bde53576f790411eb245c7c67a26436633afa08fe560e807d43ff963"
       },
+      "fsbs_direct": {
+        "file": "EGuitarFSBS-direct-SF2-20220911.tar.xz",
+        "bytes": 67240004,
+        "sha256": "212b3eb08a822b5fa66ea3568766fe8e375346e1290ad3494aeb1fbf40243f69"
+      },
       "bass_pick": {
         "file": "PickedBassYR-SF2-20190930.tar.xz",
         "bytes": 2417928,
@@ -4174,6 +4195,7 @@
       "fsbs_dist1",
       "fsbs_dist2",
       "fsbs_clean",
+      "fsbs_direct",
       "bass_pick",
       "bass_finger",
       "bass_darkblack",

@@ -560,10 +560,16 @@ def define(S):
             for k in ('harmony','chords','plan','loop'):q.pop(k,None)
             drums=copy.deepcopy(next(t for t in p['tracks'] if t.get('drums')))
             drums['notes']=[{'id':'c','on':3,'duration':1,'pitch':49}];drums['performance']={'notes':{'c':{'velocity':120}},'cc':[]}
-            q['tracks']=[drums];validate(q);folder=work/'draft_tail';folder.mkdir();save_json(folder/'song.json',q)
+            # Beside the crash, a pad held through the bar with a release of twenty seconds: what still sounds at the
+            # end is then far from the line of -60 dBFS on either side of it, whatever the FFmpeg and the bank (with
+            # the crash alone the end lay 3 dB over the line here, and an audition's pad of six seconds 1 dB over it:
+            # on Ubuntu's FFmpeg 6.1 that pad ended under the line and the check failed, on CI, on a healthy system)
+            pad=copy.deepcopy(next(t for t in p['tracks'] if t['id']=='piano'));pad.update(id='pad',engine='synth',synth={'preset':'warm_pad','amp':{'attack':.01,'decay':.1,'sustain':1.0,'release':20.0}})
+            pad['notes']=[{'id':'pn','on':0,'duration':4,'pitch':60}];pad['performance']={'notes':{'pn':{'velocity':100}},'cc':[]}
+            q['tracks']=[drums,pad];validate(q);folder=work/'draft_tail';folder.mkdir();save_json(folder/'song.json',q)
             r=render(folder/'song.json',folder/'draft',config,folder/'cache',draft=True)
             assert r['status']=='DRAFT_PASS' and r['checks']['tail_quiet'] is False and r['delivery_needs']==['tail_quiet'],(r['status'],r.get('delivery_needs'))
-            assert r['tail']['last_50ms_dbfs']>-60 and r['tail']['falling_db_per_second']>0 and r['tail']['more_seconds_estimated']>=.5,r['tail']
+            assert r['tail']['last_50ms_dbfs']>-52 and r['tail']['falling_db_per_second']>0 and r['tail']['more_seconds_estimated']>=.5,r['tail']   # (8 dB over the line or more: a margin, not a hair)
             assert json.loads((folder/'draft'/'report.json').read_text(encoding='utf-8'))['delivery_needs']==['tail_quiet'] and 'still sounds at its end' in summary.render(r,folder/'draft')
             for name,kw in (('full',{}),('strict',{'draft':True,'tail_fails':True})):
                 try:render(folder/'song.json',folder/name,config,folder/'cache',**kw);raise AssertionError(name)
@@ -572,12 +578,10 @@ def define(S):
             from musiclib.revision import revision_round
             shown=[];record=revision_round(folder/'song.json',folder/'r1',config,show=shown.append)
             assert record['status']=='DRAFT_PASS' and (folder/'r1'/'render'/'analysis.json').is_file() and any('still sounds at its end' in x for x in shown),(record.get('status'),shown[-3:])
-            # an audition's own render still has to end quietly: the version that rings on (a pad with a release of six
+            # an audition's own render still has to end quietly: the version that rings on (the pad with its release of twenty
             # seconds, held to the passage's end) is made again with a longer tail, as before; the other is not
             from musiclib.audition import audition,parse_sound
-            pad=copy.deepcopy(next(t for t in p['tracks'] if t['id']=='piano'));pad.update(id='pad',engine='synth',synth={'preset':'warm_pad','amp':{'attack':.01,'decay':.1,'sustain':1.0,'release':6.0}})
-            pad['notes']=[{'id':'pn','on':0,'duration':4,'pitch':60}];pad['performance']={'notes':{'pn':{'velocity':100}},'cc':[]}
-            qa=copy.deepcopy(q);qa['tracks']=[pad];validate(qa);save_json(folder/'audition.json',qa)
+            qa=copy.deepcopy(q);qa['tracks']=[copy.deepcopy(pad)];validate(qa);save_json(folder/'audition.json',qa)
             audition(folder/'audition.json','pad',[parse_sound('synth:fm_bell')],1,1,folder/'audition',config,folder/'cache')
             tails=sorted(json.loads(x.read_text(encoding='utf-8'))['clock']['tail_seconds'] for x in (folder/'audition').glob('*/song.json'))
             assert len(tails)==2 and tails[0]<10<=tails[1],tails

@@ -351,6 +351,16 @@ def define(S):
         q={'tracks':[kick],'clock':p['clock']};pad={'id':'pad','mix':{'duck':{'by':'kick','depth_db':9,'attack_ms':4,'hold_ms':20,'release_ms':200}}}
         g,_=production.duck(np.ones((n,2)),q,pad,clock);hit=int(clock.seconds(1)*48000)
         assert abs(20*np.log10(g[hit+int(.01*48000),0])+9)<.1 and g[hit+int(.45*48000),0]>.97,(g[hit+480,0],g[hit+21600,0])
+        # (a review of 0.9) a duck's `keys` is a list of keys: one number passed validate and stopped the render with
+        # a traceback ('int' object is not iterable)
+        dq=example();dq['tracks'][0]['mix']['duck']={'by':dq['tracks'][3]['id'],'keys':36}
+        try:validate(dq);raise AssertionError('duck keys as one number')
+        except ValueError as e:assert 'duck keys' in str(e) and '[36]' in str(e),e
+        dq['tracks'][0]['mix']['duck']['keys']=[36];validate(dq)
+        for bad in ([36.5],['36'],[True],[128],'36',[]):
+            dq['tracks'][0]['mix']['duck']['keys']=bad
+            try:validate(dq);raise AssertionError(bad)
+            except ValueError as e:assert 'duck keys' in str(e),(bad,e)
         side=np.zeros((48000,2));tone=np.sin(2*np.pi*60*np.arange(48000)/48000);side[:,0]=tone;side[:,1]=-tone
         m=production.mono_below(side,120);assert np.abs(m[4800:-4800,0]-m[4800:-4800,1]).max()<.05
         gated,_=production.gate(np.ones((48000*2,2)),{'id':'x','mix':{'gate':{'pattern':'x.','step_beats':.5}}},Clock({'clock':{'bars':4,'meter':[4,4],'tempo':[[0,120]]}}))

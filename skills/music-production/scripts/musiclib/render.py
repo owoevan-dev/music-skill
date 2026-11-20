@@ -949,7 +949,11 @@ def room_mix(p,clock,cfg,output,frames,duration):
         buses.append('[delay]');exports.append(('delay_export','delay_return.wav'))
     from .loop import starts_at_zero
     fade='' if starts_at_zero(p) else ',afade=t=in:st=0:d=0.005'
-    graph.append(''.join(buses)+f'amix=inputs={len(buses)}:normalize=0:duration=longest,atrim=end_sample={frames}{fade},afade=t=out:st={duration-1.7:.8f}:d=1.7[mix]')
+    # The fades count from the mix's own first sample (asetpts): afade goes by the timestamps, and FFmpeg 6 starts the
+    # mix's a block late where a reverb's convolution is in the graph, so the fade-out had run out about 40 ms before
+    # the file's end and left that much silence (measured on Ubuntu 24.04's FFmpeg 6.1: the last 50 ms 13 dB lower
+    # than with FFmpeg 7 and newer, every quarter second before it the same).
+    graph.append(''.join(buses)+f'amix=inputs={len(buses)}:normalize=0:duration=longest,atrim=end_sample={frames},asetpts=N/SR/TB{fade},afade=t=out:st={duration-1.7:.8f}:d=1.7[mix]')
     graph_options=audio.graph_file(cfg,output/'mix.filtergraph.txt',';\n'.join(graph))
     premaster=output/'premaster.wav'
     outs=['-map','[mix]','-ar',str(audio.RATE),'-c:a','pcm_f32le',premaster]

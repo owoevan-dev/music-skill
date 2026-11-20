@@ -436,7 +436,7 @@ def mix(p, clock, cfg, output, frames, tracks=None, premix=None, ears=False):
     # A loop from bar 1 replays the first frames on every repeat, where a fade-in would dent each downbeat.
     fade = '' if starts_at_zero(p) else ',afade=t=in:st=0:d=0.005'
     graph.append(''.join(sums) + f'amix=inputs={len(sums)}:normalize=0:duration=longest,'
-                 f'atrim=end_sample={frames}{fade}[mix]')
+                 f'atrim=end_sample={frames},asetpts=N/SR/TB{fade}[mix]')   # (the fade counts the mix's own samples: render.py, the room chain's mix)
     text = ';\n'.join(graph)
     graph_options = audio.graph_file(cfg, output / 'mix.filtergraph.txt' if full else premix.with_suffix('.filtergraph.txt'), text)
     exports = []

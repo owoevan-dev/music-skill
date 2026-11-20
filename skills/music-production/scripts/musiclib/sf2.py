@@ -222,6 +222,35 @@ def inventory(bank):
                      'looped_zones': loops})
     return rows
 
+def longest_release(bank, bank_number, program):
+    """Seconds: the longest volume-envelope release among the zones of one preset of a bank read by `read`, which
+    bounds how long a voice of it sounds after its note ends.  A zone's release is its instrument zone's (or the
+    instrument's global zone's, or the SoundFont default of -12000 timecents) plus its preset zone's (or the preset's
+    global zone's), as the SoundFont 2 specification adds the two levels.  None where the bank has no such preset or
+    a modulator moves the release, so that no figure can be given."""
+    RELEASE = GEN['releaseVolEnv']
+    preset = next((p for p in bank['presets'] if (p['bank'], p['program']) == (bank_number, program)), None)
+    if preset is None:
+        return None
+    longest = None
+    preset_global = preset['zones'][0] if preset['zones'] and preset['zones'][0]['target'] is None else None
+    for pz in preset['zones']:
+        if pz['target'] is None:
+            continue
+        zones = bank['instruments'][pz['target']]['zones']
+        inst_global = zones[0] if zones and zones[0]['target'] is None else None
+        for iz in zones:
+            if iz['target'] is None:
+                continue
+            if any(m[1] == RELEASE for z in (iz, inst_global, pz, preset_global) if z for m in z['mods']):
+                return None
+            base = iz['gens'].get(RELEASE, inst_global['gens'].get(RELEASE, -12000) if inst_global else -12000)
+            more = pz['gens'].get(RELEASE, preset_global['gens'].get(RELEASE, 0) if preset_global else 0)
+            seconds = 2.0 ** (max(-12000, min(8000, base + more)) / 1200)
+            longest = seconds if longest is None else max(longest, seconds)
+    return longest
+
+
 def load_sample(bank, index):
     """Return one sample as float32 in [-1, 1] (16-bit plus optional sm24 low byte)."""
     s = bank['samples'][index]

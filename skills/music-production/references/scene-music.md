@@ -8,7 +8,7 @@ Contents: [Brief](#brief) · [Under text and voices](#under-text-and-voices) · 
 
 ## Brief
 
-Settle these from the request, deciding what it leaves open and saying so:
+Settle these from the request; what it leaves open is decided after the piece's words are drawn (SKILL.md, steps 1 and 2), and said so:
 
 - **The set.** A soundtrack of this kind is a set of cues, each tied to a kind of scene (daily life, comedy, tension, sadness, romance, mystery, a climax, a memory) or to a character or place. Name the cue being written and where it sits in the set.
 - **Text or voice.** Lines read silently need a quiet, steady bed. Voiced lines need more room (below).

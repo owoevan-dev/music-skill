@@ -90,8 +90,12 @@ def bar_beat(clock, beats, step=.01):
 
 
 def position(clock, seconds):
-    """'bar:beat' of a time in a render, to a twentieth of a beat (the windows are 10 ms)."""
-    return bar_beat(clock, clock.beat(seconds), .05)
+    """'bar:beat' of a time in a render, to a twentieth of a beat (the windows are 10 ms); after the last bar, in the
+    tail, 'end+<seconds>s' (it was named by bars the piece does not have: the walkthrough of 0.9)."""
+    beats = clock.beat(seconds)
+    if round(beats / .05) * .05 >= clock.total_beats - 1e-9:   # at the end, after it, or rounding to it
+        return f'end+{max(0.0, round(seconds - clock.end, 2)):g}s'
+    return bar_beat(clock, beats, .05)
 
 
 def _short(v):
@@ -143,19 +147,25 @@ def project_changes(a, b):
 
 def synthesis(a, b):
     """Which parts kept their synthesized audio and which were synthesized again (inputs changed, or the same inputs
-    played again: a Surge XT part is a new take each time it is synthesized)."""
-    again, same, retake = [], [], []
+    played again: a Surge XT part is a new take each time it is synthesized; `changed_from_cache`: other audio that
+    the later render took from the cache, synthesized by an earlier render).  Of those that kept it, `reused` are the
+    parts the later render took from the cache; one its receipt says was synthesized (`cache_hit` false) and that came
+    out the same is named apart.  A receipt that does not say counts as reused."""
+    again, same, same_again, retake, from_cache = [], [], [], [], []
     for tid, rb in b['receipts'].items():
         ra = a['receipts'].get(tid)
         if ra is None:
             continue
         if ra['raw_sha256'] == rb['raw_sha256']:
-            same.append(tid)
+            (same_again if rb.get('cache_hit') is False else same).append(tid)
         elif ra.get('cache_key') == rb.get('cache_key'):
-            retake.append(tid)
+            (from_cache if rb.get('cache_hit') is True else retake).append(tid)   # an earlier take from the cache is no new take
         else:
-            again.append(tid)
-    return {'synthesized_again': again, 'same_inputs_new_take': retake, 'reused': same}
+            # other audio: synthesized for this render, or taken from the cache where an earlier render of this
+            # version of the part had put it (versions A, B, then A again: the review of 0.9's step 5)
+            (from_cache if rb.get('cache_hit') is True else again).append(tid)
+    return {'synthesized_again': again, 'same_inputs_new_take': retake, 'changed_from_cache': from_cache, 'reused': same,
+            'same_audio_synthesized_again': same_again}
 
 
 def runtime_warnings(a, b):
@@ -349,7 +359,8 @@ def _files(render):
     out = {'stems': {t['id']: f / 'stems' / f'{t["id"]}.wav' for t in render['project']['tracks']},
            'buses': {p.stem[4:]: p for p in sorted((f / 'returns').glob('bus_*.wav'))},
            'returns': {p.stem[:-7]: p for p in sorted((f / 'returns').glob('*_return.wav'))},
-           'premix': {'premix': f / 'premix.wav'}, 'master': {'master': f / 'master.wav'}}
+           'premix': {'premix': f / 'premix.wav'}, 'master': {'master': f / 'master.wav'},
+           'headphones': {'headphones': f / 'headphones.wav'}}
     return {g: {k: p for k, p in files.items() if p.is_file()} for g, files in out.items()}
 
 
@@ -494,7 +505,7 @@ def describe(entry):
         parts.append(f'overall level {level:+.2f} dB')
     if real:
         d = entry['difference_db']
-        parts.append(f'changed at {_span_text(real)} (bar:beat), the change ' + (f'{-d:.1f} dB under the signal' if d <= -.5 else
+        parts.append(f'changed at {_span_text(real)} (bar:beat; end+seconds in the tail), the change ' + (f'{-d:.1f} dB under the signal' if d <= -.5 else
                                                                             f'as loud as the signal ({d:+.1f} dB)'))
     if follow:
         parts.append(('elsewhere ' if real else '') + f"the parts' level changes reach it at {_span_text(follow)}")
@@ -535,7 +546,8 @@ def compare(before, after, differences=None):
         differences.mkdir(parents=True)
     fa, fb = _files(a), _files(b)
     files, data = {}, {}
-    for group in GROUPS:
+    # (the headphone version is compared where either render has one: a part moved around the head changes that file alone)
+    for group in GROUPS + (('headphones',) if fa['headphones'] or fb['headphones'] else ()):
         entries = {}
         for name in [*fb[group], *(n for n in fa[group] if n not in fb[group])]:
             if name not in fa[group]:
@@ -553,7 +565,7 @@ def compare(before, after, differences=None):
              a['report'].get('renderer_sha256') == b['report'].get('renderer_sha256'), (fa['stems'], fb['stems']))
     changes = project_changes(a['project'], b['project'])
     synth = synthesis(a, b)
-    summary = {'project': project_lines(changes), **{k: v for k, v in synth.items() if k != 'reused'},
+    summary = {'project': project_lines(changes), **{k: v for k, v in synth.items() if k in ('synthesized_again', 'same_inputs_new_take', 'changed_from_cache')},
                'changed': {g: {n: ('added' if e.get('added') else 'removed' if e.get('removed') else describe(e))
                                for n, e in entries.items() if not e.get('identical')} for g, entries in files.items()},
                'identical': {g: sum(1 for e in entries.values() if e.get('identical')) for g, entries in files.items()}}

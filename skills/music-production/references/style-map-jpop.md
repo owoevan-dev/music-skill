@@ -59,7 +59,8 @@ modulation into the chorus. `jpop/anime-opening`
 | `mix` | no source read; this skill delivers at −14 LUFS ([anime-opening.md](anime-opening.md), The mix) | |
 
 - **In this skill**: [anime-opening.md](anime-opening.md): the TV-size layout, the build, the royal road and the
-  minor-third modulations, the melody for an instrumental lead, the band, the arrangement and the mix.
+  minor-third modulations, the melody for an instrumental lead, the band, the arrangement and the mix; the guitars on
+  the direct bank through `mix.amp`, played by string ([rock-and-metal.md](rock-and-metal.md)).
 - **Variants**:
   - *Full size*: the compound AABA′ of two rotations with a bridge, the postchorus doubling as the second rotation's
     intro (Li 2026).
@@ -123,12 +124,15 @@ funk, disco and boogie grooves, sometimes tropical. `jpop/city-pop`
 | Axis | Traits | From |
 |---|---|---|
 | `tempo` | no source read | |
-| `harmony` | jazz techniques of writing and arranging, diminished and major-seventh chords among them, taken from 1970s American soft rock | WP City pop |
-| `melody` | no source read | |
-| `rhythm` | funk, disco, R&B and boogie; of its two styles, one "a thumping rug-cutter" | WP City pop |
-| `timbre` | soft rock and AOR; tropical touches and borrowings from jazz fusion and from the music of Okinawa, Latin America and the Caribbean; the other style "a lush, tropical romp" | WP City pop |
-| `form` | no source read | |
-| `mix` | an urban, sophisticated atmosphere | WP City pop |
+| `harmony` | often tension chords; jazz techniques of writing and arranging, diminished and major-seventh chords among them, taken from 1970s American soft rock | Sommet 2020; WP City pop |
+| `melody` | no pentatonic scale and none of enka's ways of singing: no marker of a Japanese musical identity but the language | Sommet 2020 |
+| `rhythm` | rhythm-oriented patterns, often on sixteenths ("16-beat"), after R&B, light or smooth jazz, fusion and soul; at times disco, Latin music or synth-pop. Funk, disco, R&B and boogie; of its two styles, one "a thumping rug-cutter" | Sommet 2020; WP City pop |
+| `timbre` | "a bright, clean and polished sound" from a mixture of electronic and analog instruments and production. Soft rock and AOR; tropical touches and borrowings from jazz fusion and from the music of Okinawa, Latin America and the Caribbean; the other style "a lush, tropical romp" | Sommet 2020; WP City pop |
+| `form` | at times structures nearer the American pop and rock of the 1950s and 1960s | Sommet 2020 |
+| `mix` | no source read on the mix itself; the sound is the `timbre` row's. An urban, sophisticated atmosphere | Sommet 2020; WP City pop |
+
+Sommet (2020) adds a caution: city pop as it emerged in the early 1980s blends so many genres that it "has hardly
+developed a musical identity of its own", and is easier to tell by its covers than by its sound.
 
 - **In this skill**: [jazz-and-funk.md](jazz-and-funk.md), Funk and pop-funk: sevenths and ninths, a melodic
   electric bass, strings or synth brass, a vocal-like lead (this skill's practice); `bass_darkblack`; electric pianos
@@ -158,8 +162,22 @@ The sentimental ballad of postwar Japan: melodies on the yonanuki scales, sung w
 
 ## Not entries
 
-Two requests have no entry, as no source read describes their traits ([style-maps.md](style-maps.md), When a
+Three requests have no entry, as no source read describes their traits ([style-maps.md](style-maps.md), When a
 sub-style is an entry of its own).
+
+- **A J-rock band song.** No source read describes Japanese rock by its traits as a style of its own (two searches
+  on 19 November 2026, in English and in Japanese, found popular guides, retailers' columns and a bachelor's thesis
+  on four artists' chords, and no peer-reviewed description of the style). Take the anime opening as the
+  primary, for the family's sections, progressions and form, and borrow the band from the rock entry nearest the
+  brief ([style-map-rock.md](style-map-rock.md)): its `timbre`, and its `rhythm` where the brief asks for that
+  entry's drive. Which entry depends on the brief, the reason in `decisions`; one such combination:
+
+  ```json
+  "style": {"primary": "jpop/anime-opening", "borrow": {"timbre": "rock/alternative"}}
+  ```
+
+  What the guitars play is the piece's choice among the ways of playing in
+  [rock-and-metal.md](rock-and-metal.md), Writing the guitar part; none of them is recorded as this request's norm.
 
 - **A J-pop ballad.** Take the pop ballad as the primary and borrow the harmony from the anime opening, the reason
   in `decisions`: the family's progressions, the royal road among them, under the ballad's slow tempo, lush
@@ -189,6 +207,10 @@ sub-style is an entry of its own).
 - Moss, F. C. and Nakamura, E. (2024). [Modeling the Evolution of Harmony in Popular Music from Different Cultural
   Contexts](https://ceur-ws.org/Vol-3834/paper133.pdf). *Proceedings of the Computational Humanities Research
   Conference* (CEUR Workshop Proceedings 3834).
+- Sommet, M. (2020). [Intermediality and the discursive construction of popular music genres: the case of 'Japanese
+  City Pop'](https://sonar.ch/documents/308987/files/Sommet_-_Intermediality_and_the_discursive_construction_of_popular_music_genres_-_the_case_of_Japanese_City_Pop.pdf).
+  The author's English manuscript of a paper published in Japanese in *Handai ongaku gakuhō* 16/17, 15–42; its
+  paragraph on the music read.
 - Ramage, M. (2023). The Royal Road Progression in Japanese Popular Music. *Music Theory Spectrum* 45(2), 238–256.
   Read in summary and as cited by Li (2026).
 - Suda, H. et al. (2025). [IdolSongsJp Corpus: A Multi-Singer Song Corpus in the Style of Japanese Idol Groups](https://arxiv.org/abs/2507.01349).

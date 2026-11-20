@@ -14,10 +14,22 @@
    "axis": "harmony",
    "params": {
     "sustain_beats": 0.75,
-    "overlap_beats": 0.5
+    "overlap_beats": 0.5,
+    "widest": 13
    },
    "origin": "ours",
+   "source": "the lengths are ours; the widest distance counted is the minor ninth of the avoid-note rule arrangement.md gives, wider compounds being given apart after Sethares (1993), whose model gives a semitone two octaves wide a quarter of a close one's roughness or less",
    "what": "minor seconds and ninths between a sustained note and another part's note"
+  },
+  "clash": {
+   "axis": "harmony",
+   "params": {
+    "beats": 1.0,
+    "one_by_one": 5
+   },
+   "origin": "ours",
+   "source": "the places are the bar's two strongest metric levels (Longuet-Higgins and Lee 1984); the length and the number asked one by one are ours",
+   "what": "a counted clash that begins on a downbeat or a half-bar and sounds a beat or more, asked by itself"
   },
   "outside_chord": {
    "axis": "harmony",

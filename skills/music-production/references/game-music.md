@@ -10,7 +10,7 @@ Contents: [Brief](#brief) · [The loop point](#the-loop-point) · [Repetition](#
 
 ## Brief
 
-Settle these from the request, deciding what it leaves open and saying so:
+Settle these from the request; what it leaves open is decided after the piece's words are drawn (SKILL.md, steps 1 and 2), and said so:
 
 - **Use**: a background loop, a one-shot (a victory or level-up jingle, a stinger, game over), or layers the game mixes. A one-shot has no `loop`: it ends with a cadence and a natural decay, and `tail_quiet` applies.
 - **Time spent**: how long a player stays in the place. A 30-second shop visit and an hour in a dungeon need different loop lengths and different amounts of variation.

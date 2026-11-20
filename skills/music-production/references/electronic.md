@@ -10,7 +10,7 @@ Contents: [Brief](#brief) · [Form: breakdown, build-up, drop](#form-breakdown-b
 
 ## Brief
 
-Settle these from the request, deciding what it leaves open and saying so:
+Settle these from the request; what it leaves open is decided after the piece's words are drawn (SKILL.md, steps 1 and 2), and said so:
 
 - **Style and tempo.** From the Wikipedia article on each style (read 7 November 2026), Ableton's Learning Music lesson on tempo and genre (read 9 November 2026) and the sources named; take the brief's tempo when it gives one. The maps say what each range rests on ([style-map-electronic.md](style-map-electronic.md)).
 

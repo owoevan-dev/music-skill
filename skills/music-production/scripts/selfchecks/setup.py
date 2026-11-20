@@ -559,5 +559,43 @@ def define(S):
                 value=Path(cfg[key]['path']);cfg[key]['path']=str(value if value.is_absolute() else Path(config).resolve().parent/value)
             cfg['soundfont']['sha256']='0'*64;save_json(work/'bad_config.json',cfg);rejects(lambda:audio.load_config(work/'bad_config.json'))
             return True
-        found.update({'dependency_hash_mismatch_stops_before_render': bad_hash})
+        def read_by_another_skill():
+            # 0.9 step 5.  A sound-effects skill built beside this one uses it through two things only, the
+            # configuration file and `studio.py doctor` (it imports nothing; its own contract lists the rest).  What it
+            # reads is pinned here, so that a change on this side fails here first:
+            # - the entries `ffmpeg`, `fluidsynth`, `soundfont` and every `soundfonts.<name>`, each with `path`,
+            #   `sha256` and `license` as text;
+            # - `scripts/studio.py` in the skill's folder, and `doctor --config` ending 0 where the setup passes and
+            #   otherwise where a file is not the one the configuration names;
+            # - FFmpeg's coders and filters it encodes, decodes and measures with;
+            # - the first word of the licence of every bank the setup installs (it plays a bank only where that says
+            #   the sounds made with it ask no credit).
+            import subprocess,sys
+            cfg=json.loads(Path(config).read_text(encoding='utf-8'))
+            entries=[('ffmpeg',cfg['ffmpeg']),('fluidsynth',cfg['fluidsynth']),('soundfont',cfg['soundfont']),*((f'soundfonts.{k}',v) for k,v in (cfg.get('soundfonts') or {}).items())]
+            for name,e in entries:
+                assert all(isinstance(e.get(k),str) and e[k] for k in ('path','sha256','license')),(name,sorted(e))
+            studio=SCRIPTS/'studio.py';assert studio.is_file()
+            run=lambda c:subprocess.run([sys.executable,str(studio),'doctor','--config',str(c)],capture_output=True,text=True,encoding='utf-8',errors='replace')
+            ok=run(config);assert ok.returncode==0,ok.stderr[-300:]
+            wrong=dict(cfg)
+            for key in ('fluidsynth','ffmpeg','soundfont'):
+                value=Path(cfg[key]['path']);wrong[key]={**cfg[key],'path':str(value if value.is_absolute() else Path(config).resolve().parent/value)}
+            wrong['soundfonts']={};wrong.pop('surge',None);wrong.pop('pedalboard',None);wrong['soundfont']={**wrong['soundfont'],'sha256':'0'*64}
+            save_json(work/'contract_wrong.json',wrong);assert run(work/'contract_wrong.json').returncode!=0
+            ffmpeg=audio.load_config(config)['ffmpeg']['path']
+            listed={kind:subprocess.run([ffmpeg,'-hide_banner',f'-{kind}'],capture_output=True,text=True,errors='replace').stdout for kind in ('encoders','decoders','filters')}
+            has=lambda kind,name:any(name in line.split() for line in listed[kind].splitlines())
+            # libvorbis only where this FFmpeg has it: a build without it is a setup the skill supports (doctor
+            # passes, a loop is delivered as WAV), and the check failed there (the review of 0.9's step 5)
+            from bootstrap import has_vorbis
+            vorbis=('libvorbis',) if has_vorbis(ffmpeg) else ()
+            missing=[(k,n) for k,names in (('encoders',('pcm_s16le','pcm_s24le','pcm_f32le',*vorbis,'libmp3lame','flac')),('decoders',('vorbis','mp3','flac')),('filters',('ebur128','aresample'))) for n in names if not has(k,n)]
+            assert not missing,missing
+            lock=json.loads((SCRIPTS.parent/'references'/'soundbank-lock.json').read_text(encoding='utf-8'))
+            first={i['name']:str(i.get('license','')) for k in ('archives','builds') for i in lock[k]}
+            other={k:v[:40] for k,v in first.items() if not v.startswith(('CC0','University of Iowa','Unlicense','MIT'))}
+            assert first and not other,other
+            return {'entries':len(entries),'locked_banks':len(first),'libvorbis':bool(vorbis)}
+        found.update({'dependency_hash_mismatch_stops_before_render': bad_hash, 'another_skill_reads_the_configuration_and_doctor': read_by_another_skill})
     return found

@@ -35,12 +35,12 @@ def remap(notes,key_map):
             kept.append(n);prev=n
     return sorted(kept,key=lambda n:(n['tick'],n['pitch']))
 
-def synthesis_notes(t,clock,expressive=True,cycles=None):
+def synthesis_notes(t,clock,expressive=True,cycles=None,ends=None):
     """The notes a part's synthesis MIDI plays (write with render=True), and the wheel curve of its slurs or None:
     the performed notes after the part's `key_map` (remap), with each drum hit's take where `cycles` is given, and
     with slurred notes joined into the one note they sound as (model.legato_notes, synthesis only).  The mix reads
     the same notes for the time a part sounds (mixbus.held_spans), so what is written here is what is counted there."""
-    notes=performed(t,clock,expressive)
+    notes=performed(t,clock,expressive,ends)
     if t.get('key_map'):notes=remap(notes,t['key_map'])
     if cycles:
         notes=sorted(notes,key=lambda n:(n['tick'],n['pitch']))
@@ -50,7 +50,7 @@ def synthesis_notes(t,clock,expressive=True,cycles=None):
         return legato_notes(t,notes,clock)
     return notes,None
 
-def write(project,path,tracks=None,expressive=True,single_stem=False,render=False,keys=None,cycles=None,new=False):
+def write(project,path,tracks=None,expressive=True,single_stem=False,render=False,keys=None,cycles=None,new=False,ends=None):
     """Standard MIDI file. With render=True (synthesis input only) a track's `patch` replaces its
     program/bank and `key_map` remaps pitches; a drum part whose patch is not bank 128 plays on a
     melodic channel; with `keys` (a preset's recordings per key, musiclib/variation.py) a part with
@@ -85,7 +85,8 @@ def write(project,path,tracks=None,expressive=True,single_stem=False,render=Fals
         e.append((0,2,bytes([192+channel,program])))
         for cc,value in [(7,100),(10,64),(11,100),(64,0)]:
             e.append((0,3,bytes([176+channel,cc,value])))
-        notes,slurs=synthesis_notes(t,clock,expressive,cycles) if render else (performed(t,clock,expressive),None)
+        # `ends` (id -> tick, synthesis only): a pass of a part played by string, whose notes end where the whole part has them end
+        notes,slurs=synthesis_notes(t,clock,expressive,cycles,ends) if render else (performed(t,clock,expressive),None)
         if slurs is not None:
             bends=wheel_events([bend_curve(t['performance'].get('bend',[])),slurs],t['performance'].get('bend_range',2),clock.total_beats)
         else:

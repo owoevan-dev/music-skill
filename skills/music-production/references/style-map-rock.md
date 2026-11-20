@@ -28,7 +28,18 @@ Source tags: WP is Wikipedia, by article: read on 9 November 2026, and on 6 Nove
   (Lilja 2015).
 - **The band.** The backbeat (OMT, Drumbeats); tight drums, as small timing deviations did not improve a simple
   pattern's groove (Frühauf, Kopiez and Platz 2013); rhythm guitars recorded at least twice and panned apart (Mynett
-  2017).
+  2017): of ten guitar tracks a decade, two to the sides are the standard of the 1970s, the 1980s and most of the
+  1990s tracks, and four "seem required" in the death metal tracks of the 2000s and the modern extreme metal ones of
+  the 2010s (Herbst 2017a).
+- **Form.** Since the mid-1960s the default of rock and pop is a rotation of verse and chorus twice, a contrasting
+  bridge, and the rotation again, often shortened or altered (compound AABA: Covach 2005 and Temperley 2018, in Hudson
+  2021). Of the 195 tracks of 20 albums often named among heavy metal's best, a list that leans to the 1980s, 59.5%
+  have exactly that form and 87.2% a rotation with a bridge somewhere (Hudson 2021).
+- **Riffs.** A metal song is made of riff modules: one riff repeated, often 2, 4 or 8 times, a new module wherever
+  the riff, the texture or the instrumentation changes; the riffs are usually played in unison (Pillsbury 2006, in
+  Hudson 2021; Hudson 2021). In early American hardcore punk the riff is every instrument's material (Easley 2015,
+  four bands). In metal since 2000, what the guitar plays in a riff goes with the drums' time feel
+  ([rock-and-metal.md](rock-and-metal.md), Writing the guitar part: Garza 2021).
 - **Measured.** In the Harmonix Set, 36 songs labelled rock: a median 126 BPM, the middle 80% between 82 and 151;
   verses 8 bars long in 41% and 16 in 28%, choruses 8 in 37%, solos a median 10 bars. 32 labelled metal: a median
   143 BPM, 80% between 91 and 190; a median 4.8 minutes; solos a median 18 bars, bridges 16 bars in 31%. The
@@ -57,31 +68,41 @@ The backbeat band with power chords and open chords, pentatonic riffs and a lead
 | `form` | verse–chorus with a pre-chorus, a solo in the bridge's place | Summach 2011; rock-and-metal.md, Form |
 | `mix` | no source read beyond this skill's delivery at −14 LUFS ([rock-and-metal.md](rock-and-metal.md), The mix) | |
 
-- **In this skill**: [rock-and-metal.md](rock-and-metal.md): the guitars on the FSBS banks, `rusty`, the bass banks;
-  `blocks.drums` in the `rock` feel ([building-blocks.md](building-blocks.md)).
+- **In this skill**: [rock-and-metal.md](rock-and-metal.md): the direct guitar through `mix.amp`, played by string
+  (the three amplified FSBS banks remain), `rusty`, the bass banks and the amplifier's `bass` voice; `blocks.drums` in
+  the `rock` feel ([building-blocks.md](building-blocks.md)).
 - **Variants**: *Blues rock*: the chords, scales and improvisation of the blues, electric blues played faster and
   more aggressively, with electric guitar, bass, drums, sometimes keys and harmonica (WP Blues rock).
 - **Neighbours**: Heavy metal (less syncopation and less blues, more brute force: WP Heavy metal music); Punk.
 
 ## Punk
 
-Short, fast, stripped-down songs: driving eighths, power chords on downstrokes, little syncopation, no long solos.
-`rock/punk`
+Short, fast songs on distorted power chords with the bass on their roots: riffs, not long solos. The table's rows
+from Pearson (2019) describe the punk of 1977; what came after is under Variants. `rock/punk`
 
 | Axis | Traits | From |
 |---|---|---|
-| `tempo` | fast | WP Punk rock |
-| `harmony` | few chords; eighth-note power chords | WP Punk rock; rock-and-metal.md |
-| `melody` | rough, stripped-down vocals; basic guitar breaks rather than long solos | WP Punk rock |
-| `rhythm` | driving eighths on the hats or ride, the snare on 2 and 4 or on every beat; much less syncopation than other rock | WP Punk rock |
-| `timbre` | drums, bass and one guitar or two | WP Punk rock |
-| `form` | short songs in verse–chorus form | WP Punk rock |
+| `tempo` | in the punk of 1977 usually under 200 BPM (about 150 and about 180 on its two best-known bands) | Pearson 2019 |
+| `harmony` | for the most part power chords (root, fifth, octave), which act more as timbre and line than as harmony; diatonic collections | Pearson 2019 |
+| `melody` | short, simple, fast-moving riffs, the bass usually on the chords' roots; vocal lines mostly on the roots, in a small range; basic guitar breaks rather than long solos | Pearson 2019; WP Punk rock |
+| `rhythm` | a fast rock beat: the snare on two and four, the kick centred on one and three with variations; time on the hi-hat's edge once or twice a beat, crash or ride accents where the riff arrives | Pearson 2019 |
+| `timbre` | a heavily distorted guitar, bass, drums and voice | Pearson 2019 |
+| `form` | verse–chorus as in rock, intros and bridges by the song; tracks of two or three minutes | Pearson 2019 |
 | `mix` | heavy, dry drums; against the overproduction of arena rock | WP Punk rock |
 
-- **In this skill**: the punk row of [rock-and-metal.md](rock-and-metal.md); `blocks.drums` with `pulse="eighth"`,
-  the snare on every beat for a lift written by hand.
-- **Variants**: *Pop-punk*: fast, energetic tempos with classic pop songcraft, sweet harmonies against rowdy riffs, a
-  catchy, faster power pop (WP Pop-punk).
+- **In this skill**: the punk row of [rock-and-metal.md](rock-and-metal.md) and its power-chord riffs (Writing the
+  guitar part); `blocks.drums` with `pulse="eighth"`, the snare on every beat for a lift written by hand.
+- **Variants**:
+  - *Hardcore* (the early 1980s): kick and snare alternating 300 to 400 times a minute and more, where the backbeat
+    is no longer felt as beats two and four and the riff becomes the unit of metre; riffs shorter, the chords changing
+    faster, more motion by minor thirds, still diatonic; groupings of 3+3+2 against even ones (the D-beat); yelled
+    vocals (Pearson 2019). A riff of two parts, a statement and a contrasting close, repeated most typically four
+    times; the guitar "invariably" in power chords, one shape slid along the neck, the bass doubling the root, the
+    drums bringing out the riff's rhythm (Easley 2015, on four American bands' recordings of 1978 to 1983).
+  - *Extreme hardcore* (the 1990s): blast beats, slow dirges, growls and screams, riffs on dissonant collections
+    outside the scale (Pearson 2019).
+  - *Pop-punk*: fast, energetic tempos with classic pop songcraft, sweet harmonies against rowdy riffs, a catchy,
+    faster power pop (WP Pop-punk).
 - **Neighbours**: Classic and hard rock; Alternative and indie; Metalcore (from hardcore punk).
 
 ## Alternative and indie
@@ -95,15 +116,19 @@ chorus. `rock/alternative`
 | `harmony` | power chords | WP Alternative rock |
 | `melody` | chiming riffs; melodic guitar interplay | WP Alternative rock; WP Indie rock |
 | `rhythm` | the backbeat; toms in the verse | rock-and-metal.md (the Brief's table) |
-| `timbre` | guitars that "blast out power chords, pick out chiming riffs, buzz with fuzztone and squeal in feedback" | Jon Pareles, "A New Kind of Rock", *The New York Times*, 5 March 1989, quoted in WP Alternative rock (the article itself not read) |
+| `timbre` | guitars that "blast out power chords, pick out chiming riffs, buzz with fuzztone and squeal in feedback"; in indie music timbre, more than harmony, is what sets a band apart from the mainstream | Jon Pareles, "A New Kind of Rock", *The New York Times*, 5 March 1989, quoted in WP Alternative rock (the article itself not read); Blake 2012 |
 | `form` | on the same songs: choruses 8 bars long in 63%, verses 8 in 43% and 16 in 20%, a bridge in 82%; the clean, thin verse against a distorted chorus is this skill's ([rock-and-metal.md](rock-and-metal.md), Form) | Nieto et al. 2019 |
 | `mix` | no source read | |
 
-- **In this skill**: `fsbs_clean` with `chorus` for the verse, the distorted banks for the chorus
+- **In this skill**: a clean verse and a driven chorus on the direct guitar (`mix.amp`: `clean` with the `chorus`
+  effect, then `crunch` on a second part), or `fsbs_clean` and the distorted banks
   ([rock-and-metal.md](rock-and-metal.md)).
 - **Variants**:
   - *Grunge*: punk and heavy metal fused, the distorted guitar of both, at times slow and sludgy (WP Grunge).
   - *Jangle and indie pop*: the melodic interplay of clean guitars (WP Indie rock).
+  - *Art rock since 2000*: chromatic progressions between seventh chords and other chords of four or more notes, grown
+    out of rock's own patterns (two chords alternating, chains of fifths, modal progressions), set beside ordinary
+    rock progressions (Heetderks 2015, on five groups).
 - **Neighbours**: Shoegaze; Punk; Post-rock.
 
 ## Shoegaze
@@ -117,9 +142,9 @@ A wash of sound: guitars in layers, distorted, flanged or pitch-bent, and obscur
 | `harmony` | no source read | |
 | `melody` | ethereal, swirling, obscured vocals | WP Shoegaze |
 | `rhythm` | no source read | |
-| `timbre` | layered guitars, distorted, flanged or pitch-bent; pedals for distortion, chorus, tremolo, delay and reverb | WP Shoegaze |
-| `form` | no source read | |
-| `mix` | one blended wash in which no single instrument stands out | WP Shoegaze |
+| `timbre` | long, droning guitar sounds; on the recording Blake studies, many takes of one riff layered with feedback into a dense wash of distortion that hides the pitches. Layered guitars, distorted, flanged or pitch-bent; pedals for distortion, chorus, tremolo, delay and reverb | Blake 2012; WP Shoegaze |
+| `form` | extended forms | Blake 2012 |
+| `mix` | one blended wash in which no single instrument stands out; the voices barely heard in the guitars (the same recording) | WP Shoegaze; Blake 2012 |
 
 - **In this skill**: two or more distorted guitar parts with `bend` and `effects` `chorus` or `phaser`, long
   `reverb_db` and `mix.delay`; a lead set into the wash, not over it. `vocal_ah` for a wordless voice.
@@ -180,14 +205,16 @@ straight 4/4. `rock/surf`
 |---|---|---|
 | `tempo` | medium to fast | WP Surf music |
 | `harmony` | no source read | |
-| `melody` | the guitar carries it; influences from Mexico and the Middle East in the founding style | WP Surf music |
-| `rhythm` | almost always straight 4/4; rapid alternate picking | WP Surf music |
-| `timbre` | electric guitars through a "wet" spring reverb | WP Surf music |
+| `melody` | the guitar carries the whole song in the voice's place; mostly minor and major pentatonics and modes such as Dorian and Mixolydian; Phrygian dominant over a major chord for a Spanish or Eastern colour. Influences from Mexico and the Middle East in the founding style | Schmidt, in Sharma 2021; WP Surf music |
+| `rhythm` | almost always straight 4/4; rapid alternate picking; tremolo picking and muted picking | WP Surf music; Schmidt, in Sharma 2021 |
+| `timbre` | "sparkling, reverberated tones", almost clean yet with a distorted sound's force; the vibrato arm, at times to extremes. Electric guitars through a "wet" spring reverb | Schmidt, in Sharma 2021; WP Surf music |
 | `form` | instrumental | WP Surf music |
 | `mix` | the reverb as the sound | WP Surf music |
 
-- **In this skill**: `fsbs_clean` with a high `reverb_db` on the plate and fast repeated notes for the picking
-  (`gate` short); `rusty` and `bass_pick`. The skill has no spring reverb model: the plate stands in.
+- **In this skill**: `fsbs_clean`, or the direct guitar on `clean` or `edge` ([rock-and-metal.md](rock-and-metal.md)),
+  with a high `reverb_db` on the plate and fast repeated notes for the picking (`gate` short; on a part played by
+  string, `"mute": "palm"` for the muted picking); `rusty` and `bass_pick`. The skill has no spring reverb model: the
+  plate stands in.
 - **Neighbours**: Classic and hard rock; Punk.
 
 ## Heavy metal
@@ -200,13 +227,14 @@ and guitar solos. `rock/heavy-metal`
 | `tempo` | slow in the early style, faster from the late 1970s | rock-and-metal.md (the Brief's table) |
 | `harmony` | Aeolian and Phrygian riffs, modal progressions, the tritone and chromatic motion, pedal points; power chords | rock-and-metal.md (WP Heavy metal music, Walser 1993) |
 | `melody` | one guitar solo or more, where the player shows virtuosity; twin leads in thirds | WP Heavy metal music; rock-and-metal.md |
-| `rhythm` | emphatic rhythms with less syncopation than hard rock; the gallop in guitars and bass, often doubled by the kick; palm-muted crunch | WP Heavy metal music |
-| `timbre` | distorted guitars at moderate gain played loud; a prominent bass in interplay with the guitar | WP Heavy metal music |
-| `form` | no source read beyond the solo | |
+| `rhythm` | emphatic rhythms with less syncopation than hard rock; the gallop in guitars and bass, often doubled by the kick; palm-muted crunch. In metal since 2000, across its kinds: the pedal-tone riff, a repeated palm-muted low note under fretted notes played open, on the beat's division | WP Heavy metal music; Garza 2021 |
+| `timbre` | distorted guitars at moderate gain played loud; a prominent bass in interplay with the guitar. In ten guitar tracks of the 1980s: a strong middle range, its scooping just beginning; six in standard tuning, three a semitone down, one two | WP Heavy metal music; Herbst 2017a |
+| `form` | the default of Hudson's corpus is the rotation with a bridge (the family's Form, above). Nearly every song begins by building the riff up an instrument at a time: one guitar alone, the others after a repetition or two, often first on accents; a module before the verse's voice enters in 46.7% of the tracks; bridges often longer than rock's, of several sections; in 84 of the 148 songs whose rotation returns, the intro's material leads back. Counted on Hudson's corpus (the family's Form), not on this entry's style alone | Hudson 2021 |
 | `mix` | loudness; bass and drums packed dense | WP Heavy metal music |
 
-- **In this skill**: [rock-and-metal.md](rock-and-metal.md): the gallop, the palm-muted chugs on a part of their own,
-  twin leads, the Aeolian and Phrygian riffs, the mix.
+- **In this skill**: [rock-and-metal.md](rock-and-metal.md): the gallop, the palm-muted chugs (`"mute": "palm"` on
+  the direct guitar; a part of their own on the amplified banks), twin leads, the Aeolian and Phrygian riffs, the
+  buildup of an intro, the mix.
 - **Neighbours**: Thrash; Power metal; Doom; Classic and hard rock.
 
 ## Thrash
@@ -219,9 +247,9 @@ Fast, aggressive metal: low-register palm-muted riffs, shredding solos, double k
 | `tempo` | fast | WP Thrash metal |
 | `harmony` | chromatic steps, tritones and diminished intervals rather than one scale | rock-and-metal.md (WP Thrash metal) |
 | `melody` | high-register solos, shredding: sweep picking, legato, alternate and tremolo picking, tapping | WP Thrash metal |
-| `rhythm` | fast percussive beats; the thrash beat, kick and snare alternating on eighths; double kick | WP Thrash metal; rock-and-metal.md |
-| `timbre` | heavily distorted, often palm-muted power chords; scooped mids and a tightly compressed tone | WP Thrash metal; WP Heavy metal music |
-| `form` | no source read | |
+| `rhythm` | fast percussive beats; the thrash beat, kick and snare alternating on eighths; double kick. In metal since 2000, pedal-tone riffs above all here and in death metal: a repeated palm-muted note, typically the open low string, under fretted notes played open, in normal or double time | WP Thrash metal; rock-and-metal.md; Garza 2021 |
+| `timbre` | heavily distorted, often palm-muted power chords; scooped mids and a tightly compressed tone. In ten guitar tracks of the 1990s: considerably more low end, less of the mids and more distortion than the decade before; seven in standard tuning, three down one to three semitones | WP Thrash metal; WP Heavy metal music; Herbst 2017a |
+| `form` | Hudson's corpus, whose default is the rotation with a bridge, includes thrash albums (no count for thrash alone); in thrash the intensity builds through each verse to its chorus (Pillsbury 2006); a few thrash bands seem to avoid compound AABA | Hudson 2021; Pillsbury 2006, in Hudson 2021 |
 | `mix` | no source read beyond the tone above | |
 
 - **In this skill**: the thrash row of [rock-and-metal.md](rock-and-metal.md); `eq` cuts in the mids of the rhythm
@@ -263,9 +291,9 @@ chromaticism or dissonance, growled or shrieked vocals. `rock/extreme-metal`
 | `tempo` | fast, black metal's tempos sometimes near 300 BPM; abrupt changes of tempo, key and meter in death metal | WP Death metal; WP Black metal |
 | `harmony` | minor keys or atonality; chromatic chord progressions; in black metal, dissonance, scales and intervals chosen for dread | WP Death metal; WP Black metal |
 | `melody` | growled (death) or shrieked (black) vocals | WP Death metal; WP Black metal |
-| `rhythm` | blast beats and double kick; tremolo picking and palm muting | WP Death metal; WP Black metal |
-| `timbre` | heavily distorted, low-tuned guitars (death); heavily distorted guitars playing power chords and tremolo picking with the strings unmuted, the bass following the riff (black); keyboards in some | WP Death metal; WP Black metal |
-| `form` | unconventional song structures (black) | WP Black metal |
+| `rhythm` | blast beats and double kick; tremolo picking and palm muting. In metal since 2000, the tremolo riff (constant double picking at very fast tempos, single notes or chords) goes with feels faster than double time: in the traditional blast beat kick and snare alternate at four times normal time's rate. In black metal a cymbal struck on the beat's divisions at such speeds makes a wash of sound, which producers of most genres avoid and black metal keeps (after Hagen 2011) | WP Death metal; WP Black metal; Garza 2021 (the technique after Hagen 2011) |
+| `timbre` | heavily distorted, low-tuned guitars (death): in ten death metal guitar tracks of the 2000s three to five semitones below standard, most around C or B, and in ten modern extreme metal tracks of the 2010s between B and A♭, the bass tuned down with them; heavily distorted guitars playing power chords and tremolo picking with the strings unmuted, the bass following the riff (black); keyboards in some | WP Death metal; WP Black metal; Herbst 2017a |
+| `form` | unconventional song structures (black). Given as tentative, from a handful of songs: some black metal repeats one riff for minutes and holds tempo and blast beats fixed even through a conventional form; technical death metal tends away from compound AABA (Dekovich), melodic death metal often uses verse–chorus forms (Smialek 2016) | WP Black metal; Hudson 2021, who reports both |
 | `mix` | raw, lo-fi recording in black metal; an emphasis on atmosphere | WP Black metal |
 
 - **In this skill**: the blast beat and the double kick on `rusty` ([rock-and-metal.md](rock-and-metal.md), Metal
@@ -282,10 +310,10 @@ minor, with the tritone. `rock/doom`
 
 | Axis | Traits | From |
 |---|---|---|
-| `tempo` | slow tempos throughout | WP Doom metal |
+| `tempo` | slow tempos throughout; slow time feels: half time, and slower still, the kick in one bar and the snare in the next | WP Doom metal; Garza 2021 |
 | `harmony` | minor tonality, much dissonance, the tritone above all; harmonic progression counts for little | WP Doom metal |
 | `melody` | clean vocals sung with despair in the traditional style | WP Doom metal |
-| `rhythm` | repetitive rhythms | WP Doom metal |
+| `rhythm` | repetitive rhythms; in metal since 2000, riffs of notes longer than a beat, which reinforce a slow feel's stasis and open space | WP Doom metal; Garza 2021 |
 | `timbre` | guitars and bass tuned down, with much distortion: a thick, heavy tone; guitars and bass on the same riff | WP Doom metal |
 | `form` | little regard to musical structure | WP Doom metal |
 | `mix` | a wall of sound, loud and heavy in the bass | WP Doom metal |
@@ -305,9 +333,9 @@ percussive chugs. `rock/metalcore`
 | `tempo` | breakdowns slow and intense | WP Metalcore |
 | `harmony` | low-tuned power chords and open-string chugs | WP Metalcore; rock-and-metal.md |
 | `melody` | melodic choruses; clean singing against harsh shouting and screaming | WP Metalcore |
-| `rhythm` | double kick; in breakdowns a half-time snare with the kick in unison with the chugs | WP Metalcore; rock-and-metal.md |
+| `rhythm` | double kick; in breakdowns a half-time snare with the kick in unison with the chugs. In metal since 2000, the breakdown riff: low notes in uneven rhythms, guitars and bass in unison and sometimes the kick, staccato with silence between the strokes, crash or China cymbals. In double time, riffs that leave weak beats out with rests or ties, played open, on the kick's and the snare's rhythm | WP Metalcore; rock-and-metal.md; Garza 2021 |
 | `timbre` | guitar riffs tuned low and played percussively | WP Metalcore |
-| `form` | aggressive verse, melodic chorus, the breakdown as a section of its own | WP Metalcore; Gamble 2019 |
+| `form` | aggressive verse, melodic chorus, the breakdown as a section of its own, in virtually every song of the metalcore bands Hudson names; most breakdowns, not all, on a half-time backbeat | WP Metalcore; Gamble 2019, read and as Hudson 2021 reports it |
 | `mix` | a highly produced sound | WP Metalcore |
 
 - **In this skill**: the metalcore row and the breakdown of [rock-and-metal.md](rock-and-metal.md).
@@ -328,8 +356,8 @@ Down-tuned, heavily syncopated riffs on seven-string guitars, hip-hop rhythms an
 | `melody` | rhythmic vocals from hip-hop: singing, rapping, screaming; rarely guitar solos | WP Nu metal |
 | `rhythm` | the instrumentation heavily syncopated; rhythm over technique | WP Nu metal |
 | `timbre` | seven-string guitars; at times a DJ's samples, scratching and electronic backgrounds | WP Nu metal |
-| `form` | no source read | |
-| `mix` | no source read | |
+| `form` | shorter works on a verse, chorus and middle-eight format (Cope 2010); Hudson finds that format the default of mainstream metal as well | Cope 2010, quoted in Hudson 2021 |
+| `mix` | an intro in which one guitar plays the riff panned hard to a side and the band's entry fills the image: Smialek ties the panning to nu metal of the late 1990s; Hudson finds intros that build, panned or not, across metal | Smialek 2016, in Hudson 2021 |
 
 - **In this skill**: the distorted banks down to B1, the seven-string's low B; syncopated riffs with the kick;
   `drum_synth` or Surge textures for the electronic layer. No scratching: the banks hold no turntable.
@@ -343,11 +371,31 @@ Down-tuned, heavily syncopated riffs on seven-string guitars, hip-hop rhythms an
   games with a lean toward EDM and danceable pop; the annotations under the MIT licence. The tempos and section
   lengths by the set's genre labels are measured here: the metadata's BPM, and the downbeats from each section's
   start to the next.
+- Blake, D. K. (2012). [Timbre as Differentiation in Indie Music](https://www.mtosmt.org/issues/mto.12.18.2/mto.12.18.2.blake.html).
+  *Music Theory Online* 18(2): three case studies, one a shoegaze recording.
+- Easley, D. B. (2015). [Riff Schemes, Form, and the Genre of Early American Hardcore Punk (1978–83)](https://www.mtosmt.org/issues/mto.15.21.1/mto.15.21.1.easley.html).
+  *Music Theory Online* 21(1): four bands' recordings.
+- Garza, J. M., Jr. (2021). [Transcending Time (Feels): Riff Types, Timekeeping Cymbals, and Time Feels in
+  Contemporary Metal Music](https://mtosmt.org/issues/mto.21.27.1/mto.21.27.1.garza.html). *Music Theory Online* 27(1):
+  metal since 2000 across its subgenres.
+- Heetderks, D. J. (2015). [Hipster Harmony: The Hybrid Syntax of Seventh Chords in Post-Millennial Rock](https://www.mtosmt.org/issues/mto.15.21.2/mto.15.21.2.heetderks.html).
+  *Music Theory Online* 21(2): the abstract and the opening and closing sections read.
+- Herbst, J.-P. (2017a): in [rock-and-metal.md](rock-and-metal.md). He labels his five decades' tracks proto metal,
+  classic heavy metal, thrash metal, death metal and modern extreme metal.
+- Hudson, S. S. (2021). [Compound AABA Form and Style Distinction in Heavy Metal](https://mtosmt.org/issues/mto.21.27.1/mto.21.27.1.hudson.html).
+  *Music Theory Online* 27(1): 195 tracks of the 20 albums most often named in lists of the best heavy metal albums
+  (Elflein 2010), leaning to the 1980s. Covach (2005), Cope (2010), Pillsbury (2006), Smialek (2016) and Temperley
+  (2018) are cited as this article reports them; they were not read.
 - Osborn, B. (2011). [Understanding Through-Composition in Post-Rock, Math-Metal, and other Post-Millennial Rock
   Genres](https://www.mtosmt.org/issues/mto.11.17.3/mto.11.17.3.osborn.php). *Music Theory Online* 17(3).
+- Pearson, D. M. (2019). [Extreme Hardcore Punk and the Analytical Challenges of Rhythm, Riffs, and Timbre in Punk
+  Music](https://www.mtosmt.org/issues/mto.19.25.1/mto.19.25.1.pearson.html). *Music Theory Online* 25(1).
 - The sources of [rock-and-metal.md](rock-and-metal.md): Biamonte (2010), de Clercq and Temperley (2011), Frühauf,
   Kopiez and Platz (2013), Gamble (2019), Herbst (2018, 2019), Lilja (2015), Mynett (2017), Pieslak (2007), Temperley
   (2007), Open Music Theory, and Wikipedia read 6 November 2026.
+- Sharma, A. (2021). [Martin Schmidt walks us through the Surf Guitar Book](https://www.guitarworld.com/features/martin-schmidt-walks-us-through-the-surf-guitar-book-a-deep-dive-into-the-scenes-tones-techniques-and-greatest-players).
+  *Guitar World*, 11 January 2021: an interview with a surf guitarist, the author of a method book on the style; what
+  he says of its tones, picking and scales (the book itself not read).
 - Tan, I., Lustig, E. and Temperley, D. (2019); Summach, J. (2011): in [anime-opening.md](anime-opening.md).
 - Wikipedia, read 9 November 2026: [Hard rock](https://en.wikipedia.org/wiki/Hard_rock),
   [Blues rock](https://en.wikipedia.org/wiki/Blues_rock), [Punk rock](https://en.wikipedia.org/wiki/Punk_rock),

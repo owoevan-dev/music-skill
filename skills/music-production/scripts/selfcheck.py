@@ -133,6 +133,7 @@ ROSTER = (
     'review_flags_far_transposed_samples_and_missing_keys',
     'a_piano_part_on_another_piano_is_asked_about',
     'analysis_groups_octave_doublings_and_suggests_cuts',
+    'analysis_names_the_parts_that_carry_the_top',
     'integer_fields_and_unknown_fields_are_reported',
     'synthesis_cache_follows_the_played_tempo',
     'slow_rubato_reads_back_from_its_midi',
@@ -197,6 +198,17 @@ ROSTER = (
     'render_folders_are_read_without_links',
     'a_part_larger_than_the_machine_is_refused',
     'piano_roll_draws_the_notes_as_played',
+    'long_paths_reach_programs_in_a_form_they_open',
+    'a_part_moves_by_one_gain_for_each_channel',
+    'an_amplifier_makes_one_signal_of_a_parts_notes',
+    'a_part_played_by_string_is_checked_and_strummed_by_string',
+    'a_stem_too_faint_to_measure_is_silent',
+    'a_headphone_version_places_every_part',
+    'a_draft_takes_a_tail_that_still_sounds_as_a_note',
+    'review_asks_about_a_kit_levelled_by_its_peak',
+    'review_counts_seconds_and_ninths_and_asks_about_the_exposed',
+    'review_sets_apart_runs_of_doubling_and_pitchless_patches',
+    'a_video_over_its_size_is_encoded_again_lower',
 )
 ROSTER_CONFIG = (
     'render_cache_checks_each_take_before_using_it',
@@ -234,6 +246,17 @@ ROSTER_CONFIG = (
     'a_silent_part_is_named',
     'long_automation_renders',
     'piano_roll_video_carries_the_master',
+    'cache_entries_have_short_names_and_whole_keys',
+    'the_paths_below_a_piece_stay_short',
+    'a_render_in_a_deep_folder_gives_the_same_master',
+    'a_video_in_a_deep_folder_is_made',
+    'a_moving_part_renders_and_the_others_stay',
+    'a_part_through_an_amplifier_renders_and_the_others_stay',
+    'a_part_played_by_string_renders_string_by_string',
+    'a_headphone_version_renders_beside_the_master',
+    'a_draft_render_notes_its_tail_and_a_full_render_fails',
+    'another_skill_reads_the_configuration_and_doctor',
+    'a_failed_pass_leaves_no_scratch_file',
 )
 
 def checks(work,config=None,only=None,keep_going=False):

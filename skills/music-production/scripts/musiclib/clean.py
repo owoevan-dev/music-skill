@@ -43,6 +43,9 @@ from . import files
 from .files import linked, real_folder as _folder, regular_file as _file
 
 HEX64 = re.compile(r'[0-9a-f]{64}')
+# A cache entry's folder: the first 20 characters of its key (render.ENTRY_KEY, since 0.9), or the whole key as renders
+# up to 0.8.0 named it, whose entries are cleaned as before.
+ENTRY_NAME = re.compile(r'[0-9a-f]{20}|[0-9a-f]{64}')
 ROUND, AUDITION = 'music-production round', 'music-production audition'  # the `kind` round.json and audition.json hold
 # What names a folder's tool and its piece: they go last, with files.json, once nothing else in the folder stays, so a
 # folder a clean leaves in part (a file held open, a file of the user's) is still recognised by the next.
@@ -101,7 +104,7 @@ def entry_record(folder):
     """A cache entry's receipt: its folder is named by its key, receipt.json names that key, raw.wav is there.  An entry a
     render of 0.5 began, with its own record or journal, stopped before its receipt, is one too: {'key', 'partial'}."""
     folder = Path(folder)
-    if not HEX64.fullmatch(folder.name):
+    if not ENTRY_NAME.fullmatch(folder.name):
         return None
     if _file(folder / 'raw.wav'):
         r = _record(folder / 'receipt.json')

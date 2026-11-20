@@ -28,7 +28,7 @@ import re
 from pathlib import Path
 
 from . import files
-from .model import check_meter, key_map_pitches, save_json, validate
+from .model import TPQ, check_meter, key_map_pitches, save_json, validate
 
 START_SAVE = 'MUSIC_SKILL_START_SAVE'   # set by studio.py start for its first run of compose.py: its save replaces nothing
 NAMES =('C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B')
@@ -61,6 +61,9 @@ class Song:
 
     def __init__(self, title, bars, tempo=120, meter=(4, 4), tail_seconds=4, config=None, **fields):
         self.config = config
+        # a script that writes a song prints what it likes of it: a name its console cannot encode comes out as an
+        # escape and does not stop the script (a chord quality's sign on a Traditional Chinese Windows console)
+        files.escape_unprintable()
         check_meter(list(meter))   # before the beat unit divides anything (4/0)
         self.project = {'schema': 'music-production/v1', 'title': title, 'version': '1.0',
                         'clock': {'bars': bars, 'meter': list(meter), 'tail_seconds': tail_seconds,
@@ -74,6 +77,83 @@ class Song:
         self.project['sections'].append({'id': ident, 'start_bar': start, 'bars': bars, **({'intent': intent} if intent else {})})
         return self
 
+    def _place(self, bar, beat, writing=False):
+        if not (isinstance(bar, int) and not isinstance(bar, bool) and 1 <= bar <= self.project['clock']['bars']):
+            raise ValueError(f'bar {bar!r}: the piece has bars 1 to {self.project["clock"]["bars"]}')
+        # a chord is written to within a tick of the next bar, as validate takes its place; a place asked for is any
+        # a note may be written on
+        if isinstance(beat, bool) or not isinstance(beat, (int, float)) or not 1 <= beat < 1 + self.beats_per_bar or (
+                writing and beat - 1 > self.beats_per_bar - 1 / TPQ + 1e-9):   # (as a note's beat is taken; a chord's also by validate's bound, a rounding allowed)
+            raise ValueError(f'beat {beat!r}: a bar has beats 1 up to, not including, {1 + self.beats_per_bar:g} '
+                             '(a beat is a quarter note; 1.5 is its second eighth)')
+        return (bar - 1) * self.beats_per_bar + beat - 1
+
+    def _chords(self):
+        """The project's chords in order, each (beat from the piece's start, entry): the list `song.harmony` writes,
+        read as review reads it (sorted), whatever order a script left it in.  An entry that is no chord entry, or one
+        that review reads otherwise than its symbol says (`transpose_semitones`), is refused: its symbol is not the
+        chord that sounds.  A symbol written by hand that review cannot read comes back as written."""
+        entries = self.project.get('harmony')
+        if entries is None or isinstance(entries, dict):   # none yet, or an older free-form object, which nothing reads
+            return None if entries is None else False
+        if not isinstance(entries, list):
+            raise ValueError("the project's harmony is no list of chords")
+        out = []
+        for h in entries:
+            if not (isinstance(h, dict) and isinstance(h.get('bar'), int) and not isinstance(h.get('bar'), bool)
+                    and isinstance(h.get('beat', 0), (int, float)) and not isinstance(h.get('beat', 0), bool) and isinstance(h.get('symbol'), str)):
+                raise ValueError(f"the project's harmony holds {h!r}, which is no chord entry: each is "
+                                 "{'bar': 1-based, 'beat': offset in quarters (optional), 'symbol': text}, as song.harmony writes them")
+            if not (1 <= h['bar'] <= self.project['clock']['bars'] and 0 <= h.get('beat', 0) < self.beats_per_bar):
+                raise ValueError(f"the project's harmony holds a chord at bar {h['bar']}, beat offset {h.get('beat', 0):g}, outside the piece "
+                                 f"(bars 1 to {self.project['clock']['bars']}, offsets from 0 to under {self.beats_per_bar:g})")
+            if h.get('transpose_semitones'):
+                raise ValueError(f"the project's harmony holds {h['symbol']!r} with transpose_semitones, so the chord that sounds is not "
+                                 'its symbol: write the sounding chord, and song.changes and song.chord_at can give it')
+            out.append(((h['bar'] - 1) * self.beats_per_bar + h.get('beat', 0), h))
+        return sorted(out, key=lambda x: x[0])
+
+    def harmony(self, bar, beat, symbol):
+        """A chord of the piece's harmony, from this bar and beat (counted from 1, as notes are) until the next one
+        written.  It goes into the project's `harmony`, which review reads the pitched parts' notes against;
+        `changes()` and `chord_at()` give it back, so that every part is written from this one list.  A symbol is a
+        root, a quality review knows (C, Cm, C7, Cmaj7, Cm7b5, Csus4, C6/9 and the rest of musiclib/harmony.py) and,
+        after a slash, a bass: one it cannot read is refused here.  It is stored without spaces round it."""
+        from . import harmony as chords
+        at = self._place(bar, beat, writing=True)
+        symbol = symbol.strip() if isinstance(symbol, str) else symbol
+        if not isinstance(symbol, str) or chords.parse(symbol) is None:
+            raise ValueError(f'{symbol!r} is no chord symbol review can read: a root, a quality of musiclib/harmony.py '
+                             '(C, Cm, C7, Cmaj7, Cm7b5, Cdim7, Csus4, C6/9 ...) and, after a slash, a bass (G7/B)')
+        written = self._chords()
+        if written is False:
+            raise ValueError("the project's harmony is not a list of chords: song.harmony adds to a list")
+        if any(abs(x - at) < 1e-9 for x, _ in written or []):
+            raise ValueError(f'a chord is written at bar {bar} beat {beat:g} already')
+        if self.project.get('harmony') is None:   # none yet, or written as null
+            self.project['harmony'] = []
+        entries = self.project['harmony']
+        entries.append({'bar': bar, **({'beat': min(beat - 1, self.beats_per_bar - 1 / TPQ)} if beat != 1 else {}), 'symbol': symbol})
+        entries.sort(key=lambda h: (h['bar'], h.get('beat', 0)))
+        return self
+
+    def changes(self):
+        """The harmony in order, each chord as (bar, beat, symbol, beats): where it begins, counted from 1, and how many
+        beats it lasts, to the next chord or to the piece's end.  What a part's own loop reads; the symbols alone
+        ([s for _, _, s, _ in song.changes()]) are what musiclib.voicing.voice_lead takes."""
+        written = self._chords() or []
+        end = self.project['clock']['bars'] * self.beats_per_bar
+        return [(h['bar'], h.get('beat', 0) + 1, h['symbol'], (written[k + 1][0] if k + 1 < len(written) else end) - at)
+                for k, (at, h) in enumerate(written)]
+
+    def chord_at(self, bar, beat):
+        """The symbol of the chord sounding at this bar and beat, or None before the first chord."""
+        at, found = self._place(bar, beat), None
+        for x, h in self._chords() or []:
+            if x <= at + 1e-9:
+                found = h['symbol']
+        return found
+
     def part(self, ident, role, instrument=None, engine=None, keys=None, mix=None, performance=None, **fields):
         """A part.  `instrument`, for a SoundFont part: "<bank> <bank number>:<program>" or words that find one preset in
         the configured banks (studio.py instruments): the part plays it (`soundfont`, `patch`), exports its program
@@ -86,6 +166,9 @@ class Song:
         t = {'id': ident, 'role': role, 'engine': engine or 'soundfont', 'notes': [],
              'performance': {'notes': {}, 'cc': [], **(performance or {})},
              'mix': {'level_dbfs': -24, 'reverb_db': -20, **(mix or {})}, **fields}
+        if isinstance(t.get('strings'), (list, tuple)):
+            # open strings by number or by name, as pitches are written everywhere else here (the project holds numbers)
+            t['strings'] = [pitch_of(s, f'{ident} strings') for s in t['strings']]
         found = covered = None
         if instrument is not None:
             if engine not in (None, 'soundfont'):
@@ -123,7 +206,13 @@ class Song:
         from .instruments import search
         words = instrument.split()
         patch = re.fullmatch(r'(\d+):(\d+)', words[-1]) if len(words) == 2 else None
-        rows = (search(self.config, [], bank=words[0]) if patch else search(self.config, words))['presets']   # a named bank alone is read
+        found = search(self.config, [], bank=words[0]) if patch else search(self.config, words)   # a named bank alone is read
+        rows = found['presets']
+        if not found.get('every_word', True):
+            # the search gives the nearest presets where none has every word: none of them is the one asked for
+            listed = '; '.join(f'"{r["bank"]} {r["patch"]["bank"]}:{r["patch"]["program"]}" {r["preset"]} (has: {", ".join(r["has"])})' for r in rows[:8])
+            raise ValueError(f'{ident}: {instrument!r}: no preset has every word; the nearest are {listed}{"; ..." if len(rows) > 8 else ""}: '
+                             'name one of them, or give fewer words')
         if patch:
             rows = [r for r in rows if (r['patch']['bank'], r['patch']['program']) == (int(patch[1]), int(patch[2]))]
         if len(rows) != 1:
@@ -215,3 +304,32 @@ class Part:
     def chord(self, bar, beat, pitches, beats, velocity=80, **kw):
         """Notes struck together; their ids are returned."""
         return [self.note(bar, beat, p, beats, velocity, **kw) for p in pitches]
+
+    def fret(self, bar, beat, string, fret, beats, velocity=80, mute=None, **kw):
+        """One note of a part played by string (the part made with `strings=[...]`, the open pitches from low to high):
+        `string` as players count (1 the highest), `fret` 0 for the open string; `mute` "palm" or "dead".  Its id is
+        returned."""
+        strings = self.track.get('strings')
+        where = f'{self.track["id"]} bar {bar} beat {beat}'
+        if not strings:
+            raise ValueError(f'{where}: fret() is for a part played by string: make the part with strings=[...], its open '
+                             'pitches from low to high (a guitar: [40, 45, 50, 55, 59, 64])')
+        if isinstance(string, bool) or not isinstance(string, int) or not 1 <= string <= len(strings):
+            raise ValueError(f'{where}: string {string!r}: this part has strings 1 (the highest) to {len(strings)}')
+        if isinstance(fret, bool) or not isinstance(fret, int) or not 0 <= fret <= 24:
+            raise ValueError(f'{where}: fret {fret!r}: a fret is 0 (the open string) to 24')
+        fields = {'string': string, **({'mute': mute} if mute else {}), **kw}
+        ident = self.note(bar, beat, strings[len(strings) - string] + fret, beats, velocity, **fields)
+        # a string sounds one note at a time: a note written to ring is written to its string's next note (the project
+        # holds lengths as they sound), whichever of the two was written first
+        own = sorted((n for n in self.track['notes'] if n.get('string') == string), key=lambda n: n['on'])
+        for a, b in zip(own, own[1:]):
+            # (lengths that are not numbers are left for the project's own check to name; a tick is the shortest note)
+            if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (a['duration'], b['duration'])) and b['on'] > a['on'] and a['on'] + a['duration'] > b['on']:
+                a['duration'] = max(round(b['on'] - a['on'], 6), round(1 / TPQ + 5e-7, 6))
+        return ident
+
+    def shape(self, bar, beat, frets, beats, velocity=80, mute=None, **kw):
+        """Notes struck together on a part played by string: `frets` is (string, fret) pairs, as a chord box or a
+        tablature column gives them; their ids are returned."""
+        return [self.fret(bar, beat, s, f, beats, velocity, mute, **kw) for s, f in frets]

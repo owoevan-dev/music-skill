@@ -20,6 +20,24 @@ from soundbank import yin_f0
 SCRIPTS = Path(__file__).resolve().parents[1]   # the skill's scripts folder, selfcheck.py's own
 
 
+def deep_folder(work):
+    """A piece's folder under `work` whose path is 226 characters or more, deeper than a session's scratch workspace
+    with a piece in it (the desktop app's is 156 characters before the piece's name): even with the short names a
+    cache entry has since 0.9, what a render writes there passes Windows' 260 (its MIDI file by 3 at least).  None
+    where this system's Python opens no file that deep (a Windows with its long paths off)."""
+    deep=work/'deep'
+    while len(str(deep.resolve()))<220:deep=deep/'a-folder-as-deep-as-a-workspace'
+    deep=deep/'piece'
+    try:
+        probe=deep/'cache'/('0'*64)/('.take_1_0.wav.'+'0'*12+'.wav')   # the longest name a render makes there
+        probe.parent.mkdir(parents=True,exist_ok=True);probe.write_bytes(b'');probe.unlink();probe.parent.rmdir()
+    except OSError:
+        from musiclib import files
+        if os.name=='nt' and not files.long_paths_enabled():return None
+        raise   # anything else is a fault of its own, not a system without long paths
+    return deep
+
+
 def define(S):
     """The checks of this area, {name: function}; those of the configuration's block only with one."""
     config, rejects, work, xf_bank = S['config'], S['rejects'], S['work'], S['xf_bank']
@@ -492,9 +510,114 @@ def define(S):
         too_large(q,c,frames,{},8e9,{'pad':{'plays':'Surge XT'}})
         rejects(lambda:too_large(q,c,frames,{},8e9,{'pad':{'plays':'fallback: Surge XT is not installed'}}))
         return {'refused_on_8_gb':True}
+    def draft_tail_note():
+        # 0.9 step 5: a draft whose master still sounds at its end passes with a note of what delivery needs (three of
+        # nine real sessions lost a round to it); a full render, and an audition's own render, fail as before; any
+        # other failed check fails either.  The note says how much longer the tail would have to be, as far as the
+        # last second's fall tells.
+        from musiclib import render as rendering, summary
+        ok={'finite':True,'tail_quiet':True};ring={'finite':True,'tail_quiet':False};bad={'finite':False,'tail_quiet':False}
+        assert rendering.delivered(ok,True)==(True,[]) and rendering.delivered(ok,False)==(True,[])
+        assert rendering.delivered(ring,True)==(True,['tail_quiet']) and rendering.delivered(ring,False)==(False,[]) and rendering.delivered(ring,True,tail_fails=True)==(False,[])
+        assert rendering.delivered(bad,True)==(False,['tail_quiet']) and rendering.delivered({'finite':False,'tail_quiet':True},True)==(False,[])
+        R=audio.RATE;t=np.arange(3*R)/R
+        def falling(db_per_second,end_db):   # a tone whose level falls by a straight line of dB and ends at end_db
+            level=10**((end_db+db_per_second*(t[-1]-t))/20);x=level*np.sin(2*np.pi*440*t);return np.stack([x,x],axis=1)
+        s=rendering.tail_state(falling(20,-50));assert abs(s['last_50ms_dbfs']+49.5)<.6 and abs(s['falling_db_per_second']-20)<.5 and s['more_seconds_estimated']==1.0,s   # 11 dB to go at 20 dB a second, to the next half second
+        s2=rendering.tail_state(falling(4,-30));assert abs(s2['falling_db_per_second']-4)<.3 and s2['more_seconds_estimated']==8.0,s2
+        flat=rendering.tail_state(falling(0,-40));assert flat['more_seconds_estimated'] is None and abs(flat['falling_db_per_second'])<.5,flat   # not falling: no figure
+        rising=rendering.tail_state(falling(-10,-40));assert rising['more_seconds_estimated'] is None and rising['falling_db_per_second']<-9,rising
+        quiet=rendering.tail_state(falling(20,-80));assert quiet['more_seconds_estimated'] is None and quiet['last_50ms_dbfs']<-60,quiet
+        assert rendering.tail_state(np.zeros((10,2),dtype=np.float32))['more_seconds_estimated'] is None
+        told=summary.tail_line({'delivery_needs':['tail_quiet'],'tail':s})
+        assert 'still sounds at its end' in told and 'tail_quiet' in told and 'about 1 more second of' in told and 'an estimate' in told and told.endswith('.'),told
+        told_flat=summary.tail_line({'delivery_needs':['tail_quiet'],'tail':flat});assert 'not falling' in told_flat and 'more second' not in told_flat,told_flat
+        assert summary.tail_line({'tail':s}) is None and summary.tail_line({}) is None   # a failed full render says it in its error, not here
+        # The review of step 5.  A tail that falls 2 dB a second was told "its level is not falling", beside the
+        # figure 2.0: too slow for an estimate is said as that, with the figure.  And a tail that falls through its
+        # last second and rises again in its last moments (another note, an echo) got an estimate from the fall:
+        # where the last fifth of a second rises, there is none, and the advice says what the end does.
+        slow=rendering.tail_state(falling(2,-40));told_slow=summary.tail_line({'delivery_needs':['tail_quiet'],'tail':slow})
+        assert slow['more_seconds_estimated'] is None and not slow['rises_at_the_end'] and 'falls only 2 dB a second' in told_slow and 'not falling' not in told_slow,(slow,told_slow)
+        assert 'rises in its last moments' in rendering.tail_advice(rising) and 'not falling' in rendering.tail_advice(flat) and not flat['rises_at_the_end'] and not s['rises_at_the_end']
+        back=falling(17,-53);R50=R//20;last=len(back)-4*R50
+        for k,db in enumerate((-52,-50,-48,-46)):back[last+k*R50:last+(k+1)*R50]=10**(db/20)*np.sin(2*np.pi*440*t[:R50])[:,None]
+        again=rendering.tail_state(back);told_again=summary.tail_line({'delivery_needs':['tail_quiet'],'tail':again})
+        assert again['falling_db_per_second']>3 and again['rises_at_the_end'] and again['more_seconds_estimated'] is None,again
+        assert 'rises in its last moments' in told_again and 'more second' not in told_again,told_again
+        # (the second review: half a decibel a second is a fall too, and is told with its figure)
+        half=rendering.tail_state(falling(.5,-40));assert 'falls only 0.5 dB a second' in rendering.tail_advice(half) and 'not falling' not in rendering.tail_advice(half),half
+        return {'estimate_seconds':s['more_seconds_estimated']}
     found = {'float_wav_roundtrip': wav_roundtrip, 'noise_engine_obeys_performance_timing_and_gate': noise_timing, 'additive_single_voice_is_centred': single_voice_center, 'dynamics_crossfade_keeps_power_and_legato_fades_cross': crossfade_gains, 'take_mode_learns_brightness_from_the_layers': take_mode, 'drum_hits_take_their_recorded_takes_by_their_own_draw': drum_round_robins, 'surge_patch_goes_into_the_plugin_state': surge_state, 'surge_patch_takes_the_slide_and_accent_the_score_sets': surge_controls, 'reverse_is_a_sampled_part_rendered_note_by_note': reverse_validation, 'synth_is_band_limited_stable_and_repeatable': synth_engine, 'drum_machine_voices_kick_pitch_drop_and_gated_snare': drum_machine, 'drum_machine_render_places_chokes_and_tunes_the_kit': drum_machine_render, 'chip_arpeggio_stepped_triangle_and_clocked_noise': chip_sounds, 'synth_pitch_envelope_punches_and_settles': pitch_envelope, 'synthesis_cache_follows_the_played_tempo': cache_identity, 'a_long_mono_line_starts_afresh_after_thirty_seconds': mono_lines, 'fluidsynth_diagnostics_ignore_its_paths': fluidsynth_log, 'slur_legato_plays_one_line': slur_legato_plays_one_line, 'synth_modulation_in_beats_follows_the_tempo': synth_modulation_in_beats_follows_the_tempo, 'parts_wait_for_memory': parts_wait_for_memory, 'a_part_larger_than_the_machine_is_refused': a_part_larger_than_the_machine_is_refused}
+    found['a_draft_takes_a_tail_that_still_sounds_as_a_note'] = draft_tail_note
     if config:
         p, cache, render = S['p'], S['cache'], S['render']
+        def draft_tail_render():
+            # A bar that ends on a crash under a tail of one second: the draft passes and says what delivery needs,
+            # its round goes on to its analysis; the full render fails with the same check and the estimate.
+            from musiclib import summary
+            q=copy.deepcopy(p);q['clock']={'bars':1,'meter':[4,4],'tempo':[[0,120]],'tail_seconds':1};q['sections']=[dict(q['sections'][0],start_bar=0,bars=1)]
+            for k in ('harmony','chords','plan','loop'):q.pop(k,None)
+            drums=copy.deepcopy(next(t for t in p['tracks'] if t.get('drums')))
+            drums['notes']=[{'id':'c','on':3,'duration':1,'pitch':49}];drums['performance']={'notes':{'c':{'velocity':120}},'cc':[]}
+            # Beside the crash, a pad held through the bar with a release of twenty seconds: what still sounds at the
+            # end is then far from the line of -60 dBFS on either side of it, whatever the FFmpeg and the bank (with
+            # the crash alone the end lay 3 dB over the line here, and an audition's pad of six seconds 1 dB over it;
+            # the check failed on Ubuntu's FFmpeg 6.1, where the mix then lost its parts' last block: the case below)
+            pad=copy.deepcopy(next(t for t in p['tracks'] if t['id']=='piano'));pad.update(id='pad',engine='synth',synth={'preset':'warm_pad','amp':{'attack':.01,'decay':.1,'sustain':1.0,'release':20.0}})
+            pad['notes']=[{'id':'pn','on':0,'duration':4,'pitch':60}];pad['performance']={'notes':{'pn':{'velocity':100}},'cc':[]}
+            q['tracks']=[drums,pad];validate(q);folder=work/'draft_tail';folder.mkdir();save_json(folder/'song.json',q)
+            r=render(folder/'song.json',folder/'draft',config,folder/'cache',draft=True)
+            assert r['status']=='DRAFT_PASS' and r['checks']['tail_quiet'] is False and r['delivery_needs']==['tail_quiet'],(r['status'],r.get('delivery_needs'))
+            assert r['tail']['last_50ms_dbfs']>-52 and r['tail']['falling_db_per_second']>0 and r['tail']['more_seconds_estimated']>=.5,r['tail']   # (8 dB over the line or more: a margin, not a hair)
+            assert json.loads((folder/'draft'/'report.json').read_text(encoding='utf-8'))['delivery_needs']==['tail_quiet'] and 'still sounds at its end' in summary.render(r,folder/'draft')
+            for name,kw in (('full',{}),('strict',{'draft':True,'tail_fails':True})):
+                try:render(folder/'song.json',folder/name,config,folder/'cache',**kw);raise AssertionError(name)
+                except ValueError as e:assert 'Delivery checks failed (tail_quiet)' in str(e) and 'more second' in str(e),e
+                failed=json.loads((folder/name/'report.json').read_text(encoding='utf-8'));assert failed['status']=='FAIL' and 'delivery_needs' not in failed and failed['tail']['last_50ms_dbfs']>-60,failed.get('tail')
+            from musiclib.revision import revision_round
+            shown=[];record=revision_round(folder/'song.json',folder/'r1',config,show=shown.append)
+            assert record['status']=='DRAFT_PASS' and (folder/'r1'/'render'/'analysis.json').is_file() and any('still sounds at its end' in x for x in shown),(record.get('status'),shown[-3:])
+            # an audition's own render still has to end quietly: the version that rings on (the pad with its release of twenty
+            # seconds, held to the passage's end) is made again with a longer tail, as before; the other is not
+            from musiclib.audition import audition,parse_sound
+            qa=copy.deepcopy(q);qa['tracks']=[copy.deepcopy(pad)];validate(qa);save_json(folder/'audition.json',qa)
+            # What the audition is checked on, measured first: the pad by itself under the tail an audition starts
+            # with (two seconds) still sounds at its end, by a margin (on CI's Ubuntu the audition made nothing
+            # again, and the check could not say how its renders had ended: it says so now).
+            q_pre=copy.deepcopy(qa);q_pre['clock']['tail_seconds']=2;save_json(folder/'pad_alone.json',q_pre)
+            pre=render(folder/'pad_alone.json',folder/'pad_alone',config,folder/'cache',draft=True)
+            def shape(name):   # the peak of each quarter second of a file's last two and a half seconds, in dBFS, and of its last 50 ms
+                x=np.asarray(audio.read_wav(folder/'pad_alone'/name)[0],dtype=np.float64);q4=audio.RATE//4
+                peak=lambda seg:round(float(20*np.log10(max(1e-12,float(np.max(np.abs(seg))) if len(seg) else 1e-12))),1)
+                return {'file':name,'frames':len(x),'quarters':[peak(x[len(x)-k*q4:len(x)-(k-1)*q4]) for k in range(10,0,-1)],'last_50ms':peak(x[-2400:])}
+            assert pre['checks']['tail_quiet'] is False and pre['tail']['last_50ms_dbfs']>-52,('the pad alone under a tail of 2 s',pre['checks'].get('tail_quiet'),pre.get('tail'),
+                [shape(n) for n in ('stems/pad.wav','returns/room_return.wav','premaster.wav','master.wav')],(folder/'pad_alone'/'mix.filtergraph.txt').read_text(encoding='utf-8'))
+            # The mix holds its parts to its last sample, whatever the FFmpeg: its last 50 ms are the stem and the
+            # room's return under the last 50 ms of a fade of 1.7 seconds (on FFmpeg 6.1 they held the return alone:
+            # -73.4 dBFS here for -60.0).  The graph says how: each input of the last mix is padded before it.
+            read=lambda name:np.asarray(audio.read_wav(folder/'pad_alone'/name)[0],dtype=np.float64)
+            sent=read('stems/pad.wav')+read('returns/room_return.wav');mixed=read('premaster.wav');last=2400
+            ramp=(np.arange(last,0,-1)/(1.7*audio.RATE))[:,None];want=float(np.max(np.abs(sent[-last:]*ramp)));got=float(np.max(np.abs(mixed[-last:])))
+            assert abs(20*np.log10(got/want))<1.0,("the mix's end is not its parts' under the fade",round(float(20*np.log10(got)),1),round(float(20*np.log10(want)),1))
+            mix_graph=(folder/'pad_alone'/'mix.filtergraph.txt').read_text(encoding='utf-8')
+            assert '[d0]apad=pad_dur=1[last0]' in mix_graph and '[room]apad=pad_dur=1[last1]' in mix_graph and '[last0][last1]amix=inputs=2:normalize=0:duration=longest,atrim=end_sample=192000,' in mix_graph,mix_graph
+            audition(folder/'audition.json','pad',[parse_sound('synth:fm_bell')],1,1,folder/'audition',config,folder/'cache')
+            def ended(version):
+                x=audio.read_wav(version/'render'/'master.wav')[0];made=json.loads((version/'render'/'report.json').read_text(encoding='utf-8'))
+                return {'version':version.name,'tail_seconds':json.loads((version/'song.json').read_text(encoding='utf-8'))['clock']['tail_seconds'],
+                        'last_50ms_dbfs':round(float(20*np.log10(max(1e-12,float(np.max(np.abs(x[-2400:])))))),1),'seconds':round(len(x)/audio.RATE,3),
+                        'tail_quiet':made['checks'].get('tail_quiet'),'status':made['status'],'lufs':made['master']['integrated_lufs']}
+            ends=[ended(x.parent) for x in sorted((folder/'audition').glob('*/song.json'))]
+            tails=sorted(e['tail_seconds'] for e in ends)
+            assert len(tails)==2 and tails[0]<10<=tails[1],(tails,ends,pre.get('tail'))
+            assert all(json.loads(x.read_text(encoding='utf-8'))['checks']['tail_quiet'] for x in (folder/'audition').glob('*/render/report.json'))
+            # a tail long enough: nothing of this in the report or the text
+            q2=copy.deepcopy(q);q2['clock']['tail_seconds']=15;save_json(folder/'long.json',q2)
+            r2=render(folder/'long.json',folder/'long',config,folder/'cache',draft=True)
+            assert r2['status']=='DRAFT_PASS' and r2['checks']['tail_quiet'] and 'delivery_needs' not in r2 and 'tail' not in r2 and 'still sounds' not in summary.render(r2,folder/'long')
+            return {'last_50ms_dbfs':r['tail']['last_50ms_dbfs'],'estimate_seconds':r['tail']['more_seconds_estimated']}
+        found['a_draft_render_notes_its_tail_and_a_full_render_fails'] = draft_tail_render
         def cache_takes_checked():
             # 0.8 step 1.4 (design-0.8.md, Part C; CWE-345): before a cached raw take or a kept stem is hashed or decoded,
             # its header and length are read from the file: float32 stereo at 48 kHz, whole frames, its data inside the
@@ -633,6 +756,7 @@ def define(S):
             draft=render(work/'example.json',work/'render_draft',config,cache,draft=True)
             assert draft['status']=='DRAFT_PASS' and draft['draft'] and draft['master']['sha256']==first['master']['sha256'],draft['status']
             assert not (work/'render_draft'/'master.flac').exists() and (work/'render_first'/'master.flac').is_file() and draft['left_out'][0]=='master.flac'
+            assert 'earlier_delivery_removed' not in draft   # a draft into a new folder had nothing to remove
             return {'master_sha256':first['master']['sha256'],'cache_hits':repeat['cache_hits'],'stems_reused':repeat['stems_reused'],'parallel_jobs':parallel['jobs'],'draft_same_master':True,'checks':repeat['checks']}
         def render_folder_is_its_own_run():
             # A finished render leaves no lock file.  A resume refuses a folder holding a file the earlier render did not
@@ -1148,5 +1272,80 @@ def define(S):
             receipt=next(x for x in json.loads((work/'render_silent_quiet'/'stem_receipts.json').read_text(encoding='utf-8')) if x['track']==drums['id'])
             assert r['status']=='DRAFT_PASS' and receipt.get('nearly_silent') is True,(r['status'],receipt)
             return {'named':drums['id']}
-        found.update({'render_cache_checks_each_take_before_using_it': cache_takes_checked, 'actual_render_repeat_is_sample_identical': integration, 'render_folder_is_its_own_run': render_folder_is_its_own_run, 'a_killed_render_resumes': killed_render_resumes, 'kept_stems_follow_what_they_read': kept_stem_dependencies, 'bank_lsb_selects_bank_on_default_soundfont': bank_select, 'named_soundfont_selected_per_track': named_soundfont, 'named_bank_verified_at_first_use': named_bank_first_use, 'pitch_bend_moves_soundfont_pitch': bend_render, 'legato_slurs_and_width_render': width_and_legato_render, 'a_reversed_note_swells_into_its_end': reversed_crash, 'layered_render_slurs_and_crossfades_dynamics': layered_render, 'take_dynamics_play_one_recorded_dynamic_per_note': take_dynamics, 'surge_part_plays_the_patch_or_its_fallback': surge_part, 'outputs_carry_no_input_metadata': outputs_carry_no_input_metadata, 'a_silent_part_is_named': a_silent_part_is_named})
+        def deep_folder_render():
+            # 0.9 step 1 (design-0.9.md): a piece in a deep folder renders, to the master the same project gives in a
+            # short one.  FluidSynth opens files by Windows' plain calls, which stop at 260 characters; five of nine
+            # real sessions of 0.8.0 began in the desktop app's scratch workspace, where a take's name in the cache is
+            # 277, and their renders stopped on "not a SoundFont or MIDI file".  Elsewhere the paths are as long and
+            # open as any other, so the check holds on every system.
+            deep=deep_folder(work)
+            if deep is None:
+                return {'long_paths':'off on this system: its Python opens no path of 260 characters, so nothing is rendered that deep'}
+            save_json(deep/'example.json',p)
+            out=render(deep/'example.json',deep/'r1'/'render',config,deep/'cache')
+            first=render(work/'example.json',work/'render_deep_reference',config,cache)   # the same project, from the short folder's cache
+            assert out['status']==first['status'] and out['master']['sha256']==first['master']['sha256'],(out['status'],first['status'])
+            longest=max(len(str(f)) for f in deep.rglob('*'))
+            assert longest>=260,longest   # what the render left there lies past the limit
+            return {'longest_path_past_260':True,'master':"the short folder's"}
+        def short_cache_names():
+            # 0.9 step 1 (design-0.9.md): a cache entry's folder is named by the first 20 characters of its key, and the
+            # whole key is in its receipt.  With the whole 64 in the name, the paths below a piece reached 115 characters
+            # (our measurement), which a system that opens no path of 260 could not write in a deep folder.  A take is
+            # used only where the whole key is the same: an entry under the same folder name with another whole key,
+            # as two takes sharing their first 20 characters would be, is made again and never played for the other.
+            from musiclib import render as rd
+            C=work/'kc';base=render(work/'example.json',work/'short_base',config,C)   # (a name no longer than the other checks' caches: no deeper than they are)
+            recs=json.loads((work/'short_base'/'stem_receipts.json').read_text(encoding='utf-8'))
+            names=sorted(f.name for f in C.iterdir() if f.is_dir())
+            assert rd.ENTRY_KEY==20 and names==sorted(r['cache_key'] for r in recs) and all(len(n)==20 and set(n)<=set('0123456789abcdef') for n in names),names
+            entry=lambda r:json.loads((C/r['cache_key']/'receipt.json').read_text(encoding='utf-8'))
+            assert all(len(entry(r)['identity'])==64 and entry(r)['identity'].startswith(r['cache_key']) and entry(r)['key']==r['cache_key'] for r in recs)
+            again=render(work/'example.json',work/'short_again',config,C);assert again['cache_hits']==len(p['tracks']) and again['master']['sha256']==base['master']['sha256']
+            from musiclib.clean import entry_record   # clean knows such an entry for one of the renders', as it knows one named by a whole key (renders up to 0.8.0)
+            assert all((entry_record(C/r['cache_key']) or {}).get('key')==r['cache_key'] for r in recs)
+            # another take under the piano's folder name: other audio (silence as long), its receipt true to that audio
+            r=next(x for x in recs if x['track']=='piano');e=C/r['cache_key'];mine=entry(r)
+            silence=np.zeros_like(np.array(audio.read_wav(e/'raw.wav')[0]));audio.write_wav(e/'raw.wav',silence)   # (a copy: the take read is the file itself, held open)
+            other=mine['key']+('0'*44 if not mine['identity'].endswith('0'*44) else 'f'*44)
+            save_json(e/'receipt.json',{**mine,'identity':other,'sha256':audio.audio_hash(e/'raw.wav')})
+            third=render(work/'example.json',work/'short_third',config,C)
+            assert third['master']['sha256']==base['master']['sha256'] and third['cache_hits']==len(p['tracks'])-1,(third['cache_hits'],len(p['tracks']))
+            assert entry(r)['identity']==mine['identity']   # the entry is the piano's own take again
+            return {'entry_folder_characters':20,'whole_key_in_the_receipt':64,'another_take_under_the_name':'made again, not played'}
+        def short_paths_below_a_piece():
+            # 0.9 step 1 (design-0.9.md): everything a render writes, makes, renames or hands to a program lies at most
+            # 62 characters below the piece's folder, the names it writes under for a moment included (our measurement
+            # over a piece's commands on six pieces of 3 to 27 parts; 115 in 0.8.0).  A session's scratch workspace is
+            # 156 characters before the piece's name, and a system with long paths off opens no path of 260: with 62, a
+            # piece's name of up to 39 characters fits.  Watched with an audit hook while the example renders.
+            import re,sys
+            from musiclib import files as fs
+            piece=work/'sp'
+            if os.name=='nt' and not fs.long_paths_enabled() and fs.past_path_limit(piece/('x'*62)):
+                return {'long_paths':'off on this system, and this work folder is too deep for a piece in it to stay under 260 characters: not measured here'}
+            piece.mkdir();save_json(piece/'song.json',p)
+            root=os.path.abspath(piece)+os.sep;seen=set();watching=[True]
+            def note(x):
+                if isinstance(x,(str,os.PathLike)) and isinstance(os.fspath(x),str):
+                    t=os.path.abspath(os.fspath(x))
+                    if t.startswith(root):seen.add(t[len(root):])
+            def hook(event,args):
+                if not watching[0]:return
+                try:
+                    if event=='open':note(args[0])
+                    elif event in ('os.rename','os.mkdir','os.link'):note(args[0]);note(args[1]) if len(args)>1 else None
+                    elif event=='subprocess.Popen':
+                        # the arguments: a list, or on Windows the command line as one text, in which each path below the
+                        # piece runs to the quote that closes it or to the next space
+                        if isinstance(args[1],str):[note(m.group(1) or m.group(2)) for m in re.finditer('"('+re.escape(root)+'[^"]*)"|('+re.escape(root)+r'\S*)',args[1])]
+                        else:[note(a) for a in (args[1] or ()) if isinstance(a,str) and (os.sep in a or '/' in a)]
+                except Exception:pass
+            sys.addaudithook(hook)   # (a hook stays for the process's life: this one does nothing once the render is done)
+            try:render(piece/'song.json',piece/'r1'/'render',config,piece/'cache')
+            finally:watching[0]=False
+            longest=max(seen,key=len)
+            assert len(seen)>50 and len(longest)<=62,(len(seen),len(longest),longest)
+            return {'longest_below_the_piece':len(longest),'ceiling':62}
+        found.update({'the_paths_below_a_piece_stay_short': short_paths_below_a_piece, 'cache_entries_have_short_names_and_whole_keys': short_cache_names, 'a_render_in_a_deep_folder_gives_the_same_master': deep_folder_render, 'render_cache_checks_each_take_before_using_it': cache_takes_checked, 'actual_render_repeat_is_sample_identical': integration, 'render_folder_is_its_own_run': render_folder_is_its_own_run, 'a_killed_render_resumes': killed_render_resumes, 'kept_stems_follow_what_they_read': kept_stem_dependencies, 'bank_lsb_selects_bank_on_default_soundfont': bank_select, 'named_soundfont_selected_per_track': named_soundfont, 'named_bank_verified_at_first_use': named_bank_first_use, 'pitch_bend_moves_soundfont_pitch': bend_render, 'legato_slurs_and_width_render': width_and_legato_render, 'a_reversed_note_swells_into_its_end': reversed_crash, 'layered_render_slurs_and_crossfades_dynamics': layered_render, 'take_dynamics_play_one_recorded_dynamic_per_note': take_dynamics, 'surge_part_plays_the_patch_or_its_fallback': surge_part, 'outputs_carry_no_input_metadata': outputs_carry_no_input_metadata, 'a_silent_part_is_named': a_silent_part_is_named})
     return found

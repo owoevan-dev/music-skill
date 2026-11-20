@@ -422,6 +422,23 @@ def define(S):
         # anything is written.  It composes nothing: the notes here are the check's.
         import subprocess,sys
         from musiclib.builder import Song,pitch_of
+        # 0.9 step 5 (real use, 2026-11-18): an agent's script printed the chord qualities' names, one of which a
+        # Traditional Chinese Windows console cannot encode, and stopped on it.  A script that writes a song with the
+        # builder prints such a character as an escape, as the skill's own commands do.
+        import os
+        script=work/'console.py';scripts=Path(__file__).resolve().parents[1]
+        script.write_text(f"import sys\nsys.path.insert(0, {str(scripts)!r})\nfrom musiclib.builder import Song\nSong('console', bars=1)\nprint('C\u00f87 and \u5586')\n",encoding='utf-8')
+        env={k:v for k,v in os.environ.items() if k not in ('PYTHONUTF8','PYTHONIOENCODING')};env['PYTHONIOENCODING']='cp950'
+        said=subprocess.run([sys.executable,'-X','utf8=0',str(script)],capture_output=True,env=env)
+        assert said.returncode==0 and b'C\\xf87 and \\u5586' in said.stdout,(said.returncode,said.stdout,said.stderr[-300:])
+        # and a script whose output is not a console's stream is left as it is: one replaced by an object that cannot
+        # be set (a notebook's, a test's capture), a closed one, none at all (a program without a console)
+        import io
+        closed=io.TextIOWrapper(io.BytesIO(),encoding='ascii');closed.close();kept=sys.stdout,sys.stderr
+        for stream in (io.StringIO(),closed,None):
+            sys.stdout=stream
+            try:Song('console',bars=1)
+            finally:sys.stdout,sys.stderr=kept
         assert [pitch_of(x,'t') for x in ('C4','Bb2','F#3','c-1','G9',60)]==[60,46,54,0,127,60]
         for bad in ('H2','C10','G#9','Cb-1',128,True,4.5):rejects(lambda:pitch_of(bad,'t'))
         def song():
@@ -501,6 +518,49 @@ def define(S):
         rejects(lambda:Song('k',bars=1).part('k1','melody',keys=(60,)));rejects(lambda:Song('k',bars=1).part('k2','melody',keys=(60,72,84)))
         _,lead4,_=song()
         for bad in (None,True,'2'):rejects(lambda:lead4.note(1,bad,'E4',1))
+        # 0.9 step 4: the chords are written once, by bar and beat as notes are (from 1), and every part reads the
+        # same list: song.harmony writes project['harmony'] (whose beat is an offset from 0: a trap for a script that
+        # wrote it by hand), song.changes() gives each chord with how long it lasts, song.chord_at the chord
+        # sounding at a place.  A symbol review cannot read is refused where it is written, not listed after a review.
+        h=Song('chords',bars=4,meter=(3,4));h.harmony(1,1,'Dm7').harmony(3,1,'Cmaj7').harmony(2,2.5,'G7/B')
+        assert h.project['harmony']==[{'bar':1,'symbol':'Dm7'},{'bar':2,'beat':1.5,'symbol':'G7/B'},{'bar':3,'symbol':'Cmaj7'}],h.project['harmony']
+        assert h.changes()==[(1,1,'Dm7',4.5),(2,2.5,'G7/B',1.5),(3,1,'Cmaj7',6)],h.changes()
+        assert [h.chord_at(b,x) for b,x in ((1,1),(2,2),(2,2.5),(2,3.5),(4,3))]==['Dm7','Dm7','G7/B','G7/B','Cmaj7']
+        e=Song('none yet',bars=2);e.harmony(2,1,'C');assert e.chord_at(1,4) is None and e.changes()==[(2,1,'C',4)] and Song('x',bars=1).changes()==[]
+        for bad,words in ((lambda:h.harmony(1,1,'F'),'a chord is written at bar 1 beat 1 already'),(lambda:h.harmony(1,1,'Hm'),'is no chord symbol'),
+                          (lambda:h.harmony(1,1,'Cmaj13#11b9'),'is no chord symbol'),(lambda:h.harmony(5,1,'C'),'bars 1 to 4'),(lambda:h.harmony(1,4,'C'),'beats 1 up to'),
+                          (lambda:h.harmony(1,0,'C'),'beats 1 up to'),(lambda:h.harmony(1,1,7),'is no chord symbol'),(lambda:h.chord_at(5,1),'bars 1 to 4')):
+            try:bad();raise AssertionError(f'taken: {words}')
+            except ValueError as err:assert words in str(err),(words,str(err))
+        from musiclib import harmony as hm
+        assert [c['symbol'] for _,c in hm.timeline(h.project,3)]==['Dm7','G7/B','Cmaj7'] and [b for b,_ in hm.timeline(h.project,3)]==[0,4.5,6]
+        # The review of step 4: a list written by hand beside the builder's.  Out of order, it is read in order, as
+        # review reads it (a chord came back lasting -4 beats); an entry review reads otherwise than its symbol says
+        # (transpose_semitones) is refused, not given back as the symbol that does not sound; an entry that is no
+        # chord entry is named, not a KeyError; and what song.harmony writes is what validate takes (a beat within a
+        # tick of the next bar, a symbol padded to 41 characters, passed the builder and stopped the save).
+        m=Song('by hand',bars=2);m.project['harmony']=[{'bar':2,'symbol':'G'},{'bar':1,'symbol':'C'}]
+        assert m.changes()==[(1,1,'C',4),(2,1,'G',4)] and m.chord_at(2,1)=='G' and m.chord_at(1,4)=='C',m.changes()
+        m.harmony(1,3,'F');assert [x[2] for x in m.changes()]==['C','F','G'] and m.project['harmony'][0]['symbol']=='C'
+        w=Song('odd',bars=2);w.project['harmony']=[{'bar':1,'symbol':'C7alt'}];assert w.changes()==[(1,1,'C7alt',8)],'a symbol written by hand comes back as written'
+        for entries,words in (([{'bar':1,'symbol':'C/E','transpose_semitones':2}],'transpose_semitones'),([{'symbol':'C'}],'no chord entry'),(['C'],'no chord entry'),([{'bar':1,'beat':'2','symbol':'C'}],'no chord entry')):
+            for call in (lambda s:s.changes(),lambda s:s.chord_at(1,1),lambda s:s.harmony(2,1,'G')):
+                s=Song('bad',bars=2);s.project['harmony']=copy.deepcopy(entries)
+                try:call(s);raise AssertionError(f'read: {entries}')
+                except ValueError as err:assert words in str(err),(entries,str(err))
+        edge=Song('edge',bars=1)
+        try:edge.harmony(1,4.9995,'C');raise AssertionError('a beat past the last tick of the bar taken')
+        except ValueError as err:assert 'beats 1 up to' in str(err),str(err)
+        edge.harmony(1,4.5,' Am ').harmony(1,5-1/960,'C'+' '*40);assert [x['symbol'] for x in edge.project['harmony']]==['Am','C'] and edge.chord_at(1,4.75)=='Am'   # stored without the spaces round it
+        edge.section('a',1);edge.part('p','harmony').note(1,1,'C4',1);validate(edge.project)
+        # the second review: `harmony: null` is a project validate takes, and the first chord written into it was an
+        # AttributeError; an entry outside the piece came back lasting -4 beats; and a place a note may be written
+        # on (within a tick of the next bar) could not be asked for
+        nul=Song('null',bars=1);nul.project['harmony']=None;nul.harmony(1,2,'C');assert nul.project['harmony']==[{'bar':1,'beat':1,'symbol':'C'}] and nul.chord_at(1,4.999)=='C'
+        far=Song('far',bars=2);far.project['harmony']=[{'bar':1,'symbol':'C'},{'bar':4,'symbol':'G'}]
+        for call in (lambda:far.changes(),lambda:far.chord_at(1,1),lambda:far.harmony(2,1,'F')):
+            try:call();raise AssertionError('a chord outside the piece read')
+            except ValueError as err:assert 'outside the piece' in str(err),str(err)
         # the first save of a song.json makes it only while the name stays free: one put there meanwhile is left as it
         # is (start's first run replaced it: the review of 0.8.0); a save over the script's own earlier one replaces it
         import musiclib.builder as builder_mod
@@ -533,6 +593,17 @@ def define(S):
         # (a drum part its kit), written out and checked; compose.py names the skill and the configuration from the
         # user's home where they lie there (it named the whole path, the account with it)
         text=(work/'books_piece'/'compose.py').read_text(encoding='utf-8')
+        # the skeleton shows where the chords go, written out as a comment: the piece start saves has none yet
+        assert "# song.harmony(1, 1, 'Cmaj7')" in text and 'song.changes()' in text and 'harmony' not in json.loads((work/'books_piece'/'song.json').read_text(encoding='utf-8'))
+        # the third review: a beat reached by adding thirds (4.999999999999999) is a place a note takes, and the
+        # chord there can be asked for; the last tick of a bar of 1/4 can be written
+        beat=1.0
+        for _ in range(12):beat+=1/3
+        assert nul.chord_at(1,beat)=='C' and Song('tick',bars=1,meter=(1,4)).harmony(1,1+959/960,'C').project['harmony'][0]['beat']<=1-1/960
+        for past in (5,5.5,0.999):   # and the next bar's first beat, or one before the bar, is no place in this bar to ask about
+            try:nul.chord_at(1,past);raise AssertionError(past)
+            except ValueError as e:assert 'beat' in str(e),e
+        assert "the pitched parts' notes" in text and "every part's notes" not in text,'the skeleton says what review reads (the second review)'
         assert "song.part('lead', 'melody', 'default 0:0')" in text and "song.part('kit', 'drums', 'default 128:0')" in text,text
         home=Path.home().resolve()
         assert str(home) not in text and home.as_posix() not in text,'compose.py names the home folder'

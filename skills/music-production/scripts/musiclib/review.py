@@ -8,7 +8,7 @@ from pathlib import Path
 import statistics
 from . import files, harmony
 from .instruments import key_ranges, pairs
-from .model import Clock, performed, save_json, validate
+from .model import Clock, TPQ, kit_patch, performed, save_json, sounded, tick_of, validate
 
 FOREGROUND = ('melody', 'countermelody')
 NAMES = ('C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B')
@@ -54,10 +54,24 @@ def highpass_cut(t):
 def where(clock,beat):
     return f'bar {int(beat//clock.beats_per_bar)+1} beat {beat%clock.beats_per_bar+1:g}'
 
+NOTE_COLUMNS=('track','role','note_id','bar_1_based','beat_in_bar','pitch','duration_q','phrase','articulation','velocity','timing_ms','gate','start_seconds','end_seconds')   # notes.csv
+
+def kit(t):
+    """A drum part by what it is: the `drums` flag, a drum machine, the role, or a kit's patch (bank 128) written
+    without the flag."""
+    return bool(t.get('drums') or t['engine']=='drum_synth' or t.get('role')=='drums' or kit_patch(t))
+
 def unpitched(t):
-    """Drum and noise parts, and synth parts whose oscillators are all noise (a riser, a reverse cymbal, a fall): their
-    notes set a sweep or a hit, not a pitch heard against chords."""
+    """Drum and noise parts, synth parts whose oscillators are all noise (a riser, a reverse cymbal, a fall), and
+    Surge patches that the catalog measured as having no clear pitch (its flag; 245 of the 3,008): their notes set a
+    sweep or a hit, not a pitch heard against chords.  A Surge part is read as the patch it names: on a machine
+    without Surge XT it plays its fallback, a built-in preset that may have a pitch, and the render's receipt and
+    analyze say that it did (the review of 0.9's step 5; a fallback without a pitch for such patches is not built)."""
     if t.get('drums') or t['engine'] in ('noise','drum_synth'):return True
+    if kit_patch(t):return True   # a kit's patch without the flag
+    if t['engine']=='surge':
+        from . import surge
+        return 'no clear pitch' in ((surge.catalog().get(str((t.get('surge') or {}).get('preset',''))) or {}).get('flags') or ())
     if t['engine']=='synth':
         from .synth import patch_of
         try:oscillators=patch_of(t).get('oscillators') or []
@@ -65,11 +79,15 @@ def unpitched(t):
         return bool(oscillators) and all(o.get('wave')=='noise' for o in oscillators)
     return False
 
-def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5):
+def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5,widest=127):
     """Minor seconds/ninths between a sustained note (>=0.75 beat) and any note of another pitched
     part (or inside one part's chord) overlapping >=0.5 beat (both numbers ours: style-maps.json).  Major sevenths are
     not flagged.  Unpitched parts
     (unpitched()) are left out.  The first `limit` examples by beat are kept while the rest are counted.
+
+    `widest` is the widest distance counted, in semitones: 13 takes the minor second and the minor ninth, 25 the
+    semitone two octaves wide as well, 127 every octave (what 0.8 counted, and still the default of this function).
+    review counts up to 13 (style-maps.json) and gives the wider ones apart: see review().
 
     0.8 step 1.2: the pairs are counted, not looked at one by one where they are many (0.7 looked at every pair, and
     two parts of 250,000 notes hold 62,500,000,000).  The results are 0.7's to the last example.  A pair is two notes
@@ -102,7 +120,7 @@ def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5):
     long=length>=ob                                   # a pair overlaps by no more than either note lasts
     sust=long&(length>=sustain_beats)
     code=np.array([index[x[3]] for x in items])
-    offsets=lambda q:[q+d*s for d in range(1,128,12) for s in (1,-1)]
+    offsets=lambda q:[q+d*s for d in range(1,widest+1,12) for s in (1,-1)]
     # Each pitch's notes in 0.7's order (onset, end, pitch, part, foreground, id), and each note's place there.
     by_pitch=defaultdict(list)
     for i,x in enumerate(items):by_pitch[x[2]].append(i)
@@ -318,6 +336,72 @@ def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5):
             found.append({'at':where(clock,beat),'beat':round(beat,4),'parts':sorted({a[3],b[3]}),'pitches':[x[0] for x in pair],'ids':[x[1] for x in pair],'overlap_beats':round(ov,3),'involves_foreground':a[4] or b[4],'same_part':a[3]==b[3]})
     return {'count':count,'foreground_count':fg_count,'by_parts':by_parts,'examples':found}
 
+def exposed(p,clock,widest=13,beats=1.0,limit=40):
+    """The clashes vertical() counts up to `widest` semitones that begin on a downbeat or a half-bar and sound
+    together `beats` or more: (how many, the `limit` longest together, longest first).  Each row is as one of
+    vertical()'s examples, with `semitones`, `place` ("downbeat", "half-bar") and `tracks` (the lower note's part,
+    the higher's).  A clash begins where the later of its two notes does.  The places are the two strongest of the
+    bar's metric levels (_metric_weight, after Longuet-Higgins and Lee 1984; a bar of three beats has no half-bar);
+    the length is ours (style-maps.json, the check `clash`).
+
+    Places and lengths are read as written, on the grid the piece is played on (TPQ ticks a quarter), one way for the
+    place, its name and the length: a note a rounding error before the bar line is on it and is named by its bar,
+    and a length that a tick does not tell from a beat is a beat (the review of 0.9's step 4: read as floats, a
+    place and its name disagreed).  The performance's timing and gates are not read.
+
+    Counted from how many notes sound at each strong beat, not pair by pair: at a strong beat B the clashes are a
+    note struck at B with a note a semitone or a ninth from it that sounds at B, both lasting to B and `beats` more
+    (two struck together are taken once, from the lower).  Only the `limit` longest are made into rows, from each
+    strong beat's `limit` longest partners."""
+    import heapq
+    import numpy as np
+    meter=_meter(p);bar=round(meter[0]*TPQ);half=None if meter[1] is None else round(meter[1]*TPQ);need=round(beats*TPQ)
+    meta=[];raw=defaultdict(list)
+    for t in p['tracks']:
+        if unpitched(t):continue
+        fg=t.get('role') in FOREGROUND
+        for n in t['notes']:
+            on,end=tick_of(n['on']),tick_of(n['on']+n['duration'])   # as the exported MIDI has them (model.tick_of)
+            if end-on>=need:raw[n['pitch']].append((on,end,len(meta)));meta.append((t['id'],fg,n.get('id') or ''))
+    by={q:np.array(sorted(v),dtype=np.int64).reshape(-1,3) for q,v in raw.items()}
+    struck=defaultdict(list)                          # strong beat -> [(pitch, rows of that pitch's notes struck there)]
+    for q,arr in by.items():
+        on=arr[:,0];strong=(on%bar==0)|((on%bar==half) if half is not None else False)
+        for B in np.unique(on[strong]):struck[int(B)].append((q,np.flatnonzero(on==B)))
+    count=0;best=[]                                   # a heap of the `limit` longest: (overlap, -beat, -low pitch, -high pitch, sequence)
+    def keep(key,row):
+        if len(best)<limit:heapq.heappush(best,(key,row))
+        elif key>best[0][0]:heapq.heapreplace(best,(key,row))
+    for B in sorted(struck):
+        sounding={}
+        def partners(r):
+            if r not in sounding:
+                arr=by[r];idx=np.flatnonzero((arr[:,0]<=B)&(arr[:,1]>=B+need));sounding[r]=idx
+            return sounding[r]
+        for q,mine in struck[B]:
+            for d in range(1,widest+1,12):
+                for r in (q+d,q-d):
+                    if r not in by:continue
+                    theirs=partners(r)
+                    if r<q:theirs=theirs[by[r][theirs,0]<B]      # struck together: taken from the lower note's side
+                    if not len(theirs):continue
+                    count+=len(mine)*len(theirs)
+                    ends=by[r][theirs,1]
+                    top=theirs[np.argsort(-ends,kind='stable')[:limit]] if len(theirs)>limit else theirs
+                    for i in mine:
+                        a=by[q][i]
+                        for j in top:
+                            b=by[r][j];together=int(min(a[1],b[1]))-B
+                            lo,hi=((q,a),(r,b)) if q<r else ((r,b),(q,a))
+                            keep((together,-B,-lo[0],-hi[0],-int(lo[1][2]),-int(hi[1][2])),(B,together,lo,hi,d))
+    rows=[]
+    for _,(B,together,(ql,nl),(qh,nh),d) in sorted(best,key=lambda x:x[0],reverse=True):
+        ml,mh=meta[int(nl[2])],meta[int(nh[2])];beat=B/TPQ
+        rows.append({'at':where(clock,beat),'beat':round(beat,4),'parts':sorted({ml[0],mh[0]}),'pitches':[ql,qh],'ids':[ml[2],mh[2]],
+                     'overlap_beats':round(together/TPQ,3),'involves_foreground':ml[1] or mh[1],'same_part':ml[0]==mh[0],
+                     'semitones':d,'place':'downbeat' if B%bar==0 else 'half-bar','tracks':[ml[0],mh[0]]})
+    return count,rows
+
 def note_name(pitch):
     return f'{NAMES[pitch%12]}{pitch//12-1}'
 
@@ -439,7 +523,7 @@ def outside_chord(p,clock,limit=40):
                 kind=embellishment(approach,departure,continues,continues and pitch%12 in nxt['pcs'] and ce-first<=1+1e-9)
                 kinds[kind or 'not resolved by step']+=1
                 if kind is None:
-                    found.append({'track':t['id'],'role':t.get('role'),'at':where(clock,first),'beat':round(first,4),'id':ids.get((pitch,round(s0,4))),'struck':where(clock,s0),'pitch':pitch,'note':note_name(pitch),'chord':ch['symbol'],'held_into_chord':held,'approach':MOTION[approach],'departure':'held on' if continues else MOTION[departure]})
+                    found.append({'track':t['id'],'role':t.get('role'),'at':where(clock,first),'beat':round(first,4),'id':ids.get((pitch,round(s0,4))),'struck':where(clock,s0),'pitch':pitch,'note':note_name(pitch),'chord':ch['sounding'],'held_into_chord':held,'approach':MOTION[approach],'departure':'held on' if continues else MOTION[departure]})
         if kinds:tracks[t['id']]={'role':t.get('role'),'outside_chord':dict(kinds)}
     found.sort(key=lambda x:x['beat']);groups={}
     for g,test in (('melody',lambda r:r in FOREGROUND),('bass',lambda r:r=='bass'),('accompaniment',lambda r:r not in FOREGROUND and r!='bass')):
@@ -447,13 +531,16 @@ def outside_chord(p,clock,limit=40):
         if xs:groups[g]={'count':len(xs),'most_in':Counter(x['track'] for x in xs).most_common(1)[0][0],'first':xs[0]}
     return {'count':len(found),'not_resolved_by_step':groups,'tracks':tracks,'examples':found[:limit],'unparsed_symbols':unknown}
 
-def parallels(p,clock,window=8,doubled_share=.75,limit=40):
+def parallels(p,clock,window=8,doubled_share=.75,limit=40,run=4):
     """Two perfect consonances of the same size in a row, fifths or octaves (with unisons), between two lines
     (line_of) moving the same way: both voices go from one note to their next at the same moment, with no rest of
     more than half a beat.  Open Music Theory forbids them in counterpoint, as they fuse the two voices
     (First-Species Counterpoint).  Octaves where the two lines meet at the octave or unison in at least
     `doubled_share` of the `window` attacks they share around them are one line doubled to blend, not two voices
-    (climax-and-melody.md, Blend), and are counted apart; a window and share of our choosing."""
+    (climax-and-melody.md, Blend), and are counted apart; a window and share of our choosing.  So are octaves inside a
+    run of `run` attacks or more that the two parts share one after another, all at the octave or unison: where a doubled passage ends and the
+    parts move apart, the window round its last notes holds what follows, and they were counted as parallels (most of
+    the octaves three real pieces of 0.8.0 answered as "doubled on purpose": 33 of 50, 63 of 71, 11 of 11)."""
     lines={t['id']:ln for t in p['tracks'] if t['notes'] and not unpitched(t) for ln in [line_of(t)] if ln and len(ln)>1}
     ids=sorted(lines);found=[];doubled=Counter()
     for i,a in enumerate(ids):
@@ -462,12 +549,20 @@ def parallels(p,clock,window=8,doubled_share=.75,limit=40):
             shared=[(k,at[round(n['on'],3)]) for k,n in enumerate(A) if round(n['on'],3) in at]
             size=[{7:'fifths',0:'octaves'}.get(abs(A[k]['pitch']-B[j]['pitch'])%12) for k,j in shared]
             joined=lambda L,u:L[u]['on']+L[u]['duration']>=L[u+1]['on']-.5-1e-9
+            # the length of the run of octaves each shared attack lies in (0 outside one): attacks the two parts
+            # share one after another, neither with a note of its own between (two pairs of octaves with such notes
+            # between them were read as one run of four: the review of 0.9's step 5)
+            runs=[0]*len(size);m=0
+            while m<len(size):
+                e=m
+                while e<len(size) and size[e]=='octaves' and (e==m or shared[e]==(shared[e-1][0]+1,shared[e-1][1]+1)):e+=1
+                runs[m:e]=[e-m]*(e-m);m=max(e,m+1)
             for m in range(1,len(shared)):
                 (k1,j1),(k2,j2)=shared[m-1],shared[m]
                 if size[m] is None or size[m]!=size[m-1] or (k2,j2)!=(k1+1,j1+1) or not (joined(A,k1) and joined(B,j1)):continue
                 if (A[k2]['pitch']-A[k1]['pitch'])*(B[j2]['pitch']-B[j1]['pitch'])<=0:continue
                 around=size[max(0,m-window//2):m+window//2]
-                if size[m]=='octaves' and len(around)>=4 and around.count('octaves')>=doubled_share*len(around):
+                if size[m]=='octaves' and (runs[m]>=run or len(around)>=4 and around.count('octaves')>=doubled_share*len(around)):
                     doubled[' / '.join((a,b))]+=1;continue
                 found.append({'parts':[a,b],'at':where(clock,A[k2]['on']),'beat':round(A[k2]['on'],4),'interval':size[m],'pitches':[[A[k1]['pitch'],B[j1]['pitch']],[A[k2]['pitch'],B[j2]['pitch']]]})
     found.sort(key=lambda x:x['beat'])
@@ -570,6 +665,9 @@ def processes(p,lo,hi):
         mix=t.get('mix') or {};perf=t.get('performance') or {}
         if _curve_moves((mix.get('filter_sweep') or {}).get('points') or [],lo,hi):out.append(f'{t["id"]}: filter sweep')
         if _curve_moves(mix.get('automation') or [],lo,hi):out.append(f'{t["id"]}: automation')
+        if mix.get('move'):
+            from . import move
+            if move.moves(mix['move'],mix.get('pan',0),Clock(p),lo,hi):out.append(f'{t["id"]}: movement across the image')
         step=perf.get('cc_mode','linear' if t['engine']=='additive' else 'step')=='step';by=defaultdict(list)
         for b,c,v in perf.get('cc',[]):
             if not (64<=c<=69 or c in (0,32) or c>=120):by[c].append((b,v))
@@ -809,6 +907,7 @@ def piano_choice(p,installed):
     return asked
 def review(p,out,config=None):
     out=Path(out);out.mkdir(parents=True,exist_ok=True);clock=Clock(p)
+    from . import ears;headphones=ears.wanted(p)
     summary={'validation':validate(p),'title':p['title'],'tracks':[],'sections':[],'prompts':[],'not_a_perceptual_quality_score':True}
     questions=summary['questions']=[];answered=summary['answered']=[]
     reasons=[d for d in p.get('decisions',[]) if isinstance(d,str)]
@@ -841,7 +940,7 @@ def review(p,out,config=None):
     summary['style']=styles.parse(p.get('style'));summary['limits']=styles.summary(lims)
     csv_rows=[]
     for t in p['tracks']:
-        notes=sorted(t['notes'],key=lambda n:n['on']);actual=performed(t,clock)
+        notes=sorted(t['notes'],key=lambda n:n['on']);actual=sounded(t,clock)   # as the audio has them (notes.csv gives where each note ends)
         a_by_id={n['id']:n for n in actual};vel=[t['performance']['notes'][n['id']]['velocity'] for n in notes]
         hist=Counter(round(n['duration'],3) for n in notes);interval=[];gaps=[]
         for a,b in zip(actual,actual[1:]):
@@ -860,6 +959,53 @@ def review(p,out,config=None):
         if cut and cut[0]>L('highpass')['loss_db'] and ask('highpass'):
             low,keeps=highpass_floor(cut[2]);where='an octave under that note' if low>15 else 'the lowest a part may have'
             put(identifier('highpass',t["id"]),f'{t["id"]}: its high-pass at {t["mix"].get("highpass",30):g} Hz takes {cut[0]:.1f} dB from the fundamental of its lowest note ({NAMES[cut[1]%12]}{cut[1]//12-1}, {cut[2]:.0f} Hz); at {low:.0f} Hz, {where}, it takes {keeps:.1f} dB.')
+        if t['mix'].get('amp'):
+            # An amplifier's input level is measured for some banks (amp.BANKS: the direct guitar, three basses); on another bank
+            # the drive is whatever that bank's level makes it, which the part's receipt shows after a render.
+            from . import amp
+            spec=t['mix']['amp']
+            # by the bank's file where a configuration says which file the part plays, by its name otherwise
+            font=None
+            if config is not None and t['engine']=='soundfont':
+                from . import audio
+                try:font=audio.soundfont_for(config,t)[1]
+                except ValueError:font=None   # a bank that is not configured: said where the configuration is read
+            known=amp.bank_gain_db(t,font) is not None
+            info['amp']={'voice':spec['voice'],'drive':spec.get('drive',.5),'bank_measured':known}
+            if not known and 'input_db' not in spec:
+                put(identifier('amp_level',t["id"]),f'{t["id"]}: mix.amp on a preset whose level into the amplifier was not measured ({amp.described(t,font)}); the presets whose level was measured are {", ".join(sorted(f"{b} {k}" for b,k in amp.BANKS))}. After a render the part\'s receipt gives input_peak (near 1 for the hardest stroke, a guitar\'s full chord or a bass\'s single note, is the working level): set mix.amp.input_db by it, or say in decisions that the level is meant.')
+        if t.get('key_map'):   # the hits as played: those the key map moves onto one key at one moment are one
+            from .midi import remap
+            hits=len(remap(actual,t['key_map']))
+        else:hits=len(notes)
+        if t['mix'].get('level_mode')=='peak' and kit(t) and hits>p['clock']['bars']:
+            # A kit, hats or a shaker levelled by its peak: the loudest hit takes the level and the rest lies far
+            # under it.  Eight of the nine real pieces of 0.8.0 had drums, and three revision logs name this as the
+            # round they lost (design-0.9/real-use-2026-11-18.md): asked before the first render, once, and a
+            # decision answers it.  Asked of a pattern: a part that plays more than once a bar on average, whose
+            # loudness is not its hardest hit's (a kit, hats, a shaker).  A part of rare hits (a crash, a tam-tam, a
+            # triangle, on however many keys) is what `peak` is for and is not asked; the line of once a bar is this
+            # skill's, with no published figure behind it.
+            what=f'{hits} hits in {p["clock"]["bars"]} bars, more than once a bar'
+            put(identifier('peak_level',t["id"]),f'{t["id"]}: a drum part ({what}) levelled by its peak (mix.level_mode "peak"): level_dbfs is then the level of its loudest sample, so one crash or one hard hit sets it, and the part as a whole can come out much lower than its level says (kits and hats written so came out 15 to 30 dB too low in the pieces read for this check). "active_rms" levels the part by how loud it plays; "peak" suits a part of single hits alike, such as crashes on a part of their own: say in decisions that it is meant.')
+        if t.get('strings'):
+            # a part played by string (musiclib/strung.py), from the score alone: the notes on each string, the frets,
+            # the muted notes and the widest stretch between stopped notes that sound together.  Nothing is asked:
+            # no limit of a hand's reach has been read, and no fingering is chosen.
+            from . import strung
+            info['strung']=strung.summary(t,clock)
+        if headphones:
+            # the part's place in the headphone version (mix.headphones, musiclib/ears.py), from the score alone
+            info['around']=ears.summary(t,clock)
+        if t['mix'].get('move'):
+            # A movement, from the score alone: its range and its fastest rate (pan units a second, under the tempo as
+            # written).  No rate is called too fast: the detection studies read give no limit for music.  Low parts are
+            # usually kept in the centre (electronic.md: Flint 2007, Senior 2010), so a moving bass or kick is asked about.
+            from . import move
+            info['move']={'type':t['mix']['move']['type'],**move.summary(t['mix']['move'],t['mix'].get('pan',0),clock)}
+            kick=(t.get('drums') or t['engine']=='drum_synth' or kit_patch(t)) and any(n['pitch'] in (35,36) for n in notes)
+            if (t.get('role')=='bass' or kick) and info['move']['highest']>info['move']['lowest']:   # its place changes (figures to three decimals)
+                put(identifier('moving_low',t["id"]),f'{t["id"]}: a bass part or a kick moves across the image (mix.move, from {info["move"]["lowest"]:+.2f} to {info["move"]["highest"]:+.2f}); low parts are usually kept in the centre, where both loudspeakers carry them: move another part instead, or say in decisions that it is meant.')
         for n in notes:
             e=t['performance']['notes'][n['id']];a=a_by_id[n['id']]
             csv_rows.append({'track':t['id'],'role':t.get('role'),'note_id':n['id'],'bar_1_based':int(n['on']//clock.beats_per_bar)+1,'beat_in_bar':round(n['on']%clock.beats_per_bar,4),'pitch':n['pitch'],'duration_q':n['duration'],'phrase':n.get('phrase',''),'articulation':n.get('articulation',''),'velocity':e['velocity'],'timing_ms':e.get('timing_ms',0),'gate':e.get('gate',1),'start_seconds':round(a['start_seconds'],6),'end_seconds':round(a['end_seconds'],6)})
@@ -870,9 +1016,36 @@ def review(p,out,config=None):
             notes=[n for n in t['notes'] if lo<=n['on']<hi]
             if notes:tracks.append(t['id']);roles[t.get('role')]+=len(notes)
         summary['sections'].append({**s,'start_seconds':round(clock.seconds(lo),3),'end_seconds':round(clock.seconds(hi),3),'active_tracks':tracks,'onsets_by_role':dict(roles)})
+    # The clashes between sounding notes (0.9 step 4).  Counted: the minor second and the minor ninth, the rule the
+    # guides state (arrangement.md).  0.8 counted the semitone at every octave; in 272 projects of 50 real pieces a
+    # third of its count lay two octaves or more apart, and the agents answered those as meant.  They are given
+    # apart and not asked about: by Sethares's (1993) model of roughness between the partials of two harmonic tones,
+    # a semitone two octaves wide has a tenth to a quarter of a close one's roughness and three octaves wide under a
+    # tenth (a minor ninth about half; computed for two spectra at three registers).
     summary['vertical_minor_seconds_ninths']=v=vertical(p,clock,**L('vertical'))
+    upto=lambda widest:vertical(p,clock,**{**L('vertical'),'widest':widest})['count']
+    two=upto(25);v['wider']={'two_octaves':two-v['count'],'three_octaves_or_more':upto(127)-two};wider=sum(v['wider'].values())
+    # The exposed ones: begun on a downbeat or a half-bar and sounding together a beat or more.  Few, each is asked
+    # by itself and answered by its own decision, so that a decision about the count hides none that comes later;
+    # more than `one_by_one` are a matter of the style or of the voicing, and the count's question names them.
+    clash=L('clash');exposed_count,found=exposed(p,clock,L('vertical').get('widest',13),clash['beats']) if v['count'] else (0,[])
+    v['exposed_count']=exposed_count;v['exposed']=[{k:x[k] for k in x if k!='tracks'} for x in found]
+    # a question of its own for each, by the two notes: a note's id is its part's own, so each is named with its part,
+    # and the two names stand in one order whichever note is the lower (the review of 0.9's step 4)
+    named=lambda x:sorted(f'{part}.{i}' if i else f'{part}@{x["beat"]:g}@{pitch}' for i,part,pitch in zip(x['ids'],x['tracks'],x['pitches']))
+    few=0<exposed_count<=clash['one_by_one'] and ask('clash')
+    singly=found if ask('vertical') and few else []
     if v['count'] and ask('vertical'):
-        put('vertical',f'{v["count"]} sustained minor-second/ninth collisions ({v["foreground_count"]} touch the foreground); most between {next(iter(v["by_parts"]))}. Check whether each is a prepared tension or an accidental voicing.')
+        n=exposed_count;count=v['count'];fg=v['foreground_count']
+        put('vertical',f'{count} sustained minor-second/ninth collision{"" if count==1 else "s"} ({fg} touch{"es" if fg==1 else ""} the foreground); most between {next(iter(v["by_parts"]))}.'
+            +(f' {n} of them {"begins" if n==1 else "begin"} on a downbeat or a half-bar and {"sounds" if n==1 else "sound"} a beat or more, as written'
+              +(f' ({"it has" if n==1 else "each has"} a question of its own (clash:<part>.<note>+<part>.<note>), asked below unless a decision answers it).' if few
+                else f' (the longest at {found[0]["at"]}; more than {clash["one_by_one"]}, so none is asked by itself).' if n>clash['one_by_one'] else '.') if n else '')
+            +' Check whether each is a prepared tension or an accidental voicing.'
+            +(f' Not counted: {wider} more whose notes lie two octaves or more apart (a model of the roughness between two tones\' partials gives a semitone two octaves wide a quarter of a close one\'s or less, and three octaves wide under a tenth: Sethares 1993).' if wider else ''))
+    for x in singly:
+        lasts=x['overlap_beats']
+        put(identifier('clash',*named(x)),f'{x["at"]}: {x["tracks"][0]} {note_name(x["pitches"][0])} and {x["tracks"][1]} {note_name(x["pitches"][1])} sound a minor {"second" if x["semitones"]==1 else "ninth"} together for {lasts:g} beat{"" if lasts==1 else "s"} from a {x["place"]}, as written. If it is a prepared tension (a suspension, a voicing with its flat ninth), say so in decisions; otherwise move or shorten one of the two notes.')
     oc=outside_chord(p,clock)
     if oc is not None:
         summary['outside_chord']=oc;g=oc['not_resolved_by_step']
@@ -920,7 +1093,7 @@ def review(p,out,config=None):
         put('widespread_lowpass',f'{len(lp["under"])} of the {lp["parts"]} parts other than the bass are low-passed at or under {lp["below_hz"]/1000:g} kHz ({named}): together they take the top octave out of the mix, where most mixing books put air (10-20 kHz; Moffat, De Man and Reiss 2022). Widespread low-pass filtering seldom helps, because the harmonics and noise of most instruments reach up the spectrum, and it easily dulls a mix (Senior 2012). Keep a low-pass where the highs of a part must go for the balance, such as the noise of an amplified guitar; for the others remove `mix.lowpass` (18 kHz by default) unless the style wants a muffled top (performance-and-mix.md, Brightness and air).')
     stiff=summary['stiffness']=stiffness(p,clock,**L('stiffness'))
     for b in stiff['block_chord_parts'] if ask('stiffness') else ():
-        put(identifier('stiffness',b["track"]),f'{b["track"]}: {b["block_share"]:.0%} of its {b["chords"]} chords are struck and released as one block. Hold a common tone over the change, move an inner voice, break the chord or vary its rhythm (development-and-groove.md; musiclib.voicing voices chords to move smoothly).')
+        put(identifier('stiffness',b["track"]),f'{b["track"]}: {b["block_share"]:.0%} of its {b["chords"]} chords are struck and released as one block. Hold a common tone over the change, move an inner voice or vary its rhythm; a chord broken into separate attacks is not counted among them, so breaking some leaves this share of the rest (development-and-groove.md; musiclib.voicing voices chords to move smoothly).')
     from .profile import melody_in, top_line
     line=top_line([n for t in p['tracks'] if t.get('role')=='melody' for n in t['notes']])
     summary['melody_sections']=[]
@@ -1011,12 +1184,13 @@ def review(p,out,config=None):
     arrangement='\n'.join(lines)+'\n'
     try:
         save_json(out/'score_review.json',summary)
-        if csv_rows:
-            # A text cell a spreadsheet would read as a formula (one starting with =, +, -, @, a tab or a carriage
-            # return) gets a leading apostrophe, as OWASP's CSV injection guidance advises: a project's names stay text.
-            safe=lambda v:"'"+v if isinstance(v,str) and v[:1] in ('=','+','-','@','\t','\r') else v
-            with files.staged(out/'notes.csv','w',encoding='utf-8',newline='') as f:  # whole or not at all
-                w=csv.DictWriter(f,fieldnames=csv_rows[0].keys());w.writeheader();w.writerows({k:safe(v) for k,v in r.items()} for r in csv_rows)
+        # A text cell a spreadsheet would read as a formula (one starting with =, +, -, @, a tab or a carriage
+        # return) gets a leading apostrophe, as OWASP's CSV injection guidance advises: a project's names stay text.
+        # A score without a note has the file too, its header alone: the summary names it, and one an earlier review
+        # left in the folder would list notes that are gone (the reviews of 0.9).
+        safe=lambda v:"'"+v if isinstance(v,str) and v[:1] in ('=','+','-','@','\t','\r') else v
+        with files.staged(out/'notes.csv','w',encoding='utf-8',newline='') as f:  # whole or not at all
+            w=csv.DictWriter(f,fieldnames=NOTE_COLUMNS);w.writeheader();w.writerows({k:safe(v) for k,v in r.items()} for r in csv_rows)
         with files.staged(out/'arrangement.md','w',encoding='utf-8') as f:
             f.write(arrangement)
     finally:

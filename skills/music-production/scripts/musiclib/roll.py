@@ -34,7 +34,7 @@ import numpy as np
 from . import files
 from .midi import remap
 from .mixbus import bus_of
-from .model import TPQ, Clock, performed
+from .model import TPQ, Clock, sounded
 
 SURFACE, PANEL, GRID = (20, 20, 19), (30, 30, 28), (58, 58, 54)
 BLACK_ROW = (25, 25, 23)
@@ -85,7 +85,8 @@ class Roll:
         render = unlinked(render)
         project = render / 'project.json'
         if not project.is_file():
-            raise ValueError(f'{render} is not a render folder (project.json is missing): still and video take the --output of studio.py render')
+            raise ValueError(f'{render} is not a render folder (project.json is missing): still and video take the --output of studio.py render'
+                             + files.path_limit_hint(project))
         # its own files alone, as analyze and compare read a render folder: a link in it (its project, its master) led
         # the picture and the video's sound to files elsewhere (the whole review of 0.8); refused before Pillow is needed
         from .analysis import no_links_in
@@ -320,7 +321,7 @@ def as_played(t, clock):
     if t['engine'] == 'soundfont' and layered.wanted(t):
         return [{'start_seconds': clock.seconds(n['tick'] / TPQ), 'end_seconds': clock.seconds(n['end_tick'] / TPQ), 'pitch': n['pitch']}
                 for n in layered.plan(t, clock)]
-    played = performed(t, clock)
+    played = sounded(t, clock)   # (a part played by string: string by string, as it is rendered)
     if t.get('key_map'):
         played = [{**n, 'pitch': n['written'], 'end_seconds': clock.seconds(n['end_tick'] / TPQ)}
                   for n in remap([{**n, 'written': n['pitch']} for n in played], t['key_map'])]
@@ -372,6 +373,26 @@ def encoders(ffmpeg):
     return {line.split()[1] for line in out.stdout.splitlines() if len(line.split()) > 1 and line.startswith(' ')}
 
 
+def fit_size(encode, vbr, limit, tries=3):
+    """Encode until the file is no larger than `limit` bytes.  `encode(vbr, again)` makes it at a video bit rate
+    (`again`: the first pass's statistics are there already) and returns its size.  Two passes aim at the rate and can
+    end a little over: each further try lowers the rate by the overshoot measured and 3 % more (our margin: a real
+    session's three overshoots were 1.2, 0.6 and 0.3 %).  Returns (vbr, size, [(vbr, size) of every encode]); raises
+    where `tries` encodes all came out over, and then nothing is put out."""
+    made = []
+    for k in range(tries):
+        size = encode(vbr, k > 0)
+        made.append((vbr, size))
+        if size <= limit:   # the size asked is a ceiling: a file over it is not put out as if it were met
+            return vbr, size, made
+        vbr = int(vbr * limit * .97 / size)
+    words = {1: 'one encode', 2: 'two encodes', 3: 'three encodes'}.get(tries, f'{tries} encodes')
+    sizes = [f'{size / 1e6:.2f}' for _, size in made]
+    raise ValueError(f'the video came out at {", ".join(sizes[:-1]) + " and " + sizes[-1] if len(sizes) > 1 else sizes[0]} MB in {words}, '
+                     f'each over the {limit / 1e6:g} MB asked (the last at {made[-1][0] // 1000} kbps of picture), and is not written; '
+                     'ask for a larger --size-mb')
+
+
 def video(render, output, config, mp4=False, size_mb=10.0, fps=30, width=1280, height=720):
     """The roll as a video with the render's master as its sound: WebM (VP9 and Opus) by default, MP4 (H.264 and AAC,
     the widest playback) with `mp4`, each only where the configured FFmpeg has the encoders; two passes at the bit rate
@@ -409,20 +430,35 @@ def _video(render, output, config, mp4, size_mb, fps, width, height):
         raise ValueError(f'--size-mb {size_mb:g}: {seconds:.0f} seconds of video take {math.ceil(need * 10) / 10:g} MB at least '
                          f'(100 kbps of picture and {abr // 1000} of sound); ask for that or more')
     vbr = int(size_mb * 8e6 * .96 / seconds) - abr
-    staging = files.staging_folder(output)
+    # The staging folder and the video in it have short names of their own, not the output's twice over: with those
+    # they were the longest path outside the cache (87 characters below the piece for an output named after it, our
+    # measurement), and the names matter to nothing: the finished file takes the output's name (0.9 step 1).
+    staging = files.staging_folder(output.with_name('roll'))
+    stats = staging
     try:
-        log = staging / 'passlog'
+        # x264 opens its first pass's statistics itself, by Windows' plain calls, which stop at 260 characters (it names
+        # up to 18 past the name given: -0.log.mbtree.temp), and FFmpeg is started in the folder that holds them, which
+        # Windows refuses at 259.  Beside an output in a deep folder the encoder could not be opened (0.9 step 1: "Could
+        # not open encoder before EOF"), so there the statistics go to a folder of their own in the system's temporary
+        # folder.  VP9's are written by FFmpeg, at any length (measured to 280): for a WebM only the folder counts.
+        too_deep = (lambda folder: files.past_path_limit(folder / 'passlog-0.log.mbtree.temp')) if mp4 else files.past_folder_limit
+        if too_deep(staging):
+            import tempfile
+            stats = Path(tempfile.mkdtemp(prefix='roll-'))
+            if too_deep(stats):
+                raise ValueError(f'{output} lies too deep for the statistics files of the encoder, and so does the temporary '
+                                 f'folder ({stats.parent}): give a shorter --output, or set TEMP and TMP to a folder with a shorter path')
+        log = stats / 'passlog'
         base = [ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{width}x{height}', '-r', str(fps), '-i', '-']
         codec = (['-c:v', 'libx264', '-preset', 'medium', '-pix_fmt', 'yuv420p'] if mp4 else
                  ['-c:v', 'libvpx-vp9', '-deadline', 'good', '-row-mt', '1', '-pix_fmt', 'yuv420p'])
-        out = staging / output.name
+        out = staging / ('roll' + output.suffix)
         # Every input before the options of the output (FFmpeg gives an option to the file that follows it: the codec's
         # options ahead of the master's -i were refused as options of that input).
-        for n, inputs, tail in ((1, [], ['-an', '-f', 'null', os.devnull]),
-                                (2, ['-i', str(master)], ['-map', '0:v', '-map', '1:a', '-map_metadata', '-1', '-c:a', acodec, '-b:a', str(abr), '-shortest', str(out)])):
+        def one_pass(n, vbr, inputs, tail):
             argv = base + inputs + codec + ['-b:v', str(vbr), '-pass', str(n), '-passlogfile', str(log)] + (['-cpu-used', '4' if n == 1 else '2'] if not mp4 else []) + tail
             with open(staging / f'pass{n}.log', 'wb') as err:
-                proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stderr=err, cwd=staging,
+                proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stderr=err, cwd=files.program_folder(stats),
                                         creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0)
                 try:
                     for k in range(frames):
@@ -437,12 +473,22 @@ def _video(render, output, config, mp4, size_mb, fps, width, height):
                     proc.kill()
                     proc.wait()
                     raise
-                if proc.wait():
+                try:
+                    code = proc.wait()
+                except BaseException:   # stopped while FFmpeg finishes the pass: it is stopped too, before its folders go
+                    proc.kill()
+                    proc.wait()
+                    raise
+                if code:
                     raise ValueError(f'FFmpeg stopped in pass {n}: ' + files.one_line((staging / f'pass{n}.log').read_text(errors='replace')[-600:]))
-        size = out.stat().st_size
-        if size > size_mb * 1e6:   # the size asked is a ceiling: a file over it is not put out as if it were met
-            raise ValueError(f'the video came out at {size / 1e6:.2f} MB, over the {size_mb:g} MB asked, and is not written; ask for '
-                             f'{math.floor(size_mb * size_mb * 1e6 / size * 95) / 100:g} MB, which aims that much lower')
+
+        def encode(vbr, again):
+            # the first pass's statistics serve every try: they describe the picture, not the rate
+            if not again:
+                one_pass(1, vbr, [], ['-an', '-f', 'null', os.devnull])
+            one_pass(2, vbr, ['-i', str(master)], ['-map', '0:v', '-map', '1:a', '-map_metadata', '-1', '-c:a', acodec, '-b:a', str(abr), '-shortest', str(out)])
+            return out.stat().st_size
+        vbr, size, made = fit_size(encode, vbr, size_mb * 1e6)
         try:
             files.publish_new(out, output)   # never in the place of a file that took the name while the video was made
         except FileExistsError:
@@ -450,6 +496,9 @@ def _video(render, output, config, mp4, size_mb, fps, width, height):
     finally:
         import shutil
         shutil.rmtree(staging, ignore_errors=True)
+        if stats != staging:
+            shutil.rmtree(stats, ignore_errors=True)
+    again = '' if len(made) == 1 else f' It came out over at first ({made[0][1] / 1e6:.2f} MB) and was encoded {len(made)} times, each at a lower rate.'
     return files.joined([f'Wrote {output}: {width}x{height} at {fps} frames a second, {seconds:.1f} s, {size / 1e6:.2f} MB '
-                         f'(under the {size_mb:g} MB asked; {vcodec} at {vbr // 1000} kbps, {acodec} at {abr // 1000} kbps).',
+                         f'(under the {size_mb:g} MB asked; {vcodec} at {vbr // 1000} kbps, {acodec} at {abr // 1000} kbps).' + again,
                          'The sound is the master as rendered; the picture shows the notes as they were played.'])

@@ -21,7 +21,7 @@ This guide covers what film and media writing adds.
 
 ## Brief
 
-Settle these from the request, deciding what it leaves open and saying so:
+Settle these from the request; what it leaves open is decided after the piece's words are drawn (SKILL.md, steps 1 and 2), and said so:
 
 - **Picture or not.** A cue timed to picture needs the times of its events (hit points) in seconds. A free-standing cue only needs a length.
 - **Function.** Is it emotional underscore, tension, action, a horror cue or a stinger? Is the cue one-shot or looping?

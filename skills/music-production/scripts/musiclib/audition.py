@@ -105,6 +105,11 @@ def with_sound(track, sound):
         track['performance'].pop(k)
     if track['engine'] != 'soundfont' and track.pop('reverse', None) is not None:
         left.append('reverse')  # a SoundFont part's own: another engine refused it (GPT's review of 0.5, SA04)
+    if track['engine'] != 'soundfont' and track.pop('strings', None) is not None:
+        # played by string is a sampled part's: on another engine the notes play as written (the review of 0.9 step 3:
+        # the strings stayed, and the whole audition was refused before its first version)
+        track['notes'] = [{k: v for k, v in n.items() if k not in ('string', 'mute')} for n in track['notes']]
+        left.append('strings')
     return left
 
 
@@ -147,7 +152,9 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
         raise ValueError(f'{track_id} is a drum or noise part; audition plays pitched parts')
     if not sounds:
         raise ValueError('Name at least one sound to audition against the part as written')
-    passage = extract(p, first_bar, last_bar - first_bar + 1)
+    from . import ears
+    # (an audition compares sounds in the ordinary mix: the passage's headphone version is not made)
+    passage = ears.without(extract(p, first_bar, last_bar - first_bar + 1))
     if not any(n for t in passage['tracks'] if t['id'] == track_id for n in t['notes']):
         raise ValueError(f'{track_id} plays no note in bars {first_bar}-{last_bar}')
     cfg = audio.load_config(config_file)
@@ -210,7 +217,10 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
                     try:
                         # A draft: the audition plays the master and measures the stem, which a full render would
                         # only add to.
-                        render(folder / 'song.json', folder / 'render', config_file, cache, draft=True, quiet=quiet, jobs=jobs)
+                        # (its tail has to be quiet, as a full render's: a tail that still sounds is the cue below to
+                        # render again with a longer one)
+                        render(folder / 'song.json', folder / 'render', config_file, cache, draft=True, quiet=quiet, jobs=jobs,
+                               tail_fails=True)
                         break
                     except ValueError:
                         report = folder / 'render' / 'report.json'

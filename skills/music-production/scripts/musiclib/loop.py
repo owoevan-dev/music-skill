@@ -30,7 +30,7 @@ from pathlib import Path
 import numpy as np
 
 from . import audio, files, measure
-from .model import TPQ, performed, save_json
+from .model import TPQ, kit_patch, save_json, sounded
 
 BEFORE, AFTER = 5.0, 1.0
 NAMES = ('C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B')
@@ -138,7 +138,9 @@ def markers(p, clock, end_f):
 
 def tempo(clock):
     """BPM, beats per bar and beat count for engines that sync music by beat; None where the tempo changes."""
-    constant = len(clock.spb) == 1 or len(set(round(x, 9) for x in clock.spb)) == 1
+    # the tempi the loop plays: a point on the piece's last beat is the tail's alone
+    played = [s for beat, s in zip(clock.beats, clock.spb) if beat < clock.total_beats - 1e-9] or clock.spb[:1]
+    constant = len(set(round(x, 9) for x in played)) == 1
     per_bar = clock.beats_per_bar
     return {'bpm': round(60 / clock.spb[0], 6) if constant else None,
             'bar_beats': int(per_bar) if constant and float(per_bar).is_integer() else None,
@@ -193,15 +195,20 @@ def seam(p, clock, folded=None, master=None):
     pcs = {'before': set(), 'after': set()}
     held = {}
     for t in p['tracks']:
-        notes = performed(t, clock)
-        pitched = not t.get('drums') and t['engine'] != 'noise'
+        notes = sounded(t, clock)   # as the audio has them (a part played by string: string by string)
+        pitched = not t.get('drums') and t['engine'] != 'noise' and not kit_patch(t)
         for side, (lo, hi) in (('before', before), ('after', after)):
             hit = [n for n in notes if n['start_seconds'] < hi and n['end_seconds'] > lo]
             if hit:
                 parts[side].add(t['id'])
                 if pitched:
                     pcs[side] |= {n['pitch'] % 12 for n in hit}
-        count = sum(n['end_tick'] >= end_tick for n in notes)
+        # a note that has begun by the end and is held to it (one its timing puts after the end has not begun)
+        struck = notes
+        if t.get('key_map'):   # as played, for this count alone: hits that the key map moves onto one key at one tick are one
+            from .midi import remap
+            struck = remap(notes, t['key_map'])
+        count = sum(n['tick'] < end_tick <= n['end_tick'] for n in struck)
         if count:
             held[t['id']] = count
     shared = pcs['after'] & pcs['before']
@@ -221,7 +228,13 @@ def seam(p, clock, folded=None, master=None):
         b5, a1 = folded[max(start_f, end_f - round(BEFORE * audio.RATE)):end_f], folded[start_f:start_f + round(AFTER * audio.RATE)]
         short = round(.4 * audio.RATE)
         own = np.asarray(master[start_f:start_f + round(AFTER * audio.RATE)], dtype=np.float64)
-        tail = np.asarray(master[end_f:end_f + round(AFTER * audio.RATE)], dtype=np.float64)
+        # the tail as it lies over the loop's first second: every lap of it, as fold lays them (the first second of
+        # the tail alone was read, so an echo that comes round a lap later was reported as silence)
+        lap, first = end_f - start_f, min(round(AFTER * audio.RATE), end_f - start_f)
+        tail = np.zeros((first, np.asarray(master).shape[1]), dtype=np.float64)
+        for at in range(end_f, len(master), max(1, lap)):
+            seg = np.asarray(master[at:at + first], dtype=np.float64)
+            tail[:len(seg)] += seg
         report['volume'] = {'before_lufs': round(win(b5), 2), 'after_lufs': round(win(a1), 2), 'change_db': round(win(a1) - win(b5), 2),
                             'last_400ms_lufs': round(win(folded[end_f - short:end_f]), 2), 'first_400ms_lufs': round(win(folded[start_f:start_f + short]), 2)}
         local = np.abs(np.diff(folded[end_f - 4800:end_f], axis=0))
@@ -260,8 +273,10 @@ def deliver(p, clock, cfg, output, mastering=None, draft=False):
     tp_max = true_peak_ceiling(p['mix'].get('target_lufs', -16))
     probe = logs / 'loop_float.wav'
     audio.write_wav(probe, folded)
-    peak = audio.measure(cfg, probe, logs, 'measure_loop_float')['true_peak_dbtp']
-    probe.unlink()
+    try:
+        peak = audio.measure(cfg, probe, logs, 'measure_loop_float')['true_peak_dbtp']
+    finally:   # the float copy is this measurement's scratch file: gone whether it ended or failed
+        probe.unlink()
     gain = tp_max - .05 - peak if peak > tp_max else 0.0
     if gain:
         folded = folded * 10 ** (gain / 20)
@@ -325,10 +340,12 @@ def layers(p, clock, cfg, output, mastering, start_f, end_f, cues, master, mix_f
             x, _ = audio.read_wav(premix)
             x = x.astype('float64')  # releases the mapped file, which is written again (Windows refuses to replace it)
             audio.write_wav(premix, mixbus.premix_production(p, x).astype('float32'))
-        audio.ffmpeg(cfg, ['-i', premix, '-af', linear, '-ar', str(audio.RATE), '-c:a', 'pcm_f32le', processed], logs, f'layer_{lid}')
-        raw[lid] = np.asarray(audio.read_wav(processed)[0], dtype=np.float64)
-        premix.unlink()
-        processed.unlink()
+        try:
+            audio.ffmpeg(cfg, ['-i', premix, '-af', linear, '-ar', str(audio.RATE), '-c:a', 'pcm_f32le', processed], logs, f'layer_{lid}')
+            raw[lid] = np.asarray(audio.read_wav(processed)[0], dtype=np.float64)
+        finally:   # this layer's scratch files: gone whether the pass ended or failed
+            premix.unlink(missing_ok=True)
+            processed.unlink(missing_ok=True)
     lag = latency(sum(raw.values()), master, start_f)
     folded = {lid: fold(np.concatenate([np.zeros((lag, x.shape[1])), x[:len(x) - lag]]), start_f, end_f) for lid, x in raw.items()}
     # The layers carry no limiter: scale them together so the loudest sample peak sits 0.4 dB under the true-peak

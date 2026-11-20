@@ -145,7 +145,7 @@ def run(argv,folder,label,timeout=600,cwd=None):
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
     log=folder/(label+'.log');started=time.monotonic()
     flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
-    cancel=getattr(_scope,'event',None)
+    cancel=getattr(_scope,'event',None);cwd=files.program_folder(cwd)   # a folder Windows starts nothing in is refused by name
     check_cancel(label)  # a run already stopped starts no program (one that ended within 0.2 s ran to its end)
     temp=None;ran=False
     # A file already at the log's name that cannot be written stays, as when the log was opened there: the run stops
@@ -207,9 +207,11 @@ def written_whole(run_it,outputs):
 
 def fluidsynth(config,font_path,midi_path,wav_path,folder,label='fluidsynth'):
     """Render a MIDI file on one SoundFont: dry (no chorus or reverb), 48 kHz float, sample-accurate timing.  A run
-    whose log reports a problem publishes nothing (written_whole)."""
+    whose log reports a problem publishes nothing (written_whole).  FluidSynth opens its three files by Windows' plain
+    calls, which stop at 260 characters: each goes in the form those calls open (files.for_program; 0.9 step 1: a
+    render in a deep folder stopped on "not a SoundFont or MIDI file")."""
     def run_it(names):
-        log=run([config['fluidsynth']['path'],'-n','-i','-C','0','-R','0','-g','.55','-r',str(RATE),'-T','wav','-O','float','-o','synth.cpu-cores=1','-o','synth.polyphony=256','-o','synth.midi-bank-select=mma','-o','player.timing-source=sample','-F',names[0],font_path,midi_path],folder,label)
+        log=run([config['fluidsynth']['path'],'-n','-i','-C','0','-R','0','-g','.55','-r',str(RATE),'-T','wav','-O','float','-o','synth.cpu-cores=1','-o','synth.polyphony=256','-o','synth.midi-bank-select=mma','-o','player.timing-source=sample','-F',*map(files.for_program,(names[0],font_path,midi_path))],folder,label)
         # Only FluidSynth's own messages ("fluidsynth: error: ...", a preset "not found"), not paths it echoes.
         problems=[line for line in log.splitlines() if line.lower().startswith('fluidsynth:') and any(w in line.lower() for w in ('error','panic','failed','not found'))]
         if problems:raise ValueError('Instrument rendering diagnostic: '+' | '.join(problems)[-2000:])
@@ -378,6 +380,10 @@ def reference_level(path,mode='active_rms'):
     if mode=='peak':return 20*math.log10(peak)
     blocks=[rms(a[i:i+RATE//2]) for i in range(0,len(a),RATE//2)]
     active=[x for x in blocks if x>max(1e-6,peak*.01)]
+    # A stem with a peak but no half second above a millionth (a one-tick noise hit at velocity 1) has no level to
+    # measure: silent, as one without a peak is (np.percentile of nothing raised IndexError: the review of 0.9's
+    # movement, an older fault).
+    if not active:raise ValueError('Silent stem')
     return 20*math.log10(float(np.percentile(active,70)))
 
 def measure(config,path,logs,label):

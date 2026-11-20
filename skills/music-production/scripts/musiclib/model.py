@@ -6,7 +6,7 @@ import json
 import math
 from pathlib import Path
 import re
-from .files import id_fault, one_line
+from .files import id_fault, one_line, path_limit_hint
 
 TPQ = 960
 # Effects a part takes in mix.effects (0.8 step 1.3: a stated limit, CWE-770; the most any project held was one).
@@ -95,16 +95,16 @@ KNOWN = {
     'plan section': {'section', 'sounds', 'leads', 'answers', 'register', 'harmony', 'dynamics', 'differs', 'comment'},
     'clock': {'bars', 'meter', 'tempo', 'tail_seconds', 'rubato'},
     'mix': {'chain', 'dynamics', 'loudness', 'target_lufs', 'peak_ceiling_db', 'max_limit_db', 'room_seconds', 'range_lu',
-            'mono_below_hz', 'wow_flutter', 'rules', 'c80_db'},
+            'mono_below_hz', 'wow_flutter', 'rules', 'c80_db', 'headphones'},
     'track': {'id', 'engine', 'notes', 'performance', 'mix', 'program', 'bank', 'drums', 'range', 'soundfont', 'patch', 'key_map',
-              'instrument', 'synth', 'surge', 'kit', 'role', 'name', 'description', 'comment', 'reverse'},
+              'instrument', 'synth', 'surge', 'kit', 'role', 'name', 'description', 'comment', 'reverse', 'strings'},
     'performance': {'notes', 'cc', 'cc_mode', 'offset_ms', 'bend', 'bend_range', 'legato', 'bow_change_s', 'bow_ms', 'round_robin',
                     'swing', 'dynamics', 'dynamics_mode'},
     'played note': {'velocity', 'timing_ms', 'gate'},
-    'note': {'id', 'on', 'duration', 'pitch', 'phrase', 'articulation', 'comment'},
+    'note': {'id', 'on', 'duration', 'pitch', 'phrase', 'articulation', 'comment', 'string', 'mute'},
     'track mix': {'level_dbfs', 'level_mode', 'pan', 'width', 'depth_m', 'facing', 'bus', 'space', 'highpass', 'lowpass', 'eq',
                   'reverb_db', 'delay_db', 'delay_quarters', 'compressor', 'effects', 'automation', 'delay', 'duck', 'filter_sweep',
-                  'saturate', 'gate', 'wow_flutter'},
+                  'saturate', 'gate', 'wow_flutter', 'move', 'amp', 'around'},
     'legato': {'mode', 'gap_ms', 'max_interval', 'glide_ms', 'max_notes', 'crossfade_ms', 'portamento_ms', 'portamento_from'},
     'synth': {'preset', 'oscillators', 'amp', 'filter', 'filter_env', 'lfo', 'pitch_env', 'arpeggio', 'glide_ms', 'mono', 'drive',
               'velocity_curve', 'gain_db'},
@@ -199,6 +199,15 @@ def plan_shape(plan, warnings):
 # Track and layer ids name files (stems, part MIDIs, layer loops): Windows reserves these names, with any extension.
 RESERVED = {'con', 'prn', 'aux', 'nul', *(f'com{i}' for i in range(1, 10)), *(f'lpt{i}' for i in range(1, 10))}
 
+GUESSED = {('track mix', 'mode'): 'level_mode', ('track mix', 'amplifier'): 'amp', ('track mix', 'amps'): 'amp', ('track mix', 'movement'): 'move',
+           ('track mix', 'motion'): 'move', ('track mix', 'moves'): 'move', ('track mix', 'mov'): 'move',
+           ('track mix', 'azimuth'): 'around', ('track mix', 'angle'): 'around', ('track mix', 'direction'): 'around', ('track mix', 'arround'): 'around',
+           ('track mix', 'orbit'): 'around'}
+# Short names that are near many words (`ramp`, `map`, `mode`, `more`): in a part's mix they are offered only for the
+# guesses above (a synthesizer's own `amp` is offered for a misspelling as before).
+NOT_GUESSED = {('track mix', 'amp'), ('track mix', 'move'), ('track mix', 'around')}
+
+
 def unknown_fields(obj, kind, where, warnings, count=1):
     """Warn about each field of `obj` not in KNOWN[kind], with the nearest known name (`count`: how many objects of a
     part carry it, for notes)."""
@@ -206,7 +215,9 @@ def unknown_fields(obj, kind, where, warnings, count=1):
         return
     for key in sorted(set(obj) - KNOWN[kind]):
         played = KNOWN['played note'] if kind == 'note' else set()  # velocity, timing and gate written on the score
-        near = difflib.get_close_matches(key, sorted(KNOWN[kind] | played), n=1, cutoff=.6)
+        # A name an agent guessed for a field that has another (the nearest by spelling would mislead: `mode` in a
+        # part's mix is nearer to `move` than to `level_mode`, which is what it was written for).
+        near = [GUESSED[kind, key]] if (kind, key) in GUESSED else difflib.get_close_matches(key, sorted((KNOWN[kind] | played) - {name for where, name in NOT_GUESSED if where == kind}), n=1, cutoff=.6)
         hint = (' (it belongs in performance.notes)' if key in played
                 else f' (did you mean {near[0]!r}? that belongs in performance.notes)' if near and near[0] in played
                 else f' (did you mean {near[0]!r}?)' if near else '')
@@ -241,6 +252,12 @@ def rubato_spans(project):
         spans.append((max(0.0, total - r['final_beats']), total, r.get('final_ratio', 0.6)))
     return spans + [(float(a), float(b), w) for a, b, w in r.get('spans', [])]
 
+def kit_patch(t):
+    """A sampled part on a kit's bank (128), with or without the `drums` flag; the bank is the patch's where the
+    patch names one, the part's own otherwise, as the renderer reads it.  (A synthesizer's `bank` is its exported
+    MIDI's and says nothing of its sound.)"""
+    return t.get('engine') == 'soundfont' and ((t.get('patch') if isinstance(t.get('patch'), dict) and t['patch'] else None) or t).get('bank', 0) == 128
+
 def effective_tempo(project):
     """The tempo map as played: the authored one, with `clock.rubato` applied.  Friberg and Sundberg (1999) model a
     final ritardando on runners stopping: tempo v(x) = (1 + (w^q - 1) x)^(1/q) over the last `final_beats`, x running
@@ -254,28 +271,56 @@ def effective_tempo(project):
     if not r:
         return tempo
     total = c['meter'][0] * 4 / c['meter'][1] * c['bars']
-    base = lambda b: next(v for beat, v in reversed(tempo) if beat <= b + 1e-9)
     q = r.get('q', 2.0)
-    steps = {}
-    for a, b, w in rubato_spans(project):
+    eps = 1e-9
+    # Two events under a 200th of a MIDI tick apart are at one beat (a passage's spans are written to six decimals,
+    # and two steps that began together in the piece lay a millionth of a beat apart in it; which came first then
+    # chose the tempo of the whole step: the reviews of 0.9).
+    together = 5e-6
+    # The map is laid by walking its events in order, each at its exact beat: a written tempo point (0), the start of
+    # a step of a ritardando (1) and a ritardando's end (2).  (It was laid through places rounded to six decimals: a
+    # point on a triplet's beat was read against the tempo before it, and a span's end there was missed: the reviews
+    # of 0.9.)  A span may begin before beat 0 or end after the last beat (a passage's, cut from a piece): the step
+    # sounding at beat 0 starts there; a span that has ended by then lays nothing.
+    events = [(beat, 0, 0, value) for beat, value in tempo]
+    for order, (a, b, w) in enumerate(rubato_spans(project)):
         k = 0
-        while a + k / 8 < b - 1e-9:
+        while a + k / 8 < b - together:   # (no step so near its span's own end that the two would be one event)
             beat = a + k / 8
-            # A span may begin before beat 0 or end after the last beat (an excerpt's, cut from a piece): the step
-            # sounding at beat 0 starts there, and steps after the end are not played.
-            if beat + 1 / 8 > 1e-9 and beat < total - 1e-9:
-                x = (beat + 1 / 16 - a) / (b - a)
-                steps[round(max(beat, 0.0), 6)] = (w, x)
+            if min(beat + 1 / 8, b) > eps and beat < total + eps:
+                # the step's middle, but never past the span's end: a span shorter than a step was read beyond its
+                # own ratio, down to no tempo at all
+                events.append((max(beat, 0.0), 1, order, (w, min(1.0, (beat + 1 / 16 - a) / (b - a))), beat))
             k += 1
-        steps.setdefault(round(b, 6), None)  # back to the written tempo at the boundary
-    out = {round(b, 6): v for b, v in tempo}
-    for beat, item in sorted(steps.items()):
-        if item is None:
-            if beat < total:
-                out[beat] = base(beat)
+        events.append((b, 2, order, None))  # back to the written tempo at the boundary
+    events.sort(key=lambda e: e[:3])
+    out, base, curve, k = {}, tempo[0][1], None, 0
+    while k < len(events):
+        beat, here = events[k][0], []
+        # (a group holds one written point at most: two written points are two tempi, however near; taken for one
+        # event, the later was lost and the piece played on at the earlier one's tempo)
+        while k < len(events) and events[k][0] <= beat + together and not (events[k][1] == 0 and any(e[1] == 0 for e in here)):
+            here.append(events[k])
+            k += 1
+        point = next((e[3] for e in here if e[1] == 0), None)
+        # Of the steps that begin at this beat, the one that sounds: the one that began last (at beat 0 of a
+        # passage, steps cut off before it lie here together), and of those begun together the later written span's,
+        # as it always was.
+        steps = [e for e in here if e[1] == 1]
+        last = max((e[4] for e in steps), default=0.0)
+        steps = sorted((e for e in steps if e[4] >= last - together), key=lambda e: e[2])
+        tail = beat > total - eps        # the last beat: the tail's tempo, which only a written point there sets
+        if beat > total + eps or (tail and point is None):
             continue
-        w, x = item
-        out[beat] = base(beat) * (1 + (w ** q - 1) * x) ** (1 / q)
+        if point is not None:
+            base = point
+        # A written point inside a ritardando changes what the curve multiplies, not the curve: it takes the curve
+        # of the step sounding there (off a step, it put the written tempo back until the next one).
+        if steps:
+            curve = steps[-1][3]
+        elif any(e[1] == 2 for e in here):
+            curve = None
+        out[round(beat, 6)] = base if curve is None else base * (1 + (curve[0] ** q - 1) * curve[1]) ** (1 / q)
     return [[b, round(v, 4)] for b, v in sorted(out.items())]
 
 class Clock:
@@ -468,6 +513,7 @@ def _validate(p):
     if p['mix'].get('loudness','normal') not in ('normal','loud'):raise ValueError('mix.loudness must be "normal" or "loud"')
     if p['mix'].get('loudness')=='loud' and (p['mix'].get('chain')!='bus' or p['mix'].get('dynamics')=='wide'):raise ValueError('mix.loudness "loud" needs the bus chain without wide dynamics')
     number(p['mix'].get('target_lufs',-16),-30,-8 if p['mix'].get('loudness')=='loud' else -10,'master LUFS')
+    from . import ears;ears.validate_project(p)
     if p['mix'].get('mono_below_hz') is not None:
         number(p['mix']['mono_below_hz'],40,250,'mono below Hz')
         if p['mix'].get('chain')!='bus':raise ValueError('mix.mono_below_hz needs the bus chain')
@@ -633,6 +679,12 @@ def _track(p,t,c,total,clock,warnings):
     number(mix.get('pan',0),-1,1,f'{tid} mix.pan');number(mix.get('width',1),0,1,f'{tid} mix.width')
     if mix.get('depth_m') is not None:number(mix['depth_m'],0,10,f'{tid} mix.depth_m')
     from . import production;production.validate(p,t)
+    if 'move' in mix:   # written at all, null included: one of the two forms
+        from . import move;move.validate(p,t,total)
+    if 'amp' in mix:
+        from . import amp;amp.validate(t)
+    from . import strung;strung.validate(t)
+    from . import ears;ears.validate_track(p,t,total)
     fx=mix.get('effects',[])
     # Counted as listed, repeats too, before each is checked; a list only, so 0.7's other forms keep their outcomes
     # ("" and {} hold no effect; null, false or a number are a field of the wrong type, as before).
@@ -689,9 +741,15 @@ def swung(b,sw,bar):
     x=(b-start)/u-k
     return start+u*(k+(x*2*r if x<=.5 else r+(x-.5)*2*(1-r)))
 
-def performed(track,clock,expressive=True):
+def performed(track,clock,expressive=True,ends=None):
     """Return actual MIDI-grid onset/release. Trim only overlapping same-key retriggers.
-    `performance.offset_ms` shifts a whole part (e.g. sounding earlier to offset slow sample attacks)."""
+    `performance.offset_ms` shifts a whole part (e.g. sounding earlier to offset slow sample attacks).
+    On a part played by string (`strings`, musiclib/strung.py) a note also ends where its string's next note begins,
+    as played (such a note is marked `string_ended`).  The whole part's events are the exported MIDI's: one channel,
+    on which a second strike of a key ends the first, whatever string it is on.  The audio plays each string by
+    itself; what reads how long a note sounds reads `sounded` below.  `ends` (id -> tick) ends a note no later than its tick: a synthesis pass of
+    a part played by string holds some of a string's notes, and each must end where the whole part has it end; it is
+    an argument and not a field of the project, so that no project can set it."""
     notes=[];offset=track['performance'].get('offset_ms',0)/1000 if expressive else 0
     sw=track['performance'].get('swing') if expressive else None
     bar=clock.beats_per_bar
@@ -702,16 +760,28 @@ def performed(track,clock,expressive=True):
         duration=(clock.seconds(off)-clock.seconds(on))*(e.get('gate',1) if expressive else 1)
         tick=max(0,tick_of(clock.beat(start)))
         stop=max(tick+1,min(round(clock.total_beats*TPQ),tick_of(clock.beat(start+duration))))
+        if ends is not None and n['id'] in ends:stop=max(tick+1,min(stop,ends[n['id']]))
         notes.append({'id':n['id'],'pitch':n['pitch'],'tick':tick,'end_tick':stop,'velocity':e['velocity'] if expressive else 80})
     def clash(a,b,what,fix):
         beat=b['tick']/TPQ;bar=int(beat//clock.beats_per_bar)+1
         name='C C# D Eb E F F# G Ab A Bb B'.split()[a['pitch']%12]+str(a['pitch']//12-1)  # spelt as review spells them
         return ValueError(f'{track["id"]}: notes {a["id"]} and {b["id"]} {what} {name} near bar {bar} beat {round(beat%clock.beats_per_bar+1,2):g}'
                           f' {"as played" if expressive else "as written"}; {fix}')
+    if track.get('strings'):
+        on_string={n['id']:n.get('string') for n in track['notes']}
+        for s in sorted({v for v in on_string.values() if isinstance(v,int) and not isinstance(v,bool)}):
+            group=sorted((n for n in notes if on_string[n['id']]==s),key=lambda n:n['tick'])
+            for a,b in zip(group,group[1:]):
+                if a['tick']==b['tick']:
+                    beat=b['tick']/TPQ;bar=int(beat//clock.beats_per_bar)+1
+                    raise ValueError(f'{track["id"]}: notes {a["id"]} and {b["id"]} both strike string {s} near bar {bar} beat {round(beat%clock.beats_per_bar+1,2):g}'
+                                     f' {"as played" if expressive else "as written"}; a string sounds one note at a time: move one of them, or put it on another string')
+                if a['end_tick']>b['tick']:a['end_tick']=b['tick'];a['string_ended']=True
+    unison=' (on a part played by string two strings can hold one pitch when the two notes are written two ticks or more apart)' if track.get('strings') else ''
     for pitch in {n['pitch'] for n in notes}:
         group=sorted((n for n in notes if n['pitch']==pitch),key=lambda n:n['tick'])
         for a,b in zip(group,group[1:]):
-            if a['tick']==b['tick']:raise clash(a,b,'both strike','one key cannot be struck twice at once: remove one, or change its pitch or onset')
+            if a['tick']==b['tick']:raise clash(a,b,'both strike','one key cannot be struck twice at once: remove one, or change its pitch or onset'+unison)
             if a['end_tick']>=b['tick']:
                 a['end_tick']=b['tick']-1
                 if a['end_tick']<=a['tick']:raise clash(a,b,'strike one tick apart on','the first cannot end before the second starts: move them apart or remove one')
@@ -720,6 +790,29 @@ def performed(track,clock,expressive=True):
         n['start_seconds']=clock.seconds(n['tick']/TPQ)
         n['end_seconds']=clock.seconds(n['end_tick']/TPQ)
     return sorted(notes,key=lambda n:(n['tick'],n['pitch']))
+
+def sounded(track,clock,expressive=True):
+    """The part's notes as its audio has them.  For a part played by string each string is a voice of its own
+    (strung.passes plays a string's notes alone): its notes are performed string by string, so one pitch held on two
+    strings is held on both.  performed() of the whole part is the exported MIDI's one channel, on which the second
+    strike of a key ends the first; what reads how long a note sounds reads this instead (an excerpt, the loop's
+    guard on a movement, the mix's held spans, the roll, the seam's count, notes.csv: the reviews of 0.9).  Any other
+    part: performed().  A sampled part played backwards (`reverse`) sounds over each note's written span, whatever
+    its gate, its timing, swing or a later note of its key: render.reversed_notes plays every note by itself.  (An
+    excerpt reads such a part by performed(), as it always did: excerpt.py says why.)"""
+    if track.get('engine')=='soundfont' and track.get('reverse'):
+        played=[{'id':n['id'],'pitch':n['pitch'],'tick':tick_of(n['on']),'end_tick':max(tick_of(n['on'])+1,tick_of(n['on']+n['duration'])),
+                 'velocity':track['performance']['notes'][n['id']]['velocity'] if expressive else 80} for n in track['notes']]
+        for n in played:n['start_seconds']=clock.seconds(n['tick']/TPQ);n['end_seconds']=clock.seconds(n['end_tick']/TPQ)
+        return sorted(played,key=lambda n:(n['tick'],n['pitch']))
+    if not track.get('strings'):return performed(track,clock,expressive)
+    per={}
+    for n in track['notes']:per.setdefault(n.get('string'),[]).append(n)
+    out=[]
+    for own in per.values():
+        ids={n['id'] for n in own}
+        out+=performed({**track,'notes':own,'performance':{**track['performance'],'notes':{k:v for k,v in track['performance']['notes'].items() if k in ids}}},clock,expressive)
+    return sorted(out,key=lambda n:(n['tick'],n['pitch']))
 
 def cc_events(track):
     """Controller events as performed. `step` holds each value until the next point; `linear`
@@ -816,7 +909,7 @@ def load_project(path):
     path=Path(path)
     from .files import MAX_PROJECT, loads
     # 0.8 step 2.1: what was expected, not the system's message in its own language ("Permission denied" for a folder)
-    if not path.exists():raise ValueError(f'No project file at {path}: give the path of a project JSON file')
+    if not path.exists():raise ValueError(f'No project file at {path}: give the path of a project JSON file'+path_limit_hint(path))
     if path.is_dir():raise ValueError(f'{path} is a folder: give the project JSON file itself (song.json in it, for example)')
     if path.stat().st_size>MAX_PROJECT:raise ValueError(f'Project exceeds size limit ({MAX_PROJECT // 1_000_000} MB)')
     try:data=path.read_bytes()

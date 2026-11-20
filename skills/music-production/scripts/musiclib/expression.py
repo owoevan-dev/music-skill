@@ -72,7 +72,12 @@ def strum_offsets(onset, group, prof, rng):
     off the grid, an upstroke on the odd steps."""
     step = onset / prof['strum_grid']
     up = round(step) % 2 == 1 and abs(step - round(step)) < .25
-    order = sorted(group, key=lambda n: n['pitch'], reverse=up)
+    # By string where the notes have theirs (a downstroke starts on the lowest string, the highest number), else by
+    # pitch, which is the same order on most shapes.
+    if all('string' in n for n in group):
+        order = sorted(group, key=lambda n: (-n['string'], n['pitch']), reverse=up)
+    else:
+        order = sorted(group, key=lambda n: n['pitch'], reverse=up)
     gap = prof['strum'] * (UPSTROKE_SPEED if up else 1)
     out, t = {}, 0.0
     for k, n in enumerate(order):

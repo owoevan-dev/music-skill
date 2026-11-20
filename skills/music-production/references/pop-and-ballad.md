@@ -18,7 +18,7 @@ This guide covers two things: a lead instrument that phrases like a voice, and a
 
 ## Brief
 
-Settle these from the request, deciding what it leaves open and saying so:
+Settle these from the request; what it leaves open is decided after the piece's words are drawn (SKILL.md, steps 1 and 2), and said so:
 
 - **Pop or ballad.** Up-tempo pop or a slow ballad, and whether the ballad becomes a power ballad when the band enters.
 - **The lead.** Which instrument sings, and whether it changes between sections, for example piano in the verse and cello in the chorus (Instruments below).
@@ -111,7 +111,7 @@ An example plan, built from the points above: build by addition from verse to ch
 | Electric piano, keys | a Surge electric piano (`studio.py sounds --role keys --name ep`, or `rhodes`, `wurli`, `suitcase`); synth `fm_epiano`, `lofi_keys` |
 | Bass | `bass_darkblack` 0:33 (fingers, ghost notes at low velocities), `bass_pick` (brighter); a Surge sub bass (`sounds --role bass --name sub`) or synth `sub_bass` for modern pop |
 | Drums | `rusty` (acoustic kit); `drum_synth` 808 or 909 for electronic pop |
-| Guitars | `fsbs_clean` (arpeggios and chords), `guitar_shiny` (archtop), `fsbs_dist1`/`fsbs_dist2` for a power ballad |
+| Guitars | `fsbs_clean` (arpeggios and chords), `guitar_shiny` (archtop), `fsbs_dist1`/`fsbs_dist2` for a power ballad; or the direct guitar through its amplifier, played by string (`fsbs_direct` with `mix.amp`: [rock-and-metal.md](rock-and-metal.md)) |
 | Strings | `vsco_strings` sections ([orchestration.md](orchestration.md)) |
 | Lead | `cello_bigcat` 0:42 (a tenor voice, C2–C6); `iowa_strings` violin or cello; `vsco` solo violin 0:40; `sax_bear` (tenor sax); `vsco` flute 0:73; a Surge lead, warm or bright as the part needs (`sounds --role lead --character warm`, or `bright`); synth `supersaw_lead` or a square with `glide_ms` |
 | Pads | a Surge pad (`sounds --role pad`; string machines with `--name string`); synth `warm_pad`, `pwm_strings` with `effects` `chorus` |

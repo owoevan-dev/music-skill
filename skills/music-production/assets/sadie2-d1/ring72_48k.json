@@ -1,0 +1,394 @@
+{
+ "data": "ring72_48k.txt",
+ "shape": [
+  72,
+  2,
+  256
+ ],
+ "sample_rate": 48000,
+ "azimuth_step_degrees": 5,
+ "azimuth": "degrees anticlockwise seen from above: 0 ahead, 90 to the left",
+ "ears": [
+  "left",
+  "right"
+ ],
+ "source": {
+  "title": "SADIE II Database",
+  "version": "2-2",
+  "publisher": "The Audio Lab, University of York",
+  "copyright": "Copyright 2018, University of York",
+  "notice": "SADIE Database Copyright 2018 The University of York. This product includes data developed at The Audio Lab, University of York, UK (Cal Armstrong, Lewis Thresh, Gavin Kearney) as part of the SADIE Project.",
+  "page": "https://www.york.ac.uk/sadie-project/database.html",
+  "paper": "Armstrong, Thresh, Murphy and Kearney (2018), A Perceptual Evaluation of Individual and Non-Individual HRTFs: A Case Study of the SADIE II Database, Applied Sciences 8(11), 2029. DOI 10.3390/app8112029",
+  "doi": "10.5281/zenodo.12092466",
+  "subject": "D1 (Neumann KU100)",
+  "archive": "D1.zip",
+  "archive_sha256": "e5b58f6479d90cbc692a75ac2ccb8ad4385d22544121300733d2ef70bf2339e2",
+  "licence": "Apache-2.0 (LICENSE.txt beside this file; NOTICE.txt holds the notice and the changes)"
+ },
+ "changes": "The 72 horizontal-plane responses at every 5 degrees of azimuth were selected and their 24-bit integer samples written out as integers in text. Nothing was resampled, cut, aligned, equalised or scaled.",
+ "array_sha256": "0d2246078b30a25fd3347f673e601528f6904c54d4492841315ea12f60020a05",
+ "members": [
+  {
+   "azimuth": 0,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_0,0_ele_0,0.wav",
+   "sha256": "1e7d68d82609dffa19ab225b2c6936eb477a0b675abbe1fdd63947f443fff34c"
+  },
+  {
+   "azimuth": 5,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_5,0_ele_0,0.wav",
+   "sha256": "5439b49a552f92a2b4a7b216666d366c16b784aa28255e6c0ccb9698d29bd73a"
+  },
+  {
+   "azimuth": 10,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_10,0_ele_0,0.wav",
+   "sha256": "5dad2efb56f05a9d98d528bb6994ca4f81da63edce06e2198794781e7781df30"
+  },
+  {
+   "azimuth": 15,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_15,0_ele_0,0.wav",
+   "sha256": "4327b0ed134e3108b5f06c46f2970ca92016ce72fea56132b4c1bbff302af15e"
+  },
+  {
+   "azimuth": 20,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_20,0_ele_0,0.wav",
+   "sha256": "f0af3e2a0a8fb5c9a7e22cf22ebfa149d8a20b02ea5b793ca99acf720bdb08b0"
+  },
+  {
+   "azimuth": 25,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_25,0_ele_0,0.wav",
+   "sha256": "69d6b5981f452581027a1369a04d1aa3d185e64e2c1c7072f62b459298151bcb"
+  },
+  {
+   "azimuth": 30,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_30,0_ele_0,0.wav",
+   "sha256": "9f3214a79f738925d1863a8c00fc451b78fb1dc49aa682b69972e71dc9f13100"
+  },
+  {
+   "azimuth": 35,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_35,0_ele_0,0.wav",
+   "sha256": "63a7f3ec1886322c294485d8797ecf9c3c7367707a63fdcfd1fe38b0cabfe48b"
+  },
+  {
+   "azimuth": 40,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_40,0_ele_0,0.wav",
+   "sha256": "28e1bc73577628a04ce60e64d2b0e27dfe45c73108410f8697a18c7b695f4002"
+  },
+  {
+   "azimuth": 45,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_45,0_ele_0,0.wav",
+   "sha256": "1cf067efe0748455292195d6bf3697bd992df2e0ed9d8dd9ad324e3e482f34ca"
+  },
+  {
+   "azimuth": 50,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_50,0_ele_0,0.wav",
+   "sha256": "ff9ce93c98c258e06a9d97c4a68eb85b217b97d338a469bfa97d0d5891ab5e63"
+  },
+  {
+   "azimuth": 55,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_55,0_ele_0,0.wav",
+   "sha256": "7caab163f7eef7e38ab6d87afd7cc662bebeb075de8c7cfa51c41a88c4a53694"
+  },
+  {
+   "azimuth": 60,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_60,0_ele_0,0.wav",
+   "sha256": "e9d4c908bb6b5fa4e294d4225e2021be256d58121bf8ea3ddae5ad5c09b4dceb"
+  },
+  {
+   "azimuth": 65,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_65,0_ele_0,0.wav",
+   "sha256": "5e7730b3cba9b4c7a88b4502a4c1c94fc0ec3de90b21ca52a9a34c891b2c1edd"
+  },
+  {
+   "azimuth": 70,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_70,0_ele_0,0.wav",
+   "sha256": "f58234816dd4027ca60775ac4e628a9e4e1cb3408d33b54cf90d6899a57ff981"
+  },
+  {
+   "azimuth": 75,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_75,0_ele_0,0.wav",
+   "sha256": "3a28719a5b70d403b3e3178b7682a19909d4630582d1460e437dec7f99e59382"
+  },
+  {
+   "azimuth": 80,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_80,0_ele_0,0.wav",
+   "sha256": "7cf1dc610efbfa258208004694ac8fa107776bc790ac261729839301c33c262e"
+  },
+  {
+   "azimuth": 85,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_85,0_ele_0,0.wav",
+   "sha256": "8f1c6e30be8e362ccbeadc127ed03507b602712e5f80e77f615f23563086d8a0"
+  },
+  {
+   "azimuth": 90,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_90,0_ele_0,0.wav",
+   "sha256": "a365ef454a4f5b37a49ed145d30aaabea2d98bfc0d87f585b2695061714abb2d"
+  },
+  {
+   "azimuth": 95,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_95,0_ele_0,0.wav",
+   "sha256": "d3df2ac510e1c268a27e3cc543313d1970d0d2c06d78b203f19826b5d29e91e4"
+  },
+  {
+   "azimuth": 100,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_100,0_ele_0,0.wav",
+   "sha256": "ab8dcd489746eb1927d5fa30b4fadaa37a89fe7d394164b671aa08c5e7cf8b86"
+  },
+  {
+   "azimuth": 105,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_105,0_ele_0,0.wav",
+   "sha256": "a95ab838530b61d5264ca403e82010bbddd3dcca5dd7e486ab04c2a50031e610"
+  },
+  {
+   "azimuth": 110,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_110,0_ele_0,0.wav",
+   "sha256": "a37efe6b0ebbede6bec81117e175be99a2d6bbc26b9e2a1b181a7eb7c4200721"
+  },
+  {
+   "azimuth": 115,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_115,0_ele_0,0.wav",
+   "sha256": "321715b18f94ada27b343b44f90fab3aa27b66991b4098fd9ae2469d16953edd"
+  },
+  {
+   "azimuth": 120,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_120,0_ele_0,0.wav",
+   "sha256": "85ab6d6b7508581e7db0f6023204d5656aaea275007602d65c491c0cd188bc18"
+  },
+  {
+   "azimuth": 125,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_125,0_ele_0,0.wav",
+   "sha256": "0d6bfd915ce021b9294f2fcdafd358ab4374d5979a2108c97244a4ecebe21169"
+  },
+  {
+   "azimuth": 130,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_130,0_ele_0,0.wav",
+   "sha256": "afd59ceb621757b8142222a95129ebb02a4b8dfc945e95dd28ec8d2ebb8bd409"
+  },
+  {
+   "azimuth": 135,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_135,0_ele_0,0.wav",
+   "sha256": "20dd833046ed6755c382adab2b94855bc1bf2cc30ad9caa41f14395230a9ac29"
+  },
+  {
+   "azimuth": 140,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_140,0_ele_0,0.wav",
+   "sha256": "19efde3e79b989709cb47abf9b956909465854e0e5a3b16806d6f045a495f866"
+  },
+  {
+   "azimuth": 145,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_145,0_ele_0,0.wav",
+   "sha256": "edeb9929422fbe82e5acdc5a956d79e9544bbe9124442bab05cffe4a154705d7"
+  },
+  {
+   "azimuth": 150,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_150,0_ele_0,0.wav",
+   "sha256": "c17ccbe08ceadbae70c29e896741fb3e8ac569b751f730d24309f79cc6bca6c1"
+  },
+  {
+   "azimuth": 155,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_155,0_ele_0,0.wav",
+   "sha256": "b039c54e1d23b3c023a7cbb8091fba43a6bbeb44379a5010e3af0370c320deb9"
+  },
+  {
+   "azimuth": 160,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_160,0_ele_0,0.wav",
+   "sha256": "9cdfe9d26941f682af320e546705a970f2f3d3d26e18006ae57a994a0805c37c"
+  },
+  {
+   "azimuth": 165,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_165,0_ele_0,0.wav",
+   "sha256": "5ef9dff8c62ab00563e98ee95cf159b6f2f65010644d9091b6e506f70674ef1c"
+  },
+  {
+   "azimuth": 170,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_170,0_ele_0,0.wav",
+   "sha256": "ff5e1b10995d11dcf6167c6a7e58a8240408e002f88f7d1790d010669ba155d8"
+  },
+  {
+   "azimuth": 175,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_175,0_ele_0,0.wav",
+   "sha256": "74ec1b9f90911f07fc572b3165c16f38cd636113e72c3f5a9b95f76f8cd76f29"
+  },
+  {
+   "azimuth": 180,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_180,0_ele_0,0.wav",
+   "sha256": "f4f5922e01596745c6d52f8cbd12134524c84a41755f62325b2e3205a0168510"
+  },
+  {
+   "azimuth": 185,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_185,0_ele_0,0.wav",
+   "sha256": "1c40d12b6d9c3008f29ba0887084b16c06d7a5b50a9f7ba332b3907bfc117c1e"
+  },
+  {
+   "azimuth": 190,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_190,0_ele_0,0.wav",
+   "sha256": "e7322826c404049d618647c98f57f6c5363724e287bd83c572b8a054262d52e8"
+  },
+  {
+   "azimuth": 195,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_195,0_ele_0,0.wav",
+   "sha256": "fec3294711b578860d5332b04ff06135f8941181edd9d52d37dfd80ce750a643"
+  },
+  {
+   "azimuth": 200,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_200,0_ele_0,0.wav",
+   "sha256": "a9e1a0f619705c16553397a0dc04d3e3d4083386987529f058f1da8efcbaf0d4"
+  },
+  {
+   "azimuth": 205,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_205,0_ele_0,0.wav",
+   "sha256": "274be5d71fd538bd267b57eb25d76f33e9ce1cc61fd5fef5ebe5f3c8f2acb0be"
+  },
+  {
+   "azimuth": 210,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_210,0_ele_0,0.wav",
+   "sha256": "1404e9302814b000c62249408c874ee998599470fc5c3f44abb0a5a89befbc76"
+  },
+  {
+   "azimuth": 215,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_215,0_ele_0,0.wav",
+   "sha256": "7e037e444f78f3945972f2d098a1f07a1e4c1a06840708ea68d6de3abfc67042"
+  },
+  {
+   "azimuth": 220,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_220,0_ele_0,0.wav",
+   "sha256": "afc9516510fc68817c5db7e95c692575a36ff6515ffb14a19f50935695dd5f2e"
+  },
+  {
+   "azimuth": 225,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_225,0_ele_0,0.wav",
+   "sha256": "7d481d81b8cf8c8ad57d54b8027edf2d7ea883bf305e0389dad73eb8c21786e2"
+  },
+  {
+   "azimuth": 230,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_230,0_ele_0,0.wav",
+   "sha256": "1ff365dc3bda13a88abb5289e0943212a8a8f012cf438f9ce0ef71009e89995b"
+  },
+  {
+   "azimuth": 235,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_235,0_ele_0,0.wav",
+   "sha256": "ea6789f334541be50e6c8c5df02dc659cc621665b9dc15be65da6f6059828941"
+  },
+  {
+   "azimuth": 240,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_240,0_ele_0,0.wav",
+   "sha256": "8c0f330d49ae12a4399c1ec5ca653a2cd8ce4c349e7dfe60010eb2b2737f4e30"
+  },
+  {
+   "azimuth": 245,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_245,0_ele_0,0.wav",
+   "sha256": "912ec79c4fc918c6a2f115c66e34dca3faadfc4cc2c01db574d6648e791b4cad"
+  },
+  {
+   "azimuth": 250,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_250,0_ele_0,0.wav",
+   "sha256": "1a38fe71275ffd4e1e6c69b6ae0634cf49d9240a5e723e936fc599aba0efc96e"
+  },
+  {
+   "azimuth": 255,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_255,0_ele_0,0.wav",
+   "sha256": "3e908e2b6ad8bbb8cacae8b68b1e5545fc607f2b4b058e9cc9a8184737d37833"
+  },
+  {
+   "azimuth": 260,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_260,0_ele_0,0.wav",
+   "sha256": "7474fcd9297ead3a0a47564ed75ace49c97ba773858b527ea1ffd7bfec3a5452"
+  },
+  {
+   "azimuth": 265,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_265,0_ele_0,0.wav",
+   "sha256": "efefc188ebc5396c046f3069963c6a61f3d40a737c8513a9c66172e012b606e3"
+  },
+  {
+   "azimuth": 270,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_270,0_ele_0,0.wav",
+   "sha256": "dfb49dd39d43bea177648ba1f96d0931afe06bd25984089a9bc7d23753aa98c5"
+  },
+  {
+   "azimuth": 275,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_275,0_ele_0,0.wav",
+   "sha256": "f8e79348eaa6af44e2868f9ff9f9adabb0859b733e163c9f1de73f6758e1eaf3"
+  },
+  {
+   "azimuth": 280,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_280,0_ele_0,0.wav",
+   "sha256": "84a79d03d6eb547ea0069a09000556120d36295d78ee04f2f6767a89dc38e3de"
+  },
+  {
+   "azimuth": 285,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_285,0_ele_0,0.wav",
+   "sha256": "83956685570ca7065462d6284ee9dcfd729883d6cb67f0bc52d9ef8e3936ed3d"
+  },
+  {
+   "azimuth": 290,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_290,0_ele_0,0.wav",
+   "sha256": "a7584577c7978f9805ad197195f583ba91719dce9996a2cb25f9be15176ce983"
+  },
+  {
+   "azimuth": 295,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_295,0_ele_0,0.wav",
+   "sha256": "17c10127109bbe07caab986effef0e06e9cbc648915b3860ff21f090daa149ad"
+  },
+  {
+   "azimuth": 300,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_300,0_ele_0,0.wav",
+   "sha256": "d14974a0088797766d480e6dcc562f657d6c7906ef8ddf4949ae0f263041134a"
+  },
+  {
+   "azimuth": 305,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_305,0_ele_0,0.wav",
+   "sha256": "6ff2954c1eb562cae98c57fd6c329305abd4f4c5341e4a384ac98ff01bfc6af1"
+  },
+  {
+   "azimuth": 310,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_310,0_ele_0,0.wav",
+   "sha256": "d63d964e6eb5f92985dbb7563db564417aa341df76f0b4288132704c81e5a8bb"
+  },
+  {
+   "azimuth": 315,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_315,0_ele_0,0.wav",
+   "sha256": "11b7d9cb4c4ed185b197580b46eec46e815f9ba9781b0d26ed8f2b33dea5cf93"
+  },
+  {
+   "azimuth": 320,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_320,0_ele_0,0.wav",
+   "sha256": "a105cf36e4612e3c3953bb052b332f03d206f028a19be24df05e2630a8f447d2"
+  },
+  {
+   "azimuth": 325,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_325,0_ele_0,0.wav",
+   "sha256": "2187ec0d0c50fc8ddd7ef535dcc99818af58eebdd62856c1fa44dd160e5a43f2"
+  },
+  {
+   "azimuth": 330,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_330,0_ele_0,0.wav",
+   "sha256": "41659e2df03bb82dbe76d5e91e8653bfef7377f62207939e4272e5e01b7be9fb"
+  },
+  {
+   "azimuth": 335,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_335,0_ele_0,0.wav",
+   "sha256": "2bf4adc8498d91c91842fabd5f2fabb8e32d2eb4a2cde4fe29eb3e330c067c98"
+  },
+  {
+   "azimuth": 340,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_340,0_ele_0,0.wav",
+   "sha256": "910f28c0395513be70c96bbb77d3b2d47512446fc5a61eceeff7fd4d3b81f223"
+  },
+  {
+   "azimuth": 345,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_345,0_ele_0,0.wav",
+   "sha256": "9fa41de67216ee0b4b51e0f9933090d9e9d88436ed67bc0c6be0fd4db0897471"
+  },
+  {
+   "azimuth": 350,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_350,0_ele_0,0.wav",
+   "sha256": "a365392ec9341103a413ff78a0388f53902d8e677f3ee85e5a69fb09b1d8d174"
+  },
+  {
+   "azimuth": 355,
+   "file": "D1/D1_HRIR_WAV/48K_24bit/azi_355,0_ele_0,0.wav",
+   "sha256": "33b30874611015dc244eaa20046359167401bc4a9aa4ffd4494fb007cc8d397d"
+  }
+ ],
+ "layout": "text: one line a direction and ear (direction 0 left, direction 0 right, direction 1 left, ...), each of 256 integers, the samples as the source has them (24-bit); divided by 2**23 they are the array that array_sha256 is the hash of, as little-endian 32-bit floats"
+}

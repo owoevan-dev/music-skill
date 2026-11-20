@@ -113,7 +113,8 @@ elaborate progressions in unusual meters. `jazz/fusion`
 | `form` | no source read | |
 | `mix` | no source read | |
 
-- **In this skill**: `fsbs_clean` and the distorted banks, `bass_darkblack`, Surge electric pianos, organs and leads,
+- **In this skill**: `fsbs_clean` and the distorted banks, or the direct guitar through `mix.amp`
+  ([rock-and-metal.md](rock-and-metal.md)), `bass_darkblack`, Surge electric pianos, organs and leads,
   `rusty`; `blocks.drums` in the `funk` or `rock` feel; meters other than 4/4 in the clock.
 - **Neighbours**: Funk; Modal jazz; `rock/progressive`.
 

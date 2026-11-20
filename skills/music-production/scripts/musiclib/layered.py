@@ -89,6 +89,8 @@ def preset_names(font_path):
 
 def wanted(track):
     perf = track['performance']
+    if track.get('strings'):
+        return False     # played by string (musiclib/strung.py), which takes no dynamics curve and no legato
     return 'dynamics' in perf or (perf.get('legato') or {}).get('mode') == 'crossfade'
 
 

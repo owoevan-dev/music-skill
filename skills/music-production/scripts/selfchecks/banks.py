@@ -1741,6 +1741,8 @@ def define(S):
             step=patch(f'step_{full}',{'p_A3.wav':[{'before_sha256':hashlib.sha256(words['p_A3'+c].astype('<i2').tobytes()).hexdigest(),'start':10,'add':[3]} for c in 'LR']})
             made(f'patch_step_{full}',[{**pair[0],'stored_patch':step},pair[1]],rms=medians['default'])
             assert figures(f'patch_step_{full}',1)==figures(f'patch_step_plain_{full}',1),(full,figures(f'patch_step_{full}',1)[0])
+            made(f'patch_step_second_{full}',[pair[0],{**pair[1],'stored_patch':step}],rms=medians['default'])   # the patched one second: the first's figures too
+            assert figures(f'patch_step_second_{full}',1)==figures(f'patch_step_plain_{full}',1),(full,figures(f'patch_step_second_{full}',1)[0])
         derived=made('patch_derived',[on],dynamic_layers={'bank':16})
         assert len(derived)==2 and all(same(v,want) for v in derived.values()),sorted(derived)
         refusals=[]
@@ -1770,6 +1772,16 @@ def define(S):
         except ValueError as e:assert 'no key or velocity' in str(e),str(e)
         else:raise AssertionError('a layer that cannot play the take let by on an earlier preset\'s zones')
         refusals.append('each layer its own zones')
+        try:build({'name':'x','target_rms':.05,'presets':[{'name':'p','program':0,'layers':[{**layer,**rr,'velocity':{'ff':[1,127]},'stored_patch':far},
+                                                                                          {**layer,**rr,'stored_patch':far}]}]},root,work/'patch_refused.sf2',patch_folder=folder)
+        except ValueError as e:assert 'no key or velocity' in str(e),str(e)                # the same, between two layers of one preset
+        else:raise AssertionError('a layer that cannot play the take let by on another layer of its preset')
+        refusals.append('each layer its own zones')
+        rr_first={k:v.copy() for k,v in wide.items()}
+        for c in 'LR':rr_first['A3_ff_1'+c][10]+=3
+        made('patch_zero_row',[{**layer,**rr,'dynamics':['soft','ff'],'velocity':{'soft':[0,0],'ff':[1,127]},'stored_patch':rr_patch('rr_first',1)}])   # heard in ff, at 0 alone in soft
+        assert [r['serves_dynamic'] for r in receipts['patch_zero_row']['files'] if r.get('stored_patch')]==['ff']
+        receipt_is_true('patch_zero_row','A3_ff_1',rr_first)
         rr_want={k:v.copy() for k,v in wide.items()}
         for c in 'LR':rr_want['A3_ff_2'+c][10]+=3
         made('patch_borrowed',[{**layer,**rr,'dynamics':['soft','ff'],'velocity':{'soft':[1,60],'ff':[121,127]},'stored_patch':far}])  # played only where it is borrowed
@@ -1779,9 +1791,10 @@ def define(S):
             p={'name':'p','program':0,'layers':[dict(layer)]};s={'name':'x','target_rms':.05,'presets':[p]}
             if where=='recipe':s['stored_patch']=good
             elif where=='preset':p['stored_patch']=good
+            elif where=='inside a layer':p['layers'][0]['envelope']={'stored_patch':good}
             else:p['dynamic_layers']={'bank':16,'stored_patch':good}
             return s
-        for where in ('recipe','preset','deeper'):                                    # anywhere but a layer it would do nothing
+        for where in ('recipe','preset','deeper','inside a layer'):                   # anywhere but a layer it would do nothing
             try:build(misplaced(where),root,work/'patch_refused.sf2',patch_folder=folder)
             except ValueError as e:assert 'belongs on a layer' in str(e),str(e)
             else:raise AssertionError(f'a field on the {where}: a plain bank, in silence')

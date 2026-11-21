@@ -1,6 +1,6 @@
 # Style maps: what a style sounds like, on seven axes, and pieces that combine styles
 
-Read this at the brief (step 1), when choosing what the piece should sound like, and whenever a request names a style
+Read this at the brief (step 1; where the request names no style, note the candidates there and choose among them in step 2, after the words), when choosing what the piece should sound like, and whenever a request names a style
 or describes one. A family's map lists its sub-styles, each on the same axes, each trait with what it rests on. A
 piece takes one entry, or one primary entry with others borrowed for some axes, and says so in its `style`.
 

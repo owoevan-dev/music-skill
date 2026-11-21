@@ -5,7 +5,6 @@ work folder, configuration, judging helpers and bank fixture, and with a configu
 project, cache and render), and selfcheck runs it in its place in one order (ROSTER).  Paths are the scripts
 folder's (SCRIPTS)."""
 import copy
-import json
 import os
 import subprocess
 import sys

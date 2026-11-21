@@ -1122,5 +1122,50 @@ def define(S):
                 assert done.returncode==2 and 'characters long: this Windows opens no path of 260' in done.stderr and done.stderr.count('\n')==1,(args[0],done.stderr[-400:])
             used='the run, the starter, the commands\' error line'
         return {'used':used,'extended_from':fs.PROGRAM_PATH_MAX+1,'folder_limit':F,'counted_in':'UTF-16 units','forms':['as it is','extended','UNC','slashes','dot segments','relative: on Windows, where the work folder leaves room']}
-    found = {'long_paths_reach_programs_in_a_form_they_open': long_paths_for_programs, 'cache_entry_locked_across_renders': entry_lock_across_renders, 'clean_removes_only_what_the_tools_made': clean_only_what_the_tools_made, 'cache_entries_go_by_their_own_record': cache_entries_by_their_record, 'files_never_overwrite_or_write_through': files_never_overwrite_or_write_through, 'journal_proves_a_stopped_run': journal_proves_a_stopped_run, 'writers_leave_whole_files_when_a_write_fails': writers_leave_whole_files_when_a_write_fails, 'run_stops_its_program_when_stopped': run_stops_its_program_when_stopped, 'clean_and_runs_never_share_a_folder': clean_and_runs_never_share_a_folder, 'render_refuses_a_linked_output': render_refuses_a_linked_output, 'bounded_reads_of_records_and_wav_headers': bounded_reads_of_records_and_wav_headers, 'shared_reports_name_folders_relatively': shared_reports_name_folders_relatively, 'selfcheck_work_must_be_new_or_empty': selfcheck_work_must_be_new_or_empty, 'render_folders_are_read_without_links': render_folders_are_read_without_links}
+    def clean_takes_reviews_and_lists_only_what_goes():
+        # 0.9.2 (design-0.9.2.md, T1): the review folders six runs were left with, by the same proof as every other tool's
+        # folder; a folder of which nothing goes is no longer listed; the list is cut after the folders, and says how to see it all.
+        from make_example import example
+        from musiclib import files as record
+        from musiclib.clean import clean,describe
+        from musiclib.review import review
+        base=work/'clean_reviews';base.mkdir();song=example()
+        final=base/'final';final.mkdir();save_json(final/'render_input.json',{'project_sha256':'a'*64,'renderer_sha256':'b'*64})
+        save_json(final/'project.json',{'title':song['title'],'tracks':[]});save_json(final/'stem_receipts.json',[])
+        record.register(final,[final/n for n in ('render_input.json','project.json','stem_receipts.json')])
+        mine=base/'review_a';review(song,mine)
+        other=example();other['title']='Another piece';theirs=base/'review_other';review(other,theirs)
+        noted=base/'review_noted';review(song,noted);(noted/'my_note.txt').write_text('keep',encoding='utf-8')
+        changed=base/'review_changed';review(song,changed);(changed/'notes.csv').write_text('edited by hand',encoding='utf-8')
+        plain=base/'not_a_review';plain.mkdir();save_json(plain/'score_review.json',{'title':song['title']})
+        unrecorded=base/'review_without_record';review(song,unrecorded);(unrecorded/record.RECORD).unlink()
+        looked=clean(base,[final]);got={x['path']:x['whole'] for x in looked['listed']}
+        assert got=={'review_a':True,'review_noted':False,'review_changed':False},got
+        assert all((mine/n).is_file() for n in ('score_review.json','notes.csv','arrangement.md')),'a listing removes nothing'
+        left={x['path']:x['why'] for x in looked['left_alone']};assert 'another piece' in left.get('review_other','') and 'no record' in left.get('review_without_record',''),left
+        clean(base,[final],remove=True)
+        assert not mine.exists() and (theirs/'score_review.json').is_file() and (plain/'score_review.json').is_file() and (unrecorded/'notes.csv').is_file()
+        assert (noted/'my_note.txt').read_text(encoding='utf-8')=='keep' and not (noted/'notes.csv').exists() and (noted/'score_review.json').is_file()
+        assert (changed/'notes.csv').read_text(encoding='utf-8')=='edited by hand' and (final/'render_input.json').is_file()
+        again=clean(base,[final]);assert {x['path']:x['whole'] for x in again['listed']}=={'review_noted':False,'review_changed':False},again['listed']
+        # A finished audition down to what it keeps (its MP3 and report) is no longer listed; with anything more of the tools' it is.
+        aud=base/'aud';aud.mkdir();save_json(aud/'audition.json',{'kind':'music-production audition','title':song['title'],'versions':[],'bars':[1,2],'track':'t','each_seconds':1,'status':'PASS'})
+        (aud/'audition.mp3').write_bytes(bytes(100));record.register(aud,[aud/'audition.json',aud/'audition.mp3'])
+        assert not any(x['path']=='aud' for x in clean(base,[final])['listed'])
+        (aud/'stale.log').write_bytes(bytes(10));record.register(aud,[aud/'stale.log'])
+        assert any(x['path']=='aud' and x['bytes']==10 for x in clean(base,[final])['listed'])
+        # An audition's own cache that a kept render also uses a key of: its entries were listed twice, and the second removal stopped the clean.
+        keyed='ab'*10;other_key='cd'*10;shared=base/'aud2';(shared/'cache'/keyed).mkdir(parents=True);(shared/'cache'/other_key).mkdir()
+        for k in (keyed,other_key):save_json(shared/'cache'/k/'receipt.json',{'key':k,'sha256':'c'*64,'track':'t'});(shared/'cache'/k/'raw.wav').write_bytes(bytes(50))
+        save_json(shared/'audition.json',{'kind':'music-production audition','title':song['title'],'versions':[],'bars':[1,2],'track':'t','each_seconds':1,'status':'PASS'})
+        (shared/'audition.mp3').write_bytes(bytes(10));record.register(shared,[shared/'audition.json',shared/'audition.mp3'])
+        save_json(final/'stem_receipts.json',[{'track':'t','cache_key':keyed}]);record.register(final,[final/'stem_receipts.json'])
+        listed=[x['path'] for x in clean(base,[final])['listed']];assert len(listed)==len(set(listed)),listed
+        gone=clean(base,[final],remove=True);assert gone['not_removed']==[] and not (shared/'cache').exists() and (shared/'audition.mp3').is_file(),gone['not_removed']
+        row=lambda k,p:{'kind':k,'path':p,'bytes':1,'whole':True,'kept_inside':[]}
+        text=describe({'folder':'piece','kept':['final'],'cache_entries_kept':0,'dry_run':True,'bytes':26,'left_alone':[],'not_removed':[],
+                       'listed':[row('cache entry',f'cache/{k}') for k in range(25)]+[row('review','review_a')]})
+        assert '- review: review_a' in text and text.index('- review: review_a')<text.index('- cache entry:') and '- and 6 more (--json lists every one)' in text,text
+        return {'cases':9}
+    found = {'clean_takes_reviews_and_lists_only_what_goes': clean_takes_reviews_and_lists_only_what_goes, 'long_paths_reach_programs_in_a_form_they_open': long_paths_for_programs, 'cache_entry_locked_across_renders': entry_lock_across_renders, 'clean_removes_only_what_the_tools_made': clean_only_what_the_tools_made, 'cache_entries_go_by_their_own_record': cache_entries_by_their_record, 'files_never_overwrite_or_write_through': files_never_overwrite_or_write_through, 'journal_proves_a_stopped_run': journal_proves_a_stopped_run, 'writers_leave_whole_files_when_a_write_fails': writers_leave_whole_files_when_a_write_fails, 'run_stops_its_program_when_stopped': run_stops_its_program_when_stopped, 'clean_and_runs_never_share_a_folder': clean_and_runs_never_share_a_folder, 'render_refuses_a_linked_output': render_refuses_a_linked_output, 'bounded_reads_of_records_and_wav_headers': bounded_reads_of_records_and_wav_headers, 'shared_reports_name_folders_relatively': shared_reports_name_folders_relatively, 'selfcheck_work_must_be_new_or_empty': selfcheck_work_must_be_new_or_empty, 'render_folders_are_read_without_links': render_folders_are_read_without_links}
     return found

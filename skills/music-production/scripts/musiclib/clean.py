@@ -1,5 +1,5 @@
-"""List, or remove, what a piece's finished work no longer uses: its render and round folders other than those kept,
-its auditions' renders and own caches, and the cache entries the kept renders do not use.
+"""List, or remove, what a piece's finished work no longer uses: its render, round and review folders other than those
+kept, its auditions' renders and own caches, and the cache entries the kept renders do not use.
 
 Ableton Live keeps decoded and analysed audio in a cache whose older files are deleted to make room, and its Cleanup
 deletes the cache files the open Set does not use (Live Reference Manual, Managing Files and Sets).  Here the kept
@@ -33,7 +33,6 @@ It is the one command that deletes, so it errs toward keeping (musiclib.files):
   at again just before it goes, and one changed since stays.
 - A finished audition keeps its audition.mp3 and audition.json; its version renders and own cache go.
 - Links are never followed or removed; a folder or a --keep given as a link is refused."""
-import json
 import os
 import re
 from contextlib import suppress
@@ -49,8 +48,8 @@ ENTRY_NAME = re.compile(r'[0-9a-f]{20}|[0-9a-f]{64}')
 ROUND, AUDITION = 'music-production round', 'music-production audition'  # the `kind` round.json and audition.json hold
 # What names a folder's tool and its piece: they go last, with files.json, once nothing else in the folder stays, so a
 # folder a clean leaves in part (a file held open, a file of the user's) is still recognised by the next.
-TOP_RECORDS = ('render_input.json', 'project.json', 'round.json', 'audition.json')
-MARKERS = ('render_input.json', 'round.json', 'audition.json')  # of those, the ones that name the tool: removed last of all
+TOP_RECORDS = ('render_input.json', 'project.json', 'round.json', 'audition.json', 'score_review.json')
+MARKERS = ('render_input.json', 'round.json', 'audition.json', 'score_review.json')  # of those, the ones that name the tool: removed last of all
 AUDITION_KEEPS = ('audition.mp3', 'audition.json')  # what a finished audition is for: the A/B and its report
 # What renders write in a cache entry (render.make_stem, audio.fluidsynth, layered, surge), and temporary files a stopped
 # run may leave there: an entry holding anything else is left alone.
@@ -100,6 +99,16 @@ def audition_record(folder):
     return r if r.get('kind') == AUDITION or same_keys else None
 
 
+def review_record(folder):
+    """score_review.json as studio.py review writes it into a folder of its own, or None.  A round's review/ is part of
+    the round.  (Six runs of 0.9.1 ended with their `review_*` folders still there, as this was the one tool that deletes.)"""
+    folder = Path(folder)
+    if folder.name == 'review' and round_record(folder.parent):
+        return None
+    r = _record(folder / 'score_review.json')
+    return r if r and r.get('not_a_perceptual_quality_score') is True and isinstance(r.get('prompts'), list) and isinstance(r.get('title'), str) else None
+
+
 def entry_record(folder):
     """A cache entry's receipt: its folder is named by its key, receipt.json names that key, raw.wav is there.  An entry a
     render of 0.5 began, with its own record or journal, stopped before its receipt, is one too: {'key', 'partial'}."""
@@ -137,8 +146,8 @@ def _entry_own(entry):
 
 
 def unit(folder):
-    """(kind, record) of a folder a tool made: a round, a render or an audition; None otherwise."""
-    for kind, read in (('round', round_record), ('render', render_record), ('audition', audition_record)):
+    """(kind, record) of a folder a tool made: a round, a render, an audition or a review; None otherwise."""
+    for kind, read in (('round', round_record), ('render', render_record), ('audition', audition_record), ('review', review_record)):
         r = read(folder)
         if r is not None:
             return kind, r
@@ -165,6 +174,8 @@ def piece(folder, kind, record):
         if project is not None:
             project = os.path.normcase(os.path.normpath(folder / project))
         return own or _title(folder / 'render' / 'project.json'), project
+    if kind == 'review':
+        return own, None
     versions = sorted(v for v in folder.glob('[0-9][0-9]_*') if _folder(v))
     return own or next((t for t in (_title(v / 'song.json') for v in versions) if t), None), None
 
@@ -428,6 +439,7 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
     entries = [f for f in folders if f.parent in caches and f.name not in used and entry_record(f)]
     entries += [e for f, (kind, _) in listed.items() if kind == 'audition' and _folder(f / 'cache')
                 for e in sorted((f / 'cache').iterdir()) if _folder(e) and entry_record(e)]
+    entries = list(dict.fromkeys(entries))   # an audition's own cache that a kept render also uses is in both lists: removed twice, the second stopped the clean
     cleared = set()  # the cache entries that go (or would go, in a dry run)
     for e in entries:
         contents = list(e.iterdir())
@@ -529,6 +541,9 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
         else:
             goes_whole = whole(f, known)
         # What stays: its own files no tool recorded (or changed since), and the folders inside it that stay.
+        if (plan['kind'] == 'audition' and not goes_whole and not plan['take'] and not plan['inner'] and not files.occupied(f / 'cache')
+                and all(p.parent == f and p.name in AUDITION_KEEPS for p in plan['stay'])):
+            continue   # a finished audition down to what it keeps: every later clean listed it as one to remove (a run of 0.9.1)
         stays = [p.relative_to(root).as_posix() for p in plan['stay']] + [rel(u) + '/' for u in plan['inner'] if not whole(u, known)]
         report['listed'].append({'kind': plan['kind'], 'path': rel(f), 'bytes': plan['bytes'], 'whole': goes_whole,
                                  'kept_inside': stays[:20]})
@@ -541,16 +556,17 @@ def describe(report):
     for r in report['listed']:
         n, b = kinds.get(r['kind'], (0, 0))
         kinds[r['kind']] = (n + 1, b + r['bytes'])
-    plural = {'render': 'renders', 'round': 'rounds', 'audition': 'auditions', 'cache entry': 'cache entries'}
+    plural = {'render': 'renders', 'round': 'rounds', 'audition': 'auditions', 'review': 'reviews', 'cache entry': 'cache entries'}
     what = ', '.join(f'{n} {k if n == 1 else plural[k]} ({b / 1e9:.2f} GB)' for k, (n, b) in kinds.items()) or 'nothing'
     verb = 'Would remove' if report['dry_run'] else 'Removed'
     lines = [f'{verb} {what} from {report["folder"]}: {report["bytes"] / 1e9:.2f} GB in all.',
              'Kept: ' + '; '.join(report['kept']) + f'; the {report["cache_entries_kept"]} cache entries they use.']
-    for r in report['listed'][:20]:
+    shown = sorted(report['listed'], key=lambda r: r['kind'] == 'cache entry')   # the folders first: an agent checks those by name
+    for r in shown[:20]:
         part = '' if r['whole'] else ' (in part: ' + ', '.join(r['kept_inside'][:5]) + (' and more' if len(r['kept_inside']) > 5 else '') + ' stay)'
         lines.append(f'- {r["kind"]}: {r["path"]} ({r["bytes"] / 1e6:.0f} MB){part}')
     if len(report['listed']) > 20:
-        lines.append(f'- and {len(report["listed"]) - 20} more')
+        lines.append(f'- and {len(report["listed"]) - 20} more (--json lists every one)')
     if report['left_alone']:
         lines.append(f'Left alone ({len(report["left_alone"])}): ' + '; '.join(
             f'{x["kind"]} {x["path"]} ({x["why"]}{": " + repr(x["title"]) if x.get("title") else ""})' for x in report['left_alone'][:10])

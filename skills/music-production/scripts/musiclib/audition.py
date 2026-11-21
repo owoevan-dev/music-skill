@@ -158,6 +158,10 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
     if not any(n for t in passage['tracks'] if t['id'] == track_id for n in t['notes']):
         raise ValueError(f'{track_id} plays no note in bars {first_bar}-{last_bar}')
     cfg = audio.load_config(config_file)
+    from .bankcheck import refuse_unsafe
+    for sound in sounds:   # an alternative's bank, before the first version is rendered
+        if sound[0] == 'soundfont':
+            refuse_unsafe(audio.soundfont_for(cfg, {'id': track_id, 'soundfont': sound[1]})[1]['path'])
     cache = Path(cache) if cache else output / 'cache'
     controls = json.loads(CONTROLS_FILE.read_text(encoding='utf-8'))['presets'] if CONTROLS_FILE.is_file() else {}
     rows, cuts = [], []

@@ -21,15 +21,14 @@ import json
 import math
 import os
 import re
-import stat
 from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from pathlib import Path
 import shutil
 import threading
 import time
 import numpy as np
-from . import audio, drums, files, layered, midi, production, stage, surge, synth, variation
-from .model import Clock, load_project, validate, performed, save_json, sounded, digest, file_hash, TPQ
+from . import bankcheck, audio, drums, files, layered, midi, production, stage, surge, synth, variation
+from .model import Clock, load_project, validate, save_json, sounded, digest, file_hash
 
 def retrigger_trims(t,clock):
     """How many of a part's notes a second strike of their key cuts short in its audio (the stem's receipt): of a part
@@ -380,13 +379,24 @@ def tail_state(data):
     more=math.ceil((last+60)/falling*2)/2 if last>-60 and falling>=3 and not rises else None
     return {'last_50ms_dbfs':round(last,1),'falling_db_per_second':round(falling,1),'rises_at_the_end':bool(rises),'more_seconds_estimated':more}
 
+def peak_frames(data,quiet=.001):
+    """The frame of a master's highest sample, and of its last sample at `quiet` (-60 dBFS, as tail_quiet reads it) or over,
+    -1 where none: read a second at a time, so that a long master is not held in memory a second time."""
+    top,last,highest=0,-1,-1.0
+    for at in range(0,len(data),audio.RATE):
+        block=np.max(np.abs(np.asarray(data[at:at+audio.RATE],dtype=np.float32)),axis=1);k=int(np.argmax(block))
+        if float(block[k])>highest:top,highest=at+k,float(block[k])
+        over=np.flatnonzero(block>=quiet)
+        if len(over):last=at+int(over[-1])
+    return top,last
+
 def tail_advice(state):
     """What to do about a tail that still sounds, with the estimate where there is one."""
     more=state.get('more_seconds_estimated');falling=state.get('falling_db_per_second') or 0
     if state.get('rises_at_the_end'):return 'its level rises in its last moments (a note or an echo that begins there, or a level that is raised): let it end, or give clock.tail_seconds the time it needs'
     if more is None and falling>=.05:return f'its level falls only {falling:g} dB a second at the end, too slowly for an estimate: look for a note or an effect that rings on (a long release, a held pedal, a delay\'s feedback), then give clock.tail_seconds the time it needs'
     if more is None:return 'its level is not falling at the end: look for a note or an effect that does not stop, then give clock.tail_seconds the time it needs'
-    return (f'by the fall of its last second, about {more:g} more second{"s" if more!=1 else ""} of clock.tail_seconds would bring it under (an estimate)')
+    return (f'by the fall of its last second, about {more:g} more second{"s" if more!=1 else ""} of clock.tail_seconds would bring it under (an estimate: leave a second more, as a ring slows while it fades; alone it fell short on 15 of 93 tails cut from finished pieces, with the second on 5)')
 
 def render(project_file,output,config_file,cache=None,resume=False,jobs=None,draft=False,quiet=(),tail_fails=None):
     """Render a project into the new folder `output` (or take up an unfinished render of the same project there with
@@ -437,6 +447,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
     output=Path(output).resolve();cache=Path(cache).resolve() if cache else output.parent/'cache'
     # Before anything is synthesized: every part's bank is configured and can play what the part asks of it.
     fonts={t['id']:audio.soundfont_for(cfg,t)[1] for t in p['tracks'] if t['engine']=='soundfont'}
+    for path in {font['path'] for font in fonts.values()}:bankcheck.refuse_unsafe(path)   # every FluidSynth launch of a render plays one of these
     problems=[m for t in p['tracks'] if t['id'] in fonts for m in [layered.unsupported(t,fonts[t['id']]['path'])] if m]
     if problems:raise ValueError('Parts the banks cannot play as written (review --config lists them too): '+' '.join(problems))
     # And no part needs more memory at once than the machine has.  (Whether Surge XT plays each Surge part is read
@@ -808,6 +819,10 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
         # so they go, and the report says which; a full render makes them again.
         if claim.get('earlier_delivery'):report['earlier_delivery_removed']=claim['earlier_delivery']
     if looped:report['loop']=looped
+    top,last=peak_frames(data)
+    # What holds a wide master's gain, named: one held chord set it for a whole piece and only a search of the master showed it (0.9.1).
+    report['master']={**report['master'],'highest_sample':{'seconds':round(top/audio.RATE,3),'bar':int(clock.beat(top/audio.RATE)//clock.beats_per_bar)+1}}
+    if not looped:report['silent_end_seconds']=round((len(data)-1-last)/audio.RATE,2)
     if not checks['tail_quiet']:
         # the master still sounds at its end: how loud, how fast it falls, and how much longer the tail would have to be
         report['tail']=tail_state(data)

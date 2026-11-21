@@ -61,7 +61,7 @@ Settle these from the request; what it leaves open is decided after the piece's 
   - For an electric piano: a Surge one (`studio.py sounds --role keys --name ep`, or `rhodes`, `wurli`, `suitcase`; with the piece's `--seed`), `fm_epiano`, or the TX81Z FM pianos (`vcsl_keys` 0:4, 1:4). Audition two to four on the part.
   - `lofi_keys` for a soft synth.
 - **Guitar.** `guitar_shiny`, an archtop with four dynamics: pickup 0:26 for a warm jazz tone, microphone 0:25 for an acoustic one.
-- **Lead.** `sax_bear`, a flute (`iowa_winds`), `vocal_ah` for a wordless voice, or the keys alone. Lo-fi beats are made to relax or study to (Winston and Saywood 2019): short phrases with long rests stay out of the way.
+- **Lead.** `sax_bear`, a flute (`iowa_winds`), `vocal_ah` for a wordless voice (a low voice: B♭1–C4), or the keys alone. Lo-fi beats are made to relax or study to (Winston and Saywood 2019): short phrases with long rests stay out of the way.
 
 ## Boom bap
 

@@ -2,13 +2,14 @@
 import bisect
 from collections import Counter, defaultdict
 import csv
+import hashlib
 import json
 import math
 from pathlib import Path
 import statistics
 from . import files, harmony
 from .instruments import key_ranges, pairs
-from .model import Clock, TPQ, kit_patch, performed, save_json, sounded, tick_of, validate
+from .model import Clock, TPQ, bend_curve, curve_at, kit_patch, performed, save_json, sounded, tick_of, validate
 
 FOREGROUND = ('melody', 'countermelody')
 NAMES = ('C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B')
@@ -50,6 +51,12 @@ def highpass_cut(t):
     if not t['notes'] or t['engine'] not in ('soundfont','additive') or t.get('drums') or (t.get('patch') or t).get('bank',0)==128:return None
     low=min(n['pitch'] for n in t['notes']);f0=440*2**((low-69)/12)
     return 10*math.log10(1+(t['mix'].get('highpass',30)/f0)**4),low,f0
+
+def most_of(counts):
+    """The key counted most, or those tied for it, as words: two parts with one note each were said to be "most in" the
+    first (the walkthrough of 0.9.1)."""
+    counts=dict(counts);top=max(counts.values());tied=[k for k,v in counts.items() if v==top]
+    return ' and '.join(tied[:3])+(' and others' if len(tied)>3 else '')
 
 def where(clock,beat):
     return f'bar {int(beat//clock.beats_per_bar)+1} beat {beat%clock.beats_per_bar+1:g}'
@@ -528,8 +535,10 @@ def outside_chord(p,clock,limit=40):
     found.sort(key=lambda x:x['beat']);groups={}
     for g,test in (('melody',lambda r:r in FOREGROUND),('bass',lambda r:r=='bass'),('accompaniment',lambda r:r not in FOREGROUND and r!='bass')):
         xs=[x for x in found if test(x['role'])]
-        if xs:groups[g]={'count':len(xs),'most_in':Counter(x['track'] for x in xs).most_common(1)[0][0],'first':xs[0]}
-    return {'count':len(found),'not_resolved_by_step':groups,'tracks':tracks,'examples':found[:limit],'unparsed_symbols':unknown}
+        if xs:groups[g]={'count':len(xs),'most_in':most_of(Counter(x['track'] for x in xs)),'first':xs[0]}
+    # A long list keeps the foreground's first, then the bass's: cut by time alone, it held accompaniment only (a run of 0.9.1).
+    kept=found if len(found)<=limit else sorted(sorted(found,key=lambda x:(x['role'] not in FOREGROUND,x['role']!='bass',x['beat']))[:limit],key=lambda x:x['beat'])
+    return {'count':len(found),'not_resolved_by_step':groups,'tracks':tracks,'examples':kept,'unparsed_symbols':unknown}
 
 def parallels(p,clock,window=8,doubled_share=.75,limit=40,run=4):
     """Two perfect consonances of the same size in a row, fifths or octaves (with unisons), between two lines
@@ -905,6 +914,41 @@ def piano_choice(p,installed):
         name=OTHER_PIANOS.get((bank,b,pr)) if bank in installed else None   # a bank that is not the project's own may hold anything there
         if name:asked.append((identifier('piano',t['id']),f'{t["id"]}: plays {name} ({bank} {b}:{pr}). The piano for every piano part is the Steinway grand ("soundfont": "vcsl", bank 0, program 0; piano-and-chamber.md): move the part to it, and make it brighter or closer in the mix, not by changing the piano. Keep this one only where the user asked for it or the piece is built on its own sound (a worn upright for lo-fi or a bar room, the closeness of the Osiris in slow, sparse music), and say which in a decision that begins "{identifier("piano",t["id"])}: ".'))
     return asked
+OFF_PITCH=.25   # semitones a note may stay from its written pitch through a bend before it is asked about (ours: a quarter-tone)
+def bends_across(t,clock,actual=None):
+    """The notes that `performance.bend` keeps off their written pitch for most of their length, as (beat, semitones): the
+    median of the wheel over the note as it is played, 25 cents or more.  The wheel runs straight from each point to the
+    next and holds the last, so a scoop written as one point before its note ramps from the last point across every note
+    between (two runs of 0.9.1, one with 51 of 299 notes, the median 118 cents off; no check saw it), and a bend never
+    brought back leaves every later note off.  A note's own short scoop, or a vibrato about its pitch, is not counted."""
+    curve=bend_curve(t['performance'].get('bend') or [])
+    if not curve:return []
+    out=[]
+    for a in (sounded(t,clock) if actual is None else actual):
+        b0,b1=clock.beat(a['start_seconds']),clock.beat(a['end_seconds'])
+        if b1<=b0:continue
+        at=sorted((curve_at(curve,b0+(b1-b0)*k/15) for k in range(16)),key=abs)
+        if abs(at[8])>=OFF_PITCH:out.append((round(b0,4),at[8]))
+    return sorted(out)
+def bend_question(t,clock,actual=None):
+    """The review's question on bends_across, as (identifier, text), or None."""
+    across=bends_across(t,clock,actual)
+    if not across:return None
+    off=max((v for _,v in across),key=abs)*100
+    return (identifier('bend',t['id']),f'{t["id"]}: {len(across)} note{"s stay" if len(across)!=1 else " stays"} a quarter-tone or more off the written pitch through most of {"their" if len(across)!=1 else "its"} length because of `performance.bend` (first at {where(clock,across[0][0])}; up to {abs(off):.0f} cents {"flat" if off<0 else "sharp"}). The wheel runs straight from each point to the next and holds the last: a scoop written as one point before its note ramps across the notes before it, and a bend not brought back leaves the notes after it off. Put a point at 0 just before each scoop and where a bend ends. If this is meant (a held bend, a long glide), say so in decisions.')
+def places(summary,qid):
+    """Where what an answered question counts now lies, as a short digest, so that a round can tell a fault that moved
+    under its decision at the same count (a parallel from bar 2 to bar 3: the text, which names the first, stayed the same).
+    None for a question that names its place in its own words."""
+    kind=qid.split(':',1)[0]
+    if kind.startswith('outside_chord.'):
+        test={'melody':lambda r:r in FOREGROUND,'bass':lambda r:r=='bass','accompaniment':lambda r:r not in FOREGROUND and r!='bass'}.get(kind.split('.',1)[1])
+        rows=[x for x in (summary.get('outside_chord') or {}).get('examples') or [] if test and test(x.get('role'))]
+    else:
+        key={'vertical':'vertical_minor_seconds_ninths','parallels':'parallel_fifths_octaves','low_intervals':'low_intervals','transposed_samples':'transposed_samples'}.get(kind)
+        if key is None:return None
+        rows=(summary.get(key) or {}).get('examples') or []
+    return hashlib.sha256(json.dumps(sorted(json.dumps([x.get('at'),x.get('parts') or x.get('track'),x.get('pitches') or x.get('pitch') or x.get('note')],default=str) for x in rows)).encode()).hexdigest()[:16]
 def review(p,out,config=None):
     out=Path(out);out.mkdir(parents=True,exist_ok=True);clock=Clock(p)
     from . import ears;headphones=ears.wanted(p)
@@ -949,6 +993,8 @@ def review(p,out,config=None):
         phrases=Counter(n.get('phrase','unassigned') for n in notes)
         info={'id':t['id'],'role':t.get('role'),'engine':t['engine'],'notes':len(notes),'pitch_range':[min((n['pitch'] for n in notes),default=None),max((n['pitch'] for n in notes),default=None)],'duration_values':dict(hist),'velocity_range':[min(vel,default=None),max(vel,default=None)],'median_performed_key_gap_ms':round(statistics.median(gaps),2) if gaps else None,'step_or_repeat_fraction':round(sum(x<=2 for x in interval)/len(interval),3) if interval else None,'phrase_labels':dict(phrases),'same_key_retrigger_trims':sum(n.get('retrigger_trimmed',False) for n in actual)}
         summary['tracks'].append(info)
+        bent=bend_question(t,clock,actual)
+        if bent:put(*bent)
         if t.get('role') in ('melody','countermelody') and notes:
             if ask('melody_durations') and len(hist)<L('melody_durations')['min_categories']:put(identifier('melody_durations',t["id"]),f'{t["id"]}: few duration categories; inspect whether the intended line has phrase direction and space.')
             if ask('melody_velocities') and len(set(vel))<L('melody_velocities')['min_values']:put(identifier('melody_velocities',t["id"]),f'{t["id"]}: nearly flat MIDI velocity; inspect instrument response before adding expression.')
@@ -1037,7 +1083,7 @@ def review(p,out,config=None):
     singly=found if ask('vertical') and few else []
     if v['count'] and ask('vertical'):
         n=exposed_count;count=v['count'];fg=v['foreground_count']
-        put('vertical',f'{count} sustained minor-second/ninth collision{"" if count==1 else "s"} ({fg} touch{"es" if fg==1 else ""} the foreground); most between {next(iter(v["by_parts"]))}.'
+        put('vertical',f'{count} sustained minor-second/ninth collision{"" if count==1 else "s"} ({fg} touch{"es" if fg==1 else ""} the foreground); most between {most_of(v["by_parts"])}.'
             +(f' {n} of them {"begins" if n==1 else "begin"} on a downbeat or a half-bar and {"sounds" if n==1 else "sound"} a beat or more, as written'
               +(f' ({"it has" if n==1 else "each has"} a question of its own (clash:<part>.<note>+<part>.<note>), asked below unless a decision answers it).' if few
                 else f' (the longest at {found[0]["at"]}; more than {clash["one_by_one"]}, so none is asked by itself).' if n>clash['one_by_one'] else '.') if n else '')
@@ -1062,11 +1108,11 @@ def review(p,out,config=None):
     par=summary['parallel_fifths_octaves']=parallels(p,clock,**L('parallels'))
     if par['count'] and ask('parallels'):
         f=par['examples'][0]
-        put('parallels',f'{par["count"]} {"time" if par["count"]==1 else "times"} two parts move in parallel fifths or octaves (most between {next(iter(par["by_pair"]))}; first {f["interval"]} at {f["at"]}). Where the parts are independent voices (baroque, classical, chorale and chamber writing), two perfect consonances of the same size in a row fuse the voices and are avoided (Open Music Theory, First-Species Counterpoint): move one voice the other way or to a third or sixth. Power chords and lines doubled on purpose move in parallel; octaves inside a line doubled at the octave are left out (baroque.md).')
+        put('parallels',f'{par["count"]} {"time" if par["count"]==1 else "times"} two parts move in parallel fifths or octaves (most between {most_of(par["by_pair"])}; first {f["interval"]} at {f["at"]}). Where the parts are independent voices (baroque, classical, chorale and chamber writing), two perfect consonances of the same size in a row fuse the voices and are avoided (Open Music Theory, First-Species Counterpoint): move one voice the other way or to a third or sixth. Power chords and lines doubled on purpose move in parallel; octaves inside a line doubled at the octave are left out (baroque.md).')
     low=summary['low_intervals']=low_intervals(p,clock)
     if low['count'] and ask('low_intervals'):
         w=low['furthest_below']
-        put('low_intervals',f'{low["count"]} close {"interval sounds under its" if low["count"]==1 else "intervals sound under their"} low interval limit, where voicings turn muddy (most between {next(iter(low["by_parts"]))}; furthest under, a {w["interval"]} {w["notes"][0]}-{w["notes"][1]} at {w["at"]}, whose limit is {w["limit"]}). Spread the voicing or move the upper note an octave up, leaving the low register to the bass. The limits are guides: soft, dark sounds bear more than loud, bright ones, and a low rumble can be meant (Hoffmann; arrangement.md, Spacing).')
+        put('low_intervals',f'{low["count"]} close {"interval sounds under its" if low["count"]==1 else "intervals sound under their"} low interval limit, where voicings turn muddy (most between {most_of(low["by_parts"])}; furthest under, a {w["interval"]} {w["notes"][0]}-{w["notes"][1]} at {w["at"]}, whose limit is {w["limit"]}). Spread the voicing or move the upper note an octave up, leaving the low register to the bass. The limits are guides: soft, dark sounds bear more than loud, bright ones, and a low rumble can be meant (Hoffmann; arrangement.md, Spacing).')
     rep=summary['repetition']=repetition(p,clock,**L('static_texture'),**L('repetition'),**L('arrivals_thinner'),**L('sections_alike'))
     for s in rep['static_spans'] if ask('static_texture') else ():
         if 'still' not in s:
@@ -1148,7 +1194,7 @@ def review(p,out,config=None):
                     put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed, and {which}. Hear them on the part: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+x for x in (options or named)[:3])} --bars FIRST-LAST (electronic-sounds.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
         st=summary['transposed_samples']=stretched(p,clock,sample_maps(p,config),limit=L('transposed_samples')['limit_semitones'])
         if st['count'] and ask('transposed_samples'):
-            worst=next(iter(st['by_track']))
+            worst=most_of(st['by_track'])
             put('transposed_samples',f'{st["count"]} notes play a sample transposed more than {st["limit_semitones"]} semitones, most in {worst}; the tone and the vibrato rate change with it. Move them, give them to another instrument, or accept the change.')
         if st['outside_count']:put('outside_keys',outside_keys(st))
         from . import audio,layered
@@ -1183,6 +1229,9 @@ def review(p,out,config=None):
     lines+=['','Metrics do not establish whether a piece sounds good. Key gaps exclude pedal/release tails. Different durations and more tracks are not quality scores.']
     arrangement='\n'.join(lines)+'\n'
     try:
+        for a in answered:
+            where_now=places(summary,a['id'])
+            if where_now:a['places']=where_now
         save_json(out/'score_review.json',summary)
         # A text cell a spreadsheet would read as a formula (one starting with =, +, -, @, a tab or a carriage
         # return) gets a leading apostrophe, as OWASP's CSV injection guidance advises: a project's names stay text.

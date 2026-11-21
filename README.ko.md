@@ -57,7 +57,7 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
    /plugin install music-skill@music-skill
    ```
 
-   Codex와 다른 에이전트에서는 `npx skills add owoevan-dev/music-skill`.
+   Codex CLI에서는 `codex plugin marketplace add owoevan-dev/music-skill` 다음에 `codex plugin add music-skill@music-skill`. 다른 에이전트에서는 `npx skills add owoevan-dev/music-skill`.
 2. 에이전트에게 렌더링 도구와 음원 설치를 부탁합니다. [설치](#install)의 명령을 실행하며, 내려받기는 약 3.7 GB이고 저희 테스트 컴퓨터에서는 그 뒤로 약 5분 걸렸습니다.
 3. 평소 말투로 곡을 부탁합니다.
 
@@ -120,11 +120,24 @@ Claude 같은 에이전트가 이미 영상을 편집하거나 게임을 만들�
 /plugin install music-skill@music-skill
 ```
 
-**Codex와 그 밖의 에이전트**
+업데이트: `/plugin`의 Installed 탭에서 이 플러그인을 열어 **Update now**를 고르거나, 셸에서 `claude plugin update music-skill@music-skill`을 실행합니다. 서드파티 마켓플레이스는 `/plugin`의 Marketplaces 탭에서 켜지 않으면 저절로 업데이트되지 않습니다.
+
+**Codex CLI**
+
+```
+codex plugin marketplace add owoevan-dev/music-skill
+codex plugin add music-skill@music-skill
+```
+
+업데이트: `codex plugin marketplace upgrade music-skill` 다음에 `codex plugin add music-skill@music-skill`을 다시 실행합니다.
+
+**그 밖의 에이전트**
 
 ```
 npx skills add owoevan-dev/music-skill
 ```
+
+업데이트: `npx skills update`.
 
 `skills/music-production` 폴더를 에이전트의 스킬 폴더에 복사해도 됩니다.
 
@@ -218,7 +231,7 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 <details>
 <summary><b>어디까지 되나요</b></summary>
 
-`selfcheck.py`에는 216가지 검사(렌더링 설정이 없으면 170가지)가 있으며, MIDI 왕복 변환과 압축 파일 안전성부터 실제 렌더링까지 포함합니다. 예를 들어 음 하나를 고치면 그 파트만 다시 합성되고 `compare`가 그 음부터, 영향이 닿은 파일에서만 차이를 찾는지, 예전의 단일 리버브 믹스가 이전 릴리스를 비트 단위로 재현하는지, 라우드니스 측정이 BS.1770 기준 음을 −3.01 LUFS로 읽는지 확인합니다. CI에서는 Ubuntu(FluidSynth 2.3, FFmpeg 6.1), macOS(FluidSynth 2.6, FFmpeg 9.0), Windows(고정 버전 FluidSynth 2.6.1, FFmpeg 9.0.2와 Surge XT)에서 렌더링을 포함한 모든 검사를 실행합니다.
+`selfcheck.py`에는 221가지 검사(렌더링 설정이 없으면 174가지)가 있으며, MIDI 왕복 변환과 압축 파일 안전성부터 실제 렌더링까지 포함합니다. 예를 들어 음 하나를 고치면 그 파트만 다시 합성되고 `compare`가 그 음부터, 영향이 닿은 파일에서만 차이를 찾는지, 예전의 단일 리버브 믹스가 이전 릴리스를 비트 단위로 재현하는지, 라우드니스 측정이 BS.1770 기준 음을 −3.01 LUFS로 읽는지 확인합니다. CI에서는 Ubuntu(FluidSynth 2.3, FFmpeg 6.1), macOS(FluidSynth 2.6, FFmpeg 9.0), Windows(고정 버전 FluidSynth 2.6.1, FFmpeg 9.0.2와 Surge XT)에서 렌더링을 포함한 모든 검사를 실행합니다.
 
 음악으로서 좋은지는 다른 문제이고, 직접 들어 봐야만 알 수 있습니다. 위의 곡들이 이 저장소가 보여 줄 수 있는 가장 좋은 증거입니다.
 
@@ -229,7 +242,7 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 
 **만든 음악을 영상, 게임, 상업 작품에 써도 되나요?** 이 스킬과 스킬이 설치하는 음원은 만든 결과물에 아무것도 요구하지 않습니다. 음원은 모두 출처 표기가 필요 없습니다. 추가 음원은 CC0이거나 용도 제한 없이 쓸 수 있고, MS Basic의 MIT 라이선스도 그것으로 연주한 음악에는 아무것도 요구하지 않습니다. GPL 프로그램(FFmpeg, Surge XT)이 적용되는 것은 프로그램 자체이지 그것을 거친 음악이 아닙니다. 에이전트가 써 준 음악에 당신의 저작권이 생기는지는 사는 나라의 법과 당신이 얼마나 손을 댔는지에 달려 있습니다.
 
-**어떤 에이전트에서 쓸 수 있나요?** Agent Skills를 불러오고 Python을 실행할 수 있는 에이전트라면 됩니다. Claude Code(플러그인), Codex, 그리고 `npx skills`로 설치한 다른 에이전트.
+**어떤 에이전트에서 쓸 수 있나요?** Agent Skills를 불러오고 Python을 실행할 수 있는 에이전트라면 됩니다. Claude Code와 Codex CLI(플러그인), 그리고 `npx skills`로 설치한 다른 에이전트.
 
 **인터넷이나 GPU가 필요한가요?** 인터넷은 설치할 때만 필요하고, 렌더링은 CPU에서 오프라인으로 돌아갑니다. 프로젝트 파일은 누구에게도 가지 않으며, 에이전트가 읽은 내용을 자기 모델에 보낼 때만 밖으로 나갑니다.
 

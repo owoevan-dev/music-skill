@@ -13,6 +13,7 @@ from .files import joined
 from .review import note_name
 
 EXAMPLES = 5  # entries shown per list; the files hold all of them
+SILENT_END = 3   # seconds under -60 dBFS at a file's end that a render's summary names (ours: tails of 12 s held 8 s of nothing)
 
 
 def _rel(path):
@@ -38,6 +39,12 @@ def _signed(x, digits=1):
 def _g(x):
     """A figure as written, or n/a where it was not measured (a render stopped before report.json has no master figures)."""
     return 'n/a' if x is None else f'{x:g}'
+
+
+def _cut(text, length):
+    """`text` up to `length` characters, ended at a word with three dots where it is longer (a reason was cut in the middle
+    of a word: the walkthrough of 0.9.1)."""
+    return text if len(text) <= length else text[:length].rsplit(' ', 1)[0].rstrip(' ,;:') + '...'
 
 
 def _more(items, shown=EXAMPLES, count=None):
@@ -85,21 +92,25 @@ def review(r, folder, since=None, plan_changed=None):
     kept = r.get('answered') or []
     if kept:
         lines.append(f'Answered in decisions, not asked again ({len(kept)}): '
-                     + '; '.join(f'{a["id"]} ({a["reason"][:90]})' for a in kept[:EXAMPLES]) + _more(kept)
+                     + '; '.join(f'{a["id"]} ({_cut(a["reason"], 90)})' for a in kept[:EXAMPLES]) + _more(kept)
                      + '. Each is in score_review.json under `answered` with what it counts now.')
     if since:
         was = f' since {since["previous"]}' if since.get('previous') else ' since the round before'
         ids = lambda xs: ', '.join(xs[:8]) + (f', and {len(xs) - 8} more' if len(xs) > 8 else '')
         lines.append(f'New{was}: ' + (ids(since['new']) if since['new'] else 'none') + '. Gone: ' + (ids(since['gone']) if since['gone'] else 'none')
                      + '. (By question identifier; a fix that raises a new question shows here.)')
+        if since.get('answered_moved'):
+            shown = [f'{x["id"]} ({x["was"]} -> {x["now"]})' if x['was'] is not None else x['id'] for x in since['answered_moved']]
+            lines.append(f'Answered in a decision, but moved{was}: ' + ids(shown) + '. The decision still answers it: check that it covers what is '
+                         'there now (score_review.json, `answered`), and change the score or the decision.')
     st, lim = r.get('style'), r.get('limits') or {}
     if st:
         lent = ', '.join(f'{a} from {e}' for a, e in st['borrow'].items())
         lines.append(f'Style: {st["primary"]}' + (f', borrowing {lent}' if lent else '') + '.')
     if lim.get('ours'):
         set_by = sorted({row['set_by'] for row in lim['checks'].values() if row['set_by']})
-        lines.append(f'Limits: {len(lim["ours"])} of the {len(lim["checks"])} checks use a number this project set itself, '
-                     f'not one from a source ({", ".join(lim["ours"])}); score_review.json lists each limit and its origin'
+        lines.append(f'Limits: {len(lim["ours"])} of the {len(lim["checks"])} checks use a default of this skill\'s own, '
+                     f'not a published figure ({", ".join(lim["ours"])}); score_review.json lists each limit and its origin'
                      + (f'; set by the style map: {", ".join(set_by)}' if set_by else '') + '.')
     where = []
 
@@ -163,10 +174,10 @@ def render(report, folder):
     lines = [f'Render{" (draft)" if report.get("draft") else ""} of {report["title"]}: {report["status"]} in '
              f'{report["runtime_seconds"]:.1f} s' + (f' ({stages})' if stages else '') + '.']
     target, ceiling = mastering.get('target_lufs'), mastering.get('true_peak_ceiling_dbtp')
+    mp3 = report.get('mp3') or {}
     lines.append(f'Master: {m["integrated_lufs"]:g} LUFS' + (f' (target {target:g})' if target is not None else '') +
                  f', true peak {m["true_peak_dbtp"]:g} dBTP' + (f' (ceiling {ceiling:g})' if ceiling is not None else '') +
-                 f', loudness range {m["lra_lu"]:g} LU.')
-    mp3 = report.get('mp3') or {}
+                 f', loudness range {m["lra_lu"]:g} LU' + (f'; the MP3 decodes to {mp3["mp3_true_peak_dbtp"]:g} dBTP' if mp3.get('mp3_true_peak_dbtp') is not None else '') + '.')
     if mp3.get('over_full_scale'):
         lines.append(f'The MP3 decodes to a true peak of {mp3["mp3_true_peak_dbtp"]:+g} dBTP, above full scale: it can clip '
                      'where it is decoded to fixed point. A lower target_lufs leaves the encoder room.')
@@ -174,7 +185,9 @@ def render(report, folder):
     if limiting:
         lines.append('Delivery limiting by section (dB): ' + ', '.join(f'{k} {max(v, 0.0) + 0.0:.1f}' for k, v in limiting.items()) + '.')
     if mastering.get('peak_held_db'):
-        lines.append(f'The gain was held {mastering["peak_held_db"]:g} dB under the target by the true peak (dynamics "wide").')
+        high = m.get('highest_sample') or {}
+        lines.append(f'The gain was held {mastering["peak_held_db"]:g} dB under the target by the true peak (dynamics "wide")'
+                     + (f'; the master\'s highest sample is at {high["seconds"]:g} s, bar {high["bar"]} (a sample peak, usually where the true peak is).' if high else '.'))
     buses = report.get('buses') or {}
     if buses.get('level_change_db'):
         lines.append('Each bus against the sum of its stems (dB): ' + ', '.join(f'{k} {v:+g}' for k, v in buses['level_change_db'].items()) + '.')
@@ -197,12 +210,18 @@ def render(report, folder):
         lines.append("Removed, as an earlier full render's: " + ', '.join(report['earlier_delivery_removed']) + '.')
     if tail_line(report):
         lines.append(tail_line(report))
+    if (report.get('silent_end_seconds') or 0) >= SILENT_END:
+        lines.append(f'The file ends in {report["silent_end_seconds"]:g} s under -60 dBFS: a shorter clock.tail_seconds would end it sooner.')
     lines.append(f'Parts: {report["stem_count"]}; raw synthesis from the cache {report["cache_hits"]}, processed stems from the '
                  f'cache {report.get("stems_reused", 0)} (stem_receipts.json names which).')
     loop = report.get('loop')
     if loop:
         lines.append(f'Loop: bars {loop["start_bar"] + 1}-{loop["end_bar"]}, {loop["length_samples"]} samples, loop.wav'
                      + (', loop.ogg' if 'ogg' in loop['files'] else '') + (f', {len(loop["layers"]["parts"])} layers' if loop.get('layers') else '') + '.')
+        seam = ((loop.get('seam') or {}).get('abruptness') or {}).get('seam_step_vs_local_p999')
+        if seam is not None and seam > 1:   # no check fails on it: a first note 6 ms early passed all of them (a 0.9.1 run, 1.69)
+            lines.append(f'Loop seam: the step from the last sample to the first is {seam:g} times the 99.9th percentile of the steps '
+                         'in the last 0.1 s, so it may click. A note performed before the first beat is a usual cause: listen to the seam.')
     heard = report.get('headphones')
     if heard:
         moving = sorted(k for k, v in heard['parts'].items() if v.get('lowest_degrees') != v.get('highest_degrees'))
@@ -214,6 +233,17 @@ def render(report, folder):
     lines.append(f'Full figures: {_rel(Path(folder) / "report.json")}: checks, master, mastering' + (' (passes, limiting_db), ' if bus else ', ')
                  + 'sections, ' + ('buses (level_change_db), ' if bus else '') + ('loop, ' if report.get('loop') else '') + ('headphones (parts), ' if heard else '')
                  + 'stage_seconds, process_seconds; stem_receipts.json per part.')
+    return joined(lines)
+
+
+def sounds(found):
+    """A catalog search, one line a patch: what tells two apart.  The JSON (--json) holds the rest of each patch's figures."""
+    rows = found['shown']
+    lines = [f'{found["count"]} patch{"es" if found["count"] != 1 else ""} match, {len(rows)} shown:']
+    for x in rows:
+        lines.append(f'  {x["id"]}: {x["character"] or "no word for its character"}; centroid {_g(x.get("centroid_hz"))} Hz, attack {_g(x.get("attack_s"))} s'
+                     + (f', tail {x["tail_s"]:g} s' if x.get('tail_s') is not None else '') + (f' [{", ".join(x["flags"])}]' if x.get('flags') else ''))
+    lines.append(found['note'] + ' --id <id> gives one patch with what its wheel and macros move; --json the full figures.')
     return joined(lines)
 
 
@@ -244,7 +274,7 @@ def analysis(r, path, render=None):
                  f'median, 10th percentile, masked % (lead: {", ".join(r.get("lead_tracks") or []) or "none"}, from the '
                  f'{r.get("lead_source", "stems")}) | melody group minus the rest dB')
     regions = [s['section'] for s in r['sections']] + [k for k in group if k not in {s['section'] for s in r['sections']}]
-    rows = {s['section']: s for s in r['sections']}
+    rows = {s['section']: s for s in r['sections'] + (r.get('spans') or [])}
     for k in regions:
         s, x, g = rows.get(k, {}), lead.get(k), group.get(k, {})
         own = (f'{_g(s.get("level_lufs_ungated"))} | {_g(s.get("lr_correlation"))} | {_signed(s.get("mono_sum_change_db"))}' if s else 'n/a | n/a | n/a')
@@ -277,7 +307,7 @@ def analysis(r, path, render=None):
         lines.append('Parts close to the melody group (level minus the melody, the cut that puts each under it, dB): ' + '; '.join(
             f'{k} {b["track"]} {b["level_minus_melody_db"]:+g} (cut {b["suggested_cut_db"]:g})' for k, b in cuts[:12]) + _more(cuts, 12))
     lines += [f'Warning: {w}' for w in r.get('warnings') or []]
-    lines.append(f'Full figures: {_rel(path)}: sections (band_share_pct, peak, crest), lead_presence, melody_groups (balance), '
+    lines.append(f'Full figures: {_rel(path)}: sections (band_share_pct, peak_dbfs, crest_db), ' + ('spans, ' if r.get('spans') else '') + 'lead_presence, melody_groups (balance), '
                  'stem_levels_lufs_ungated (each part per section), tonal_balance (third_octaves_db), reference_comparison, '
                  'side_minus_mid_db, reverb. Measurements only; they do not establish how the music sounds.')
     return joined(lines)

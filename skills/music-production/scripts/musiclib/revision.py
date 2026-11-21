@@ -12,6 +12,7 @@ writes, in the round's folder:
 The draft is the same audio as a full render; deliver a full render (studio.py render).  The cache is shared with the
 other rounds and renders of the project: by default the folder `cache` next to the round."""
 import os
+import re
 import time
 from pathlib import Path
 
@@ -37,7 +38,8 @@ def since(reviewed, before):
     """The questions of this round that the round before did not ask, and those it asked that are gone, by
     identifier: {'new', 'gone', 'previous'}.  A question asked twice of two places counts twice.  None where there is
     no round before, where `before` is a render outside a round, or where that round's review has no identifiers (it
-    was made by 0.6 or earlier): text is never compared, since a reworded question would then look new."""
+    was made by 0.6 or earlier): text is never compared, since a reworded question would then look new.  `answered_moved`
+    (answered_moved below) names the answered questions whose figures moved."""
     if before is None or Path(before).name != 'render':
         return None
     earlier = Path(before).parent / 'review' / 'score_review.json'
@@ -52,7 +54,37 @@ def since(reviewed, before):
     from collections import Counter
     was = Counter(q['id'] for q in old['questions'] if isinstance(q, dict) and isinstance(q.get('id'), str))
     now = Counter(q['id'] for q in reviewed['questions'])
-    return {'new': sorted((now - was).elements()), 'gone': sorted((was - now).elements()), 'previous': Path(before).parent.name}
+    moved = answered_moved(old, reviewed)
+    return {'new': sorted((now - was).elements()), 'gone': sorted((was - now).elements()), 'previous': Path(before).parent.name,
+            **({'answered_moved': moved} if moved else {})}
+
+
+def answered_moved(old, reviewed):
+    """The questions a decision answers that have moved since the round before, [{'id', 'was', 'now'}]: a question whose
+    text begins with its count now counts more (`was` and `now`), any other has different figures (both None).  A
+    decision goes on answering its question whatever comes later, so a fault of the same kind stayed out of sight (four
+    runs of 0.9.1: 0 questions over 19 collisions).  Figures and not the wording are compared, so a question reworded
+    by a new version has not moved."""
+    count = lambda text: int(m.group(1)) if (m := re.match(r'(\d+)\b', text)) else None
+    figures = lambda text: re.findall(r'\d+(?:\.\d+)?', text)
+    earlier = {}
+    for q in old.get('answered') or []:
+        if isinstance(q, dict) and isinstance(q.get('id'), str) and isinstance(q.get('text'), str):
+            earlier.setdefault(q['id'], []).append(q)
+    out = []
+    for q in reviewed['answered']:
+        if earlier.get(q['id']):
+            then = earlier[q['id']].pop(0)
+            a, b = count(then['text']), count(q['text'])
+            elsewhere = bool(then.get('places') and q.get('places') and then['places'] != q['places'])   # review.places
+            if a is not None and b is not None:
+                if b > a:
+                    out.append({'id': q['id'], 'was': a, 'now': b})
+                elif b == a and elsewhere:
+                    out.append({'id': q['id'], 'was': None, 'now': None})
+            elif elsewhere or figures(then['text']) != figures(q['text']):
+                out.append({'id': q['id'], 'was': None, 'now': None})
+    return out
 
 
 def first_plan(before):
@@ -164,6 +196,8 @@ def revision_round(project_file, output, config_file, previous=None, cache=None,
             changed = since(reviewed, before)
             if changed is not None:
                 record['new_questions'], record['gone_questions'] = changed['new'], changed['gone']
+                if changed.get('answered_moved'):
+                    record['answered_moved'] = changed['answered_moved']
             moved = keep_plan(record, p, before)
             lap('review')
             show(summary.review(reviewed, output / 'review', changed, moved))

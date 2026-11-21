@@ -16,7 +16,7 @@ Settle these from the request; what it leaves open is decided after the piece's 
 - **Time spent**: how long a player stays in the place. A 30-second shop visit and an hour in a dungeon need different loop lengths and different amounts of variation.
 - **Loop start**: from bar 1, or an intro that plays once and then a loop from a later bar (`loop.start_bar`).
 - **Engine and format**, if known (see Delivery).
-- **Loudness**: `target_lufs` −14 suits a soundtrack file. In a game the developer sets each asset's level, and platform guidance measures the whole game's output: Sony's audio standards group recommended an average of −23 LUFS for PS3 and −18 for PS Vita, ±2 LU. Use a target the person names (down to −30); otherwise deliver at −14 and say that the in-game level is set in the engine.
+- **Loudness**: `target_lufs` −14 suits a soundtrack file. In a game the developer sets each asset's level, and platform guidance measures the whole game's output: Sony's audio standards group recommended an average of −23 LUFS for PS3 and −18 for PS Vita, ±2 LU. Use a target the person names (down to −30); otherwise deliver at −14 and say that the in-game level is set in the engine. A wide orchestra (`"dynamics": "wide"`) stays quieter rather than be limited, so ask it for −18, as [film-score.md](film-score.md) does: at −14 one such loop stopped 4.5 dB short.
 
 ## The loop point
 

@@ -57,7 +57,7 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
    /plugin install music-skill@music-skill
    ```
 
-   Codex 和其他 agent：`npx skills add owoevan-dev/music-skill`。
+   Codex CLI：`codex plugin marketplace add owoevan-dev/music-skill`，再 `codex plugin add music-skill@music-skill`。其他 agent：`npx skills add owoevan-dev/music-skill`。
 2. 請 agent 安裝渲染工具和音色庫。它會執行[安裝](#install)一節的指令：下載約 3.7 GB，在我們的測試電腦上接著約五分鐘就完成其餘步驟。
 3. 用平常的話點一首曲子：
 
@@ -120,11 +120,24 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 /plugin install music-skill@music-skill
 ```
 
-**Codex 與其他 agent**
+更新：在 `/plugin` 的 Installed 分頁打開它，選 **Update now**，或在終端機執行 `claude plugin update music-skill@music-skill`。第三方 marketplace 預設不會自動更新，要的話可以在 `/plugin` 的 Marketplaces 分頁開啟。
+
+**Codex CLI**
+
+```
+codex plugin marketplace add owoevan-dev/music-skill
+codex plugin add music-skill@music-skill
+```
+
+更新：先執行 `codex plugin marketplace upgrade music-skill`，再執行一次 `codex plugin add music-skill@music-skill`。
+
+**其他 agent**
 
 ```
 npx skills add owoevan-dev/music-skill
 ```
+
+更新：`npx skills update`。
 
 也可以直接把 `skills/music-production` 複製到 agent 的 skills 資料夾。
 
@@ -218,7 +231,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 <details>
 <summary><b>效果如何</b></summary>
 
-`selfcheck.py` 共有 216 項檢查（沒有渲染設定時為 170 項），從 MIDI 來回轉換、壓縮檔安全，到實際渲染都包括在內。例如：只改一個音時只會重新合成一個聲部，而 `compare` 只在受影響的檔案裡、從那個音開始找到差異；舊的單一殘響混音能逐位元重現先前的版本；響度量測對 BS.1770 的標準測試音讀出 −3.01 LUFS。CI 會跑完所有檢查（包括渲染），環境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.1、FFmpeg 9.0.2，加上 Surge XT）。
+`selfcheck.py` 共有 221 項檢查（沒有渲染設定時為 174 項），從 MIDI 來回轉換、壓縮檔安全，到實際渲染都包括在內。例如：只改一個音時只會重新合成一個聲部，而 `compare` 只在受影響的檔案裡、從那個音開始找到差異；舊的單一殘響混音能逐位元重現先前的版本；響度量測對 BS.1770 的標準測試音讀出 −3.01 LUFS。CI 會跑完所有檢查（包括渲染），環境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.1、FFmpeg 9.0.2，加上 Surge XT）。
 
 音樂好不好聽是另一回事，只有實際聆聽才知道。上面這些曲子是這個 repo 最好的證據。
 
@@ -229,7 +242,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 **做出來的音樂可以用在影片、遊戲或商業作品嗎？** 這個 skill 和它安裝的音色庫對你做出來的東西沒有任何要求。音色庫都不需要署名：選用音色庫是 CC0 或可自由使用，MS Basic 的 MIT 授權對用它演奏的音樂沒有任何要求。GPL 授權的程式（FFmpeg、Surge XT）規範的是程式本身，不是經過它們處理的音樂。至於你對 agent 幫你寫的音樂是否享有著作權，取決於你所在地的法律，以及你參與塑造了多少。
 
-**哪些 agent 可以用？** 任何能載入 Agent Skills 並執行 Python 的 agent：Claude Code（以外掛安裝）、Codex，以及透過 `npx skills` 安裝的其他 agent。
+**哪些 agent 可以用？** 任何能載入 Agent Skills 並執行 Python 的 agent：Claude Code 和 Codex CLI（以外掛安裝），以及透過 `npx skills` 安裝的其他 agent。
 
 **需要網路或 GPU 嗎？** 只有安裝時需要網路；渲染在 CPU 上離線進行。你的專案檔不會傳給任何人，只有你的 agent 會把它讀到的內容送給它自己的模型。
 

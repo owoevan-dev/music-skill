@@ -519,7 +519,87 @@ def define(S):
         played=lambda p,shift=0:sorted((x['id'],x['tick']-shift,x['end_tick']-shift) for x in performed(p['tracks'][0],Clock(p),True))
         assert played(q)==played(chord,4*TPQ),(played(q),played(chord,4*TPQ))
         return {'cases':33}
-    found = {'excerpt_preserves_tempo_and_score_bounds': excerpt_clock, 'excerpt_moves_bends_sweeps_and_dynamics': excerpt_curves, 'compare_finds_level_and_local_changes': compare_unit, 'compare_reports_no_level_for_a_rewritten_file': compare_rewritten_level, 'excerpt_keeps_the_piece_at_its_edges': excerpt_keeps_the_piece_at_its_edges}
+    def faults_a_run_could_not_see_are_said():
+        # 0.9.2 (research/design-0.9.2.md, S1 to S5): what the real pieces of 0.9.1 went past without a word.
+        import os,subprocess,sys
+        from musiclib import summary as sm
+        from musiclib.review import bends_across,review
+        from musiclib.revision import answered_moved,since
+        from musiclib.starter import behind_script
+        folder=work/'unsaid';folder.mkdir()
+        # The walkthrough's wording: a tie is said as one, a reason is cut at a word.
+        from musiclib.review import most_of
+        assert most_of({'a':1,'b':1})=='a and b' and most_of({'a':3,'b':1})=='a' and most_of({k:1 for k in 'abcde'})=='a and b and c and others'
+        assert sm._cut('rising fourth then a fall',12)=='rising...' and sm._cut('short',12)=='short'
+        # S1. A script saved after the project it writes: the note is the last line, also with stderr joined to stdout.
+        song=folder/'song.json';save_json(song,example());script=folder/'compose.py';script.write_text('# a script\n',encoding='utf-8')
+        stamp=song.stat().st_mtime_ns
+        validate_it=lambda f:subprocess.run([sys.executable,'-X','utf8',str(SCRIPTS/'studio.py'),'validate',str(f)],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8')
+        os.utime(script,ns=(stamp+5_000_000_000,stamp+5_000_000_000));said=validate_it(song)
+        assert said.returncode==0 and said.stdout.rstrip().splitlines()[-1].startswith('Note: compose.py was saved after song.json'),said.stdout[-300:]
+        run=lambda *a:subprocess.run([sys.executable,'-X','utf8',str(SCRIPTS/'studio.py'),*map(str,a)],capture_output=True,text=True,encoding='utf-8')
+        told=run('review',song,'--output',folder/'seen_note');assert told.returncode==0 and told.stdout.rstrip().splitlines()[-1].startswith('Note: compose.py') and 'Note' not in told.stderr,told.stdout[-300:]   # the last line of a summary, which `| tail` keeps
+        told=run('review',song,'--output',folder/'seen_json','--json');assert told.stderr.startswith('Note: compose.py') and json.loads(told.stdout)['title'],told.stderr[:200]   # stdout stays JSON
+        other=folder/'song_r1.json';save_json(other,example());os.utime(other,ns=(stamp,stamp))   # a kept copy is not what the script writes
+        assert behind_script(other) is None and 'compose.py' not in validate_it(other).stdout
+        os.utime(script,ns=(stamp-5_000_000_000,stamp-5_000_000_000))
+        assert behind_script(song) is None and 'compose.py' not in validate_it(song).stdout
+        script.unlink();assert behind_script(song) is None and behind_script(folder/'missing'/'song.json') is None
+        # S2. A decision goes on answering its question: one that counts more now is named, and only that.
+        old={'questions':[],'answered':[{'id':'vertical','text':'1 sustained collision'},{'id':'clash:a','text':'bar 28 beat 3: x'},{'id':'less','text':'9 notes'},{'id':'same','text':'bar 2: y'}]}
+        now={'questions':[],'answered':[{'id':'vertical','text':'19 sustained collisions, in other words'},{'id':'clash:a','text':'bar 30 beat 3: x'},{'id':'less','text':'4 notes'},{'id':'same','text':'bar 2: reworded y'},{'id':'first','text':'5 notes'}]}
+        moved=[{'id':'vertical','was':1,'now':19},{'id':'clash:a','was':None,'now':None}]
+        assert answered_moved(old,now)==moved,answered_moved(old,now)
+        # The same count somewhere else (the text names only the first), and a round from before `places` was kept.
+        at=lambda place:{'questions':[],'answered':[{'id':'parallels','text':'2 times two parts move in parallel (first at bar 1)',**({'places':place} if place else {})}]}
+        assert answered_moved(at('aaa'),at('bbb'))==[{'id':'parallels','was':None,'now':None}] and answered_moved(at('aaa'),at('aaa'))==[] and answered_moved(at(None),at('bbb'))==[]
+        from musiclib.review import places
+        fifths=lambda bar:{'parallel_fifths_octaves':{'examples':[{'at':f'bar {bar} beat 1','parts':['a','b'],'pitches':[[60,67]]}]}}
+        assert places(fifths(1),'parallels')==places(fifths(1),'parallels')!=places(fifths(2),'parallels') and places(fifths(1),'stiffness:lead') is None
+        line=lambda t,base:(t.update(notes=[{'id':f'{t["id"]}_{k}','on':float(k),'duration':1,'pitch':base+x} for k,x in enumerate((0,2,4,5))]),t['performance'].update(notes={f'{t["id"]}_{k}':{'velocity':80} for k in range(4)}))
+        twin=example();a,b=[t for t in twin['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];line(a,67);line(b,60)
+        twin['tracks']=[a,b];twin['decisions']=list(twin.get('decisions') or [])+['parallels: two lines in fifths, meant'];answered=review(twin,folder/'twin')['answered']
+        assert any(q['id']=='parallels' and q.get('places') for q in answered),answered
+        (folder/'r1'/'review').mkdir(parents=True);save_json(folder/'r1'/'review'/'score_review.json',old)
+        got=since(now,folder/'r1'/'render');assert got['answered_moved']==moved and got['previous']=='r1',got
+        shown=sm.review(review(example(),folder/'seen'),folder/'seen',got)
+        assert 'Answered in a decision, but moved since r1: vertical (1 -> 19), clash:a.' in shown,shown[-900:]
+        # S3. Notes that begin partway through a ramp of `performance.bend`, as a scoop of one point makes them.
+        played=example();clock=Clock(played)
+        def bent(points,*on,length=.9):
+            """The notes `on` as played, of `length` beats, under the curve `points`: (beats counted, ...)."""
+            t={'performance':{'bend':points}};now=[{'start_seconds':clock.seconds(b),'end_seconds':clock.seconds(b+length)} for b in on]
+            return [round(b,3) for b,_ in bends_across(t,clock,now)]
+        assert bent([[1.9,-1],[2,0],[5.9,-1],[6,0]],2,3,4,5,6)==[3,4,5]                  # a scoop of one point ramps over the notes before it
+        assert bent([[1.9,-1],[2,0],[3.89,0],[3.9,-1],[4,0]],2,3,3.5,4)==[]               # held at 0 until the next
+        assert bent([[142.97,0],[142.995,-2],[143.22,0]],143)==[]                         # its own scoop, begun just before it
+        assert bent([[1,0],[1.5,-1]],1,2,3)==[1,2,3]                                      # a bend never brought back: the notes after it
+        assert bent([[0,0],[2,-2]],0,1,2)==[0,1,2]                                        # a ramp, the last note on its end
+        assert bent([[2,.35],[2.1,-.35],[2.2,.35],[2.3,-.35],[2.4,.35],[2.5,0]],2)==[]    # a vibrato about the pitch
+        assert bent([],1,2)==[] and bent([[1,.2]],2)==[]                                  # none, and one under a quarter-tone
+        p=example();t=next(x for x in p['tracks'] if len(x['notes'])>=8 and x.get('role')=='melody');on=sorted({n['on'] for n in t['notes']})
+        t['performance']['bend']=[[on[1]-.05,-1.5],[on[1],0],[on[6]-.05,-1.5],[on[6],0]]
+        qid=f'bend:{t["id"]}';asked=review(p,folder/'bend')
+        assert any(q['id']==qid and 'off the written pitch' in q['text'] for q in asked['questions']),[q['id'] for q in asked['questions']]
+        p.setdefault('decisions',[]).append(f'{qid}: a glide over these notes, meant')
+        kept=review(p,folder/'bend_answered');assert not any(q['id']==qid for q in kept['questions']) and any(a['id']==qid for a in kept['answered'])
+        # S4, S5. What the render's summary says of a loop's seam and of the MP3's true peak.
+        base={'title':'x','status':'TECHNICAL_PASS_AUDITION_PENDING','runtime_seconds':1.0,'master':{'integrated_lufs':-14.0,'true_peak_dbtp':-1.0,'lra_lu':5.0},
+              'mastering':{'target_lufs':-14.0,'true_peak_ceiling_dbtp':-1.0},'checks':{'a':True},'stem_count':1,'cache_hits':0}
+        told=sm.render({**base,'mp3':{'mp3_true_peak_dbtp':-.2,'over_full_scale':False}},folder)
+        assert 'the MP3 decodes to -0.2 dBTP' in told and 'above full scale' not in told,told
+        assert 'above full scale' in sm.render({**base,'mp3':{'mp3_true_peak_dbtp':.3,'over_full_scale':True}},folder)
+        assert 'the MP3 decodes' not in sm.render(base,folder)   # a draft has no MP3 figures
+        from musiclib.render import peak_frames
+        x=np.zeros((144000,2),dtype=np.float32);x[60000,1]=.9;x[50000,0]=-.95;x[70000,0]=.01   # the highest is the negative one, on the first channel
+        assert peak_frames(x)==(50000,70000) and peak_frames(np.zeros((1000,2),dtype=np.float32))==(0,-1) and peak_frames(np.ones((48001,2),dtype=np.float32)*.5)[1]==48000
+        loop={'start_bar':0,'end_bar':8,'length_samples':100,'files':['wav'],'seam':{'abruptness':{'seam_step_vs_local_p999':1.69}}}
+        assert 'Loop seam: the step from the last sample to the first is 1.69 times' in sm.render({**base,'loop':loop},folder)
+        assert 'Loop seam' not in sm.render({**base,'loop':{**loop,'seam':{'abruptness':{'seam_step_vs_local_p999':.4}}}},folder)
+        assert 'Loop seam' not in sm.render({**base,'loop':{**loop,'seam':{}}},folder)
+        return {'cases':24}
+    found = {'excerpt_preserves_tempo_and_score_bounds': excerpt_clock, 'excerpt_moves_bends_sweeps_and_dynamics': excerpt_curves, 'compare_finds_level_and_local_changes': compare_unit, 'compare_reports_no_level_for_a_rewritten_file': compare_rewritten_level, 'excerpt_keeps_the_piece_at_its_edges': excerpt_keeps_the_piece_at_its_edges,
+             'faults_a_run_could_not_see_are_said': faults_a_run_could_not_see_are_said}
     if config:
         p, cache, render = S['p'], S['cache'], S['render']
         def local_edit():

@@ -57,7 +57,7 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
    /plugin install music-skill@music-skill
    ```
 
-   Codex などほかのエージェントでは `npx skills add owoevan-dev/music-skill`。
+   Codex CLI では `codex plugin marketplace add owoevan-dev/music-skill` のあと `codex plugin add music-skill@music-skill`。ほかのエージェントでは `npx skills add owoevan-dev/music-skill`。
 2. レンダリング用のツールと音源のセットアップをエージェントに頼みます。[インストール](#install)のコマンドを実行し、ダウンロードは約 3.7 GB、私たちのテスト環境ではそのあと約 5 分かかりました。
 3. ふだんの言葉で曲を頼みます。
 
@@ -120,11 +120,24 @@ Claude などのエージェントがすでに動画を編集したりゲーム�
 /plugin install music-skill@music-skill
 ```
 
-**Codex やその他のエージェント**
+更新するには、`/plugin` の Installed タブでこのプラグインを開いて **Update now** を選ぶか、シェルで `claude plugin update music-skill@music-skill` を実行します。サードパーティのマーケットプレイスは、`/plugin` の Marketplaces タブでオンにしない限り自動では更新されません。
+
+**Codex CLI**
+
+```
+codex plugin marketplace add owoevan-dev/music-skill
+codex plugin add music-skill@music-skill
+```
+
+更新するには、`codex plugin marketplace upgrade music-skill` のあと、もう一度 `codex plugin add music-skill@music-skill` を実行します。
+
+**その他のエージェント**
 
 ```
 npx skills add owoevan-dev/music-skill
 ```
+
+更新するには `npx skills update` を実行します。
 
 `skills/music-production` をエージェントのスキルフォルダーにコピーしても使えます。
 
@@ -218,7 +231,7 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 <details>
 <summary><b>どこまでできるか</b></summary>
 
-`selfcheck.py` には 216 項目のチェック（レンダリング用の設定がなければ 170 項目）があり、MIDI の往復変換やアーカイブの安全性から、実際のレンダリングまで含みます。たとえば、音を一つ直したときに合成し直すのはそのパートだけで、`compare` がその音から先の、影響の届いたファイルにだけ違いを見つけること、旧来の単一リバーブのミックスが以前のリリースをビット単位で再現すること、ラウドネス計測が BS.1770 の基準音を −3.01 LUFS と読むこと。CI では、Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）、Windows（固定版の FluidSynth 2.6.1、FFmpeg 9.0.2 と Surge XT）で、レンダリングも含めた全チェックを実行しています。
+`selfcheck.py` には 221 項目のチェック（レンダリング用の設定がなければ 174 項目）があり、MIDI の往復変換やアーカイブの安全性から、実際のレンダリングまで含みます。たとえば、音を一つ直したときに合成し直すのはそのパートだけで、`compare` がその音から先の、影響の届いたファイルにだけ違いを見つけること、旧来の単一リバーブのミックスが以前のリリースをビット単位で再現すること、ラウドネス計測が BS.1770 の基準音を −3.01 LUFS と読むこと。CI では、Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）、Windows（固定版の FluidSynth 2.6.1、FFmpeg 9.0.2 と Surge XT）で、レンダリングも含めた全チェックを実行しています。
 
 音楽として良いかどうかは別の話で、聴いてみるしかありません。上の曲が、このリポジトリで示せるいちばんの証拠です。
 
@@ -229,7 +242,7 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 
 **作った音楽を動画やゲーム、商用作品に使えますか？** このスキルと、それが入れる音源は、作ったものに何も求めません。音源はどれもクレジット不要です。追加の音源は CC0 か用途を問わず使えるもので、MS Basic の MIT ライセンスも、それで演奏した音楽には何も求めません。GPL のプログラム（FFmpeg、Surge XT）が及ぶのはプログラム自体で、通った音楽ではありません。エージェントが書いた音楽にあなたの著作権が生じるかどうかは、お住まいの国の法律と、あなたがどこまで手を加えたかによります。
 
-**どのエージェントで使えますか？** Agent Skills を読み込めて Python を実行できるエージェントなら使えます。Claude Code（プラグインとして）、Codex、そのほか `npx skills` で入れたもの。
+**どのエージェントで使えますか？** Agent Skills を読み込めて Python を実行できるエージェントなら使えます。Claude Code と Codex CLI（プラグインとして）、そのほか `npx skills` で入れたもの。
 
 **インターネットや GPU は必要ですか？** インターネットはセットアップのときだけで、レンダリングは CPU でオフラインに動きます。プロジェクトファイルが外に出るのは、エージェントが読んだ内容を自分のモデルに送るときだけです。
 

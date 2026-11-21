@@ -109,6 +109,7 @@ def build_parser():
     snd.add_argument('--limit',type=int,default=25,help='the most patches shown (default 25)');snd.add_argument('--all',action='store_true',help='also patches flagged silent, MPE, microtonal or off pitch')
     snd.add_argument('--id',help='one catalog patch in full: its measurement and what its mod wheel and macros move')
     snd.add_argument('--seed',type=int,help="the piece's seed (musiclib.blocks.seed(title)): which patch each band of the spread shows, so two pieces see different ones")
+    snd.add_argument('--json',action='store_true',help='print the full JSON instead of one line a patch (--id always prints it)')
     ins=command('instruments','Find presets in the configured banks by words of their name, family or bank: the bank and program a part takes, the keys their samples cover, their velocity layers',
                 'python studio.py instruments violin --config config.json')
     ins.add_argument('words',nargs='+',help='words of the preset name (violin), a General MIDI family (strings, brass, reed) or a bank (vsco), or a bank number and program (0:41); where no preset has them all, those that have the most are listed; a word that no preset has is refused, with the nearest word where one is near')
@@ -137,7 +138,7 @@ def build_parser():
     project(cmd);cmd.add_argument('--output',type=Path,required=True,help='a new MIDI file')
     inspect=command('inspect-midi','Count what a MIDI file holds: its tracks and notes, notes left open, note-offs without a note, and its SHA-256','python studio.py inspect-midi song.mid')
     inspect.add_argument('file',type=Path,help='a MIDI file');inspect.add_argument('--output',type=Path,help='also write the listing as JSON here')
-    cln=command('clean',"List, or with --remove remove, the piece's render and round folders other than those kept, its auditions' renders and caches, and the cache entries the kept renders do not use",
+    cln=command('clean',"List, or with --remove remove, the piece's render, round and review folders other than those kept, its auditions' renders and caches, and the cache entries the kept renders do not use",
                 'python studio.py clean my_piece --keep my_piece/render_final --keep my_piece/round_3')
     cln.add_argument('folder',type=Path,help="the piece's folder")
     cln.add_argument('--keep',type=Path,action='append',required=True,help='a render or round folder that stays (repeatable): the final render and the previous round')
@@ -157,8 +158,7 @@ def build_parser():
     return parser
 
 
-def main():
-    args=build_parser().parse_args()
+def main(args):
     def fresh(path,source=None):
         # Taken in any form, a dangling link included (Path.exists follows links): outputs never overwrite.
         files.fresh(path)
@@ -166,7 +166,8 @@ def main():
     if args.command=='configure':
         if files.occupied(args.output):raise ValueError('Choose a new configuration path')
         from musiclib import sf2
-        sf2.read(args.soundfont)  # as add-soundfont: a bank whose tables do not hold together is refused before it is configured
+        from musiclib.bankcheck import refuse_unsafe
+        sf2.read(args.soundfont);refuse_unsafe(args.soundfont)  # as add-soundfont: a bank whose tables do not hold together, or that FluidSynth is not safe with, is refused before it is configured
         cfg={key:{'path':str(getattr(args,key).resolve()),'sha256':file_hash(getattr(args,key)),'license':'User-supplied; retain upstream notices','source':'User-configured local file; hash is integrity, not provenance or antivirus certification'} for key in ('fluidsynth','ffmpeg','soundfont')}
         save_json(args.output,cfg,new=True);print('Saved configuration; inspect source/license before redistribution');return
     if args.command=='add-soundfont':
@@ -179,13 +180,16 @@ def main():
         base=absolute_paths(base,args.config.resolve().parent,args.config);fonts=base.setdefault('soundfonts',{})
         if args.name in fonts:raise ValueError('SoundFont name already configured')
         from musiclib import sf2
-        bank=sf2.read(args.path)
+        from musiclib.bankcheck import refuse_unsafe
+        bank=sf2.read(args.path);refuse_unsafe(args.path)
         fonts[args.name]={'path':str(args.path.resolve()),'sha256':file_hash(args.path),'license':args.license,'source':args.source,'version':args.version,'presets':[[p['bank'],p['program'],p['name']] for p in bank['presets']]}
         save_json(args.output,base,new=True);print('Saved',args.output,'with',len(bank['presets']),'presets in',args.name);return
     if args.command=='doctor':
         from musiclib.audio import load_config,run
         import numpy,tempfile
         c=load_config(args.config,all_banks=True)
+        from musiclib.bankcheck import refuse_unsafe
+        for entry in [c['soundfont'],*c.get('soundfonts',{}).values()]:refuse_unsafe(entry['path'])
         print('Python',sys.version.split()[0],'NumPy',numpy.__version__)
         # The version checks log into a temporary folder of their own: doctor writes nothing beside the configuration.
         with tempfile.TemporaryDirectory(prefix='doctor-') as logs:
@@ -209,6 +213,13 @@ def main():
             print('Surge XT',*(files.one_line(str(x)) for x in (surge.get('version',''),'|',surge.get('license',''),'|',f'{count} patches' if count else 'no patch folder found','| host: pedalboard',host.get('version',''))))   # text a configuration holds
         else:
             print('Surge XT: not set up; synth parts written for it play their built-in fallbacks (references/setup.md)')
+        try:
+            from PIL import __version__ as pillow
+            import re
+            major=re.match(r'(\d+)\.(\d+)',pillow)   # a sized default font (roll.py) came in 10.1
+            print('Pillow',pillow,'(still and video)' if major and (int(major[1]),int(major[2]))>=(10,1) else '(still and video need 10.1 or newer: python -m pip install --upgrade pillow)')
+        except ImportError:
+            print('Pillow: not installed; only still and video need it (python -m pip install pillow)')
         print('PASS: paths and pinned checksums verified; no malware scan implied');return
     if args.command=='words':
         from musiclib import association
@@ -320,7 +331,7 @@ def main():
             return got
         found=describe(args.id) if args.id else search(args.role,[w for w in args.character.split(',') if w.strip()],args.name,args.source,args.limit,args.all,args.seed,
                                                        span(args.centroid,'--centroid','Hz: 600-900, 1500-, -400'),span(args.attack,'--attack','seconds: 0.1-0.3, 0.05-, -0.03'))
-        print(json.dumps(found,ensure_ascii=True,indent=1));return
+        print(json.dumps(found,ensure_ascii=True,indent=1) if args.json or args.id else summary.sounds(found));return
     p=load_project(args.project)
     if args.command=='validate':print(json.dumps(validate(p)));return
     if args.command=='profile':
@@ -365,9 +376,21 @@ def main():
 
 if __name__=='__main__':
     files.escape_unprintable()
-    try:main()
+    args=build_parser().parse_args();code=0
+    try:main(args)
     except KeyError as e:
-        print('ERROR: missing field',files.one_line(str(e)),file=sys.stderr);sys.exit(2)
+        print('ERROR: missing field',files.one_line(str(e)),file=sys.stderr);code=2
     except (ValueError,OSError,RuntimeError,TimeoutError) as e:
         # (0.9 step 1: an error on a path past Windows' limit, where the system's long paths are off, says so)
-        print('ERROR:',files.one_line(str(e)+files.path_limit_hint(e)),file=sys.stderr);sys.exit(2)  # one line, whatever text it carries (0.8 step 1.6)
+        print('ERROR:',files.one_line(str(e)+files.path_limit_hint(e)),file=sys.stderr);code=2  # one line, whatever text it carries (0.8 step 1.6)
+    if getattr(args,'project',None):
+        # Last of all, after what stdout holds, so that a `| tail` keeps it (0.9.2: one run's tail hid a failed script).
+        from musiclib.starter import behind_script
+        note=behind_script(args.project)
+        if note:
+            # On stdout after a summary, as the last line a `| tail` keeps, in PowerShell and Git Bash alike; on stderr where stdout holds JSON.
+            summarised=args.command in ('review','round','render','audition') and not args.json
+            try:
+                sys.stdout.flush();print(note,file=sys.stdout if summarised else sys.stderr,flush=True)
+            except OSError:pass
+    sys.exit(code)

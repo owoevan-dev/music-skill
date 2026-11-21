@@ -1167,10 +1167,10 @@ def _attack_measures(x, rate, frames):
     return Z, padded, t, f, prot, tone, U, V
 
 def repair_attack_noise(x, refs, rate):
-    """One channel of a take with the noise between its partials in its attack brought down toward the level the same
-    channel of its reference takes carries there, and what was done (the deepest cut, the share of 2-10 kHz protected,
-    and per third-octave band and frame the gain aimed at and the gain applied, in dB).  Each reference aims by the
-    lower of two measures: its noise against its tone, given this take's tone, and its noise against its own partials
+    """One channel of a take (in full-scale units, +-1) with the noise between its partials in its attack brought down
+    toward the level the same channel of its reference takes carries there, and what was done (the deepest cut, the
+    share of 2-10 kHz protected, and per third-octave band and frame the gain aimed at, in dB).  Each reference aims by
+    the lower of two measures: its noise against its tone, given this take's tone, and its noise against its own partials
     in the band, given this take's (a take whose upper partials are weaker hides less of the same noise, so by the tone
     alone it can end cleaner than its references); of several references the cleaner aim wins, band by band and frame
     by frame.
@@ -1216,7 +1216,7 @@ def repair_attack_noise(x, refs, rate):
     out[a:b] = y[a:b] * fade + x[a:b] * (1 - fade)
     band = (f >= 2000) & (f <= 10000)
     return out, {'deepest_cut_db': round(float(-G.min()), 1), 'protected_share_2_10_khz': round(float(np.mean(prot[band])), 3),
-                 'aim_db': aim_db, 'gain_db': g_db}   # per band and frame: the gain aimed at, and the gain applied
+                 'aim_db': aim_db}   # per band and frame: the gain aimed at, before its smoothing and taper
 
 def attack_noise_db(x, rate):
     """The noise of a channel's first 80 ms between its partials from 3 to 16 kHz against its tone, in dB (the

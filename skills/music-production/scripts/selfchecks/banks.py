@@ -497,8 +497,8 @@ def define(S):
         # `attack_noise` (0.9.1), each step of the method on made-up channels, after Astra's first review of PR 18 found
         # four steps whose undoing no check saw.  The partial finder's two windows: a partial loud for its first 0.15 s
         # only (found in the attack's window) and a weak steady one the burst hides at first (found in the settled
-        # window) are each kept; the ramp from 1.5 to 2.5 kHz cuts 1.5-2 kHz far less than 2.6-3.2 kHz; the gain applied
-        # is the gain aimed at, averaged over three frames and tapered back from 0.2 to 0.3 s.  And a channel holding
+        # window) are each kept; the ramp from 1.5 to 2.5 kHz cuts 1.5-2 kHz far less than 2.6-3.2 kHz; the audio is the
+        # take under the gain aimed at, averaged over three frames and tapered back from 0.2 to 0.3 s.  And a channel holding
         # nothing but 16-bit dither and a tone of one step is no tone: refused as a take and as a reference.
         import soundbank as sb
         rate=44100
@@ -512,17 +512,27 @@ def define(S):
             return 20*np.log10(abs(np.sum(seg*w*np.exp(-2j*np.pi*hz*np.arange(len(seg))/rate)))+1e-30)
         early=tone_db(y,7000,.02,.15)-tone_db(x,7000,.02,.15);settled=tone_db(y,5300,.05,.30)-tone_db(x,5300,.05,.30)
         assert abs(early)<0.5 and abs(settled)<0.5,(early,settled)                     # cut by 30 and 22 dB without their windows
-        n,hop,w=sb._hann_frames(rate);f=np.fft.rfftfreq(n,1/rate)
+        n,hop=2048,256;w=0.5-0.5*np.cos(2*np.pi*np.arange(n)/n);f=np.fft.rfftfreq(n,1/rate)    # 46 ms at 44.1 kHz
         prot=(np.abs(f[:,None]-found[None,:])<=np.maximum(45.0,0.005*found)[None,:]).any(axis=1)
         def off_db(z,lo,hi):
             Z,_=sb._hann_stft(z,n,hop,w);tt=np.arange(Z.shape[1])*hop/rate;sel=(f>=lo)&(f<hi)&~prot
             return 10*np.log10(np.sum(np.abs(Z[sel][:,tt<0.2])**2)+1e-30)
         low,mid=off_db(x,1500,2000)-off_db(y,1500,2000),off_db(x,2600,3200)-off_db(y,2600,3200)
         assert 0<=low<0.2*mid,(low,mid)                                                  # 0.9 and 10.5 dB; a hard step at 1.5 kHz cuts 2.8
-        frames=info['aim_db'].shape[1];tt=np.arange(frames)*hop/rate;u,b=sb.ATTACK_NOISE_UNTIL_S,sb.ATTACK_NOISE_BACK_S
-        taper=np.where(tt<=u,1.0,np.where(tt>=b,0.0,0.5+0.5*np.cos(np.pi*(tt-u)/(b-u))))
-        smoothed=np.array([np.convolve(row,np.ones(3)/3,mode='same') for row in info['aim_db']])*taper[None,:]
-        assert np.max(np.abs(info['gain_db']-smoothed))<1e-9 and np.ptp(info['aim_db'])>3,np.max(np.abs(info['gain_db']-smoothed))
+        # The audio itself, made again from the gain aimed at with the method's numbers written here and not read from the
+        # module (Astra's second round: a check of a reported gain passed with the audio unsmoothed, and one that took the
+        # taper's end from the constant passed with the constant changed).
+        aim=info['aim_db'];frames=aim.shape[1];tt=np.arange(frames)*hop/rate;lf=np.log2(np.maximum(f,1.0))
+        centres=2000*2**((np.arange(10)+0.5)/3);ramp=np.clip((f-1500)/1000,0,1)
+        taper=np.where(tt<=0.2,1.0,np.where(tt>=0.3,0.0,0.5+0.5*np.cos(np.pi*(tt-0.2)/0.1)))
+        def made(gains):
+            G=np.stack([np.interp(lf,np.log2(centres),gains[:,j]*taper[j])*ramp for j in range(frames)],axis=1);G[prot]=0.0
+            Z,padded=sb._hann_stft(x,n,hop,w);Z[:,:frames]*=10**(G/20);z=sb._hann_istft(Z,n,hop,w,padded,len(x))
+            s,e=int(0.34*rate),int(0.35*rate);out=x.copy();out[:s]=z[:s];out[s:e]=z[s:e]*np.linspace(1,0,e-s)+x[s:e]*(1-np.linspace(1,0,e-s))
+            return out
+        smoothed=np.array([np.convolve(row,np.ones(3)/3,mode='same') for row in aim])
+        assert np.max(np.abs(y-made(smoothed)))<1e-9,np.max(np.abs(y-made(smoothed)))
+        assert np.max(np.abs(y-made(aim)))*32768>5 and np.count_nonzero(np.round((y-x)[int(.23*rate):int(.28*rate)]*32768))>100   # both steps show in this take
         rng=np.random.default_rng(17);t=np.arange(len(x))/rate                           # dither of one step and a tone of one step
         hum=np.round(rng.random(len(x))-rng.random(len(x))+np.sin(2*np.pi*1000*t))/32768
         assert any(abs(p-1000)<20 for p in sb.attack_partials(hum,rate)) and sb.attack_noise_db(hum,rate) is None
@@ -540,13 +550,15 @@ def define(S):
         from musiclib import sf2
         import soundbank as sb
         def take(path,key,amp,burst,seed,seconds=0.9,rate=44100,right=None):
-            """A mono take, or a stereo one whose right channel is the left (right='same') or digital silence ('silent')."""
+            """A mono take, or a stereo one whose right channel is the left ('same'), digital silence ('silent') or a 1 kHz
+            tone of one 16-bit step ('hum')."""
             t=np.arange(round(rate*seconds))/rate;f0=440*2**((key-69)/12);rng=np.random.default_rng(seed)
             tone=sum(10**(-3*k/20)*np.exp(-t*(1.2+0.6*k))*np.sin(2*np.pi*f0*(k+1)*np.sqrt(1+0.0004*(k+1)**2)*t)
                      for k in range(24) if f0*(k+1)*np.sqrt(1+0.0004*(k+1)**2)<rate/2)
             x=amp*(tone+10**(burst/20)*rng.standard_normal(len(t))*np.exp(-t/0.05)+0.0002*rng.standard_normal(len(t)))
             q=np.rint(x*32767).astype('<i2')
-            q=q[:,None] if right is None else np.stack([q,q if right=='same' else np.zeros_like(q)],axis=1)
+            other={'same':q,'silent':np.zeros_like(q),'hum':np.rint(0.6*np.sin(2*np.pi*1000*t)).astype('<i2')}.get(right)
+            q=q[:,None] if right is None else np.stack([q,other],axis=1)
             path.parent.mkdir(parents=True,exist_ok=True)
             with wave.open(str(path),'wb') as wv:wv.setnchannels(q.shape[1]);wv.setsampwidth(2);wv.setframerate(rate);wv.writeframes(q.tobytes())
         def layer(**o):
@@ -554,10 +566,10 @@ def define(S):
                     'match_notes':False,'pitch_check':False,'onset_db':None,**o}
         def built(name,root,presets):
             sb.build({'name':'k','presets':presets},root,work/f'keep_{name}.sf2');return sf2.read(work/f'keep_{name}.sf2')
-        def words(bank,program,key,named=None):
+        def words(bank,program,key,named=None,pan=None):
             pr=next(p for p in bank['presets'] if (p['bank'],p['program'])==(0,program));ins=bank['instruments'][pr['zones'][0]['target']]
             z=next(z for z in ins['zones'] if z['target'] is not None and z['gens'][43][0]<=key<=z['gens'][43][1]
-                   and (named is None or bank['samples'][z['target']]['name'].startswith(named)))
+                   and (named is None or bank['samples'][z['target']]['name'].startswith(named)) and (pan is None or z['gens'].get(17)==pan))
             return np.asarray(sf2.load_sample(bank,z['target']),dtype=np.float64)
         replay=lambda x,refs:np.clip(np.round(sb.repair_attack_noise(x,refs,44100)[0]*32768),-32768,32767)
         same=lambda got,want:np.array_equal(got*32768,want)
@@ -592,6 +604,15 @@ def define(S):
         for note,key,amp,burst,seed in (('E5',76,0.1,-35,21),('F#5',78,0.1,-30,22),('G#5',80,0.1,-10,23)):
             take(quiet/f'p_{note}_m.wav',key,amp,burst,seed,right='silent' if note=='G#5' else 'same')
         try:sb.build({'name':'k','presets':[{'name':'p','program':0,'layers':[layer(attack_noise={'G#5':['E5','F#5']})]}]},quiet,work/'keep_silent.sf2');raise AssertionError('a silent channel')
+        except ValueError as e:assert 'cannot be read' in str(e),e
+        # A right channel of a faint hum, one 16-bit step: stored, the peak finder finds it in the dither (silence's dither
+        # shows a peak only for some seeds), and it stands under 30 dB over that dither, as the build reads its words.
+        hum=work/'keep_hum'
+        for note,key,amp,burst,seed in (('E5',76,0.25,-35,21),('F#5',78,0.25,-30,22),('G#5',80,0.25,-10,23)):
+            take(hum/f'p_{note}_m.wav',key,amp,burst,seed,right='hum' if note=='G#5' else 'same')
+        right=words(built('hum_plain',hum,[{'name':'p','program':0,'layers':[layer()]}]),0,80,pan=500)
+        assert any(abs(p-1000)<20 for p in sb.attack_partials(right,44100)) and sb.attack_noise_db(right,44100) is None,np.abs(right).max()*32768
+        try:sb.build({'name':'k','presets':[{'name':'p','program':0,'layers':[layer(attack_noise={'G#5':['E5','F#5']})]}]},hum,work/'keep_hum.sf2');raise AssertionError('a tone of one step')
         except ValueError as e:assert 'cannot be read' in str(e),e
         # One key named twice in a recipe: JSON keeps the last list, so the builder refuses it.
         recipe=work/'keep_twice.json'

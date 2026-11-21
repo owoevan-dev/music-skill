@@ -90,6 +90,8 @@ ROSTER = (
     'a_soft_take_made_from_the_loud_one',
     'settled_bands_are_closed_once',
     'full_scale_storage_keeps_the_level_heard',
+    'stored_patch_changes_the_named_take_alone',
+    'the_steinway_patch_is_as_described',
     'the_code_review_of_0_7_stays_fixed',
     'soundbank_tunes_split_notes_and_quiets_borrowed_dynamics',
     'dynamics_crossfade_keeps_power_and_legato_fades_cross',

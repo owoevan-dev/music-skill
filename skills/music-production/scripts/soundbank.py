@@ -2034,9 +2034,91 @@ def _across_levels(local, layer_med):
         common.setdefault(n, []).append(v / layer_med[dyn])
     return {(n, dyn): float(np.median(common[n])) * layer_med[dyn] for (n, dyn) in local}
 
-def build(spec, root, output, ffmpeg=None, new=False):
+# `stored_patch` (0.9.1): numbers added to named takes as they are stored, a correction made once to a recording of one
+# of the skill's banks.  They are in a file beside the recipes, which the recipe names with the digest of what it holds,
+# so the lock's `spec_digest` covers them; each channel's numbers hold the hash of the words they were made for.
+PATCH_FOLDER = LOCK.parent / 'soundbanks'
+PATCH_BYTES = 4_000_000
+
+
+class StoredPatchMismatch(ValueError):
+    """A channel as stored is not the words its `stored_patch` was made for (the installer adds what to do about it)."""
+
+
+def read_stored_patch(field, folder=None):
+    """A layer's `stored_patch`, {"file": "<name>.json", "digest": "<64 hex digits>"}, read and checked whole before any
+    recording is read.  The file's `takes`: {a take's path under the source root: [for each channel, {"before_sha256":
+    the hash of its 16-bit words as stored without the patch, "start": the frame the numbers start at, "add": [whole
+    numbers of 16 bits]}]}.  The digest is of the parsed document (model.digest), whatever the file's line endings."""
+    from musiclib.model import digest
+    if not (isinstance(field, dict) and set(field) == {'file', 'digest'} and isinstance(field['file'], str)
+            and field['file'].endswith('.json') and isinstance(field['digest'], str)
+            and re.fullmatch(r'[0-9a-f]{64}', field['digest'])):
+        raise ValueError('`stored_patch` is {"file": "<name>.json", "digest": "<64 hex digits>"}, a file in the skill\'s '
+                         'references/soundbanks')
+    label(field['file'], '`stored_patch` file')
+    try:
+        document = files.read_object(Path(folder or PATCH_FOLDER) / field['file'], 'a stored patch', PATCH_BYTES,
+                                     needs=(('takes', dict, 'the numbers to add, by take'),))
+    except FileNotFoundError:
+        raise ValueError(f'{field["file"]}, which this recipe names, is missing from the skill\'s references/soundbanks: '
+                         'its files are incomplete; install the skill again') from None
+    if digest(document) != field['digest']:
+        raise ValueError(f'{field["file"]} is not the file its recipe names: its digest differs; the skill\'s files are '
+                         'damaged or from two versions; install the skill again')
+    for take, channels in document['takes'].items():
+        if not (isinstance(channels, list) and channels and all(
+                isinstance(c, dict) and set(c) == {'before_sha256', 'start', 'add'} and isinstance(c['before_sha256'], str)
+                and re.fullmatch(r'[0-9a-f]{64}', c['before_sha256']) and type(c['start']) is int and c['start'] >= 0
+                and isinstance(c['add'], list) and c['add'] and all(type(v) is int and -32768 <= v <= 32767 for v in c['add'])
+                for c in channels)):
+            raise ValueError(f'{field["file"]}: {take}: a take holds a list of channels, each with "before_sha256", a '
+                             'whole-number "start" and "add", a list of whole numbers of 16 bits')
+    return document['takes']
+
+
+def _bind_stored_patch(takes, field, entries, root):
+    """The takes a patch names, found in their layer once every gain is set.  Each is stored under a key of its own, with
+    its exact gain (`store`'s key rounds it, and two gains that round alike store different words): a preset sharing the
+    recording without the field keeps it as it was, and one at another gain does not pass on the first's hash.  A take
+    the layer lacks is refused, not passed by."""
+    here = {e['file'].relative_to(root).as_posix(): e for e in entries}
+    absent = sorted(set(takes) - set(here))
+    if absent:
+        raise ValueError(f'{field["file"]} names {", ".join(absent)}, which this layer does not have')
+    for name, channels in takes.items():
+        e = here[name]
+        if len(channels) != e['x'].shape[1]:
+            raise ValueError(f'{field["file"]}: {name} has {e["x"].shape[1]} channels, the patch {len(channels)}')
+        e['stored_patch'] = channels
+        e['take'] = json.dumps([e['take'], 'stored_patch', field['digest'], float(e['gain'])])
+
+
+def _patched_words(q, channels, name):
+    """A take's 16-bit words as stored, with its `stored_patch` added.  Each channel must be the words its numbers were
+    made for, and the sums must stay within 16 bits."""
+    out = q.copy()
+    for ch, c in enumerate(channels):
+        found = hashlib.sha256(q[:, ch].astype('<i2').tobytes()).hexdigest()
+        if found != c['before_sha256']:
+            raise StoredPatchMismatch(f'{name}: channel {ch + 1} as stored here (SHA-256 {found[:12]}...) is not what its `stored_patch` '
+                                      f'was made for ({c["before_sha256"][:12]}...): the recording, the layer\'s levels or the '
+                                      'rounding of another NumPy differ')
+        a, b = c['start'], c['start'] + len(c['add'])
+        if b > len(q):
+            raise ValueError(f'{name}: channel {ch + 1}: the `stored_patch` runs to frame {b} of a take of {len(q)}')
+        y = q[a:b, ch].astype(np.int32) + np.asarray(c['add'], dtype=np.int32)
+        if y.min() < -32768 or y.max() > 32767:
+            raise ValueError(f'{name}: channel {ch + 1}: the `stored_patch` takes a word outside 16 bits')
+        out[a:b, ch] = y
+    return out
+
+
+def build(spec, root, output, ffmpeg=None, new=False, patch_folder=None):
     root = Path(root).resolve()  # once: a link below it is refused where the build opens it (contained, unlinked)
     named = iter(naming(spec))  # every layer's naming checked before any recording is read (0.8 step 1.5)
+    patches = {id(layer): read_stored_patch(layer['stored_patch'], patch_folder)   # so are the corrections
+               for p in spec['presets'] for layer in p['layers'] if layer.get('stored_patch') is not None}
     samples, instruments, presets, receipt = [], [], [], {'spec': spec.get('name'), 'files': [], 'layers': []}
     loaded, stored = {}, {}
     for pspec in spec['presets']:
@@ -2088,6 +2170,8 @@ def build(spec, root, output, ffmpeg=None, new=False):
                         e['gain'] *= 0.95 / loudest
         contexts = []
         for layer, (entries, octave_fix, layer_med) in zip(pspec['layers'], prepared):
+            if id(layer) in patches:
+                _bind_stored_patch(patches[id(layer)], layer['stored_patch'], entries, root)
             inst_zones = []
             notes = sorted({e['named'] for e in entries})
             # `keys: "auto"` spans the notes found, after any octave fix, plus `key_margin` (2) semitones each side: for a
@@ -2150,6 +2234,8 @@ def build(spec, root, output, ffmpeg=None, new=False):
                 e['stored_lift_cb'] = lift_cb
                 rng = np.random.default_rng(int(e['sha256'][:8], 16))  # TPDF dither to 16-bit
                 q = np.clip(np.round(x * 32767 + rng.random(x.shape) - rng.random(x.shape)), -32768, 32767).astype(np.int16)
+                if e.get('stored_patch'):
+                    q = _patched_words(q, e['stored_patch'], e['file'].name)
                 ids = []
                 for ch in range(q.shape[1]):
                     ids.append(len(samples))
@@ -2227,7 +2313,15 @@ def build(spec, root, output, ffmpeg=None, new=False):
                             row['closed_bands'] = e['closed_bands']
                         if e.get('stored_lift_cb'):
                             row['stored_lift_db'] = round(e['stored_lift_cb'] / 10, 2)   # stored this much louder, attenuated as much in the zone
+                        if e.get('stored_patch'):
+                            row['stored_patch'] = {'digest': layer['stored_patch']['digest'], 'channels': [
+                                {'sample': sid, 'from_frame': c['start'], 'frames': len(c['add']), 'words_changed': sum(map(bool, c['add'])),
+                                 'largest_change': max(map(abs, c['add']))} for sid, c in zip(ids, e['stored_patch'])]}
                         receipt['files'].append(row)
+            if id(layer) in patches:   # a take outside the layer's keys is loaded and never stored: the bank would lack the correction
+                unused = sorted(e['file'].name for e in entries if e.get('stored_patch') and 'effective_gain_db' not in e)
+                if unused:
+                    raise ValueError(f'{layer["stored_patch"]["file"]} names {", ".join(unused)}, which no key of this layer plays')
             contexts.append({'layer': layer, 'entries': entries, 'notes': notes, 'keymap': keymap, 'gens': dict(gens)})
             instrument = {'name': f'{pspec["name"][:16]} {len(instruments) - first_instrument + 1}', 'global': gens,
                           'zones': inst_zones}

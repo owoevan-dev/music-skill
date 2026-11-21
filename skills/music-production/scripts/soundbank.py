@@ -1570,7 +1570,7 @@ def _borrowed_cb(layer, src, dyn):
         return 0
     return max(0, int(round(10 * (shape[src] - shape[dyn]))))
 
-def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
+def _derived_presets(pspec, contexts, stored, instruments, presets, receipt, root):
     """The `dynamic_layers` and `legato` presets of a sustained preset.
 
     A sampler crossfades between recorded dynamics along a controller (SFZ's xfin/xfout on CC1); an SF2 zone can only
@@ -1579,7 +1579,8 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
     dynamic and crossfades the renders (musiclib/layered.py).  With `legato`, bank `legato.bank` + k holds the same takes
     started past their attack, as SFZ legato regions skip a sustained sample's start with `offset`, and faded in over
     `legato.attack` seconds.  A layer with fewer recorded dynamics than the preset's richest maps onto the same scale.
-    Round robins alternate in blocks of 16 velocities, since velocity no longer sets the level."""
+    Round robins alternate in blocks of 16 velocities, since velocity no longer sets the level.  What each layer's presets
+    play joins its context's `played`, and the report names each patched take among it with the banks that play it."""
     dl, leg = pspec.get('dynamic_layers'), pspec.get('legato')
     if not dl:
         if leg:
@@ -1588,6 +1589,7 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
     count = max(len(c['layer']['dynamics']) for c in contexts)
     neutral = sf2.override(sf2.VELOCITY_TO_ATTENUATION, 0) + sf2.override(sf2.VELOCITY_TO_FILTER, 0)
     report = {'preset': pspec['name'], 'program': pspec['program'], 'layer_banks': [], 'legato_banks': [], 'legato_offsets_ms': []}
+    patched = {}
     for kind, base in (('layer', dl['bank']), ('legato', leg['bank'] if leg else None)):
         if base is None:
             continue
@@ -1609,7 +1611,7 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
                     group = sorted(by[(note, src)], key=lambda e: str(e['rr']))
                     quieter = _borrowed_cb(layer, src, dyn)
                     for pos, e in enumerate(group):
-                        ids, _, lift_cb = stored[(e['take'], round(e['gain'], 6), e['named'], bool(layer.get('full_scale')))]
+                        ids, _, lift_cb = stored[_store_key(e, layer)]
                         fine = 0 if e['cents'] is None or abs(e['cents']) > layer.get('max_correction_cents', 45) else -int(round(e['cents']))
                         spans = [(v, min(127, v + 15)) for v in range(1, 128, 16) if ((v - 1) // 16) % len(group) == pos] if len(group) > 1 else [(1, 127)]
                         offset = attack_end(e['x'], e['rate'], e.get('loop')) if kind == 'legato' else 0
@@ -1631,6 +1633,13 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
                                 if len(ids) == 2:
                                     z[17] = -500 if ch == 0 else 500
                                 zones.append({'gens': z, 'sample': sid})
+                        if spans:   # a round robin past the eighth has no block of velocities here
+                            c['played'].update(ids)
+                            if e.get('stored_patch'):
+                                row = patched.setdefault((e['file'], tuple(ids)), {'file': str(e['file'].relative_to(root)), 'banks': [],
+                                                                                   **_patch_row(e, ids)})
+                                if base + k not in row['banks']:
+                                    row['banks'].append(base + k)
                 gens = dict(c['gens'])
                 if kind == 'legato':
                     gens[34] = sf2.timecents(leg.get('attack', 0.01))
@@ -1643,6 +1652,8 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
     offsets = report.pop('legato_offsets_ms')
     if offsets:
         report['legato_offset_ms'] = {'min': min(offsets), 'median': float(np.median(offsets)), 'max': max(offsets)}
+    if patched:
+        report['stored_patch'] = list(patched.values())
     receipt.setdefault('derived', []).append(report)
 
 def _split_pitches(root):
@@ -2034,11 +2045,145 @@ def _across_levels(local, layer_med):
         common.setdefault(n, []).append(v / layer_med[dyn])
     return {(n, dyn): float(np.median(common[n])) * layer_med[dyn] for (n, dyn) in local}
 
-def build(spec, root, output, ffmpeg=None, new=False):
+# `stored_patch` (0.9.1): numbers added to named takes as they are stored, a correction made once to a recording of one
+# of the skill's banks.  They are in a file beside the recipes, which the recipe names with the digest of what it holds,
+# so the lock's `spec_digest` covers them; each channel's numbers hold the hash of the words they were made for.
+PATCH_FOLDER = LOCK.parent / 'soundbanks'
+PATCH_BYTES = 4_000_000
+
+
+class StoredPatchMismatch(ValueError):
+    """A channel as stored is not the words its `stored_patch` was made for (the installer adds what to do about it)."""
+
+
+def read_stored_patch(field, folder=None):
+    """A layer's `stored_patch`, {"file": "<name>.json", "digest": "<64 hex digits>"}, read and checked whole before any
+    recording is read.  The file's `takes`: {a take's path under the source root: [for each channel, {"before_sha256":
+    the hash of its 16-bit words as stored without the patch, "start": the frame the numbers start at, "add": [whole
+    numbers of 16 bits]}]}.  The digest is of the parsed document (model.digest), whatever the file's line endings."""
+    from musiclib.model import digest
+    if not (isinstance(field, dict) and set(field) == {'file', 'digest'} and isinstance(field['file'], str)
+            and field['file'].endswith('.json') and isinstance(field['digest'], str)
+            and re.fullmatch(r'[0-9a-f]{64}', field['digest'])):
+        raise ValueError('`stored_patch` is {"file": "<name>.json", "digest": "<64 hex digits>"}, a file in the skill\'s '
+                         'references/soundbanks')
+    label(field['file'], '`stored_patch` file')
+    try:
+        document = files.read_object(Path(folder or PATCH_FOLDER) / field['file'], 'a stored patch', PATCH_BYTES,
+                                     needs=(('takes', dict, 'the numbers to add, by take'),))
+    except FileNotFoundError:
+        raise ValueError(f'{field["file"]}, which this recipe names, is missing from the skill\'s references/soundbanks: '
+                         'its files are incomplete; install the skill again') from None
+    if digest(document) != field['digest']:
+        raise ValueError(f'{field["file"]} is not the file its recipe names: its digest differs; the skill\'s files are '
+                         'damaged or from two versions; install the skill again')
+    if not document['takes']:
+        raise ValueError(f'{field["file"]} names no take: the bank would come out without a correction')
+    for take, channels in document['takes'].items():
+        if not (isinstance(channels, list) and channels and all(
+                isinstance(c, dict) and set(c) == {'before_sha256', 'start', 'add'} and isinstance(c['before_sha256'], str)
+                and re.fullmatch(r'[0-9a-f]{64}', c['before_sha256']) and type(c['start']) is int and c['start'] >= 0
+                and isinstance(c['add'], list) and c['add'] and all(type(v) is int and -32768 <= v <= 32767 for v in c['add'])
+                for c in channels)):
+            raise ValueError(f'{field["file"]}: {take}: a take holds a list of channels, each with "before_sha256", a '
+                             'whole-number "start" and "add", a list of whole numbers of 16 bits')
+    return document['takes']
+
+
+def _refuse_misplaced_patch(spec):
+    """`stored_patch` acts on a layer alone: anywhere else in a recipe the bank would come out plain, with no word of it."""
+    layers = {id(layer) for p in spec['presets'] for layer in p['layers']}
+
+    def holds(node):
+        if isinstance(node, dict):
+            return ('stored_patch' in node and id(node) not in layers) or any(holds(v) for v in node.values())
+        return isinstance(node, list) and any(holds(v) for v in node)
+    for part, where in (({k: v for k, v in spec.items() if k != 'presets'}, 'the recipe'),
+                        *((p, f'preset {p.get("name")!r}') for p in spec['presets'])):
+        if holds(part):
+            raise ValueError(f'`stored_patch` belongs on a layer: {where} holds it outside one, where it would do nothing')
+
+
+def _store_key(e, layer):
+    """What `store` keeps a take's samples under.  How the layer stores is part of the key: a take a `full_scale` layer and
+    a plain one share was stored once, as whichever layer came first in the spec (the review of 0.7's code, F08).  The
+    first four items are the key of the words a build without `stored_patch` stores; a patched take adds its patch's digest."""
+    key = (e['take'], round(e['gain'], 6), e['named'], bool(layer.get('full_scale')))
+    return (*key, e['stored_patch_digest']) if e.get('stored_patch') else key
+
+
+def _take_words(e, full_scale):
+    """A take's 16-bit words as a bank stores them, with the gain they are stored at (dB) and the lift its zones take back (cB)."""
+    x = e['x'] * e['gain']
+    peak = float(np.abs(x).max())
+    if peak > 0.98:
+        x = x * (0.98 / peak)
+    gain_db = round(20 * math.log10(e['gain'] * min(1.0, 0.98 / max(peak, 1e-12))), 2)
+    # `full_scale`: a sample is 16 bits, and its dither lies a fixed 93 dB under full scale whatever the
+    # take's level.  A take stored 20 dB under full scale carries that floor 20 dB nearer its note, and a
+    # soft piece raised 30 dB in the mix brings it up with the music.  So the take is stored as loud as
+    # 16 bits hold and its zone attenuates it by the same amount: the level heard is the same and the
+    # floor lies that much lower.  The lift is a whole number of the file's attenuation steps (0.04 dB
+    # heard, sf2.EMU_ATTENUATION), at most 36 dB.
+    lift_cb = 0.0
+    if full_scale and 0 < peak < 0.98:
+        steps = int(min(36.0, 20 * math.log10(0.98 / peak)) * 10 / sf2.EMU_ATTENUATION)
+        lift_cb = steps * sf2.EMU_ATTENUATION
+        x = x * 10 ** (lift_cb / 200)
+    rng = np.random.default_rng(int(e['sha256'][:8], 16))  # TPDF dither to 16-bit
+    return np.clip(np.round(x * 32767 + rng.random(x.shape) - rng.random(x.shape)), -32768, 32767).astype(np.int16), gain_db, lift_cb
+
+
+def _bind_stored_patch(takes, field, entries, root):
+    """The takes a patch names, found in their layer once every gain is set.  A take the layer lacks is refused, not passed
+    by; one it has is stored under a key of its own (`_store_key`), so a preset sharing the recording without the field
+    keeps it as it was."""
+    here = {e['file'].relative_to(root).as_posix(): e for e in entries}
+    absent = sorted(set(takes) - set(here))
+    if absent:
+        raise ValueError(f'{field["file"]} names {", ".join(absent)}, which this layer does not have')
+    for name, channels in takes.items():
+        e = here[name]
+        if len(channels) != e['x'].shape[1]:
+            raise ValueError(f'{field["file"]}: {name} has {e["x"].shape[1]} channels, the patch {len(channels)}')
+        e['stored_patch'], e['stored_patch_digest'] = channels, field['digest']
+
+
+def _patched_words(q, channels, name):
+    """A take's 16-bit words as stored, with its `stored_patch` added.  Each channel must be the words its numbers were
+    made for, and the sums must stay within 16 bits."""
+    out = q.copy()
+    for ch, c in enumerate(channels):
+        found = hashlib.sha256(q[:, ch].astype('<i2').tobytes()).hexdigest()
+        if found != c['before_sha256']:
+            raise StoredPatchMismatch(f'{name}: channel {ch + 1} as stored here (SHA-256 {found[:12]}...) is not what its `stored_patch` '
+                                      f'was made for ({c["before_sha256"][:12]}...): the recording, the layer\'s levels or the '
+                                      'rounding of another NumPy differ')
+        a, b = c['start'], c['start'] + len(c['add'])
+        if b > len(q):
+            raise ValueError(f'{name}: channel {ch + 1}: the `stored_patch` runs to frame {b} of a take of {len(q)}')
+        y = q[a:b, ch].astype(np.int32) + np.asarray(c['add'], dtype=np.int32)
+        if y.min() < -32768 or y.max() > 32767:
+            raise ValueError(f'{name}: channel {ch + 1}: the `stored_patch` takes a word outside 16 bits')
+        out[a:b, ch] = y
+    return out
+
+
+def _patch_row(e, ids):
+    """What a receipt says of a patched take: its patch, and for each channel the sample holding it, where and how much."""
+    return {'digest': e['stored_patch_digest'], 'channels': [
+        {'sample': sid, 'from_frame': c['start'], 'frames': len(c['add']), 'words_changed': sum(map(bool, c['add'])),
+         'largest_change': max(map(abs, c['add']))} for sid, c in zip(ids, e['stored_patch'])]}
+
+
+def build(spec, root, output, ffmpeg=None, new=False, patch_folder=None):
     root = Path(root).resolve()  # once: a link below it is refused where the build opens it (contained, unlinked)
     named = iter(naming(spec))  # every layer's naming checked before any recording is read (0.8 step 1.5)
+    _refuse_misplaced_patch(spec)
+    patches = {id(layer): read_stored_patch(layer['stored_patch'], patch_folder)   # so are the corrections
+               for p in spec['presets'] for layer in p['layers'] if 'stored_patch' in layer}
     samples, instruments, presets, receipt = [], [], [], {'spec': spec.get('name'), 'files': [], 'layers': []}
-    loaded, stored = {}, {}
+    loaded, stored, unpatched = {}, {}, {}
     for pspec in spec['presets']:
         layer_targets = []
         first_instrument = len(instruments)
@@ -2088,6 +2233,8 @@ def build(spec, root, output, ffmpeg=None, new=False):
                         e['gain'] *= 0.95 / loudest
         contexts = []
         for layer, (entries, octave_fix, layer_med) in zip(pspec['layers'], prepared):
+            if id(layer) in patches:
+                _bind_stored_patch(patches[id(layer)], layer['stored_patch'], entries, root)
             inst_zones = []
             notes = sorted({e['named'] for e in entries})
             # `keys: "auto"` spans the notes found, after any octave fix, plus `key_margin` (2) semitones each side: for a
@@ -2125,31 +2272,22 @@ def build(spec, root, output, ffmpeg=None, new=False):
                 mods += sf2.override(sf2.VELOCITY_TO_FILTER, layer['velocity_filter_cents'])
             def store(e):
                 """Write one source file once (stereo as a linked pair) and return its sample ids."""
-                # How the layer stores is part of the key: a take a `full_scale` layer and a plain one share was
-                # stored once, as whichever layer came first in the spec (the review of 0.7's code, F08).
-                skey = (e['take'], round(e['gain'], 6), e['named'], bool(layer.get('full_scale')))
+                skey = _store_key(e, layer)
                 if skey in stored:
                     e['effective_gain_db'], e['stored_lift_cb'] = stored[skey][1], stored[skey][2]
                     return stored[skey][0]
-                x = e['x'] * e['gain']
-                peak = float(np.abs(x).max())
-                if peak > 0.98:
-                    x = x * (0.98 / peak)
-                e['effective_gain_db'] = round(20 * math.log10(e['gain'] * min(1.0, 0.98 / max(peak, 1e-12))), 2)
-                # `full_scale`: a sample is 16 bits, and its dither lies a fixed 93 dB under full scale whatever the
-                # take's level.  A take stored 20 dB under full scale carries that floor 20 dB nearer its note, and a
-                # soft piece raised 30 dB in the mix brings it up with the music.  So the take is stored as loud as
-                # 16 bits hold and its zone attenuates it by the same amount: the level heard is the same and the
-                # floor lies that much lower.  The lift is a whole number of the file's attenuation steps (0.04 dB
-                # heard, sf2.EMU_ATTENUATION), at most 36 dB.
-                lift_cb = 0.0
-                if layer.get('full_scale') and 0 < peak < 0.98:
-                    steps = int(min(36.0, 20 * math.log10(0.98 / peak)) * 10 / sf2.EMU_ATTENUATION)
-                    lift_cb = steps * sf2.EMU_ATTENUATION
-                    x = x * 10 ** (lift_cb / 200)
-                e['stored_lift_cb'] = lift_cb
-                rng = np.random.default_rng(int(e['sha256'][:8], 16))  # TPDF dither to 16-bit
-                q = np.clip(np.round(x * 32767 + rng.random(x.shape) - rng.random(x.shape)), -32768, 32767).astype(np.int16)
+                # A patched take's numbers go on the words a build without the field stores under this key, the first
+                # layer's to reach it (gains that round alike share them): they are checked against what they were made
+                # for, and a preset without the field keeps what it had, before or after the patched one.
+                plain = skey[:4]
+                if plain in stored:
+                    q, gain_db, lift_cb = np.stack([samples[i]['data'] for i in stored[plain][0]], axis=1), *stored[plain][1:]
+                else:
+                    q, gain_db, lift_cb = unpatched.get(plain) or _take_words(e, layer.get('full_scale'))
+                e['effective_gain_db'], e['stored_lift_cb'] = gain_db, lift_cb
+                if e.get('stored_patch'):
+                    unpatched[plain] = (q, gain_db, lift_cb)
+                    q = _patched_words(q, e['stored_patch'], e['file'].name)
                 ids = []
                 for ch in range(q.shape[1]):
                     ids.append(len(samples))
@@ -2158,7 +2296,7 @@ def build(spec, root, output, ffmpeg=None, new=False):
                                     'type': (4 if ch == 0 else 2) if q.shape[1] == 2 else 1})
                 if len(ids) == 2:
                     samples[ids[0]]['link'], samples[ids[1]]['link'] = ids[1], ids[0]
-                stored[skey] = (ids, e['effective_gain_db'], lift_cb)
+                stored[skey] = (ids, gain_db, lift_cb)
                 return ids
 
             order = list(layer['dynamics'])
@@ -2227,8 +2365,11 @@ def build(spec, root, output, ffmpeg=None, new=False):
                             row['closed_bands'] = e['closed_bands']
                         if e.get('stored_lift_cb'):
                             row['stored_lift_db'] = round(e['stored_lift_cb'] / 10, 2)   # stored this much louder, attenuated as much in the zone
+                        if e.get('stored_patch') and any(hi >= 1 for _, hi in spans):   # on the rows that play it (a take may serve a dynamic in name only)
+                            row['stored_patch'] = _patch_row(e, ids)
                         receipt['files'].append(row)
-            contexts.append({'layer': layer, 'entries': entries, 'notes': notes, 'keymap': keymap, 'gens': dict(gens)})
+            contexts.append({'layer': layer, 'entries': entries, 'notes': notes, 'keymap': keymap, 'gens': dict(gens),
+                             'played': {z['sample'] for z in inst_zones if z['gens'][44][1] >= 1}})
             instrument = {'name': f'{pspec["name"][:16]} {len(instruments) - first_instrument + 1}', 'global': gens,
                           'zones': inst_zones}
             if mods:
@@ -2237,7 +2378,15 @@ def build(spec, root, output, ffmpeg=None, new=False):
         presets.append({'name': pspec['name'][:19], 'bank': pspec.get('bank', 0), 'program': pspec['program'], 'global': {},
                         'zones': [{'gens': {}, 'instrument': i} for i in range(first_instrument, len(instruments))]})
         receipt['layers'].append({'preset': pspec['name'], 'layers': layer_targets})
-        _derived_presets(pspec, contexts, stored, instruments, presets, receipt)
+        _derived_presets(pspec, contexts, stored, instruments, presets, receipt, root)
+        for c in contexts:   # a take no zone of its layer or of a preset made from it plays (outside the keys, a round robin no velocity
+            # is left for, or at velocity 0 alone, which MIDI reads as a note's end): the bank would lack the correction, with no word of it
+            if id(c['layer']) in patches:
+                unused = sorted(e['file'].name for e in c['entries'] if e.get('stored_patch')
+                                and not c['played'].intersection(stored.get(_store_key(e, c['layer']), ((),))[0]))
+                if unused:
+                    raise ValueError(f'{c["layer"]["stored_patch"]["file"]} names {", ".join(unused)}, which no key or velocity '
+                                     'of this layer or of a preset made from it plays')
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     # Attenuations are kept in the centibels meant to be heard and written for FluidSynth (sf2.EMU_ATTENUATION).

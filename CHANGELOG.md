@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] - 2026-11-22
+
+One recording of the Steinway corrected.
+
+### Fixed
+
+- **The Steinway's G#5 and A5 carry less of a short noise just after the blow.** The recording that plays both carried a burst above 8 kHz some 16 to 20 ms into the note, which the recordings around it do not, and it stood out in a melody. Build b14 of the `vcsl` bank reduces it with a stored correction to that recording, from about 3 ms to at most 0.29 s into the note. The first 3 ms and the rest of each note are as in build b12.
+
+### Added
+
+- **`stored_patch` for bank recipes** ([soundbank-building.md](skills/music-production/references/soundbank-building.md)): whole numbers added to named takes as they are stored, each channel checked against the hash of the words they were made for.
+
+### Changed
+
+- **`vcsl` build b14.** The setup installs it in place of b12 (its prebuilt asset, or a build from the same sources). Every sample but those six channels is as in b12. A piece that plays the Steinway's G#5 or A5 changes at those notes, and that part by the small change in its measured level.
+
 ## [0.9.0] - 2026-11-20
 
 An electric guitar and bass played by string through an amplifier, parts that move across the stereo image, a headphone version of a mix, and a review that asks fewer questions it has no business asking.

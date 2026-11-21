@@ -1787,6 +1787,51 @@ def define(S):
         made('patch_borrowed',[{**layer,**rr,'dynamics':['soft','ff'],'velocity':{'soft':[1,60],'ff':[121,127]},'stored_patch':far}])  # played only where it is borrowed
         assert [r['serves_dynamic'] for r in receipts['patch_borrowed']['files'] if r.get('stored_patch')]==['soft']
         receipt_is_true('patch_borrowed','A3_ff_2',rr_want)
+        # A preset made from the layer (`dynamic_layers`, `legato`) gives each round robin blocks of 16 velocities of its own, so it
+        # can play a take the main preset leaves out: that take is used, and is taken with its numbers, the receipt naming the
+        # banks that play it.  One that none of them plays, or that only another layer's presets play, is still refused.
+        for sub,here in (('gen',(('A3_soft_1',221.0,.12),('A3_ff_1',222.0,.3),('A3_ff_2',224.0,.3))),('nine',tuple((f'A3_ff_{n}',222.0+n,.3) for n in range(1,10)))):
+            (root/sub).mkdir(exist_ok=True)
+            for name,f0,amp in here:audio.write_wav(root/sub/f'{name}.wav',tone(f0,amp),rate)
+        versions={'dynamic_layers':{'bank':16},'legato':{'bank':32,'attack':.01}}
+        one_word=lambda name,words,take,stem:patch(name,{take:[{'before_sha256':hashlib.sha256(words[stem+c].astype('<i2').tobytes()).hexdigest(),'start':10,'add':[3]} for c in 'LR']})
+        gen={**layer,'dir':'gen','template':'{note}_{dyn}_{rr}.wav','dynamics':['soft','ff'],'velocity':{'soft':[1,120],'ff':[121,127]},'rr_block':8}
+        gen_plain=made('patch_gen_plain',[gen],**versions)
+        assert 'A3_ff_2L' not in gen_plain[(0,0)] and 'A3_ff_2L' not in gen_plain[(16,0)] and 'A3_ff_2L' in gen_plain[(17,0)],sorted(gen_plain)
+        assert 'stored_patch' not in receipts['patch_gen_plain']['derived'][0]
+        gen_patch=one_word('gen',gen_plain[(17,0)],'gen/A3_ff_2.wav','A3_ff_2')
+        gen_got=made('patch_gen',[{**gen,'stored_patch':gen_patch}],**versions)
+        gen_want={k:{n:w.copy() for n,w in v.items()} for k,v in gen_plain.items()}
+        for b in (17,33):
+            for c in 'LR':gen_want[(b,0)]['A3_ff_2'+c][10]+=3
+        assert set(gen_got)==set(gen_want) and all(same(gen_got[k],gen_want[k]) for k in gen_want),sorted(gen_got)
+        assert not any(r.get('stored_patch') for r in receipts['patch_gen']['files'])                     # no row of the main preset plays it
+        gen_rows=receipts['patch_gen']['derived'][0]['stored_patch']
+        assert [(r['file'].replace('\\','/'),r['banks'],r['digest']) for r in gen_rows]==[('gen/A3_ff_2.wav',[17,33],gen_patch['digest'])],gen_rows
+        gen_bank=sf2.read(work/'patch_gen.sf2')
+        for side,c in zip('LR',gen_rows[0]['channels']):
+            assert {k:v for k,v in c.items() if k!='sample'}=={'from_frame':10,'frames':1,'words_changed':1,'largest_change':3},c
+            assert gen_bank['samples'][c['sample']]['name']=='A3_ff_2'+side and np.array_equal(word(gen_bank,c['sample']),gen_want[(17,0)]['A3_ff_2'+side]),c
+            for p in gen_bank['presets']:                                                                 # the banks it names are those that play it
+                plays=any(z['target']==c['sample'] and z['gens'][44][1]>=1 for pz in p['zones'] for z in gen_bank['instruments'][pz['target']]['zones'])
+                assert plays==(p['bank'] in (17,33)),(p['bank'],c)
+        assert [r['banks'] for r in receipts['patch_derived']['derived'][0]['stored_patch']]==[[16]],receipts['patch_derived']['derived']   # played by both: named in both
+        assert [r for r in receipts['patch_derived']['files'] if r.get('stored_patch')]
+        nine={**layer,'dir':'nine','template':'{note}_{dyn}_{rr}.wav','dynamics':['ff'],'velocity':{'ff':[121,127]},'rr_block':8}
+        nine_words=made('patch_nine_wide',[{**nine,'velocity':{'ff':[1,127]},'rr_block':1}])[(0,0)]
+        made('patch_nine_eighth',[{**nine,'stored_patch':one_word('nine8',nine_words,'nine/A3_ff_8.wav','A3_ff_8')}],**versions)     # the eighth has the last block
+        try:made('patch_refused',[{**nine,'stored_patch':one_word('nine9',nine_words,'nine/A3_ff_9.wav','A3_ff_9')}],**versions)
+        except ValueError as e:assert 'no key or velocity' in str(e),str(e)
+        else:raise AssertionError('a ninth round robin, which no preset gives a block, taken in silence')
+        refusals.append('no preset made from the layer')
+        try:build({'name':'x','target_rms':.05,'presets':[{'name':'p','program':0,**versions,'layers':[{**layer,'keys':[60,62],'stored_patch':good},{**layer,'stored_patch':good}]}]},
+                  root,work/'patch_refused.sf2',patch_folder=folder)
+        except ValueError as e:assert 'no key or velocity' in str(e),str(e)
+        else:raise AssertionError("a layer that cannot play the take let by on another layer's presets")
+        refusals.append('each layer its own presets')
+        twice=build({'name':'x','target_rms':.05,'presets':[{'name':'p','program':0,**versions,'layers':[{**layer,'stored_patch':good},{**layer,'stored_patch':good}]}]},
+                    root,work/'patch_two_layers.sf2',patch_folder=folder)
+        assert [r['banks'] for r in twice['derived'][0]['stored_patch']]==[[16,32]],twice['derived']   # one take in two layers: one row, each bank once
         def misplaced(where):
             p={'name':'p','program':0,'layers':[dict(layer)]};s={'name':'x','target_rms':.05,'presets':[p]}
             if where=='recipe':s['stored_patch']=good

@@ -1570,7 +1570,7 @@ def _borrowed_cb(layer, src, dyn):
         return 0
     return max(0, int(round(10 * (shape[src] - shape[dyn]))))
 
-def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
+def _derived_presets(pspec, contexts, stored, instruments, presets, receipt, root):
     """The `dynamic_layers` and `legato` presets of a sustained preset.
 
     A sampler crossfades between recorded dynamics along a controller (SFZ's xfin/xfout on CC1); an SF2 zone can only
@@ -1579,7 +1579,8 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
     dynamic and crossfades the renders (musiclib/layered.py).  With `legato`, bank `legato.bank` + k holds the same takes
     started past their attack, as SFZ legato regions skip a sustained sample's start with `offset`, and faded in over
     `legato.attack` seconds.  A layer with fewer recorded dynamics than the preset's richest maps onto the same scale.
-    Round robins alternate in blocks of 16 velocities, since velocity no longer sets the level."""
+    Round robins alternate in blocks of 16 velocities, since velocity no longer sets the level.  What each layer's presets
+    play joins its context's `played`, and the report names each patched take among it with the banks that play it."""
     dl, leg = pspec.get('dynamic_layers'), pspec.get('legato')
     if not dl:
         if leg:
@@ -1588,6 +1589,7 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
     count = max(len(c['layer']['dynamics']) for c in contexts)
     neutral = sf2.override(sf2.VELOCITY_TO_ATTENUATION, 0) + sf2.override(sf2.VELOCITY_TO_FILTER, 0)
     report = {'preset': pspec['name'], 'program': pspec['program'], 'layer_banks': [], 'legato_banks': [], 'legato_offsets_ms': []}
+    patched = {}
     for kind, base in (('layer', dl['bank']), ('legato', leg['bank'] if leg else None)):
         if base is None:
             continue
@@ -1631,6 +1633,13 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
                                 if len(ids) == 2:
                                     z[17] = -500 if ch == 0 else 500
                                 zones.append({'gens': z, 'sample': sid})
+                        if spans:   # a round robin past the eighth has no block of velocities here
+                            c['played'].update(ids)
+                            if e.get('stored_patch'):
+                                row = patched.setdefault((e['file'], tuple(ids)), {'file': str(e['file'].relative_to(root)), 'banks': [],
+                                                                                   **_patch_row(e, ids)})
+                                if base + k not in row['banks']:
+                                    row['banks'].append(base + k)
                 gens = dict(c['gens'])
                 if kind == 'legato':
                     gens[34] = sf2.timecents(leg.get('attack', 0.01))
@@ -1643,6 +1652,8 @@ def _derived_presets(pspec, contexts, stored, instruments, presets, receipt):
     offsets = report.pop('legato_offsets_ms')
     if offsets:
         report['legato_offset_ms'] = {'min': min(offsets), 'median': float(np.median(offsets)), 'max': max(offsets)}
+    if patched:
+        report['stored_patch'] = list(patched.values())
     receipt.setdefault('derived', []).append(report)
 
 def _split_pitches(root):
@@ -2158,6 +2169,13 @@ def _patched_words(q, channels, name):
     return out
 
 
+def _patch_row(e, ids):
+    """What a receipt says of a patched take: its patch, and for each channel the sample holding it, where and how much."""
+    return {'digest': e['stored_patch_digest'], 'channels': [
+        {'sample': sid, 'from_frame': c['start'], 'frames': len(c['add']), 'words_changed': sum(map(bool, c['add'])),
+         'largest_change': max(map(abs, c['add']))} for sid, c in zip(ids, e['stored_patch'])]}
+
+
 def build(spec, root, output, ffmpeg=None, new=False, patch_folder=None):
     root = Path(root).resolve()  # once: a link below it is refused where the build opens it (contained, unlinked)
     named = iter(naming(spec))  # every layer's naming checked before any recording is read (0.8 step 1.5)
@@ -2348,18 +2366,10 @@ def build(spec, root, output, ffmpeg=None, new=False, patch_folder=None):
                         if e.get('stored_lift_cb'):
                             row['stored_lift_db'] = round(e['stored_lift_cb'] / 10, 2)   # stored this much louder, attenuated as much in the zone
                         if e.get('stored_patch') and any(hi >= 1 for _, hi in spans):   # on the rows that play it (a take may serve a dynamic in name only)
-                            row['stored_patch'] = {'digest': layer['stored_patch']['digest'], 'channels': [
-                                {'sample': sid, 'from_frame': c['start'], 'frames': len(c['add']), 'words_changed': sum(map(bool, c['add'])),
-                                 'largest_change': max(map(abs, c['add']))} for sid, c in zip(ids, e['stored_patch'])]}
+                            row['stored_patch'] = _patch_row(e, ids)
                         receipt['files'].append(row)
-            if id(layer) in patches:   # a take no zone of this layer plays (outside the keys, a round robin its velocities leave no
-                # block for, or at velocity 0 alone, which MIDI reads as a note's end): the bank would lack the correction, with no word of it
-                played = {z['sample'] for z in inst_zones if z['gens'][44][1] >= 1}
-                unused = sorted(e['file'].name for e in entries if e.get('stored_patch')
-                                and not played.intersection(stored.get(_store_key(e, layer), ((),))[0]))
-                if unused:
-                    raise ValueError(f'{layer["stored_patch"]["file"]} names {", ".join(unused)}, which no key or velocity of this layer plays')
-            contexts.append({'layer': layer, 'entries': entries, 'notes': notes, 'keymap': keymap, 'gens': dict(gens)})
+            contexts.append({'layer': layer, 'entries': entries, 'notes': notes, 'keymap': keymap, 'gens': dict(gens),
+                             'played': {z['sample'] for z in inst_zones if z['gens'][44][1] >= 1}})
             instrument = {'name': f'{pspec["name"][:16]} {len(instruments) - first_instrument + 1}', 'global': gens,
                           'zones': inst_zones}
             if mods:
@@ -2368,7 +2378,15 @@ def build(spec, root, output, ffmpeg=None, new=False, patch_folder=None):
         presets.append({'name': pspec['name'][:19], 'bank': pspec.get('bank', 0), 'program': pspec['program'], 'global': {},
                         'zones': [{'gens': {}, 'instrument': i} for i in range(first_instrument, len(instruments))]})
         receipt['layers'].append({'preset': pspec['name'], 'layers': layer_targets})
-        _derived_presets(pspec, contexts, stored, instruments, presets, receipt)
+        _derived_presets(pspec, contexts, stored, instruments, presets, receipt, root)
+        for c in contexts:   # a take no zone of its layer or of a preset made from it plays (outside the keys, a round robin no velocity
+            # is left for, or at velocity 0 alone, which MIDI reads as a note's end): the bank would lack the correction, with no word of it
+            if id(c['layer']) in patches:
+                unused = sorted(e['file'].name for e in c['entries'] if e.get('stored_patch')
+                                and not c['played'].intersection(stored.get(_store_key(e, c['layer']), ((),))[0]))
+                if unused:
+                    raise ValueError(f'{c["layer"]["stored_patch"]["file"]} names {", ".join(unused)}, which no key or velocity '
+                                     'of this layer or of a preset made from it plays')
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     # Attenuations are kept in the centibels meant to be heard and written for FluidSynth (sf2.EMU_ATTENUATION).

@@ -2066,6 +2066,8 @@ def read_stored_patch(field, folder=None):
     if digest(document) != field['digest']:
         raise ValueError(f'{field["file"]} is not the file its recipe names: its digest differs; the skill\'s files are '
                          'damaged or from two versions; install the skill again')
+    if not document['takes']:
+        raise ValueError(f'{field["file"]} names no take: the bank would come out without a correction')
     for take, channels in document['takes'].items():
         if not (isinstance(channels, list) and channels and all(
                 isinstance(c, dict) and set(c) == {'before_sha256', 'start', 'add'} and isinstance(c['before_sha256'], str)
@@ -2075,6 +2077,20 @@ def read_stored_patch(field, folder=None):
             raise ValueError(f'{field["file"]}: {take}: a take holds a list of channels, each with "before_sha256", a '
                              'whole-number "start" and "add", a list of whole numbers of 16 bits')
     return document['takes']
+
+
+def _refuse_misplaced_patch(spec):
+    """`stored_patch` acts on a layer alone: anywhere else in a recipe the bank would come out plain, with no word of it."""
+    layers = {id(layer) for p in spec['presets'] for layer in p['layers']}
+
+    def holds(node):
+        if isinstance(node, dict):
+            return ('stored_patch' in node and id(node) not in layers) or any(holds(v) for v in node.values())
+        return isinstance(node, list) and any(holds(v) for v in node)
+    for part, where in (({k: v for k, v in spec.items() if k != 'presets'}, 'the recipe'),
+                        *((p, f'preset {p.get("name")!r}') for p in spec['presets'])):
+        if holds(part):
+            raise ValueError(f'`stored_patch` belongs on a layer: {where} holds it outside one, where it would do nothing')
 
 
 def _store_key(e, layer):
@@ -2145,6 +2161,7 @@ def _patched_words(q, channels, name):
 def build(spec, root, output, ffmpeg=None, new=False, patch_folder=None):
     root = Path(root).resolve()  # once: a link below it is refused where the build opens it (contained, unlinked)
     named = iter(naming(spec))  # every layer's naming checked before any recording is read (0.8 step 1.5)
+    _refuse_misplaced_patch(spec)
     patches = {id(layer): read_stored_patch(layer['stored_patch'], patch_folder)   # so are the corrections
                for p in spec['presets'] for layer in p['layers'] if 'stored_patch' in layer}
     samples, instruments, presets, receipt = [], [], [], {'spec': spec.get('name'), 'files': [], 'layers': []}
@@ -2330,13 +2347,14 @@ def build(spec, root, output, ffmpeg=None, new=False, patch_folder=None):
                             row['closed_bands'] = e['closed_bands']
                         if e.get('stored_lift_cb'):
                             row['stored_lift_db'] = round(e['stored_lift_cb'] / 10, 2)   # stored this much louder, attenuated as much in the zone
-                        if e.get('stored_patch'):
+                        if e.get('stored_patch') and any(hi >= 1 for _, hi in spans):   # on the rows that play it (a take may serve a dynamic in name only)
                             row['stored_patch'] = {'digest': layer['stored_patch']['digest'], 'channels': [
                                 {'sample': sid, 'from_frame': c['start'], 'frames': len(c['add']), 'words_changed': sum(map(bool, c['add'])),
                                  'largest_change': max(map(abs, c['add']))} for sid, c in zip(ids, e['stored_patch'])]}
                         receipt['files'].append(row)
-            if id(layer) in patches:   # a take no zone plays (outside the keys, or a round robin its velocities leave no block for):
-                played = {z['sample'] for z in inst_zones}   # the bank would lack the correction, with no word of it
+            if id(layer) in patches:   # a take no zone of this layer plays (outside the keys, a round robin its velocities leave no
+                # block for, or at velocity 0 alone, which MIDI reads as a note's end): the bank would lack the correction, with no word of it
+                played = {z['sample'] for z in inst_zones if z['gens'][44][1] >= 1}
                 unused = sorted(e['file'].name for e in entries if e.get('stored_patch')
                                 and not played.intersection(stored.get(_store_key(e, layer), ((),))[0]))
                 if unused:

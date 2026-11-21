@@ -1688,11 +1688,15 @@ def define(S):
         want={k:v.copy() for k,v in plain.items()}
         for c,(a,d) in adds.items():
             want['p_A3'+c][a:a+len(d)]+=np.asarray(d)
-        def receipt_is_true(name):   # each id the receipt gives is the sample that holds that channel of the patched take
+        def receipt_is_true(name,stem='p_A3',words=None):   # each id the receipt gives is the sample that holds that channel of the
+            words=words or want                             # patched take, and a zone plays it at a velocity of that row
             bank=sf2.read(work/f'{name}.sf2');rows=[r for r in receipts[name]['files'] if r.get('stored_patch')];assert rows,name
             for r in rows:
+                lo,hi=r['velocities']
                 for side,c in zip('LR',r['stored_patch']['channels']):
-                    assert bank['samples'][c['sample']]['name']=='p_A3'+side and np.array_equal(word(bank,c['sample']),want['p_A3'+side]),(name,side,c)
+                    assert bank['samples'][c['sample']]['name']==stem+side and np.array_equal(word(bank,c['sample']),words[stem+side]),(name,side,c)
+                    assert any(z['target']==c['sample'] and z['gens'][44][0]<=hi and z['gens'][44][1]>=max(lo,1)
+                               for i in bank['instruments'] for z in i['zones']),(name,r['serves_dynamic'],c)
         assert same(made('patch_on',[{**layer,'stored_patch':good}])[(0,0)],want)
         receipt_is_true('patch_on')
         rows=[r for r in receipts['patch_on']['files'] if r.get('stored_patch')]
@@ -1710,6 +1714,33 @@ def define(S):
                               ('both',(on,{**on,'gain':near}),(want,want))):
             got=made(f'patch_near_{name}',list(pair));receipt_is_true(f'patch_near_{name}')
             assert same(got[(0,0)],ref[0]) and same(got[(0,1)],ref[1]),name
+        # Two patches on one take: each preset holds its own numbers.
+        other=patch('other',{'p_A3.wav':[{**channels[0],'add':[29,-13,3,0,11]},channels[1]]})
+        other_want={**want,'p_A3L':want['p_A3L'].copy()};other_want['p_A3L'][100]+=24
+        got=made('patch_two_kinds',[on,{**layer,'stored_patch':other}])
+        assert same(got[(0,0)],want) and same(got[(0,1)],other_want)
+        assert [r['stored_patch']['channels'][0]['largest_change'] for r in receipts['patch_two_kinds']['files'] if r.get('stored_patch')]==[13,29]
+        # Gains that round alike in the key and not in what is stored (the lift; the gain the receipt gives): a plain preset
+        # beside a patched one keeps the first's figures and attenuation, as in a plain build.
+        one={**layer,'template':'p_A3.wav','root':57,'match_notes':False}
+        loaded,_,medians=sb._load_layer(one,root.resolve(),None,{},{'files':[]},sb.template_parts(one['template'],'a test'))
+        peak=float(np.abs(loaded[0]['x']).max())
+        shown=lambda g,full:int(min(36.0,20*np.log10(.98/(peak*g)))*10/sf2.EMU_ATTENUATION) if full else round(20*np.log10(g),2)
+        def straddle(full):
+            for n in range(100,650):
+                g=.98/(peak*10**(n*sf2.EMU_ATTENUATION/200)) if full else 10**((-n*.01-.005)/20)
+                if round(g-1.2e-7,6)==round(g+1.2e-7,6) and shown(g-1.2e-7,full)!=shown(g+1.2e-7,full):return g-1.2e-7,g+1.2e-7
+            raise AssertionError('no two such gains')
+        def figures(name,program):
+            bank=sf2.read(work/f'{name}.sf2');p=next(x for x in bank['presets'] if (x['bank'],x['program'])==(0,program))
+            return ([(r['applied_gain_db'],r.get('stored_lift_db')) for r in receipts[name]['files'] if r.get('preset')==f'p{program}'],
+                    [z['gens'].get(48) for pz in p['zones'] for z in bank['instruments'][pz['target']]['zones'] if z['target'] is not None])
+        for full in (False,True):
+            pair=[{**one,'gain':g,'full_scale':full} for g in straddle(full)]
+            words=made(f'patch_step_plain_{full}',pair,rms=medians['default'])[(0,0)]
+            step=patch(f'step_{full}',{'p_A3.wav':[{'before_sha256':hashlib.sha256(words['p_A3'+c].astype('<i2').tobytes()).hexdigest(),'start':10,'add':[3]} for c in 'LR']})
+            made(f'patch_step_{full}',[{**pair[0],'stored_patch':step},pair[1]],rms=medians['default'])
+            assert figures(f'patch_step_{full}',1)==figures(f'patch_step_plain_{full}',1),(full,figures(f'patch_step_{full}',1)[0])
         derived=made('patch_derived',[on],dynamic_layers={'bank':16})
         assert len(derived)==2 and all(same(v,want) for v in derived.values()),sorted(derived)
         refusals=[]
@@ -1730,8 +1761,32 @@ def define(S):
         refused('no key or velocity',good,keys=[60,62])                               # A3 is loaded and outside the keys
         rr={'dir':'rr','template':'{note}_{dyn}_{rr}.wav','dynamics':['ff'],'velocity':{'ff':[121,127]},'rr_block':8}    # one block of velocities, two takes
         wide=made('patch_rr_wide',[{**layer,**rr,'velocity':{'ff':[1,127]}}])[(0,0)]  # where the second take is played, to read its words
-        refused('no key or velocity',patch('rr',{'rr/A3_ff_2.wav':[{'before_sha256':hashlib.sha256(wide['A3_ff_2'+c].astype('<i2').tobytes()).hexdigest(),
-                                                                   'start':10,'add':[3]} for c in 'LR']}),**rr)
+        rr_patch=lambda name,take:patch(name,{f'rr/A3_ff_{take}.wav':[{'before_sha256':hashlib.sha256(wide[f'A3_ff_{take}{c}'].astype('<i2').tobytes()).hexdigest(),
+                                                                       'start':10,'add':[3]} for c in 'LR']})
+        far=rr_patch('rr',2)
+        refused('no key or velocity',far,**rr)
+        refused('no key or velocity',rr_patch('rr_zero',1),**{**rr,'velocity':{'ff':[0,1]},'rr_block':1})   # its one velocity is 0, a note's end in MIDI
+        try:made('patch_refused',[{**layer,**rr,'velocity':{'ff':[1,127]},'stored_patch':far},{**layer,**rr,'stored_patch':far}])     # the first preset plays it, the second cannot
+        except ValueError as e:assert 'no key or velocity' in str(e),str(e)
+        else:raise AssertionError('a layer that cannot play the take let by on an earlier preset\'s zones')
+        refusals.append('each layer its own zones')
+        rr_want={k:v.copy() for k,v in wide.items()}
+        for c in 'LR':rr_want['A3_ff_2'+c][10]+=3
+        made('patch_borrowed',[{**layer,**rr,'dynamics':['soft','ff'],'velocity':{'soft':[1,60],'ff':[121,127]},'stored_patch':far}])  # played only where it is borrowed
+        assert [r['serves_dynamic'] for r in receipts['patch_borrowed']['files'] if r.get('stored_patch')]==['soft']
+        receipt_is_true('patch_borrowed','A3_ff_2',rr_want)
+        def misplaced(where):
+            p={'name':'p','program':0,'layers':[dict(layer)]};s={'name':'x','target_rms':.05,'presets':[p]}
+            if where=='recipe':s['stored_patch']=good
+            elif where=='preset':p['stored_patch']=good
+            else:p['dynamic_layers']={'bank':16,'stored_patch':good}
+            return s
+        for where in ('recipe','preset','deeper'):                                    # anywhere but a layer it would do nothing
+            try:build(misplaced(where),root,work/'patch_refused.sf2',patch_folder=folder)
+            except ValueError as e:assert 'belongs on a layer' in str(e),str(e)
+            else:raise AssertionError(f'a field on the {where}: a plain bank, in silence')
+            refusals.append('placement')
+        refused('names no take',patch('empty',{}))
         refused('was made for',good,rms=.06,kind=StoredPatchMismatch)                 # the recording stored at another level
         refused('was made for',good,gain=near,kind=StoredPatchMismatch)               # the first layer's words are the second gain's
         flipped=plain['p_A3R'].copy();flipped[1000]+=1                                # a channel one word away from its words

@@ -384,18 +384,23 @@ def install_build(item, runtime, source, offline, ffmpeg=None):
 def build_bank(item, spec, root, output, ffmpeg):
     """Build into a new file of its own that becomes the bank only with the locked hash, so a failed build is never
     kept; the bank and its receipt then take their places as publish() places a file."""
-    from soundbank import build
+    from soundbank import StoredPatchMismatch, build
     if files.regular_file(output) and file_hash(output) == item['output_sha256']:
         return
     output.parent.mkdir(parents=True, exist_ok=True)
     partial = files.stage_name(output, '.sf2')
+    def not_reproduced(detail=''):
+        import numpy
+        return (f'Rebuilt bank does not reproduce the locked hash: {item["name"]}{detail}.  The lock was built with '
+                f'NumPy {NUMPY_BUILD} (this is NumPy {numpy.__version__}); a different NumPy can round a few '
+                'samples differently.  Install the prebuilt bank instead (leave out --from-source).')
     try:
-        receipt = build(spec, root, partial, ffmpeg)
+        try:
+            receipt = build(spec, root, partial, ffmpeg)
+        except StoredPatchMismatch as e:   # met before the bank's own hash: the same advice, and which take
+            raise ValueError(not_reproduced(f' ({e})')) from None
         if file_hash(partial) != item['output_sha256']:
-            import numpy
-            raise ValueError(f'Rebuilt bank does not reproduce the locked hash: {item["name"]}.  The lock was built with '
-                             f'NumPy {NUMPY_BUILD} (this is NumPy {numpy.__version__}); a different NumPy can round a few '
-                             'samples differently.  Install the prebuilt bank instead (leave out --from-source).')
+            raise ValueError(not_reproduced())
         publish(partial, output)
     finally:
         with contextlib.suppress(OSError):

@@ -1639,7 +1639,222 @@ def define(S):
             assert not [s for c in opened for s in c.spans if s[0]<forbidden[1] and s[1]>forbidden[0]],(label,[c.spans for c in opened])
             out[label]={'bytes_read':read,'peak_kb':round(peak/1024)}
         return {'forms_kept':6,'refused':3,'early':out}
-    found = {'sf2_writer_reader_roundtrip': sf2_roundtrip, 'sf2_inventory_reports_keys_layers_seconds_and_loops': sf2_inventory, 'soundbank_builds_a_kit_with_microphones_and_choke': kit_build, 'soundbank_keeps_recorded_loops_and_evens_takes': loop_build, 'soundbank_levels_every_dynamic_of_a_note_together': across_levels, 'soundbank_builds_dynamic_layers_and_legato_presets': expressive_bank, 'soundbank_ring_db_keeps_each_take_to_its_own_decay': ring_cut, 'soundbank_denoise_keeps_each_layers_partials': denoise_keeps_each_layers_partials, 'split_finds_each_note_of_a_chromatic_run': split_run, 'split_reads_a_high_passed_copy_and_leaves_out_takes': split_highpass, 'a_soft_take_made_from_the_loud_one': soft_take_from_the_loud_one, 'settled_bands_are_closed_once': settled_bands_are_closed_once, 'full_scale_storage_keeps_the_level_heard': full_scale_keeps_the_level, 'soundbank_tunes_split_notes_and_quiets_borrowed_dynamics': split_bank, 'noise_reduction_lowers_hiss_and_keeps_the_note': noise_reduction, 'click_repair_takes_out_a_knock_and_keeps_the_ring': click_repair, 'denoise_keeps_a_soft_low_note_out_of_the_rumble': denoise_keeps_low_partials, 'noise_profile_reads_gated_and_breathy_recordings': noise_profile, 'split_keeps_the_note_not_its_faint_ring': split_ignores_faint_rings, 'a_cut_manifest_writes_only_inside_its_folder': files_stay_inside, 'wav_readers_decode_each_encoding_and_keep_their_header_rules': wav_readers, 'wav_readers_keep_their_policies_on_the_same_bytes': wav_policies_side_by_side, 'bank_files_named_by_template': bank_files_named_by_template, 'bank_build_opens_no_link_below_its_root': bank_build_opens_no_link_below_its_root, 'bank_cut_checks_each_span_first': bank_cut_checks_each_span_first, 'aiff_reader_walks_headers_and_refuses_what_it_cannot_hold': aiff_reader_walks_headers_and_refuses_what_it_cannot_hold, 'sounds_search_names_what_it_does_not_know': sounds_search_names_what_it_does_not_know, 'instruments_reads_keys_and_layers_from_the_bank': instruments_reads_keys_and_layers_from_the_bank, 'own_folder_and_sfz_build_banks': own_folder_and_sfz_build_banks,'aiff_reader_decodes_each_kind_it_takes': aiff_reader, 'flac_source_must_be_flac': flac_source_must_be_flac, 'soundfont_tables_must_hold_together': soundfont_tables_must_hold_together, 'sf2_tables_are_refused_by_their_size': sf2_tables_by_their_size, 'sf2_tables_may_end_without_their_terminal_records': sf2_tables_without_terminal_records, 'sf2_reader_refuses_early_and_keeps_its_forms': sf2_reader_refuses_early_and_keeps_its_forms}
+    def stored_patch_changes_the_named_take_alone():
+        # `stored_patch` (0.9.1): numbers added to named takes as stored.  The take is the plain build's plus the numbers,
+        # word for word; every other sample is the plain build's; a preset sharing the recording without the field keeps it
+        # as it was, whichever comes first, also where the two gains only round alike and the plain build stores one set of
+        # words for both; a dynamic layer made from the preset plays the patched take; the receipt's ids are the samples that
+        # hold it; and whatever the numbers were not made for is refused, for its own reason, with no bank written and, where
+        # the field itself is wrong, no recording read: among them a take no key or velocity plays (it would be left out in
+        # silence) and a first layer whose words are others than those the numbers were made for.
+        import hashlib
+        import fetch_soundbanks as fb
+        import soundbank as sb
+        from musiclib import sf2
+        from musiclib.model import digest
+        from soundbank import StoredPatchMismatch,build
+        root=work/'stored_patch_source';folder=work/'stored_patch_files';root.mkdir(parents=True,exist_ok=True);folder.mkdir(exist_ok=True)
+        (root/'rr').mkdir(exist_ok=True)
+        rate=44100;t=np.arange(rate)/rate
+        tone=lambda f0,amp:np.stack([amp*np.exp(-t*3)*np.sin(2*np.pi*f0*t),.8*amp*np.exp(-t*3)*np.sin(2*np.pi*1.002*f0*t)],1)
+        for name,f0,amp in (('p_A3',220.0,.4),('p_C4',261.63,.3),('rr/A3_ff_1',222.0,.3),('rr/A3_ff_2',224.0,.3)):
+            audio.write_wav(root/f'{name}.wav',tone(f0,amp),rate)
+        layer={'dir':'.','template':'p_{note}.wav','dynamics':['default'],'velocity':{'default':[1,127]},'keys':[55,62],'pitch_check':False}
+        word=lambda bank,i:np.round(sf2.load_sample(bank,i).astype(np.float64)*32768).astype(np.int64)
+        def stored(path):   # {(bank, program): {sample name: its 16-bit words}}
+            bank=sf2.read(path);out={}
+            for p in bank['presets']:
+                one=out.setdefault((p['bank'],p['program']),{})
+                for pz in p['zones']:
+                    for z in (bank['instruments'][pz['target']]['zones'] if pz['target'] is not None else ()):
+                        if z['target'] is not None:
+                            one[bank['samples'][z['target']]['name']]=word(bank,z['target'])
+            return out
+        receipts={}
+        def made(name,layers,rms=.05,**preset):
+            receipts[name]=build({'name':name,'target_rms':rms,'presets':[{'name':f'p{i}','program':i,'layers':[l],**preset} for i,l in enumerate(layers)]},
+                                 root,work/f'{name}.sf2',patch_folder=folder)
+            return stored(work/f'{name}.sf2')
+        def patch(name,takes):
+            doc={'comment':'a test','takes':takes}
+            (folder/f'{name}.json').write_text(json.dumps(doc),encoding='utf-8')
+            return {'file':f'{name}.json','digest':digest(doc)}
+        same=lambda got,ref:set(got)==set(ref) and all(np.array_equal(got[k],ref[k]) for k in ref)
+        plain=made('patch_plain',[layer])[(0,0)]
+        assert set(plain)=={'p_A3L','p_A3R','p_C4L','p_C4R'},sorted(plain)
+        adds={'L':(100,[5,-13,3,0,11]),'R':(400,[-2,9])}
+        channels=[{'before_sha256':hashlib.sha256(plain['p_A3'+c].astype('<i2').tobytes()).hexdigest(),'start':a,'add':d} for c,(a,d) in adds.items()]
+        good=patch('good',{'p_A3.wav':channels})
+        want={k:v.copy() for k,v in plain.items()}
+        for c,(a,d) in adds.items():
+            want['p_A3'+c][a:a+len(d)]+=np.asarray(d)
+        def receipt_is_true(name,stem='p_A3',words=None):   # each id the receipt gives is the sample that holds that channel of the
+            words=words or want                             # patched take, and a zone plays it at a velocity of that row
+            bank=sf2.read(work/f'{name}.sf2');rows=[r for r in receipts[name]['files'] if r.get('stored_patch')];assert rows,name
+            for r in rows:
+                lo,hi=r['velocities']
+                for side,c in zip('LR',r['stored_patch']['channels']):
+                    assert bank['samples'][c['sample']]['name']==stem+side and np.array_equal(word(bank,c['sample']),words[stem+side]),(name,side,c)
+                    assert any(z['target']==c['sample'] and z['gens'][44][0]<=hi and z['gens'][44][1]>=max(lo,1)
+                               for i in bank['instruments'] for z in i['zones']),(name,r['serves_dynamic'],c)
+        assert same(made('patch_on',[{**layer,'stored_patch':good}])[(0,0)],want)
+        receipt_is_true('patch_on')
+        rows=[r for r in receipts['patch_on']['files'] if r.get('stored_patch')]
+        assert len(rows)==1 and rows[0]['file']=='p_A3.wav' and rows[0]['stored_patch']['digest']==good['digest'],rows
+        assert [{k:v for k,v in c.items() if k!='sample'} for c in rows[0]['stored_patch']['channels']]==[
+            {'from_frame':100,'frames':5,'words_changed':4,'largest_change':13},{'from_frame':400,'frames':2,'words_changed':2,'largest_change':9}],rows
+        on={**layer,'stored_patch':good}
+        for order,pair in enumerate(((on,dict(layer)),(dict(layer),on))):
+            got=made(f'patch_two_{order}',list(pair));receipt_is_true(f'patch_two_{order}')
+            assert same(got[(0,0)],want if order==0 else plain) and same(got[(0,1)],plain if order==0 else want),order
+        # Two gains that round alike: a plain build stores the first's words for both, and the numbers go on those words.
+        near=1+4e-7
+        assert not same(made('patch_near_alone',[{**layer,'gain':near}])[(0,0)],plain)      # alone, the second gain stores other words
+        for name,pair,ref in (('patched_first',(on,{**layer,'gain':near}),(want,plain)),('plain_first',(dict(layer),{**on,'gain':near}),(plain,want)),
+                              ('both',(on,{**on,'gain':near}),(want,want))):
+            got=made(f'patch_near_{name}',list(pair));receipt_is_true(f'patch_near_{name}')
+            assert same(got[(0,0)],ref[0]) and same(got[(0,1)],ref[1]),name
+        # Two patches on one take: each preset holds its own numbers.
+        other=patch('other',{'p_A3.wav':[{**channels[0],'add':[29,-13,3,0,11]},channels[1]]})
+        other_want={**want,'p_A3L':want['p_A3L'].copy()};other_want['p_A3L'][100]+=24
+        got=made('patch_two_kinds',[on,{**layer,'stored_patch':other}])
+        assert same(got[(0,0)],want) and same(got[(0,1)],other_want)
+        assert [r['stored_patch']['channels'][0]['largest_change'] for r in receipts['patch_two_kinds']['files'] if r.get('stored_patch')]==[13,29]
+        # Gains that round alike in the key and not in what is stored (the lift; the gain the receipt gives): a plain preset
+        # beside a patched one keeps the first's figures and attenuation, as in a plain build.
+        one={**layer,'template':'p_A3.wav','root':57,'match_notes':False}
+        loaded,_,medians=sb._load_layer(one,root.resolve(),None,{},{'files':[]},sb.template_parts(one['template'],'a test'))
+        peak=float(np.abs(loaded[0]['x']).max())
+        shown=lambda g,full:int(min(36.0,20*np.log10(.98/(peak*g)))*10/sf2.EMU_ATTENUATION) if full else round(20*np.log10(g),2)
+        def straddle(full):
+            for n in range(100,650):
+                g=.98/(peak*10**(n*sf2.EMU_ATTENUATION/200)) if full else 10**((-n*.01-.005)/20)
+                if round(g-1.2e-7,6)==round(g+1.2e-7,6) and shown(g-1.2e-7,full)!=shown(g+1.2e-7,full):return g-1.2e-7,g+1.2e-7
+            raise AssertionError('no two such gains')
+        def figures(name,program):
+            bank=sf2.read(work/f'{name}.sf2');p=next(x for x in bank['presets'] if (x['bank'],x['program'])==(0,program))
+            return ([(r['applied_gain_db'],r.get('stored_lift_db')) for r in receipts[name]['files'] if r.get('preset')==f'p{program}'],
+                    [z['gens'].get(48) for pz in p['zones'] for z in bank['instruments'][pz['target']]['zones'] if z['target'] is not None])
+        for full in (False,True):
+            pair=[{**one,'gain':g,'full_scale':full} for g in straddle(full)]
+            words=made(f'patch_step_plain_{full}',pair,rms=medians['default'])[(0,0)]
+            step=patch(f'step_{full}',{'p_A3.wav':[{'before_sha256':hashlib.sha256(words['p_A3'+c].astype('<i2').tobytes()).hexdigest(),'start':10,'add':[3]} for c in 'LR']})
+            made(f'patch_step_{full}',[{**pair[0],'stored_patch':step},pair[1]],rms=medians['default'])
+            assert figures(f'patch_step_{full}',1)==figures(f'patch_step_plain_{full}',1),(full,figures(f'patch_step_{full}',1)[0])
+            made(f'patch_step_second_{full}',[pair[0],{**pair[1],'stored_patch':step}],rms=medians['default'])   # the patched one second: the first's figures too
+            assert figures(f'patch_step_second_{full}',1)==figures(f'patch_step_plain_{full}',1),(full,figures(f'patch_step_second_{full}',1)[0])
+        derived=made('patch_derived',[on],dynamic_layers={'bank':16})
+        assert len(derived)==2 and all(same(v,want) for v in derived.values()),sorted(derived)
+        refusals=[]
+        def refused(why,field,rms=.05,kind=ValueError,**extra):
+            try:made('patch_refused',[{**layer,'stored_patch':field,**extra}],rms=rms)
+            except kind as e:assert why in str(e),(why,str(e))
+            else:raise AssertionError(f'not refused: {why}')
+            refusals.append(why)
+        second=lambda **c:[channels[0],{**channels[1],**c}]
+        refused('its digest differs',{**good,'digest':'0'*64})
+        for field in ({},None,'good.json',{'file':'good.json'},{**good,'extra':1},{**good,'file':'good.txt'},{**good,'digest':'ABC'}):
+            refused('`stored_patch` is {',field)
+        for name in ('../good.json','a/good.json','CON.json'):
+            refused('a name of letters',{**good,'file':name})
+        refused('is missing from',{**good,'file':'absent.json'})
+        refused('does not have',patch('lacks',{'p_B3.wav':channels}))
+        refused('channels, the patch',patch('one_channel',{'p_A3.wav':channels[:1]}))
+        refused('no key or velocity',good,keys=[60,62])                               # A3 is loaded and outside the keys
+        rr={'dir':'rr','template':'{note}_{dyn}_{rr}.wav','dynamics':['ff'],'velocity':{'ff':[121,127]},'rr_block':8}    # one block of velocities, two takes
+        wide=made('patch_rr_wide',[{**layer,**rr,'velocity':{'ff':[1,127]}}])[(0,0)]  # where the second take is played, to read its words
+        rr_patch=lambda name,take:patch(name,{f'rr/A3_ff_{take}.wav':[{'before_sha256':hashlib.sha256(wide[f'A3_ff_{take}{c}'].astype('<i2').tobytes()).hexdigest(),
+                                                                       'start':10,'add':[3]} for c in 'LR']})
+        far=rr_patch('rr',2)
+        refused('no key or velocity',far,**rr)
+        refused('no key or velocity',rr_patch('rr_zero',1),**{**rr,'velocity':{'ff':[0,1]},'rr_block':1})   # its one velocity is 0, a note's end in MIDI
+        try:made('patch_refused',[{**layer,**rr,'velocity':{'ff':[1,127]},'stored_patch':far},{**layer,**rr,'stored_patch':far}])     # the first preset plays it, the second cannot
+        except ValueError as e:assert 'no key or velocity' in str(e),str(e)
+        else:raise AssertionError('a layer that cannot play the take let by on an earlier preset\'s zones')
+        refusals.append('each layer its own zones')
+        try:build({'name':'x','target_rms':.05,'presets':[{'name':'p','program':0,'layers':[{**layer,**rr,'velocity':{'ff':[1,127]},'stored_patch':far},
+                                                                                          {**layer,**rr,'stored_patch':far}]}]},root,work/'patch_refused.sf2',patch_folder=folder)
+        except ValueError as e:assert 'no key or velocity' in str(e),str(e)                # the same, between two layers of one preset
+        else:raise AssertionError('a layer that cannot play the take let by on another layer of its preset')
+        refusals.append('each layer its own zones')
+        rr_first={k:v.copy() for k,v in wide.items()}
+        for c in 'LR':rr_first['A3_ff_1'+c][10]+=3
+        made('patch_zero_row',[{**layer,**rr,'dynamics':['soft','ff'],'velocity':{'soft':[0,0],'ff':[1,127]},'stored_patch':rr_patch('rr_first',1)}])   # heard in ff, at 0 alone in soft
+        assert [r['serves_dynamic'] for r in receipts['patch_zero_row']['files'] if r.get('stored_patch')]==['ff']
+        receipt_is_true('patch_zero_row','A3_ff_1',rr_first)
+        rr_want={k:v.copy() for k,v in wide.items()}
+        for c in 'LR':rr_want['A3_ff_2'+c][10]+=3
+        made('patch_borrowed',[{**layer,**rr,'dynamics':['soft','ff'],'velocity':{'soft':[1,60],'ff':[121,127]},'stored_patch':far}])  # played only where it is borrowed
+        assert [r['serves_dynamic'] for r in receipts['patch_borrowed']['files'] if r.get('stored_patch')]==['soft']
+        receipt_is_true('patch_borrowed','A3_ff_2',rr_want)
+        def misplaced(where):
+            p={'name':'p','program':0,'layers':[dict(layer)]};s={'name':'x','target_rms':.05,'presets':[p]}
+            if where=='recipe':s['stored_patch']=good
+            elif where=='preset':p['stored_patch']=good
+            elif where=='inside a layer':p['layers'][0]['envelope']={'stored_patch':good}
+            else:p['dynamic_layers']={'bank':16,'stored_patch':good}
+            return s
+        for where in ('recipe','preset','deeper','inside a layer'):                   # anywhere but a layer it would do nothing
+            try:build(misplaced(where),root,work/'patch_refused.sf2',patch_folder=folder)
+            except ValueError as e:assert 'belongs on a layer' in str(e),str(e)
+            else:raise AssertionError(f'a field on the {where}: a plain bank, in silence')
+            refusals.append('placement')
+        refused('names no take',patch('empty',{}))
+        refused('was made for',good,rms=.06,kind=StoredPatchMismatch)                 # the recording stored at another level
+        refused('was made for',good,gain=near,kind=StoredPatchMismatch)               # the first layer's words are the second gain's
+        flipped=plain['p_A3R'].copy();flipped[1000]+=1                                # a channel one word away from its words
+        refused('was made for',patch('one_word',{'p_A3.wav':second(before_sha256=hashlib.sha256(flipped.astype('<i2').tobytes()).hexdigest())}),
+                kind=StoredPatchMismatch)
+        # A wrong field on a later preset stops the build before the first preset's recordings are read.
+        reader=sb.read_audio;opened=[]
+        sb.read_audio=lambda *a,**k:(opened.append(a[0]),reader(*a,**k))[1]
+        try:
+            for bad in ({},None,{**good,'digest':'0'*64},{**good,'file':'absent.json'},patch('late_number',{'p_A3.wav':second(start=-1)})):
+                try:made('patch_refused',[dict(layer),{**layer,'stored_patch':bad}])
+                except ValueError as e:assert 'stored_patch' in str(e) or '.json' in str(e),str(e)
+                else:raise AssertionError(f'not refused: {bad}')
+                refusals.append('before any recording')
+        finally:sb.read_audio=reader
+        assert not opened,(len(opened),'recordings read before a wrong field was refused')
+        last=len(plain['p_A3R'])-1
+        ends=made('patch_end',[{**layer,'stored_patch':patch('to_the_end',{'p_A3.wav':second(start=last,add=[1])})}])[(0,0)]['p_A3R']
+        assert ends[last]==plain['p_A3R'][last]+1 and np.array_equal(ends[:last],plain['p_A3R'][:last])   # a span may end on the last frame
+        refused('runs to frame',patch('past',{'p_A3.wav':second(start=last,add=[1,1])}))
+        refused('outside 16 bits',patch('over',{'p_A3.wav':second(start=int(np.argmax(plain['p_A3R'])),add=[32767])}))
+        refused('outside 16 bits',patch('under',{'p_A3.wav':second(start=int(np.argmin(plain['p_A3R'])),add=[-32768])}))
+        for bad in ({'add':[1.5]},{'add':[True]},{'add':[]},{'add':[32768]},{'add':[-32769]},{'start':-1},{'start':1.0},{'before_sha256':'x'}):
+            refused('a list of whole numbers',patch('bad',{'p_A3.wav':second(**bad)}))
+        assert not (work/'patch_refused.sf2').exists()
+        # Through the installer the same refusal names the take and says what to do about it, as a bank that misses its hash does.
+        kept=sb.PATCH_FOLDER
+        try:
+            sb.PATCH_FOLDER=folder
+            try:fb.build_bank({'name':'x','output_sha256':'0'*64},{'name':'x','target_rms':.06,'presets':[{'name':'p','program':0,'layers':[{**layer,'stored_patch':good}]}]},
+                              root,work/'patch_installer.sf2',None)
+            except ValueError as e:assert all(s in str(e) for s in ('p_A3.wav','was made for','NumPy','Install the prebuilt bank')),str(e)
+            else:raise AssertionError('the installer built on words the patch was not made for')
+        finally:sb.PATCH_FOLDER=kept
+        assert not (work/'patch_installer.sf2').exists()
+        return {'channels_patched':len(channels),'numbers':sum(len(d) for _,d in adds.values()),'refused':len(refusals)}
+    def the_steinway_patch_is_as_described():
+        # The correction the vcsl recipe names, read as the build reads it: on the Steinway's layer alone, for its take at G#5
+        # in three dynamics and two channels; nothing in the first 3 ms or from 0.35 s (at 44.1 kHz, frames 133 to 15,434);
+        # each span starts and ends on a word it changes, and the numbers are as many as the notes on it count.
+        from soundbank import PATCH_FOLDER,read_stored_patch
+        spec=json.loads((PATCH_FOLDER/'vcsl.json').read_text(encoding='utf-8'))
+        fields=[(p['name'],l) for p in spec['presets'] for l in p['layers'] if 'stored_patch' in l]
+        assert [name for name,_ in fields]==['Grand Steinway B'],[name for name,_ in fields]
+        layer=fields[0][1];takes=read_stored_patch(layer['stored_patch'])
+        assert sorted(takes)==[f"{layer['dir']}/JHPiano_NoSus_Close_G#5_vl{v}_rr1.wav" for v in (2,3,4)],sorted(takes)
+        assert all(len(c)==2 for c in takes.values())
+        channels=[c for v in takes.values() for c in v]
+        assert all(c['start']>=133 and c['start']+len(c['add'])<=15435 and c['add'][0]!=0 and c['add'][-1]!=0 for c in channels)
+        numbers,changed=sum(len(c['add']) for c in channels),sum(v!=0 for c in channels for v in c['add'])
+        assert (numbers,changed)==(72529,60694),(numbers,changed)
+        first,last=min(c['start'] for c in channels),max(c['start']+len(c['add'])-1 for c in channels)   # both of them words it changes
+        assert (first,last)==(137,12671),(first,last)
+        return {'takes':len(takes),'numbers':numbers,'words_changed':changed,'first_frame':first,'last_frame':last}
+    found = {'sf2_writer_reader_roundtrip': sf2_roundtrip, 'sf2_inventory_reports_keys_layers_seconds_and_loops': sf2_inventory, 'soundbank_builds_a_kit_with_microphones_and_choke': kit_build, 'soundbank_keeps_recorded_loops_and_evens_takes': loop_build, 'soundbank_levels_every_dynamic_of_a_note_together': across_levels, 'soundbank_builds_dynamic_layers_and_legato_presets': expressive_bank, 'soundbank_ring_db_keeps_each_take_to_its_own_decay': ring_cut, 'soundbank_denoise_keeps_each_layers_partials': denoise_keeps_each_layers_partials, 'split_finds_each_note_of_a_chromatic_run': split_run, 'split_reads_a_high_passed_copy_and_leaves_out_takes': split_highpass, 'a_soft_take_made_from_the_loud_one': soft_take_from_the_loud_one, 'settled_bands_are_closed_once': settled_bands_are_closed_once, 'full_scale_storage_keeps_the_level_heard': full_scale_keeps_the_level, 'stored_patch_changes_the_named_take_alone': stored_patch_changes_the_named_take_alone, 'the_steinway_patch_is_as_described': the_steinway_patch_is_as_described,'soundbank_tunes_split_notes_and_quiets_borrowed_dynamics': split_bank, 'noise_reduction_lowers_hiss_and_keeps_the_note': noise_reduction, 'click_repair_takes_out_a_knock_and_keeps_the_ring': click_repair, 'denoise_keeps_a_soft_low_note_out_of_the_rumble': denoise_keeps_low_partials, 'noise_profile_reads_gated_and_breathy_recordings': noise_profile, 'split_keeps_the_note_not_its_faint_ring': split_ignores_faint_rings, 'a_cut_manifest_writes_only_inside_its_folder': files_stay_inside, 'wav_readers_decode_each_encoding_and_keep_their_header_rules': wav_readers, 'wav_readers_keep_their_policies_on_the_same_bytes': wav_policies_side_by_side, 'bank_files_named_by_template': bank_files_named_by_template, 'bank_build_opens_no_link_below_its_root': bank_build_opens_no_link_below_its_root, 'bank_cut_checks_each_span_first': bank_cut_checks_each_span_first, 'aiff_reader_walks_headers_and_refuses_what_it_cannot_hold': aiff_reader_walks_headers_and_refuses_what_it_cannot_hold, 'sounds_search_names_what_it_does_not_know': sounds_search_names_what_it_does_not_know, 'instruments_reads_keys_and_layers_from_the_bank': instruments_reads_keys_and_layers_from_the_bank, 'own_folder_and_sfz_build_banks': own_folder_and_sfz_build_banks,'aiff_reader_decodes_each_kind_it_takes': aiff_reader, 'flac_source_must_be_flac': flac_source_must_be_flac, 'soundfont_tables_must_hold_together': soundfont_tables_must_hold_together, 'sf2_tables_are_refused_by_their_size': sf2_tables_by_their_size, 'sf2_tables_may_end_without_their_terminal_records': sf2_tables_without_terminal_records, 'sf2_reader_refuses_early_and_keeps_its_forms': sf2_reader_refuses_early_and_keeps_its_forms}
     if config:
         def preset_list_matches_the_banks():
             # 0.8 step 2.6: what `instruments` reads from each configured bank against references/soundbank-presets.md, row

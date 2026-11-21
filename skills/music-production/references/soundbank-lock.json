@@ -152,7 +152,7 @@
       "repository": "sgossner/VCSL",
       "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "spec": "soundbanks/vcsl.json",
-      "spec_digest": "d3d30ecdf3151feec1ea9b2f4a323fddcf98a0bd3d938eff6347d2243d396b11",
+      "spec_digest": "8421849cc1692c5dfe076409d420b279f72ac86ec6e2680b97a1e9336ec2363e",
       "paths": [
         "LICENSE",
         "README.md",
@@ -176,9 +176,9 @@
       "samples": 628,
       "samples_bytes": 1289433743,
       "samples_sha256": "fbbe70412e923dd187b7e92ed32b216f32efe98ab2b85b6ac8829c3fe9de8c6b",
-      "output_sha256": "be2ba40c99d307cb3c27ddd6a24f8829bab2392f61146f786bbb7dd8054670d9",
+      "output_sha256": "5e404702352c2fe6c966bd7bb335dce231bf67fab619f6ead47ea69d5b2ab728",
       "license": "CC0-1.0 source samples: VCSL by Versilian Studios; built by music-production soundbank.py",
-      "version": "build b12"
+      "version": "build b14"
     },
     {
       "name": "rusty",
@@ -3999,10 +3999,10 @@
         "sf2_bytes": 607558000
       },
       "vcsl": {
-        "file": "vcsl-b12.sf2.xz",
-        "bytes": 212790280,
-        "sha256": "66e64c055e1c96fc55915c22ceec423e87e5cb683f095842237c070607f299d8",
-        "sf2_bytes": 720762710
+        "file": "vcsl-b14.sf2.xz",
+        "bytes": 212792428,
+        "sha256": "7ae4a39689c75424a0b40f47fd5b93c563400e9e283f4faed6d1927e9605f4b0",
+        "sf2_bytes": 720763080
       },
       "rusty": {
         "file": "rusty-b1.sf2.xz",

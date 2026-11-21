@@ -218,7 +218,7 @@ Every recorded bank is CC0, free for any use without restrictions (the Iowa reco
 <details>
 <summary><b>How well it works</b></summary>
 
-`selfcheck.py` runs 214 checks (168 without a renderer configuration), from MIDI round trips and archive safety to real renders. A one-note revision synthesizes one part again, and `compare` finds the change from that note on, in every file it reached and nowhere else. The older single-room mix reproduces an earlier release bit for bit. The loudness meter reads −3.01 LUFS for the BS.1770 reference tone. CI runs every check, renders included, on Ubuntu with FluidSynth 2.3 and FFmpeg 6.1, on macOS with FluidSynth 2.6 and FFmpeg 9.0, and on Windows with the pinned FluidSynth 2.6.1 and FFmpeg 9.0.2 and with Surge XT.
+`selfcheck.py` runs 216 checks (170 without a renderer configuration), from MIDI round trips and archive safety to real renders. A one-note revision synthesizes one part again, and `compare` finds the change from that note on, in every file it reached and nowhere else. The older single-room mix reproduces an earlier release bit for bit. The loudness meter reads −3.01 LUFS for the BS.1770 reference tone. CI runs every check, renders included, on Ubuntu with FluidSynth 2.3 and FFmpeg 6.1, on macOS with FluidSynth 2.6 and FFmpeg 9.0, and on Windows with the pinned FluidSynth 2.6.1 and FFmpeg 9.0.2 and with Surge XT.
 
 Whether the music is good is another matter, and only listening can tell. The pieces above are the best evidence this repository has.
 

@@ -1211,6 +1211,40 @@ def define(S):
         text=describe({'folder':'piece','kept':['final'],'cache_entries_kept':0,'dry_run':True,'bytes':26,'left_alone':[],'not_removed':[],
                        'listed':[row('cache entry',f'cache/{k}') for k in range(25)]+[row('review','review_a')]})
         assert '- review: review_a' in text and text.index('- review: review_a')<text.index('- cache entry:') and '- and 6 more (--json lists every one)' in text,text
-        return {'cases':16}
+        # What a kept render plays is read whole, a cache is cleaned only if it is the kept piece's, and what stays keeps its takes.
+        whose=work/'clean_whose';K=lambda c:c*20
+        def entry_of(cache,key):
+            (cache/key).mkdir(parents=True);save_json(cache/key/'receipt.json',{'key':key,'sha256':'c'*64,'track':'t'});(cache/key/'raw.wav').write_bytes(bytes(50))
+            record.register(cache/key,[cache/key/'receipt.json',cache/key/'raw.wav'])
+        def render_of(folder,title,parts):
+            folder.mkdir(parents=True);save_json(folder/'render_input.json',{'project_sha256':'a'*64,'renderer_sha256':'b'*64})
+            save_json(folder/'project.json',{'title':title,'tracks':[{'id':t} for t in parts]});save_json(folder/'stem_receipts.json',[{'track':t,'cache_key':k} for t,k in parts.items()])
+            record.register(folder,[folder/n for n in ('render_input.json','project.json','stem_receipts.json')]);return folder
+        lost=whose/'lost';kept=render_of(lost/'final','Lost',{'lead':K('1'),'bass':K('2')});all_rows=[{'track':'lead','cache_key':K('1')},{'track':'bass','cache_key':K('2')}]
+        for k in '123':entry_of(lost/'cache',K(k))
+        for rows in (all_rows[:1],[],[all_rows[0],{'track':'bass','cache_key':'not a key'}],None):   # a row lost, all of them, a key that is none, no file
+            if rows is None:(kept/'stem_receipts.json').unlink()
+            else:save_json(kept/'stem_receipts.json',rows)
+            assert rejects(lambda:clean(lost,[kept],remove=True)) and all((lost/'cache'/K(k)/'raw.wav').is_file() for k in '123'),rows
+        save_json(kept/'stem_receipts.json',all_rows);record.register(kept,[kept/'stem_receipts.json'])
+        clean(lost,[kept],remove=True);assert not (lost/'cache'/K('3')).exists() and all((lost/'cache'/K(k)/'raw.wav').is_file() for k in '12'),'every part named: only the unused entry goes'
+        # Two pieces that share a part, each with its own cache: the other piece's cache stays whole, and is named.
+        two=whose/'two';a_final=render_of(two/'a'/'final','A',{'lead':K('4'),'bass':K('5')});render_of(two/'b'/'final','B',{'lead':K('4'),'bass':K('6')})
+        for name,k in (('a','4'),('a','5'),('a','7'),('b','4'),('b','6'),('b','8')):entry_of(two/name/'cache',K(k))
+        r=clean(two,[a_final],remove=True)
+        assert all((two/'b'/'cache'/K(k)/'raw.wav').is_file() for k in '468') and not (two/'a'/'cache'/K('7')).exists(),r
+        assert any(x['kind']=='cache' and x['path']=='b/cache' for x in r['left_alone']) and 'cache b/cache' in describe(r),r
+        # One cache beside the renders of two pieces: what the other plays stays, what none plays goes; if a render that stays cannot say what it plays, nothing goes.
+        same=whose/'same';c_final=render_of(same/'c_final','C',{'lead':K('9')});d_final=render_of(same/'d_final','D',{'lead':K('a')})
+        for k in '9ab':entry_of(same/'cache',K(k))
+        clean(same,[c_final],remove=True);assert (same/'cache'/K('a')/'raw.wav').is_file() and not (same/'cache'/K('b')).exists(),'what another piece plays stays'
+        (d_final/'stem_receipts.json').unlink();entry_of(same/'cache',K('c'))
+        r=clean(same,[c_final],remove=True);assert (same/'cache'/K('c')/'raw.wav').is_file() and any(x['path']=='cache' and 'no entry goes' in x['why'] for x in r['left_alone']),r
+        # The cache beside a kept round is its own, as it is beside a kept render.
+        rnd=whose/'round'/'r2';rnd.mkdir(parents=True);save_json(rnd/'round.json',{'kind':'music-production round','title':'R','project':'../song.json','status':'DRAFT_PASS','review':'review/score_review.json','render':'render/report.json','seconds':{}})
+        record.register(rnd,[rnd/'round.json']);render_of(rnd/'render','R',{'lead':K('d')})
+        for k in 'de':entry_of(rnd.parent/'cache',K(k))
+        clean(rnd.parent,[rnd],remove=True);assert (rnd.parent/'cache'/K('d')/'raw.wav').is_file() and not (rnd.parent/'cache'/K('e')).exists(),'the cache beside a kept round'
+        return {'cases':25}
     found = {'clean_takes_reviews_and_lists_only_what_goes': clean_takes_reviews_and_lists_only_what_goes, 'long_paths_reach_programs_in_a_form_they_open': long_paths_for_programs, 'cache_entry_locked_across_renders': entry_lock_across_renders, 'clean_removes_only_what_the_tools_made': clean_only_what_the_tools_made, 'cache_entries_go_by_their_own_record': cache_entries_by_their_record, 'files_never_overwrite_or_write_through': files_never_overwrite_or_write_through, 'journal_proves_a_stopped_run': journal_proves_a_stopped_run, 'writers_leave_whole_files_when_a_write_fails': writers_leave_whole_files_when_a_write_fails, 'run_stops_its_program_when_stopped': run_stops_its_program_when_stopped, 'clean_and_runs_never_share_a_folder': clean_and_runs_never_share_a_folder, 'render_refuses_a_linked_output': render_refuses_a_linked_output, 'bounded_reads_of_records_and_wav_headers': bounded_reads_of_records_and_wav_headers, 'shared_reports_name_folders_relatively': shared_reports_name_folders_relatively, 'selfcheck_work_must_be_new_or_empty': selfcheck_work_must_be_new_or_empty, 'render_folders_are_read_without_links': render_folders_are_read_without_links}
     return found

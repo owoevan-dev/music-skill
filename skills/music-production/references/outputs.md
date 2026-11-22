@@ -168,7 +168,7 @@ changed and not what is better.
 since, and the folders inside it that stay, ending in `/`),
 `bytes`, `kept` (the folders kept: a round by its own folder, which stays whole with its render) and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
 files.json (made before 0.4.0), a render, round or audition at work, or inside one, a folder of which nothing can go
-(`why` names what stays in it: a file no tool recorded, a take a kept render plays), cache entries holding files renders did not write there or that changed since: `kind`,
+(`why` names what stays in it: a file no tool recorded, a take a kept render plays), a cache that cannot be shown to be this piece's or whose entries a render that stays may play (`kind` cache), cache entries holding files renders did not write there or that changed since: `kind`,
 `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the
 `error` and, for a folder, `bytes_removed`, what of it did go).  A render, round or audition holds its folder's lock file `work.lock` while it runs and removes it when it
 ends, `analyze` and `compare` hold the renders they read, and clean takes the same lock before it looks inside a

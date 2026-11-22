@@ -2,8 +2,9 @@
 
 FluidSynth 2.6.1, the build pinned here, keeps a modulator's 16-bit destination in 8 bits and uses it as an index into a
 voice's 63 generators, so a destination of 63 or more can write outside them (CVE-2026-111123).  Its fix (commit d0431d3f,
-in no release yet) drops a modulator with `dest >= GEN_LAST`, and the same test refuses the bank here: every record of the
-preset and instrument modulator tables, whether or not a part plays that preset, since the file is loaded whole.
+released in 2.6.3) drops a modulator with `dest >= GEN_LAST`, and the same bound refuses the bank here: every record of the
+preset and instrument modulator tables and of the default modulators (INFO/DMOD, which FluidSynth imports the same way),
+whether or not a part plays that preset, since the file is loaded whole.
 
 The module is kept apart from sf2.py and audio.py so that adding it changes nothing a cached synthesis depends on
 (render.SYNTHESIS): a Surge take is not repeatable, so an upgrade that invalidated the cache would change a piece's sound."""
@@ -13,12 +14,13 @@ from pathlib import Path
 from .sf2 import MAX_RECORDS, MOD, _chunks
 
 GEN_LAST = 63   # FluidSynth's count of generators (include/fluidsynth/gen.h): 0 to 62 exist
+TABLES = {b'pdta': (b'pmod', b'imod'), b'INFO': (b'DMOD',)}   # the modulator tables of each list, all read by one importer
 
 
 def refuse_unsafe(path):
-    """Raise ValueError for a SoundFont FluidSynth is not safe with.  Only the bank's chunk headers and its two modulator
-    tables are read.  A chunk of odd size is refused too: RIFF pads it and FluidSynth's reader does not, so the two would
-    find different tables after it."""
+    """Raise ValueError for a SoundFont FluidSynth is not safe with.  Only the bank's chunk headers and its modulator tables
+    are read.  A top-level chunk of odd size is refused too: RIFF pads it and FluidSynth's reader does not, so the two would
+    find different tables after it (one inside INFO FluidSynth refuses itself)."""
     path = Path(path)
     with open(path, 'rb') as f:
         head = f.read(12)
@@ -30,10 +32,11 @@ def refuse_unsafe(path):
             if cid != b'LIST':
                 continue
             f.seek(off)
-            if f.read(4) != b'pdta':
+            tables = TABLES.get(f.read(4))
+            if tables is None:
                 continue
             for sub, table, length in _chunks(f, off + 4, off + size):
-                if sub not in (b'pmod', b'imod'):
+                if sub not in tables:
                     continue
                 if length % MOD.size or length // MOD.size > MAX_RECORDS:
                     raise ValueError(f'{path}: bad {sub!r} table size')

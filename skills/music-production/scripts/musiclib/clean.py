@@ -19,8 +19,10 @@ It is the one command that deletes, so it errs toward keeping (musiclib.files):
   nothing else stays in it), and a file is a record by what it holds: a file of the user's named files.json stays.
 - Only the kept renders' piece: a render, round or audition of another piece (another title, and for a round another
   project file) is left alone and listed, also inside a folder that goes; so is one whose piece cannot be read.
-- A cache entry goes only from a cache folder the kept renders use, only if it holds nothing but what renders wrote
-  there, and under its lock (render.entry_lock), so a render never loses an entry it is using.  An entry renders of 0.5
+- A cache entry goes only from the kept piece's own cache (beside a kept render or round, where renders put theirs, or
+  inside one of its folders that goes: a part's key leaves out the title, so a key alone does not show whose cache it
+  is), only if no render that stays plays it, only if it holds nothing but what renders wrote there, and under its lock
+  (render.entry_lock), so a render never loses an entry it is using.  An entry renders of 0.5
   wrote keeps its own record of them, and while a render works in it a journal (musiclib.files), so it goes by the
   files they prove; an entry of 0.4.0, which keeps neither, goes by the names renders gave their files, its key and its
   receipt, as 0.4.0's clean took it.  A render's own unlocked_cache/ (its parts, made there where the shared cache
@@ -203,6 +205,25 @@ def _kept(path):
     return render_dir, round_dir, title or _title(render_dir / 'project.json'), project
 
 
+def keys_played(render_dir):
+    """The cache key of every part a render plays, from its stem_receipts.json; None where that does not show them all (no
+    such file, a row lost, a file saved again in another shape), since a key not named is a take that would pass for unused."""
+    render_dir = Path(render_dir)
+    project = _record(render_dir / 'project.json', files.MAX_PROJECT)
+    tracks = project.get('tracks') if project else None
+    if not isinstance(tracks, list) or not _file(render_dir / 'stem_receipts.json'):
+        return None
+    try:   # bounded, as every record from elsewhere
+        rows = files.read_json(render_dir / 'stem_receipts.json')
+    except (OSError, ValueError):
+        return None
+    if not (isinstance(rows, list) and all(isinstance(r, dict) and isinstance(r.get('track'), str) and isinstance(r.get('cache_key'), str)
+                                           and ENTRY_NAME.fullmatch(r['cache_key']) for r in rows)):
+        return None
+    named = {r['track'] for r in rows}
+    return {r['cache_key'] for r in rows} if all(isinstance(t, dict) and t.get('id') in named for t in tracks) else None
+
+
 def _plan(folder, kind, record, inner, entries=()):
     """What removing a tool's folder takes: its own files that a record (its own, or a sub-folder's such as a round's
     review/) lists unchanged, and what stays.  `inner` are the tool folders inside it, which go or stay on their own, and
@@ -358,20 +379,11 @@ def clean(folder, keep, remove=False):
     projects = {pr for _, _, _, pr in kept if pr}
     used = set()
     for render_dir, _, _, _ in kept:
-        receipts = render_dir / 'stem_receipts.json'
-        if _file(receipts):
-            # Bounded, as every record from elsewhere: a kept render may be one (found by GPT Pro's fourth review).
-            try:
-                listed = files.read_json(receipts)
-            except ValueError as e:
-                raise ValueError(f'--keep {render_dir}: its stem_receipts.json cannot be read ({e}), so clean cannot tell '
-                                 'which cache entries it uses') from None
-            # Every part's key, or no removal: a receipt saved again by another program (a one-row list turned into an object) read as
-            # a render that uses nothing, and the only copy of its Surge take went.
-            if not (isinstance(listed, list) and all(isinstance(r, dict) and isinstance(r.get('cache_key'), str) for r in listed)):
-                raise ValueError(f'--keep {render_dir}: its stem_receipts.json does not name the cache key of every part, so clean cannot '
-                                 'tell which cache entries it uses; nothing was removed')
-            used |= {r['cache_key'] for r in listed}
+        keys = keys_played(render_dir)   # every part's key, or no removal: the only copy of a Surge take may be the one not named
+        if keys is None:
+            raise ValueError(f'--keep {render_dir}: its stem_receipts.json does not name the cache key of every part of its project, '
+                             'so clean cannot tell which cache entries it uses; nothing was removed')
+        used |= keys
     protected = {k[0] for k in kept} | {k[1] for k in kept if k[1]}
     folders = _folders(root)
     rel = lambda f: Path(f).relative_to(root).as_posix()
@@ -437,10 +449,26 @@ def _hold(units, listed, remove):
 def _remove(root, kept, used, folders, units, caches, listed, left, held, remove, rel):
     """The listed folders' plans, and with `remove` their removal, each folder under its lock (`held`), which is let
     go as soon as that folder is done."""
-    # The cache entries that go or stay by their own records and the keys kept renders use: those of a cache a kept render
-    # plays, wherever it lies, and those of a listed audition's own.  A folder holding one does not take it with its own
+    # A cache holding a take a kept render plays is the kept piece's only where its renders put one: beside a kept render or
+    # round, or inside one of its folders that goes.  Two pieces can hold the same take, as a part's key leaves out the
+    # title, so one shared key says nothing of whose cache it is.  What cannot be shown to be the piece's stays.
+    beside = {(round_dir or render_dir).parent for render_dir, round_dir, _, _ in kept}
+    own = {c for c in caches if c.parent in beside or any(f in c.parents for f in listed)}
+    # A render that stays may play from the same cache (`--cache` shared with another piece): what it plays stays, and where
+    # one does not show what it plays, no entry goes.
+    kept_renders = {k[0] for k in kept}
+    staying = [keys_played(f) for f, (kind, _) in units.items() if kind == 'render' and f not in listed and f not in kept_renders]
+    known = None not in staying
+    played = used.union(*(k for k in staying if k is not None))
+    for c in sorted(caches):
+        if (c not in own or not known) and any(f.parent == c and f.name not in played and entry_record(f) for f in folders):
+            left.append({'kind': 'cache', 'path': rel(c), 'title': None,
+                         'why': "not beside a kept render or round, so it cannot be shown to be this piece's" if c not in own
+                         else 'a render that stays does not name the cache key of every part, so no entry goes'})
+    # The cache entries that go or stay by their own records and the keys renders that stay use: those of the piece's own
+    # caches, and those of a listed audition's own.  A folder holding one does not take it with its own
     # files (`--cache r1/cache`: removing r1 took the only copy of a Surge take the final plays).
-    handled = [f for f in folders if f.parent in caches and entry_record(f)]
+    handled = [f for f in folders if f.parent in own and entry_record(f)]
     handled += [e for f, (kind, _) in listed.items() if kind == 'audition' and _folder(f / 'cache')
                 for e in sorted((f / 'cache').iterdir()) if _folder(e) and entry_record(e)]
     handled = list(dict.fromkeys(handled))   # an audition's own cache that a kept render also uses is in both
@@ -455,7 +483,7 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
     report = {'folder': str(root), 'kept': [str(k[1] or k[0]) for k in kept], 'cache_entries_kept': len(used), 'dry_run': not remove,
               'listed': [], 'bytes': 0, 'left_alone': left, 'not_removed': []}
     # Cache entries first: an audition's own cache must be empty before its folder can go.
-    entries = [e for e in handled if e.name not in used]
+    entries = [e for e in handled if e.name not in played] if known else []
     cleared = set()  # the cache entries that go (or would go, in a dry run)
     for e in entries:
         contents = list(e.iterdir())

@@ -583,6 +583,15 @@ def define(S):
             at=next(off-8 for cid,off,_ in _chunks(f,12,len(whole)) if cid==b'LIST' and (f.seek(off),f.read(4))[1]==b'pdta')
         odd=bytearray(whole[:at]+b'JUNK'+struct.pack('<I',1)+b'x'+b'\0'+whole[at:]);struct.pack_into('<I',odd,4,len(odd)-8);(w/'odd.sf2').write_bytes(odd)
         rejects(lambda:bankcheck.refuse_unsafe(w/'odd.sf2'))
+        # Default modulators (INFO/DMOD): FluidSynth reads them through the same importer, so the same bound holds, and sound ones pass.
+        with open(bank,'rb') as f:
+            info,info_size=next((off,size) for cid,off,size in _chunks(f,12,len(whole)) if cid==b'LIST' and (f.seek(off),f.read(4))[1]==b'INFO')
+        def with_dmod(dest):
+            body=struct.pack('<HHhHH',2,dest,10,0,0)+bytes(10);sub=b'DMOD'+struct.pack('<I',len(body))+body
+            raw=bytearray(whole[:info+info_size]+sub+whole[info+info_size:]);struct.pack_into('<I',raw,info-4,info_size+len(sub));struct.pack_into('<I',raw,4,len(raw)-8)
+            out=w/f'dmod_{dest}.sf2';out.write_bytes(raw);return out
+        for dest in (0,62):bankcheck.refuse_unsafe(with_dmod(dest))
+        for dest in (63,255,256,0xFFFF):rejects(lambda:bankcheck.refuse_unsafe(with_dmod(dest)))
         for name in (b'pmod',b'imod'):   # a table's size that is no whole number of records
             short=bytearray(whole);size_at=table(name)-4;struct.pack_into('<I',short,size_at,struct.unpack_from('<I',short,size_at)[0]-2);(w/'short.sf2').write_bytes(short)
             rejects(lambda:bankcheck.refuse_unsafe(w/'short.sf2'))

@@ -72,14 +72,13 @@ def answered_moved(old, reviewed):
     for q in old.get('answered') or []:
         if isinstance(q, dict) and isinstance(q.get('id'), str) and isinstance(q.get('text'), str):
             earlier.setdefault(q['id'], []).append(q)
-    asked = {q.get('id') for q in old.get('questions') or [] if isinstance(q, dict)}
+    asked = {q['id'] for q in old.get('questions') or [] if isinstance(q, dict) and isinstance(q.get('id'), str)}
     out = []
     for q in reviewed['answered']:
         if not earlier.get(q['id']):
             # Nothing of it the round before, asked or answered: a finding come back, or new, under a decision already there.
             if 'answered' in old and q['id'] not in asked:
-                n = count(q['text'])
-                out.append({'id': q['id'], 'was': 0 if n is not None else None, 'now': n})
+                out.append({'id': q['id'], 'was': 0, 'now': count(q['text'])})
         else:
             then = earlier[q['id']].pop(0)
             a, b = count(then['text']), count(q['text'])

@@ -93,7 +93,7 @@ def unpitched(t):
         return bool(oscillators) and all(o.get('wave')=='noise' for o in oscillators)
     return False
 
-def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5,widest=127):
+def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5,widest=127,digest=False):
     """Minor seconds/ninths between a sustained note (>=0.75 beat) and any note of another pitched
     part (or inside one part's chord) overlapping >=0.5 beat (both numbers ours: style-maps.json).  Major sevenths are
     not flagged.  Unpitched parts
@@ -101,7 +101,8 @@ def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5,widest=127):
 
     `widest` is the widest distance counted, in semitones: 13 takes the minor second and the minor ninth, 25 the
     semitone two octaves wide as well, 127 every octave (what 0.8 counted, and still the default of this function).
-    review counts up to 13 (style-maps.json) and gives the wider ones apart: see review().
+    review counts up to 13 (style-maps.json) and gives the wider ones apart: see review().  `digest` adds `places`, a digest
+    of where every counted pair lies, those past the examples too (revision.answered_moved).
 
     0.8 step 1.2: the pairs are counted, not looked at one by one where they are many (0.7 looked at every pair, and
     two parts of 250,000 notes hold 62,500,000,000).  The results are 0.7's to the last example.  A pair is two notes
@@ -214,13 +215,14 @@ def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5,widest=127):
     # the pairs it starts, counted by pair of parts: looked at where it is no longer than eight times its pitch's
     # groups, else counted group by group (the group's long or sustained notes from z's onset, or after it, to the
     # run's end).
-    twice=np.zeros(len(L));pairs_of={}
+    twice=np.zeros(len(L));pairs_of={};meets=np.zeros(len(L))   # meets: how many pairs each long note is in
     for zz,qq in note_pitch_pairs():
         for s,mine in ((0,sl[zz]),(1,~sl[zz])):  # the partners' set: all long notes, or the sustained ones
             z,q=zz[mine],qq[mine]
             if not len(z):continue
             cE,cS,upto,before,size,lo=tally(z,q,pitch_keys[s])
             twice+=np.bincount(z,weights=2*(cE-size+upto)-(upto-before),minlength=len(L))
+            if digest:meets+=np.bincount(z,weights=cE+cS-size,minlength=len(L))
             a,b=lo+np.where(q>pL[z],before,upto),lo+cS
             m=b>a;z,q,a,b=z[m],q[m],a[m],b[m];kq=gstart[q+1]-gstart[q];look=b-a<=8*kq
             for rep,off in spread((b-a)[look]):
@@ -348,7 +350,13 @@ def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5,widest=127):
             a,b=items[ai],items[bi];ov=min(a[1],b[1])-max(a[0],b[0]);beat=max(a[0],b[0])
             pair=sorted([(a[2],a[5]),(b[2],b[5])])  # the lower pitch first, each with its note's id
             found.append({'at':where(clock,beat),'beat':round(beat,4),'parts':sorted({a[3],b[3]}),'pitches':[x[0] for x in pair],'ids':[x[1] for x in pair],'overlap_beats':round(ov,3),'involves_foreground':a[4] or b[4],'same_part':a[3]==b[3]})
-    return {'count':count,'foreground_count':fg_count,'by_parts':by_parts,'examples':found}
+    out={'count':count,'foreground_count':fg_count,'by_parts':by_parts,'examples':found}
+    if digest:
+        # Each note in a pair by onset, end, pitch, part and how many it is in; a part by its name, so that the parts' order changes nothing.
+        names=sorted(tids);part=np.array([names.index(x) for x in tids])[cL];hit=meets>0
+        rows=np.column_stack((z0[hit],z1[hit],np.array(pitches,dtype=np.float64)[pL[hit]],part[hit],meets[hit]))
+        out['places']=hashlib.sha256(rows[np.lexsort(rows.T[::-1])].tobytes()+json.dumps(names).encode()).hexdigest()[:16]
+    return out
 
 def exposed(p,clock,widest=13,beats=1.0,limit=40):
     """The clashes vertical() counts up to `widest` semitones that begin on a downbeat or a half-bar and sound
@@ -923,22 +931,31 @@ def piano_choice(p,installed):
     return asked
 OFF_PITCH=.5   # semitones a note may stay from its written pitch through a bend before it is asked about: a quarter-tone
 BENT=('soundfont','additive','synth','surge')   # the engines that play `performance.bend` (a drum machine or a noise part has no pitch to bend)
+def beyond(v0,v1,limit):
+    """How much of a straight stretch from v0 to v1 lies at or beyond +-limit, from 0 to 1."""
+    if v0==v1:return float(abs(v0)>=limit)
+    lo,hi=min(v0,v1),max(v0,v1)
+    return (max(0,hi-max(lo,limit))+max(0,min(hi,-limit)-lo))/(hi-lo)
 def bends_across(t,clock,actual=None):
     """The notes that `performance.bend` keeps a quarter-tone or more off their written pitch for most of the time they
-    sound, as (beat, semitones): the median of the wheel over the note as it is played.  The wheel runs straight from
-    each point to the next and holds the last, so a scoop written as one point before its note ramps from the last point
-    across every note between (two runs of 0.9.1, one with 51 of 299 notes, the median 118 cents off; no check saw it),
-    and a bend never brought back leaves every later note off.  A note's own short scoop, or a vibrato about its pitch,
-    is not counted.  A reversed part is played without the wheel (render.reversed_notes)."""
+    sound, as (beat, the furthest it goes in semitones).  The wheel runs straight from each point to the next and holds
+    the last, so a scoop written as one point before its note ramps from the last point across every note between (two
+    runs of 0.9.1, one with 51 of 299 notes, the median 118 cents off; no check saw it), and a bend never brought back
+    leaves every later note off.  The time is measured and not sampled, stretch by stretch of the curve and the tempo: a
+    regular vibrato of 60 cents is past 50 for under a fifth of a note, and sixteen samples could all land on its peaks.
+    A note's own short scoop is not counted.  A reversed part is played without the wheel (render.reversed_notes)."""
     if t['engine'] not in BENT or t.get('reverse'):return []
     curve=bend_curve(t['performance'].get('bend') or [])
     if not curve:return []
-    out=[]
+    out=[];marks=sorted({b for b,_ in curve}|set(clock.beats))
     for a in (sounded(t,clock) if actual is None else actual):
         s0,s1=a['start_seconds'],a['end_seconds']
         if s1<=s0:continue
-        at=sorted((curve_at(curve,clock.beat(s0+(s1-s0)*k/15)) for k in range(16)),key=abs)   # evenly in time: a tempo change moves the beats
-        if abs(at[8])>=OFF_PITCH:out.append((round(clock.beat(s0),4),at[8]))
+        b0,b1=clock.beat(s0),clock.beat(s1);cuts=[b0,*marks[bisect.bisect_right(marks,b0):bisect.bisect_left(marks,b1)],b1];off=furthest=0.0
+        for x,y in zip(cuts,cuts[1:]):
+            v0=curve_at(curve,x);v1=2*curve_at(curve,(x+y)/2)-v0   # straight from x to y, y as it is reached and before any jump there
+            off+=(clock.seconds(y)-clock.seconds(x))*beyond(v0,v1,OFF_PITCH);furthest=max(furthest,v0,v1,key=abs)
+        if off>(s1-s0)/2:out.append((round(b0,4),furthest))
     return sorted(out)
 def bend_question(t,clock,actual=None):
     """The review's question on bends_across, as (identifier, text), or None."""
@@ -952,10 +969,7 @@ def places(summary,qid):
     kind=qid.split(':',1)[0]
     if kind.startswith('outside_chord.'):
         return (((summary.get('outside_chord') or {}).get('not_resolved_by_step') or {}).get(kind.split('.',1)[1]) or {}).get('places')
-    if kind=='vertical':   # (vertical() lists its first pairs and counts the rest: both go into the digest)
-        v=summary.get('vertical_minor_seconds_ninths')
-        return place_digest(v['examples'],v['count'],v['foreground_count'],v['by_parts']) if v else None
-    key={'parallels':'parallel_fifths_octaves','low_intervals':'low_intervals','transposed_samples':'transposed_samples'}.get(kind)
+    key={'vertical':'vertical_minor_seconds_ninths','parallels':'parallel_fifths_octaves','low_intervals':'low_intervals','transposed_samples':'transposed_samples'}.get(kind)
     return (summary.get(key) or {}).get('places') if key else None
 def review(p,out,config=None):
     out=Path(out);out.mkdir(parents=True,exist_ok=True);clock=Clock(p)
@@ -1076,7 +1090,7 @@ def review(p,out,config=None):
     # apart and not asked about: by Sethares's (1993) model of roughness between the partials of two harmonic tones,
     # a semitone two octaves wide has a tenth to a quarter of a close one's roughness and three octaves wide under a
     # tenth (a minor ninth about half; computed for two spectra at three registers).
-    summary['vertical_minor_seconds_ninths']=v=vertical(p,clock,**L('vertical'))
+    summary['vertical_minor_seconds_ninths']=v=vertical(p,clock,**L('vertical'),digest=True)
     upto=lambda widest:vertical(p,clock,**{**L('vertical'),'widest':widest})['count']
     two=upto(25);v['wider']={'two_octaves':two-v['count'],'three_octaves_or_more':upto(127)-two};wider=sum(v['wider'].values())
     # The exposed ones: begun on a downbeat or a half-bar and sounding together a beat or more.  Few, each is asked

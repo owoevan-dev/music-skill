@@ -727,6 +727,10 @@ def define(S):
         led['plan']={'identity':'x','sections':[{'section':'question','leads':'piano'},{'section':'answer','leads':'bass'}]}
         assert leads_over(led,0,8)=={'piano'} and leads_over(led,8,16)=={'bass'} and leads_over(led,4,12)=={'piano','bass'},leads_over(led,4,12)
         led['plan']['sections'].pop();assert leads_over(led,4,12)=={'piano'}|melody and leads_over(example(),4,12)==melody
+        # A lead that holds a note across a span sounds there though it starts nothing; a part's name is a whole name; no lead is no lead.
+        line_of=lambda name,role,*notes:{'id':name,'role':role,'notes':[{'on':a,'duration':d,'pitch':60} for a,d in notes]}
+        tiny={'tracks':[line_of('sax','melody',(0,1),(1,1)),line_of('alto_sax','harmony',(0,4))]}
+        assert doublings(tiny,1.5,3,leads='alto_sax')==['alto_sax'] and doublings(tiny,0,1,leads='alto_sax')==['alto_sax'] and doublings(tiny,0,1,leads=None)==['sax'],doublings(tiny,0,1,leads='alto_sax')
         # A part the plan names and the project does not have yet is one question, whatever it was planned to do.
         p=example();clock=Clock(p);first,second=p['sections'][0]['id'],p['sections'][1]['id']
         real=sorted({r['section']:r['parts'] for r in views.parts_by_section(p,clock)}[second])

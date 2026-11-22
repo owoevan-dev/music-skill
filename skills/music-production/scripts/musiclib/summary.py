@@ -100,7 +100,7 @@ def review(r, folder, since=None, plan_changed=None):
         lines.append(f'New{was}: ' + (ids(since['new']) if since['new'] else 'none') + '. Gone: ' + (ids(since['gone']) if since['gone'] else 'none')
                      + '. (By question identifier; a fix that raises a new question shows here.)')
         if since.get('answered_moved'):
-            shown = [f'{x["id"]} ({x["was"]} -> {x["now"]})' if x['was'] is not None else x['id'] for x in since['answered_moved']]
+            shown = [x['id'] if x['was'] is None else f'{x["id"]} (not there before)' if x['now'] is None else f'{x["id"]} ({x["was"]} -> {x["now"]})' for x in since['answered_moved']]
             lines.append(f'Answered in a decision, but moved{was}: ' + ids(shown) + '. The decision still answers it: check that it covers what is '
                          'there now (score_review.json, `answered`), and change the score or the decision.')
     st, lim = r.get('style'), r.get('limits') or {}

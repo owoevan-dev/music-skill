@@ -23,7 +23,7 @@ Smaller, safer and easier to install. The same project renders to the same audio
 
 ### Fixed
 
-- **`clean` keeps a take that a kept render plays from an audition's cache.** The entry was removed with that cache, and the clean then stopped halfway. A Surge take cannot be made again, so the next render of that piece would have sounded different.
+- **`clean` keeps a take that a kept render plays from a cache inside a folder it removes**, an audition's or an earlier render's. The take went with that folder, and a Surge take cannot be made again, so the next render of that piece would have sounded different.
 
 ### Security
 

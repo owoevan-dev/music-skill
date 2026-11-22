@@ -21,9 +21,9 @@ to end, or for `runtime_seconds`, which a round that failed has too: then `faile
 `error`), `questions` (how many review questions), `new_questions` and `gone_questions` (with `--previous` a round
 made by this version: the identifiers of the questions this round asks that the round before did not, and of those
 it asked that are gone; a fix that raises another question shows in the first), `answered_moved` (where there are any:
-the questions a decision answers whose figures or places moved since that round, or that it neither asked nor answered
-(`was` 0), as `id`, `was` and `now`, the two counts where the question begins with one and more are counted now, else
-null; the decision still answers them, so check that it covers what is there), `project` and `previous` (relative
+the questions a decision answers whose figures or places moved since that round, as `id`, `was` and `now`, the two counts
+where the question begins with one and more are counted now, else null; for a question that round neither asked nor
+answered `was` is 0 and `now` its count, or null where it begins with no count; the decision still answers them, so check that it covers what is there), `project` and `previous` (relative
 to the round's folder), the
 relative paths `review`, `render`, `analysis`, `compare`, `seconds` per step and `runtime_seconds`. With `--clip`, the comparison's `clip` names the old-then-new MP3
 (or why it was not made). A round's folder can stand for its render wherever a command takes a render folder;
@@ -157,7 +157,7 @@ numbered folder.
 since, and the folders inside it that stay, ending in `/`),
 `bytes`, `kept` (the folders kept: a round by its own folder, which stays whole with its render) and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
 files.json (made before 0.4.0), a render, round or audition at work, or inside one, a folder of which nothing can go
-(`why` names what stays in it), cache entries holding files renders did not write there or that changed since: `kind`,
+(`why` names what stays in it: a file or an empty folder no tool recorded, a take a kept render plays), cache entries holding files renders did not write there or that changed since: `kind`,
 `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the
 `error`).  A render, round or audition holds its folder's lock file `work.lock` while it runs and removes it when it
 ends, `analyze` and `compare` hold the renders they read, and clean takes the same lock before it looks inside a

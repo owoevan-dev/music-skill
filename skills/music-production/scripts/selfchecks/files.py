@@ -258,10 +258,10 @@ def define(S):
         assert (aud/'cache'/'my_notes.txt').is_file() and 'aud/cache/my_notes.txt' in parts['aud']['kept_inside'],parts.get('aud')
         import musiclib.clean as cl
         changed=made(k/'r_changed_meanwhile','Song K');real_empty=cl._empty_folders;fired=[]
-        def meanwhile(folder,skip,holders=(),stamps=None):
+        def meanwhile(folder,skip,holders=(),stamps=None,only=None):
             if folder==changed and not fired:  # once, after the folder's files went and before its records do
                 fired.append(1);(changed/'late.json').write_text('{}',encoding='utf-8');record.register(changed,[changed/'late.json'])
-            return real_empty(folder,skip,holders,stamps)
+            return real_empty(folder,skip,holders,stamps,only)
         cl._empty_folders=meanwhile
         try:r=clean(k,[k/'final'],remove=True)
         finally:cl._empty_folders=real_empty
@@ -282,8 +282,8 @@ def define(S):
         # every level); a kept render's stem receipts are read within the record limit.
         def after_plan(change):
             real_plan=cl._plan
-            def planned(folder,kind,rec,inner):
-                plan=real_plan(folder,kind,rec,inner);change(Path(folder));return plan
+            def planned(folder,kind,rec,inner,entries=()):
+                plan=real_plan(folder,kind,rec,inner,entries);change(Path(folder));return plan
             cl._plan=planned;return real_plan
         m=work2/'song_m';made(m/'final','Song M')
         rnd=m/'r_round';rnd.mkdir();save_json(rnd/'round.json',{'kind':'music-production round','title':'Song M','project':'../song.json','status':'DRAFT_PASS',
@@ -1144,7 +1144,9 @@ def define(S):
         assert got=={'review_a':True,'review_noted':False,'review_changed':False},got
         assert all((mine/n).is_file() for n in ('score_review.json','notes.csv','arrangement.md')),'a listing removes nothing'
         left={x['path']:x['why'] for x in looked['left_alone']};assert 'another piece' in left.get('review_other','') and 'no record' in left.get('review_without_record',''),left
-        clean(base,[final],remove=True)
+        size=sum(x.stat().st_size for x in mine.iterdir() if x.is_file() and not record.is_lock_file(x))   # every file it takes, its records too
+        assert next(x['bytes'] for x in looked['listed'] if x['path']=='review_a')==size,(looked['listed'],size)
+        done=clean(base,[final],remove=True);assert next(x['bytes'] for x in done['listed'] if x['path']=='review_a')==size,done['listed']
         assert not mine.exists() and (theirs/'score_review.json').is_file() and (plain/'score_review.json').is_file() and (unrecorded/'notes.csv').is_file()
         assert (noted/'my_note.txt').read_text(encoding='utf-8')=='keep' and not (noted/'notes.csv').exists() and (noted/'score_review.json').is_file()
         assert (changed/'notes.csv').read_text(encoding='utf-8')=='edited by hand' and (final/'render_input.json').is_file()
@@ -1158,6 +1160,8 @@ def define(S):
         assert any(x['path']=='aud' and x['bytes']==10 for x in clean(base,[final])['listed'])
         (aud/'stale.log').unlink();(aud/'my_note.txt').write_text('hear it again',encoding='utf-8')   # a note of the user's beside them: nothing goes, so nothing is counted
         now=clean(base,[final]);assert not any(x['path']=='aud' for x in now['listed']) and any(x['path']=='aud' and 'aud/my_note.txt' in x['why'] for x in now['left_alone']),now
+        (aud/'alternate-takes').mkdir()   # an empty folder is no tool's: it stays, and is named
+        now=clean(base,[final]);assert any(x['path']=='aud' and 'aud/alternate-takes/' in x['why'] for x in now['left_alone']),now['left_alone']
         # An audition's own cache that a kept render plays (`--cache` on it): the take it uses stays, since it cannot be made again, and each other entry goes once.
         keyed='ab'*10;other_key='cd'*10;shared=base/'aud2';(shared/'cache'/keyed).mkdir(parents=True);(shared/'cache'/other_key).mkdir()
         for k in (keyed,other_key):save_json(shared/'cache'/k/'receipt.json',{'key':k,'sha256':'c'*64,'track':'t'});(shared/'cache'/k/'raw.wav').write_bytes(bytes(50))
@@ -1168,10 +1172,21 @@ def define(S):
         assert len(listed)==len(set(listed)) and f'aud2/cache/{other_key}' in listed and f'aud2/cache/{keyed}' not in listed,listed
         gone=clean(base,[final],remove=True);assert gone['not_removed']==[] and (shared/'cache'/keyed/'raw.wav').is_file() and not (shared/'cache'/other_key).exists() and (shared/'audition.mp3').is_file(),gone
         assert any(x['path']=='aud2' and f'aud2/cache/{keyed}/' in x['why'] for x in gone['left_alone']),gone['left_alone']
+        assert (aud/'alternate-takes').is_dir() and (aud/'my_note.txt').is_file(),'a removal takes what the list named and no more'
+        # A cache inside a render that goes (`--cache older/cache`): the take a kept render plays stays with the render's record, the other goes.
+        inner='ef'*10;spare='0a'*10;older=base/'older';older.mkdir()
+        save_json(older/'render_input.json',{'project_sha256':'a'*64,'renderer_sha256':'b'*64});save_json(older/'project.json',{'title':song['title'],'tracks':[]});save_json(older/'stem_receipts.json',[])
+        record.register(older,[older/n for n in ('render_input.json','project.json','stem_receipts.json')])
+        for k in (inner,spare):
+            (older/'cache'/k).mkdir(parents=True);save_json(older/'cache'/k/'receipt.json',{'key':k,'sha256':'c'*64,'track':'t'});(older/'cache'/k/'raw.wav').write_bytes(bytes(50))
+            record.register(older/'cache'/k,[older/'cache'/k/'receipt.json',older/'cache'/k/'raw.wav'])
+        save_json(final/'stem_receipts.json',[{'track':'t','cache_key':keyed},{'track':'u','cache_key':inner}]);record.register(final,[final/'stem_receipts.json'])
+        gone=clean(base,[final],remove=True);assert (older/'cache'/inner/'raw.wav').is_file() and (older/'cache'/inner/'receipt.json').is_file() and not (older/'cache'/spare).exists(),gone
+        row=next(x for x in gone['listed']+gone['left_alone'] if x['path']=='older');assert f'older/cache/{inner}/' in (row.get('why') or ' '.join(row['kept_inside'])),row
         row=lambda k,p:{'kind':k,'path':p,'bytes':1,'whole':True,'kept_inside':[]}
         text=describe({'folder':'piece','kept':['final'],'cache_entries_kept':0,'dry_run':True,'bytes':26,'left_alone':[],'not_removed':[],
                        'listed':[row('cache entry',f'cache/{k}') for k in range(25)]+[row('review','review_a')]})
         assert '- review: review_a' in text and text.index('- review: review_a')<text.index('- cache entry:') and '- and 6 more (--json lists every one)' in text,text
-        return {'cases':11}
+        return {'cases':14}
     found = {'clean_takes_reviews_and_lists_only_what_goes': clean_takes_reviews_and_lists_only_what_goes, 'long_paths_reach_programs_in_a_form_they_open': long_paths_for_programs, 'cache_entry_locked_across_renders': entry_lock_across_renders, 'clean_removes_only_what_the_tools_made': clean_only_what_the_tools_made, 'cache_entries_go_by_their_own_record': cache_entries_by_their_record, 'files_never_overwrite_or_write_through': files_never_overwrite_or_write_through, 'journal_proves_a_stopped_run': journal_proves_a_stopped_run, 'writers_leave_whole_files_when_a_write_fails': writers_leave_whole_files_when_a_write_fails, 'run_stops_its_program_when_stopped': run_stops_its_program_when_stopped, 'clean_and_runs_never_share_a_folder': clean_and_runs_never_share_a_folder, 'render_refuses_a_linked_output': render_refuses_a_linked_output, 'bounded_reads_of_records_and_wav_headers': bounded_reads_of_records_and_wav_headers, 'shared_reports_name_folders_relatively': shared_reports_name_folders_relatively, 'selfcheck_work_must_be_new_or_empty': selfcheck_work_must_be_new_or_empty, 'render_folders_are_read_without_links': render_folders_are_read_without_links}
     return found

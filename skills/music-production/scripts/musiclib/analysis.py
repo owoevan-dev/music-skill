@@ -414,9 +414,12 @@ def mix_measures(render_dir, report, p=None):
 def doublings(p, lo, hi, share=.6, leads=()):
     """The melody parts sounding in beats [lo, hi) and the parts that double them: at least `share` of a part's onsets
     there fall on a melody onset of the same pitch class.  `leads`: the parts the plan says lead here, in place of the
-    parts of role melody where one plays there (a verse tune on two horns read 8.6 dB under a trumpet that only answers it)."""
+    parts of role melody where one plays there (a verse tune on two horns read 8.6 dB under a trumpet that only answers it).
+    One of them that holds a note across [lo, hi) sounds there, though it starts nothing; doubling is still read by onsets."""
+    leads = {leads} if isinstance(leads, str) else set(leads or ())
     plays = lambda t: any(lo <= n['on'] < hi for n in t['notes'])
-    melody = [t for t in p['tracks'] if t['id'] in leads and plays(t)] or [t for t in p['tracks'] if t.get('role') == 'melody' and plays(t)]
+    sounds = lambda t: any(n['on'] < hi and n['on'] + n['duration'] > lo for n in t['notes'])
+    melody = [t for t in p['tracks'] if t['id'] in leads and sounds(t)] or [t for t in p['tracks'] if t.get('role') == 'melody' and plays(t)]
     keys = {(round(n['on'], 3), n['pitch'] % 12) for t in melody for n in t['notes'] if lo <= n['on'] < hi}
     group = {t['id'] for t in melody}
     for t in p['tracks']:

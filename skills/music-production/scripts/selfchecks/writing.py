@@ -731,6 +731,9 @@ def define(S):
         line_of=lambda name,role,*notes:{'id':name,'role':role,'notes':[{'on':a,'duration':d,'pitch':60} for a,d in notes]}
         tiny={'tracks':[line_of('sax','melody',(0,1),(1,1)),line_of('alto_sax','harmony',(0,4))]}
         assert doublings(tiny,1.5,3,leads='alto_sax')==['alto_sax'] and doublings(tiny,0,1,leads='alto_sax')==['alto_sax'] and doublings(tiny,0,1,leads=None)==['sax'],doublings(tiny,0,1,leads='alto_sax')
+        gated=example();kept=next(t for t in gated['tracks'] if t.get('role')!='melody' and not t.get('drums'));ticks=Clock(gated)
+        kept['notes']=[{'id':'h0','on':0.0,'duration':4,'pitch':48}];kept['performance']['notes']={'h0':{'velocity':80,'gate':1.5}}
+        assert kept['id'] in doublings(gated,4.5,5.5,leads=kept['id'],clock=ticks) and kept['id'] not in doublings(gated,6.5,7,leads=kept['id'],clock=ticks),'by the note as played'
         # A part the plan names and the project does not have yet is one question, whatever it was planned to do.
         p=example();clock=Clock(p);first,second=p['sections'][0]['id'],p['sections'][1]['id']
         real=sorted({r['section']:r['parts'] for r in views.parts_by_section(p,clock)}[second])

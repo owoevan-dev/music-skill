@@ -68,16 +68,18 @@ def answered_moved(old, reviewed):
     a finding come back under its decision (`was` 0)."""
     count = lambda text: int(m.group(1)) if (m := re.match(r'(\d+)\b', text)) else None
     figures = lambda text: re.findall(r'\d+(?:\.\d+)?', text)
+    rows = lambda key: [q for q in (old.get(key) if isinstance(old.get(key), list) else []) if isinstance(q, dict)]   # (a record may have been edited)
     earlier = {}
-    for q in old.get('answered') or []:
-        if isinstance(q, dict) and isinstance(q.get('id'), str) and isinstance(q.get('text'), str):
+    for q in rows('answered'):
+        if isinstance(q.get('id'), str) and isinstance(q.get('text'), str):
             earlier.setdefault(q['id'], []).append(q)
-    asked = {q['id'] for q in old.get('questions') or [] if isinstance(q, dict) and isinstance(q.get('id'), str)}
+    asked = {q['id'] for q in rows('questions') if isinstance(q.get('id'), str)}
+    known = isinstance(old.get('answered'), list)
     out = []
     for q in reviewed['answered']:
         if not earlier.get(q['id']):
             # Nothing of it the round before, asked or answered: a finding come back, or new, under a decision already there.
-            if 'answered' in old and q['id'] not in asked:
+            if known and q['id'] not in asked:
                 out.append({'id': q['id'], 'was': 0, 'now': count(q['text'])})
         else:
             then = earlier[q['id']].pop(0)

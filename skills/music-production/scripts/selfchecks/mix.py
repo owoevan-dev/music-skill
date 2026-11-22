@@ -1912,6 +1912,11 @@ def define(S):
             q['plan']={'identity':'x','sections':[{'section':first['id'],'leads':other}]};(led/'project.json').unlink();save_json(led/'project.json',q)
             read=analyze(led,[('same',first['start_bar']+1,first['start_bar']+first['bars'])])['melody_groups'];by={g['region']:g['melody_group'] for g in read}
             assert other in by['span:same'] and by['span:same']==by[first['id']],by
+            # By the note as played: written up to the span, and held into it by its gate.
+            t=next(x for x in q['tracks'] if x['id']==other);n=t['notes'][0];t['notes']=[{**n,'on':float(first['start_bar']*4),'duration':4.0}]
+            t['performance']['notes']={n['id']:{**t['performance']['notes'][n['id']],'gate':1.5}};(led/'project.json').unlink();save_json(led/'project.json',q)
+            by={g['region']:g['melody_group'] for g in analyze(led,[('held',first['start_bar']+2,first['start_bar']+2)])['melody_groups']}
+            assert other in by['span:held'],by
             # A span has its own level, correlation and mono fold, in the file and on the summary's line.
             spanned=analyze(work/'render_bus',[('focus',1,2)]);row=spanned['spans'][0]
             assert row['section']=='span:focus' and row['level_lufs_ungated'] is not None and 'spans' not in analyze(work/'render_bus')

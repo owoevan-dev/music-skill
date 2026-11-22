@@ -560,6 +560,7 @@ def define(S):
         came_back=answered_moved({'questions':[],'answered':[]},{'questions':[],'answered':[{'id':'bend:a','text':'a: 3 notes stay off'}]})
         assert came_back==[{'id':'bend:a','was':0,'now':None}],came_back                 # a question that names its part first is not counted, and was not there
         assert answered_moved({'questions':[{'id':['plan','verse'],'text':'x'}],'answered':[]},{'questions':[],'answered':[]})==[]   # a mistyped record of the round before
+        assert answered_moved({'questions':[],'answered':1},{'questions':[],'answered':[{'id':'a','text':'1 note'}]})==[]   # and one that holds no list
         from musiclib.review import parallels,place_digest,places
         # Every finding counts, not the ones a list keeps: 43 parallels with the last moved, close intervals with another pitch.
         def many(last):
@@ -590,6 +591,12 @@ def define(S):
         here,there=clashes(43.0),clashes(43.25)
         assert here['count']==there['count']>40 and here['examples']==there['examples'] and here['places']!=there['places'],(here['count'],there['count'])
         assert clashes(43.0,-1)['places']==here['places'] and 'places' not in vertical(example(),Clock(example()))   # the parts' order is no change; the digest only where asked
+        def pair(later=None,role='harmony'):
+            q=example();a,b=[t for t in q['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];c=copy.deepcopy(a);c['id']='third';c['notes']=[]
+            a['role'],b['role']='harmony',role;a['notes']=[{'id':'a0','on':0.0,'duration':1,'pitch':60}];b['notes']=[{'id':'b0','on':0.0,'duration':1,'pitch':61}]
+            if later:c['notes']=[{'id':'c0','on':later,'duration':1,'pitch':40}]
+            q['tracks']=[a,b,c];return vertical(q,Clock(q),digest=True)['places']
+        assert pair()==pair(later=8.0) and pair()!=pair(role='melody'),'a part that meets nothing is no change; a part turned foreground is'
         fifths=lambda bar:{'parallel_fifths_octaves':{'places':place_digest([{'at':f'bar {bar} beat 1','parts':['a','b'],'pitches':[[60,67]]}])}}
         assert places(fifths(1),'parallels')==places(fifths(1),'parallels')!=places(fifths(2),'parallels') and places(fifths(1),'stiffness:lead') is None
         line=lambda t,base:(t.update(notes=[{'id':f'{t["id"]}_{k}','on':float(k),'duration':1,'pitch':base+x} for k,x in enumerate((0,2,4,5))]),t['performance'].update(notes={f'{t["id"]}_{k}':{'velocity':80} for k in range(4)}))
@@ -621,6 +628,10 @@ def define(S):
         assert bent([[0,0],[1,-1]],2,3,reverse=True)==[] and bent([[0,0],[1,-1]],2,3,engine='noise')==[] and bent([[0,0],[1,-1]],2,3,engine='surge')==[2,3]   # the wheel an engine plays
         changing=example();changing['clock']['tempo']=[[0,120],[1,30]];ticking=Clock(changing);spread={'engine':'soundfont','performance':{'bend':[[0,-1],[1,-1],[1.001,0]]}}
         assert bends_across(spread,ticking,[{'start_seconds':0,'end_seconds':ticking.seconds(2)}])==[]   # off pitch for half its beats, a fifth of its seconds
+        def half(bpm,on):
+            q=example();q['clock']['tempo']=[[0,bpm]];ticks=Clock(q);mid=on+1
+            return bends_across({'engine':'soundfont','performance':{'bend':[[on,-1],[mid,-1],[mid,0]]}},ticks,[{'start_seconds':ticks.seconds(on),'end_seconds':ticks.seconds(on+2)}])
+        assert not any(half(b,o) for b in (97,100,113,131,137) for o in (1,2.25,3.5,5.125,7.75)),'exactly half of a note is not most of it'
         p=example();t=next(x for x in p['tracks'] if len(x['notes'])>=8 and x.get('role')=='melody');on=sorted({n['on'] for n in t['notes']})
         t['performance']['bend']=[[on[1]-.05,-1.5],[on[1],0],[on[6]-.05,-1.5],[on[6],0]]
         qid=f'bend:{t["id"]}';asked=review(p,folder/'bend')

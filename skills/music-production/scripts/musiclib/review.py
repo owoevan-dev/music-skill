@@ -352,10 +352,11 @@ def vertical(p,clock,limit=40,sustain_beats=.75,overlap_beats=.5,widest=127,dige
             found.append({'at':where(clock,beat),'beat':round(beat,4),'parts':sorted({a[3],b[3]}),'pitches':[x[0] for x in pair],'ids':[x[1] for x in pair],'overlap_beats':round(ov,3),'involves_foreground':a[4] or b[4],'same_part':a[3]==b[3]})
     out={'count':count,'foreground_count':fg_count,'by_parts':by_parts,'examples':found}
     if digest:
-        # Each note in a pair by onset, end, pitch, part and how many it is in; a part by its name, so that the parts' order changes nothing.
-        names=sorted(tids);part=np.array([names.index(x) for x in tids])[cL];hit=meets>0
-        rows=np.column_stack((z0[hit],z1[hit],np.array(pitches,dtype=np.float64)[pL[hit]],part[hit],meets[hit]))
-        out['places']=hashlib.sha256(rows[np.lexsort(rows.T[::-1])].tobytes()+json.dumps(names).encode()).hexdigest()[:16]
+        # Each note in a pair by onset, end, pitch, part and how many it is in, and how many pairs hold a foreground part; a part by
+        # its name, among those in a pair, so that neither the parts' order nor a part that meets nothing changes it.
+        hit=meets>0;names=sorted({tids[c] for c in np.unique(cL[hit]).tolist()});place={x:k for k,x in enumerate(names)}
+        rows=np.column_stack((z0[hit],z1[hit],np.array(pitches,dtype=np.float64)[pL[hit]],np.array([place.get(x,-1) for x in tids])[cL[hit]],meets[hit]))
+        out['places']=hashlib.sha256(rows[np.lexsort(rows.T[::-1])].tobytes()+json.dumps([names,fg_count]).encode()).hexdigest()[:16]
     return out
 
 def exposed(p,clock,widest=13,beats=1.0,limit=40):
@@ -955,7 +956,7 @@ def bends_across(t,clock,actual=None):
         for x,y in zip(cuts,cuts[1:]):
             v0=curve_at(curve,x);v1=2*curve_at(curve,(x+y)/2)-v0   # straight from x to y, y as it is reached and before any jump there
             off+=(clock.seconds(y)-clock.seconds(x))*beyond(v0,v1,OFF_PITCH);furthest=max(furthest,v0,v1,key=abs)
-        if off>(s1-s0)/2:out.append((round(b0,4),furthest))
+        if off>(s1-s0)/2+1e-6:out.append((round(b0,4),furthest))   # (exactly half is not most, whatever the rounding of the seconds)
     return sorted(out)
 def bend_question(t,clock,actual=None):
     """The review's question on bends_across, as (identifier, text), or None."""

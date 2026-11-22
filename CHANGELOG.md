@@ -10,7 +10,7 @@ Smaller, safer and easier to install. The same project renders to the same audio
 
 - **`SKILL.md` is about 28% shorter (6,093 words to 4,360) and ordered by need.** What must hold comes first (listening, files from elsewhere, the configuration, rights), then what goes wrong without a word, the workflow and the commands of a normal piece. Rarer commands and options and what a render writes moved to the new [commands.md](skills/music-production/references/commands.md); each sentence of the old file has a place.
 - **`studio.py sounds` prints one line a patch** with what tells them apart (25 patches were about 12 KB of JSON). `--json` prints everything.
-- **`clean` also takes standalone `review` folders**, by the record they already keep. A folder of which nothing can go is no longer counted as removed: it is named with what stays in it. Folders come before cache entries in its list.
+- **`clean` also takes standalone `review` folders**, by the record they already keep. A folder of which nothing can go is no longer counted as removed: it is named with what stays in it. Its totals count what really went, a file another program holds open is left out of them, and folders come before cache entries in its list.
 - **A part the plan names and the project does not have yet is one question** (`plan.unwritten:<parts>`), not one per section, so a score reviewed before its other parts are written shows its real differences. A decision on it covers those parts and no part named later.
 - `analyze` gives a `--span` its own level, correlation and mono fold; where nothing is on the lead bus the melody stems stand in, and the melody group of a section or a span starts from the part the plan says leads it.
 
@@ -24,6 +24,7 @@ Smaller, safer and easier to install. The same project renders to the same audio
 ### Fixed
 
 - **`clean` keeps a take that a kept render plays from a cache inside a folder it removes**, an audition's or an earlier render's. The take went with that folder, and a Surge take cannot be made again, so the next render of that piece would have sounded different.
+- `clean` stops, removing nothing, where a kept render's `stem_receipts.json` does not name every part's cache key. A receipt saved again by another program read as a render that uses no take.
 
 ### Security
 
@@ -37,7 +38,7 @@ Smaller, safer and easier to install. The same project renders to the same audio
 
 ### Documentation
 
-- Corrected against the code and the banks: the default bank's brush and marching kits and their keys, a slur's `bend_range`, crossfade with portamento, how dynamic layers are spaced, what `reverse` does on a sound that does not decay, the organ pedal's strongest partial, the steel drum's and vibraphone's off-pitch takes, the tail after a crash, what to ask of a wide game mix, how much `level_dbfs` moves when a part's loudest notes change, the keys `outputs.md` names.
+- Corrected against the code and the banks: the default bank's brush and marching kits and their keys, a slur's `bend_range`, crossfade with portamento, how dynamic layers are spaced, what `reverse` does on a sound that does not decay, the organ pedal's strongest partial, the steel drum's and vibraphone's off-pitch takes, the tail after a crash, what to ask of a wide game mix, how much `level_dbfs` moves when a part's loudest notes change, the keys `outputs.md` names, and which instruments the default bank holds (bandoneon, accordion, bagpipes, banjo, mandolin, shakuhachi, shamisen, timbales), which the style maps said it lacked.
 
 ## [0.9.1] - 2026-11-22
 

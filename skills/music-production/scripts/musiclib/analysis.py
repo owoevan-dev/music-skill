@@ -40,7 +40,7 @@ import numpy as np
 
 from . import audio, files
 from .measure import HALL_C80_DB, clarity_c80, k_filter, level, release
-from .model import Clock, load_project
+from .model import Clock, load_project, sounded
 
 RATE = audio.RATE
 BANDS = [(20, 60), (60, 250), (250, 800), (800, 2500), (2500, 6000), (6000, 16000)]
@@ -411,14 +411,19 @@ def mix_measures(render_dir, report, p=None):
     return out
 
 
-def doublings(p, lo, hi, share=.6, leads=()):
+def doublings(p, lo, hi, share=.6, leads=(), clock=None):
     """The melody parts sounding in beats [lo, hi) and the parts that double them: at least `share` of a part's onsets
     there fall on a melody onset of the same pitch class.  `leads`: the parts the plan says lead here, in place of the
     parts of role melody where one plays there (a verse tune on two horns read 8.6 dB under a trumpet that only answers it).
-    One of them that holds a note across [lo, hi) sounds there, though it starts nothing; doubling is still read by onsets."""
+    One of them that holds a note across [lo, hi) sounds there, though it starts nothing, by the note as played where
+    `clock` is given (a gate carries it past what is written, or ends it before); doubling is still read by onsets."""
     leads = {leads} if isinstance(leads, str) else set(leads or ())
     plays = lambda t: any(lo <= n['on'] < hi for n in t['notes'])
-    sounds = lambda t: any(n['on'] < hi and n['on'] + n['duration'] > lo for n in t['notes'])
+    if clock is None:
+        sounds = lambda t: any(n['on'] < hi and n['on'] + n['duration'] > lo for n in t['notes'])
+    else:
+        start, stop = clock.seconds(lo), clock.seconds(hi)
+        sounds = lambda t: any(n['start_seconds'] < stop and n['end_seconds'] > start for n in sounded(t, clock))
     melody = [t for t in p['tracks'] if t['id'] in leads and sounds(t)] or [t for t in p['tracks'] if t.get('role') == 'melody' and plays(t)]
     keys = {(round(n['on'], 3), n['pitch'] % 12) for t in melody for n in t['notes'] if lo <= n['on'] < hi}
     group = {t['id'] for t in melody}
@@ -502,7 +507,7 @@ def analyze(render_dir, bar_spans=(), reference=None):
     region_names([s['id'] for s in p['sections']], bar_spans)
     beats = {sid: ((s['start_bar']) * bpb, (s['start_bar'] + s['bars']) * bpb) for sid, s in zip([x[0] for x in spans], p['sections'])}
     beats.update({f'span:{name}': ((first - 1) * bpb, last * bpb) for name, first, last in bar_spans})
-    groups = {sid: doublings(p, *beats[sid], leads=leads_over(p, *beats[sid])) for sid, _, _ in regions}
+    groups = {sid: doublings(p, *beats[sid], leads=leads_over(p, *beats[sid]), clock=clock) for sid, _, _ in regions}
     sums = {sid: [np.zeros((b - a, 2)), np.zeros((b - a, 2))] for sid, a, b in regions}
     master, _ = audio.read_wav(render_dir / 'master.wav')
     measured_regions = master_sections(master, regions)

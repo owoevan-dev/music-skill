@@ -243,6 +243,17 @@ def define(S):
         try:r=clean(h2,[h2/'final'],remove=True)
         finally:Path.unlink=real_unlink
         assert [x['path'] for x in r['not_removed']]==[f'cache/{H("8")}'] and (h2/'cache'/H('8')/'receipt.json').is_file() and not old_h.exists(),r
+        # A record another program holds open stays, and is not counted among what went.
+        h3=work2/'song_h3';made(h3/'final','Song H3');r3=round_of(h3/'r3','Song H3',h3/'song.json');(r3/'review').mkdir();save_json(r3/'review'/'score_review.json',{})
+        record.register(r3/'review',[r3/'review'/'score_review.json']);(r3/'note.txt').write_text('mine',encoding='utf-8')
+        sizes=lambda:sum(x.stat().st_size for x in r3.rglob('*') if x.is_file());before=sizes()
+        def record_open(self,*a,**k):
+            if self==r3/'review'/record.RECORD:raise PermissionError(13,'held open by another program',str(self))
+            return real_unlink(self,*a,**k)
+        Path.unlink=record_open
+        try:r=clean(h3,[h3/'final'],remove=True)
+        finally:Path.unlink=real_unlink
+        assert (r3/'review'/record.RECORD).is_file() and r['bytes']==before-sizes(),(r['bytes'],before-sizes())
         # From GPT Pro's third review of 0.4.0: a tool's folder deeper than clean looked (four levels), inside a listed
         # one, keeps its own piece and record: another piece's stays whole and is named; a file of the user's in an
         # audition's own cache is named among what stays; a record changed while clean runs keeps the folder with its
@@ -1160,8 +1171,7 @@ def define(S):
         assert any(x['path']=='aud' and x['bytes']==10 for x in clean(base,[final])['listed'])
         (aud/'stale.log').unlink();(aud/'my_note.txt').write_text('hear it again',encoding='utf-8')   # a note of the user's beside them: nothing goes, so nothing is counted
         now=clean(base,[final]);assert not any(x['path']=='aud' for x in now['listed']) and any(x['path']=='aud' and 'aud/my_note.txt' in x['why'] for x in now['left_alone']),now
-        (aud/'alternate-takes').mkdir()   # an empty folder is no tool's: it stays, and is named
-        now=clean(base,[final]);assert any(x['path']=='aud' and 'aud/alternate-takes/' in x['why'] for x in now['left_alone']),now['left_alone']
+        (aud/'alternate-takes').mkdir()   # an empty folder clean takes nothing from is not touched
         # An audition's own cache that a kept render plays (`--cache` on it): the take it uses stays, since it cannot be made again, and each other entry goes once.
         keyed='ab'*10;other_key='cd'*10;shared=base/'aud2';(shared/'cache'/keyed).mkdir(parents=True);(shared/'cache'/other_key).mkdir()
         for k in (keyed,other_key):save_json(shared/'cache'/k/'receipt.json',{'key':k,'sha256':'c'*64,'track':'t'});(shared/'cache'/k/'raw.wav').write_bytes(bytes(50))
@@ -1183,10 +1193,24 @@ def define(S):
         save_json(final/'stem_receipts.json',[{'track':'t','cache_key':keyed},{'track':'u','cache_key':inner}]);record.register(final,[final/'stem_receipts.json'])
         gone=clean(base,[final],remove=True);assert (older/'cache'/inner/'raw.wav').is_file() and (older/'cache'/inner/'receipt.json').is_file() and not (older/'cache'/spare).exists(),gone
         row=next(x for x in gone['listed']+gone['left_alone'] if x['path']=='older');assert f'older/cache/{inner}/' in (row.get('why') or ' '.join(row['kept_inside'])),row
+        # A receipt saved again by another program (a one-row list turned into an object) names no key: clean stops, and the kept take stays.
+        save_json(final/'stem_receipts.json',{'track':'u','cache_key':inner});record.register(final,[final/'stem_receipts.json'])
+        assert rejects(lambda:clean(base,[final],remove=True)) and (older/'cache'/inner/'raw.wav').is_file(),'a kept key it cannot read'
+        save_json(final/'stem_receipts.json',[{'track':'t','cache_key':keyed},{'track':'u','cache_key':inner}]);record.register(final,[final/'stem_receipts.json'])
+        # A file held open stops its folder: what did go is counted, and the row says how much.
+        opened=base/'review_open';review(song,opened);before={x:x.stat().st_size for x in opened.iterdir() if x.is_file()};real_unlink=Path.unlink
+        def open_file(self,*a,**k):
+            if self==opened/'notes.csv':raise PermissionError(13,'held open by another program',str(self))
+            return real_unlink(self,*a,**k)
+        Path.unlink=open_file
+        try:got=clean(base,[final],remove=True)
+        finally:Path.unlink=real_unlink
+        went=sum(n for x,n in before.items() if not x.exists());row=next(x for x in got['not_removed'] if x['path']=='review_open')
+        assert row['bytes_removed']==went and got['bytes']>=went and (opened/'notes.csv').is_file(),(row,went)
         row=lambda k,p:{'kind':k,'path':p,'bytes':1,'whole':True,'kept_inside':[]}
         text=describe({'folder':'piece','kept':['final'],'cache_entries_kept':0,'dry_run':True,'bytes':26,'left_alone':[],'not_removed':[],
                        'listed':[row('cache entry',f'cache/{k}') for k in range(25)]+[row('review','review_a')]})
         assert '- review: review_a' in text and text.index('- review: review_a')<text.index('- cache entry:') and '- and 6 more (--json lists every one)' in text,text
-        return {'cases':14}
+        return {'cases':16}
     found = {'clean_takes_reviews_and_lists_only_what_goes': clean_takes_reviews_and_lists_only_what_goes, 'long_paths_reach_programs_in_a_form_they_open': long_paths_for_programs, 'cache_entry_locked_across_renders': entry_lock_across_renders, 'clean_removes_only_what_the_tools_made': clean_only_what_the_tools_made, 'cache_entries_go_by_their_own_record': cache_entries_by_their_record, 'files_never_overwrite_or_write_through': files_never_overwrite_or_write_through, 'journal_proves_a_stopped_run': journal_proves_a_stopped_run, 'writers_leave_whole_files_when_a_write_fails': writers_leave_whole_files_when_a_write_fails, 'run_stops_its_program_when_stopped': run_stops_its_program_when_stopped, 'clean_and_runs_never_share_a_folder': clean_and_runs_never_share_a_folder, 'render_refuses_a_linked_output': render_refuses_a_linked_output, 'bounded_reads_of_records_and_wav_headers': bounded_reads_of_records_and_wav_headers, 'shared_reports_name_folders_relatively': shared_reports_name_folders_relatively, 'selfcheck_work_must_be_new_or_empty': selfcheck_work_must_be_new_or_empty, 'render_folders_are_read_without_links': render_folders_are_read_without_links}
     return found

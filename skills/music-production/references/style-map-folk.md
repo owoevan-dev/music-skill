@@ -2,8 +2,8 @@
 
 Dance-tune and string-band traditions of Europe and North America: Celtic music, klezmer, bluegrass and country. Read
 [style-maps.md](style-maps.md) first for the axes and for combining entries; the instruments are in
-[soundbanks.md](soundbanks.md), where what the banks lack is plain: no bagpipes, accordion, concertina, banjo,
-mandolin, bouzouki, cimbalom or steel guitar.
+[soundbanks.md](soundbanks.md). Bagpipes (0:109), accordion (0:21), banjo (0:105) and mandolin (16:25) are General MIDI
+presets of the default bank and nothing more; there is no concertina, bouzouki, cimbalom or pedal steel.
 
 Contents: [Shared by the family](#shared-by-the-family) · [Celtic](#celtic) · [Klezmer](#klezmer) ·
 [Bluegrass](#bluegrass) · [Country](#country) · [Sources](#sources)

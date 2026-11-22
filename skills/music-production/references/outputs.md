@@ -153,13 +153,13 @@ numbered folder.
 
 `studio.py clean` writes nothing of its own; `--json` prints its report: `dry_run` (true unless `--remove` was given),
 `listed` (each folder it takes files from, or would: `kind` render, round, audition, review or cache entry, `path`, `bytes`,
-`whole` whether the folder goes, and `kept_inside`, the first 20 of what stays in it: files no tool recorded or changed
+`whole` whether the folder goes (with any empty folder in it; clean touches no other empty folder), and `kept_inside`, the first 20 of what stays in it: files no tool recorded or changed
 since, and the folders inside it that stay, ending in `/`),
 `bytes`, `kept` (the folders kept: a round by its own folder, which stays whole with its render) and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
 files.json (made before 0.4.0), a render, round or audition at work, or inside one, a folder of which nothing can go
-(`why` names what stays in it: a file or an empty folder no tool recorded, a take a kept render plays), cache entries holding files renders did not write there or that changed since: `kind`,
+(`why` names what stays in it: a file no tool recorded, a take a kept render plays), cache entries holding files renders did not write there or that changed since: `kind`,
 `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the
-`error`).  A render, round or audition holds its folder's lock file `work.lock` while it runs and removes it when it
+`error` and, for a folder, `bytes_removed`, what of it did go).  A render, round or audition holds its folder's lock file `work.lock` while it runs and removes it when it
 ends, `analyze` and `compare` hold the renders they read, and clean takes the same lock before it looks inside a
 folder, keeping it, and those of the tool folders holding it, until it is done there; its dry run looks at each lock
 without creating any.

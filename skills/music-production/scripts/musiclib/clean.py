@@ -203,15 +203,6 @@ def _kept(path):
     return render_dir, round_dir, title or _title(render_dir / 'project.json'), project
 
 
-# The folders a run makes before it writes in them, which a run that was stopped leaves empty: they go with its folder. Any
-# other empty folder is no tool's, and stays as a file of the user's would.
-TOOL_FOLDERS = {'logs', 'stems', 'midi', 'returns', 'headphones', 'centre', 'cache', 'review', 'render', files.UNLOCKED_CACHE}
-
-
-def _tools_folder(folder):
-    return folder.name in TOOL_FOLDERS or folder.parent.name == files.UNLOCKED_CACHE or bool(re.fullmatch(r'\d\d_.*', folder.name))
-
-
 def _plan(folder, kind, record, inner, entries=()):
     """What removing a tool's folder takes: its own files that a record (its own, or a sub-folder's such as a round's
     review/) lists unchanged, and what stays.  `inner` are the tool folders inside it, which go or stay on their own, and
@@ -271,7 +262,6 @@ def _plan(folder, kind, record, inner, entries=()):
     # the cache is left out of the walk above.  (Found by GPT Pro's third review.)
     if kind == 'audition' and _folder(folder / 'cache'):
         stay += [c for c in sorted((folder / 'cache').iterdir()) if not (_folder(c) and entry_record(c))]
-    stay += [d for d in files.real_folders(folder, skip) if d != folder and not _tools_folder(d) and not any(d.iterdir())]
     return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner, 'holders': holders, 'last': last, 'entries': list(entries)}
 
 
@@ -376,7 +366,12 @@ def clean(folder, keep, remove=False):
             except ValueError as e:
                 raise ValueError(f'--keep {render_dir}: its stem_receipts.json cannot be read ({e}), so clean cannot tell '
                                  'which cache entries it uses') from None
-            used |= {r['cache_key'] for r in listed if isinstance(r, dict) and isinstance(r.get('cache_key'), str)} if isinstance(listed, list) else set()
+            # Every part's key, or no removal: a receipt saved again by another program (a one-row list turned into an object) read as
+            # a render that uses nothing, and the only copy of its Surge take went.
+            if not (isinstance(listed, list) and all(isinstance(r, dict) and isinstance(r.get('cache_key'), str) for r in listed)):
+                raise ValueError(f'--keep {render_dir}: its stem_receipts.json does not name the cache key of every part, so clean cannot '
+                                 'tell which cache entries it uses; nothing was removed')
+            used |= {r['cache_key'] for r in listed}
     protected = {k[0] for k in kept} | {k[1] for k in kept if k[1]}
     folders = _folders(root)
     rel = lambda f: Path(f).relative_to(root).as_posix()
@@ -510,11 +505,13 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
         known = {}  # whole(), worked out once for this folder and those inside it
         skip = set(plan['inner']) | set(plan['entries']) | ({f / 'cache'} if plan['kind'] == 'audition' else set())
         emptied = {h for p in [x for x, _ in plan['take']] + [e for e in plan['entries'] if e in cleared] for h in p.parents if f in h.parents}
+        gone = 0   # what the removal has taken so far, for a folder it cannot finish
         if remove:
             try:
                 for p, entry in plan['take']:
                     if files.unchanged(p, entry):  # still as the plan found it
                         p.unlink()
+                        gone += entry[0]
                     else:
                         plan['stay'].append(p)  # changed since: it stays, and the folder with it
                         plan['bytes'] -= entry[0]
@@ -544,9 +541,10 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
                     # record is gone (the marker itself, held open by another program), what is left of them is
                     # recorded anew, so the next clean still knows it for the tools' (_record_left).
                     try:
-                        for p, _ in sorted(plan['last'], key=lambda e: e[0].parent == f and e[0].name in MARKERS):
+                        for p, was in sorted(plan['last'], key=lambda e: e[0].parent == f and e[0].name in MARKERS):
                             if files.regular_file(p):
                                 p.unlink()
+                                gone += was[0] if was else 0
                     except OSError:
                         _record_left(f, plan['last'])
                         raise
@@ -554,9 +552,10 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
                     files.release(f, held.pop(f))  # its lock file goes last, then the folder
                     f.rmdir()
             except OSError as e:
-                # A file another program holds open: the rest stays, its records with it, and the folder is named.
+                # A file another program holds open: the rest stays, its records with it, and the folder is named with what did go.
                 failed.add(f)
-                report['not_removed'].append({'kind': plan['kind'], 'path': rel(f), 'error': str(e)})
+                report['not_removed'].append({'kind': plan['kind'], 'path': rel(f), 'error': str(e), 'bytes_removed': gone})
+                report['bytes'] += gone
                 continue
             finally:
                 if f in held:
@@ -569,7 +568,7 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
         stays_in = lambda h: (any(s == h or h in s.parents for s in plan['stay']) or any(h in e.parents for e in plan['entries'] if e not in cleared)
                           or any(u == h or h in u.parents for u in plan['inner'] if not whole(u, known)))
         # The records go with what they list: all of them with a folder that goes, else those of a sub-folder nothing stays in.
-        records = [was[0] for p, was in plan['last'] if was and (goes_whole or (p.parent != f and p.parent in emptied and not stays_in(p.parent)))]
+        records = [was[0] for p, was in plan['last'] if was and (goes_whole or (p.parent != f and p.parent in emptied and not stays_in(p.parent))) and not (remove and files.occupied(p))]
         if not goes_whole and not plan['take'] and not records:
             # Nothing of it goes, so it is not a folder removed.  A finished audition down to what it keeps is its end state
             # (every later clean listed it as one to remove: a run of 0.9.1); any other says what stays in it.

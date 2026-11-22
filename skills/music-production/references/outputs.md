@@ -8,7 +8,7 @@ key says seconds or samples.
 
 Contents: [round.json](#roundjson) · [report.json](#reportjson-render) · [stem_receipts.json](#stem_receiptsjson-render) ·
 [score_review.json](#score_reviewjson-review) · [analysis.json](#analysisjson-analyze) · [compare](#compare_namejson-compare) ·
-[audition.json](#auditionjson-audition) · [clean](#clean-its-report) · [files.json](#filesjson-every-folder) ·
+[audition.json](#auditionjson-audition) · [profile.json](#profilejson-profile) · [clean](#clean-its-report) · [files.json](#filesjson-every-folder) ·
 [what stays local](#what-stays-local)
 
 ## round.json
@@ -51,7 +51,7 @@ still carries `plan_first` on, and its `plan_changed` says the whole plan is gon
 | `sections` | per section: `start_seconds`, `end_seconds`, `rms_dbfs`, `side_mid_db`, `active_tracks` |
 | `mp3` | `mp3_lufs`, `mp3_true_peak_dbtp`, `matches` (within 0.2 LU of the master), `over_full_scale` (the decoded MP3's true peak above 0 dBTP, named in the summary); none in a draft |
 | `headphones` | with `mix.headphones`: `file` (headphones.wav, beside it headphones.mp3), `integrated_lufs`, `true_peak_dbtp`, `reflections` (whether the room's first reflections are in), `responses` (the head responses' source and licence), `parts` (per part: `points`, 1 or 3, with `side_db` where its two channels differ; `by`, how its place is given; `lowest_degrees` and `highest_degrees`, clockwise from straight ahead and not wrapped at 360), `left_out` (what of the mix the headphone version does without), `limiting_db`. Its own stems, buses and returns are in `headphones/`; `process_seconds` has its FFmpeg runs under `headphone version`. `compare` compares `headphones.wav` where either render has one |
-| `loop` | a game loop: `start_sample`, `end_sample`, `length_samples`, `bpm`, `bar_beats` and `beat_count` (null where the tempo changes), `sections` (cue points), `files`, `gain_db`, `seam` (meter, timbre, pitch, abruptness and volume across the loop point), `layers` |
+| `loop` | a game loop: `start_sample`, `end_sample`, `length_samples`, `bpm`, `bar_beats` and `beat_count` (null where the tempo changes), `sections` (cue points), `files`, `gain_db`, `seam` (meter, timbre, pitch, abruptness and volume across the loop point; `seam.abruptness.folded_tail_lufs` is every lap of the tail that lies over the loop's first second), `layers` |
 | `cache_hits`, `stems_reused`, `stem_count` | parts whose raw synthesis, and whose processed stem, came from the cache |
 | `stage_seconds`, `process_seconds`, `runtime_seconds` | seconds per stage (they add up to the runtime) and in FFmpeg by kind |
 | `validation`, `dependencies`, `project_sha256`, `renderer_sha256` | the project's validation, the tools and banks with their hashes |
@@ -95,7 +95,7 @@ memory while other parts held it), `synthesis` and `processing`.
 | `transposed_samples`, `cannot_render` | with `--config`: notes played from samples far from their pitch, notes outside a preset, parts the banks cannot play |
 | (question `bend:<part>`) | notes that `performance.bend` keeps a quarter-tone (50 cents) or more off their written pitch through most of the time they sound: a scoop written as one point ramps across the notes before it, and a bend not brought back leaves the notes after it off. A note's own short scoop or a vibrato about its pitch is not counted, nor a part whose engine or `reverse` plays no wheel; a held bend or a long glide that is meant is answered by a decision |
 | (question `piano:<part>`) | with `--config` and the `vcsl` bank installed: a piano part played on another piano than the Steinway grand ([piano-and-chamber.md](piano-and-chamber.md)); it has no field of its own, and a decision that begins with its identifier answers it. It is asked of the project's own banks only: a bank that someone configured themselves, the default bank included, may hold anything at any program |
-| `loop_seam` | a game loop's seam from the score. The pitches are the keys as written: a `performance.bend` is not read into them. `folded_tail_lufs` is every lap of the tail that lies over the loop's first second. |
+| `loop_seam` | a game loop's seam from the score. The pitches are the keys as written: a `performance.bend` is not read into them. |
 
 `notes.csv` lists every note with its bar, beat, pitch, velocity, timing and performed seconds (its header alone for a score without a note); `arrangement.md` is
 the sections, the authored decisions and the questions as a page.
@@ -148,6 +148,17 @@ macros move), `rendered_with`, `fallback` and `reason`, `performance_left_out` (
 and its `error`), `each_seconds`, `gap_seconds`, `loudness_lufs` (the level every cut plays at: the quietest cut's,
 lower where the peak guard turned them all down) and `fallbacks`. Each version's render and its `cut.wav` are in its
 numbered folder.
+
+## profile.json (profile)
+
+`studio.py profile` describes the written score, by part and by section: descriptors after Yang and Lerch (2020), which show what
+changed and not what is better.
+
+| Key | What it holds |
+|---|---|
+| `title`, `bars`, `meter`, `tempo`, `seconds`, `parts_with_notes`, `notes`, `notes_per_bar`, `melody_part`, `note` | the piece as a whole |
+| `parts` | by part id: `role`, `notes` (0 and nothing more for a part without notes), `notes_per_bar`, `ioi_beats` and `lengths_beats` (the four commonest gaps between onsets and note lengths, in beats, each with its share in %), `offbeat_onsets_pct`, `downbeat_onsets_pct`, `rhythm_repeat_pct`, `polyphony_max`, `velocity` (`mean`, `sd`, `range`). A drum part adds `drum_keys`. A pitched part adds `register` (`low`, `high`, `median`, `span`), `pitch_classes_used`, `pitch_class_entropy_bits` and `top_line` (`notes`, `mean_abs_interval`, `repeats_pct`, `steps_pct`, `leaps_pct`, `largest_leap`, `direction_changes_pct`, `recurring_cells_pct`; null for a line under three notes) |
+| `sections` | per section: `section`, `bars`, `notes_per_bar` (by part id), `onsets_per_second`, `melody_median`, `melody_high`, and `melody` (null under four notes): `phrases`, `longest_without_breath_beats`, `longest_without_breath_s`, `leaps`, `bars_restated`, `bars_compared`, `peak`, `peak_times`, `peak_first_at_pct`, `phrase_starts_beats` |
 
 ## clean (its report)
 

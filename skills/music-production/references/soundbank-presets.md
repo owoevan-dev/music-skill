@@ -75,7 +75,7 @@ A track selects one with `soundfont` and `patch` ([schema.md](schema.md)); `stud
 | `vcsl_keys` | 0:6, 1:6, 2:6, 3:6 | Harpsichord French, Flemish 8′, Flemish 8′+4′, English Lute (velocity sets no level) | C1–D6, E1–D6, E1–D7, G♯1–F♯6 | 1 + round robins |
 | `vcsl_keys` | 0:1 | Grand Kawai | G♯0–D8 | 4 |
 | `vcsl_keys` | 0:3, 1:3 | Upright Yamaha, Upright Knight | A♯0–D7, G0–D8 | 3 + round robins, 2 |
-| `vcsl_keys` | 0:4, 1:4, 0:7 | FM Piano, FM Piano 1, Clavisynth (Yamaha TX81Z) | A♯0–D7, A♯0–D8, A♯1–D8 | 3 |
+| `vcsl_keys` | 0:4, 1:4, 0:7 | FM Piano, FM Piano 1, Clavisynth (Yamaha TX81Z) | A♯-1–D7, A♯0–D8, A♯1–D8 | 3 |
 | `vcsl_winds` | 0:74, 2:74 | Soprano Recorder, Staccato | A♯4–D7 | 1 + round robins |
 | `vcsl_winds` | 3:74, 4:74, 5:74 | Alto Recorder, Vibrato, Staccato | D♯4–F♯6 | 1 |
 | `vcsl_winds` | 6:74, 7:74, 8:74 | Tenor Recorder, Vibrato, Staccato | A♯3–D6 | 1 |

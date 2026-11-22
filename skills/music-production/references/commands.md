@@ -13,12 +13,13 @@ python <skill>/scripts/studio.py words    <project>   # the piece's twelve words
 python <skill>/scripts/studio.py round    <project>/song.json --config <config.json> --output <project>/r1
 python <skill>/scripts/studio.py round    <project>/song.json --config <config.json> --output <project>/r2 --previous <project>/r1 --clip <project>/r1_r2.mp3
 python <skill>/scripts/studio.py render   <project>/song.json --config <config.json> --output <project>/final
-python <skill>/scripts/studio.py clean    <project> --keep <project>/final --keep <project>/r2 --remove   # the final and the last round; without --remove: the list only
+python <skill>/scripts/studio.py clean    <project> --keep <project>/final --keep <project>/r2   # the final and the last round stay: lists what would go
+python <skill>/scripts/studio.py clean    <project> --keep <project>/final --keep <project>/r2 --remove   # once that list is right
 python <skill>/scripts/studio.py validate <project>/song.json
 python <skill>/scripts/studio.py review   <project>/song.json --output <project>/review_a --config <config.json>
 python <skill>/scripts/studio.py analyze  <project>/r2 --span chorus:17-24 --reference synthwave --output <project>/r2/synthwave.json
 python <skill>/scripts/studio.py compare  <project>/r2 <project>/final --clip <project>/r2_final.mp3 --config <config.json>
-python <skill>/scripts/studio.py profile  <project>/song.json --output <project>/profile_r1.json
+python <skill>/scripts/studio.py profile  <project>/song.json --output <project>/profile_r2.json
 python <skill>/scripts/studio.py sounds   --role pad --character warm,slow --seed <piece seed>   # one line a patch; --centroid 600-900 --attack 0.1-0.3: by measured range; --id <id>: one patch's controls; --json: every figure
 python <skill>/scripts/studio.py instruments viola --config <config.json>   # a preset's bank and program, the keys its samples cover, its layers
 python <skill>/scripts/studio.py audition <project>/song.json --track lead --sounds surge:smooth_lead,synth:supersaw_lead --bars 21-24 --output <project>/audition_lead --config <config.json>

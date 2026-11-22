@@ -411,12 +411,12 @@ def mix_measures(render_dir, report, p=None):
     return out
 
 
-def doublings(p, lo, hi, share=.6, leads=None):
+def doublings(p, lo, hi, share=.6, leads=()):
     """The melody parts sounding in beats [lo, hi) and the parts that double them: at least `share` of a part's onsets
-    there fall on a melody onset of the same pitch class.  `leads`: the part the plan says leads here, in place of the
-    parts of role melody where it plays there (a verse tune on two horns read 8.6 dB under a trumpet that only answers it)."""
+    there fall on a melody onset of the same pitch class.  `leads`: the parts the plan says lead here, in place of the
+    parts of role melody where one plays there (a verse tune on two horns read 8.6 dB under a trumpet that only answers it)."""
     plays = lambda t: any(lo <= n['on'] < hi for n in t['notes'])
-    melody = [t for t in p['tracks'] if t['id'] == leads and plays(t)] or [t for t in p['tracks'] if t.get('role') == 'melody' and plays(t)]
+    melody = [t for t in p['tracks'] if t['id'] in leads and plays(t)] or [t for t in p['tracks'] if t.get('role') == 'melody' and plays(t)]
     keys = {(round(n['on'], 3), n['pitch'] % 12) for t in melody for n in t['notes'] if lo <= n['on'] < hi}
     group = {t['id'] for t in melody}
     for t in p['tracks']:
@@ -426,6 +426,18 @@ def doublings(p, lo, hi, share=.6, leads=None):
         if len(notes) >= 4 and sum((round(n['on'], 3), n['pitch'] % 12) in keys for n in notes) >= share * len(notes):
             group.add(t['id'])
     return sorted(group)
+
+
+def leads_over(p, lo, hi):
+    """The parts the plan names as lead of the sections that beats [lo, hi) lie in, with the parts of role melody where
+    one of those sections names none: a span is read by its sections, across a change of lead too (a span of one
+    section's bar, read by the span's own name, chose the flute and advised cutting the guitar the plan leads with)."""
+    plan = p.get('plan') if isinstance(p.get('plan'), dict) else {}
+    named = {e.get('section'): e['leads'] for e in plan.get('sections') or [] if isinstance(e, dict) and isinstance(e.get('leads'), str) and e['leads']}
+    bar = p['clock']['meter'][0] * 4 / p['clock']['meter'][1]
+    over = [s['id'] for s in p['sections'] if s['start_bar'] * bar < hi - 1e-9 and (s['start_bar'] + s['bars']) * bar > lo + 1e-9]
+    melody = {t['id'] for t in p['tracks'] if t.get('role') == 'melody'}
+    return {named[s] for s in over if s in named} | (melody if not over or any(s not in named for s in over) else set())
 
 
 MARGIN_DB = {'bass': 3, 'countermelody': 3}
@@ -487,8 +499,7 @@ def analyze(render_dir, bar_spans=(), reference=None):
     region_names([s['id'] for s in p['sections']], bar_spans)
     beats = {sid: ((s['start_bar']) * bpb, (s['start_bar'] + s['bars']) * bpb) for sid, s in zip([x[0] for x in spans], p['sections'])}
     beats.update({f'span:{name}': ((first - 1) * bpb, last * bpb) for name, first, last in bar_spans})
-    planned = {e.get('section'): e.get('leads') for e in (p.get('plan') or {}).get('sections') or [] if isinstance(e, dict)} if isinstance(p.get('plan'), dict) else {}
-    groups = {sid: doublings(p, *beats[sid], leads=planned.get(sid)) for sid, _, _ in regions}
+    groups = {sid: doublings(p, *beats[sid], leads=leads_over(p, *beats[sid])) for sid, _, _ in regions}
     sums = {sid: [np.zeros((b - a, 2)), np.zeros((b - a, 2))] for sid, a, b in regions}
     master, _ = audio.read_wav(render_dir / 'master.wav')
     measured_regions = master_sections(master, regions)

@@ -1882,14 +1882,36 @@ def define(S):
         def analysis_names_the_lead_the_span_and_the_peak():
             # 0.9.2 (design-0.9.2.md, M2, M4, M5, T12), on the bus render a check above made.
             import shutil
-            from musiclib import summary as sm
+            from musiclib import audio,summary as sm
             from musiclib.analysis import analyze
             kept=json.loads((work/'render_bus'/'report.json').read_text(encoding='utf-8'))
             high=kept['master']['highest_sample'];assert high['seconds']>=0 and high['bar']>=1 and kept['silent_end_seconds']>=0,kept['master']
             base={k:kept[k] for k in ('title','status','runtime_seconds','master','mastering','checks','stem_count','cache_hits')}
             held=sm.render({**base,'mastering':{**kept['mastering'],'peak_held_db':2.5}},work)
             assert f"the master's highest sample is at {high['seconds']:g} s, bar {high['bar']} (a sample peak" in held,held
-            assert 'a shorter clock.tail_seconds' in sm.render({**base,'silent_end_seconds':8.1},work) and 'a shorter clock.tail_seconds' not in sm.render({**base,'silent_end_seconds':2.9},work)
+            short=lambda **k:'a shorter clock.tail_seconds' in sm.render({**base,**k},work)
+            assert short(silent_end_seconds=8.1,clock_tail_seconds=5) and not short(silent_end_seconds=2.9,clock_tail_seconds=5) and not short(silent_end_seconds=8.1,clock_tail_seconds=1),'1 s is the shortest tail validate takes'
+            assert 'is at 2.116 s, in the tail (a sample peak' in sm.render({**base,'master':{**base['master'],'highest_sample':{'seconds':2.116,'in_tail':True}},'mastering':{**kept['mastering'],'peak_held_db':2.5}},work)
+            # Two parts tied far from their samples: the review names both (it stopped, comparing their records).
+            from make_example import example
+            from musiclib import review as rv
+            two=example();far=[t for t in two['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];two['tracks']=far
+            for t in far:
+                t['notes']=t['notes'][:2];t['performance']['notes']={n['id']:t['performance']['notes'][n['id']] for n in t['notes']}
+            real=rv.sample_maps;rv.sample_maps=lambda q,c:{t['id']:{n['pitch']:9 for n in t['notes']} for t in far}
+            try:said=next(q['text'] for q in rv.review(two,work/'review_two_far',audio.load_config(config))['questions'] if q['id']=='transposed_samples')
+            finally:rv.sample_maps=real
+            assert all(t['id'] in said for t in far) and ' and ' in said,said
+            # The report's figures are the saved file's.
+            from musiclib.render import peak_frames
+            saved,info=audio.read_wav(work/'render_bus'/'master.wav');top,last=peak_frames(saved)
+            assert high['seconds']==round(top/info['sample_rate'],3) and kept['silent_end_seconds']==round((len(saved)-1-last)/info['sample_rate'],2),(high,kept['silent_end_seconds'],top,last)
+            # A span in a section the plan leads with one part reads that part as the lead, as the section does.
+            led=work/'render_bus_led';shutil.copytree(work/'render_bus',led);q=json.loads((led/'project.json').read_text(encoding='utf-8'))
+            first=q['sections'][0];other=next(t['id'] for t in q['tracks'] if t.get('role')!='melody' and not t.get('drums') and any(first['start_bar']*4<=n['on']<(first['start_bar']+first['bars'])*4 for n in t['notes']))
+            q['plan']={'identity':'x','sections':[{'section':first['id'],'leads':other}]};(led/'project.json').unlink();save_json(led/'project.json',q)
+            read=analyze(led,[('same',first['start_bar']+1,first['start_bar']+first['bars'])])['melody_groups'];by={g['region']:g['melody_group'] for g in read}
+            assert other in by['span:same'] and by['span:same']==by[first['id']],by
             # A span has its own level, correlation and mono fold, in the file and on the summary's line.
             spanned=analyze(work/'render_bus',[('focus',1,2)]);row=spanned['spans'][0]
             assert row['section']=='span:focus' and row['level_lufs_ungated'] is not None and 'spans' not in analyze(work/'render_bus')

@@ -58,6 +58,13 @@ def most_of(counts):
     counts=dict(counts);top=max(counts.values());tied=[k for k,v in counts.items() if v==top]
     return ' and '.join(tied[:3])+(' and others' if len(tied)>3 else '')
 
+def place_digest(rows,*more):
+    """A short digest of where a question's findings lie: every finding's place, parts and pitches, before any list of
+    examples is cut, so that a round can tell one that moved under its decision at the same count (a parallel from bar 2
+    to bar 3: the text, which names the first, stayed the same)."""
+    keys=sorted(json.dumps([x.get('at'),x.get('parts') or x.get('track'),x.get('pitches') or x.get('notes') or x.get('pitch') or x.get('note')],default=str) for x in rows)
+    return hashlib.sha256(json.dumps([keys,more],default=str).encode()).hexdigest()[:16]
+
 def where(clock,beat):
     return f'bar {int(beat//clock.beats_per_bar)+1} beat {beat%clock.beats_per_bar+1:g}'
 
@@ -535,7 +542,7 @@ def outside_chord(p,clock,limit=40):
     found.sort(key=lambda x:x['beat']);groups={}
     for g,test in (('melody',lambda r:r in FOREGROUND),('bass',lambda r:r=='bass'),('accompaniment',lambda r:r not in FOREGROUND and r!='bass')):
         xs=[x for x in found if test(x['role'])]
-        if xs:groups[g]={'count':len(xs),'most_in':most_of(Counter(x['track'] for x in xs)),'first':xs[0]}
+        if xs:groups[g]={'count':len(xs),'most_in':most_of(Counter(x['track'] for x in xs)),'first':xs[0],'places':place_digest(xs)}
     # A long list keeps the foreground's first, then the bass's: cut by time alone, it held accompaniment only (a run of 0.9.1).
     kept=found if len(found)<=limit else sorted(sorted(found,key=lambda x:(x['role'] not in FOREGROUND,x['role']!='bass',x['beat']))[:limit],key=lambda x:x['beat'])
     return {'count':len(found),'not_resolved_by_step':groups,'tracks':tracks,'examples':kept,'unparsed_symbols':unknown}
@@ -575,7 +582,7 @@ def parallels(p,clock,window=8,doubled_share=.75,limit=40,run=4):
                     doubled[' / '.join((a,b))]+=1;continue
                 found.append({'parts':[a,b],'at':where(clock,A[k2]['on']),'beat':round(A[k2]['on'],4),'interval':size[m],'pitches':[[A[k1]['pitch'],B[j1]['pitch']],[A[k2]['pitch'],B[j2]['pitch']]]})
     found.sort(key=lambda x:x['beat'])
-    return {'count':len(found),'by_pair':dict(Counter(' / '.join(x['parts']) for x in found).most_common()),'examples':found[:limit],'octaves_in_doublings':dict(doubled.most_common())}
+    return {'count':len(found),'by_pair':dict(Counter(' / '.join(x['parts']) for x in found).most_common()),'examples':found[:limit],'places':place_digest(found),'octaves_in_doublings':dict(doubled.most_common())}
 
 INTERVAL_NAMES={1:'minor second',2:'major second',3:'minor third',4:'major third',5:'perfect fourth',6:'tritone',7:'perfect fifth',8:'minor sixth',9:'major sixth',10:'minor seventh',11:'major seventh',13:'minor ninth',14:'major ninth',15:'minor tenth',16:'major tenth'}
 
@@ -615,7 +622,7 @@ def low_intervals(p,clock,limit=40):
                 f['parts']|={a[3],b[3]}
     found=[{**f,'parts':sorted(f['parts'])} for _,f in sorted(found.items())]
     worst=max(found,key=lambda x:(x['below_limit'],-x['beat']),default=None)
-    return {'count':len(found),'by_parts':dict(Counter(' / '.join(x['parts']) for x in found).most_common()),'furthest_below':worst,'examples':found[:limit]}
+    return {'count':len(found),'by_parts':dict(Counter(' / '.join(x['parts']) for x in found).most_common()),'furthest_below':worst,'examples':found[:limit],'places':place_digest(found)}
 
 ARRIVALS=('chorus','hook','drop','climax','peak','summit','final','refrain')
 
@@ -859,7 +866,7 @@ def stretched(p,clock,maps,limit=4,examples=40):
                 far.append({'track':t['id'],'at':where(clock,n['on']),'pitch':n['pitch'],'semitones':d})
                 b=by[t['id']];b['notes']+=1
                 if b['worst'] is None or abs(d)>abs(b['worst']['semitones']):b['worst']={'pitch':n['pitch'],'semitones':d,'at':where(clock,n['on'])}
-    return {'limit_semitones':limit,'count':len(far),'by_track':dict(sorted(by.items(),key=lambda kv:-kv[1]['notes'])),'examples':far[:examples],'outside_preset':silent[:examples],'outside_count':len(silent)}
+    return {'limit_semitones':limit,'count':len(far),'by_track':dict(sorted(by.items(),key=lambda kv:-kv[1]['notes'])),'examples':far[:examples],'places':place_digest(far),'outside_preset':silent[:examples],'outside_count':len(silent)}
 def outside_keys(st):
     """review's question on notes no zone of their preset covers (stretched()): the count, the first three by part, place
     and name with the keys their preset has, and the fix (0.8 step 2.1: it gave the count alone)."""
@@ -914,21 +921,24 @@ def piano_choice(p,installed):
         name=OTHER_PIANOS.get((bank,b,pr)) if bank in installed else None   # a bank that is not the project's own may hold anything there
         if name:asked.append((identifier('piano',t['id']),f'{t["id"]}: plays {name} ({bank} {b}:{pr}). The piano for every piano part is the Steinway grand ("soundfont": "vcsl", bank 0, program 0; piano-and-chamber.md): move the part to it, and make it brighter or closer in the mix, not by changing the piano. Keep this one only where the user asked for it or the piece is built on its own sound (a worn upright for lo-fi or a bar room, the closeness of the Osiris in slow, sparse music), and say which in a decision that begins "{identifier("piano",t["id"])}: ".'))
     return asked
-OFF_PITCH=.25   # semitones a note may stay from its written pitch through a bend before it is asked about (ours: a quarter-tone)
+OFF_PITCH=.5   # semitones a note may stay from its written pitch through a bend before it is asked about: a quarter-tone
+BENT=('soundfont','additive','synth','surge')   # the engines that play `performance.bend` (a drum machine or a noise part has no pitch to bend)
 def bends_across(t,clock,actual=None):
-    """The notes that `performance.bend` keeps off their written pitch for most of their length, as (beat, semitones): the
-    median of the wheel over the note as it is played, 25 cents or more.  The wheel runs straight from each point to the
-    next and holds the last, so a scoop written as one point before its note ramps from the last point across every note
-    between (two runs of 0.9.1, one with 51 of 299 notes, the median 118 cents off; no check saw it), and a bend never
-    brought back leaves every later note off.  A note's own short scoop, or a vibrato about its pitch, is not counted."""
+    """The notes that `performance.bend` keeps a quarter-tone or more off their written pitch for most of the time they
+    sound, as (beat, semitones): the median of the wheel over the note as it is played.  The wheel runs straight from
+    each point to the next and holds the last, so a scoop written as one point before its note ramps from the last point
+    across every note between (two runs of 0.9.1, one with 51 of 299 notes, the median 118 cents off; no check saw it),
+    and a bend never brought back leaves every later note off.  A note's own short scoop, or a vibrato about its pitch,
+    is not counted.  A reversed part is played without the wheel (render.reversed_notes)."""
+    if t['engine'] not in BENT or t.get('reverse'):return []
     curve=bend_curve(t['performance'].get('bend') or [])
     if not curve:return []
     out=[]
     for a in (sounded(t,clock) if actual is None else actual):
-        b0,b1=clock.beat(a['start_seconds']),clock.beat(a['end_seconds'])
-        if b1<=b0:continue
-        at=sorted((curve_at(curve,b0+(b1-b0)*k/15) for k in range(16)),key=abs)
-        if abs(at[8])>=OFF_PITCH:out.append((round(b0,4),at[8]))
+        s0,s1=a['start_seconds'],a['end_seconds']
+        if s1<=s0:continue
+        at=sorted((curve_at(curve,clock.beat(s0+(s1-s0)*k/15)) for k in range(16)),key=abs)   # evenly in time: a tempo change moves the beats
+        if abs(at[8])>=OFF_PITCH:out.append((round(clock.beat(s0),4),at[8]))
     return sorted(out)
 def bend_question(t,clock,actual=None):
     """The review's question on bends_across, as (identifier, text), or None."""
@@ -937,18 +947,16 @@ def bend_question(t,clock,actual=None):
     off=max((v for _,v in across),key=abs)*100
     return (identifier('bend',t['id']),f'{t["id"]}: {len(across)} note{"s stay" if len(across)!=1 else " stays"} a quarter-tone or more off the written pitch through most of {"their" if len(across)!=1 else "its"} length because of `performance.bend` (first at {where(clock,across[0][0])}; up to {abs(off):.0f} cents {"flat" if off<0 else "sharp"}). The wheel runs straight from each point to the next and holds the last: a scoop written as one point before its note ramps across the notes before it, and a bend not brought back leaves the notes after it off. Put a point at 0 just before each scoop and where a bend ends. If this is meant (a held bend, a long glide), say so in decisions.')
 def places(summary,qid):
-    """Where what an answered question counts now lies, as a short digest, so that a round can tell a fault that moved
-    under its decision at the same count (a parallel from bar 2 to bar 3: the text, which names the first, stayed the same).
-    None for a question that names its place in its own words."""
+    """The digest of where what an answered question counts lies now (place_digest), or None for a question that names
+    its place in its own words."""
     kind=qid.split(':',1)[0]
     if kind.startswith('outside_chord.'):
-        test={'melody':lambda r:r in FOREGROUND,'bass':lambda r:r=='bass','accompaniment':lambda r:r not in FOREGROUND and r!='bass'}.get(kind.split('.',1)[1])
-        rows=[x for x in (summary.get('outside_chord') or {}).get('examples') or [] if test and test(x.get('role'))]
-    else:
-        key={'vertical':'vertical_minor_seconds_ninths','parallels':'parallel_fifths_octaves','low_intervals':'low_intervals','transposed_samples':'transposed_samples'}.get(kind)
-        if key is None:return None
-        rows=(summary.get(key) or {}).get('examples') or []
-    return hashlib.sha256(json.dumps(sorted(json.dumps([x.get('at'),x.get('parts') or x.get('track'),x.get('pitches') or x.get('pitch') or x.get('note')],default=str) for x in rows)).encode()).hexdigest()[:16]
+        return (((summary.get('outside_chord') or {}).get('not_resolved_by_step') or {}).get(kind.split('.',1)[1]) or {}).get('places')
+    if kind=='vertical':   # (vertical() lists its first pairs and counts the rest: both go into the digest)
+        v=summary.get('vertical_minor_seconds_ninths')
+        return place_digest(v['examples'],v['count'],v['foreground_count'],v['by_parts']) if v else None
+    key={'parallels':'parallel_fifths_octaves','low_intervals':'low_intervals','transposed_samples':'transposed_samples'}.get(kind)
+    return (summary.get(key) or {}).get('places') if key else None
 def review(p,out,config=None):
     out=Path(out);out.mkdir(parents=True,exist_ok=True);clock=Clock(p)
     from . import ears;headphones=ears.wanted(p)
@@ -1194,7 +1202,7 @@ def review(p,out,config=None):
                     put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed, and {which}. Hear them on the part: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+x for x in (options or named)[:3])} --bars FIRST-LAST (electronic-sounds.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
         st=summary['transposed_samples']=stretched(p,clock,sample_maps(p,config),limit=L('transposed_samples')['limit_semitones'])
         if st['count'] and ask('transposed_samples'):
-            worst=most_of(st['by_track'])
+            worst=most_of({k:v['notes'] for k,v in st['by_track'].items()})
             put('transposed_samples',f'{st["count"]} notes play a sample transposed more than {st["limit_semitones"]} semitones, most in {worst}; the tone and the vibrato rate change with it. Move them, give them to another instrument, or accept the change.')
         if st['outside_count']:put('outside_keys',outside_keys(st))
         from . import audio,layered

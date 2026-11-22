@@ -94,7 +94,9 @@ def chord_tones(symbol, voices, rotation=0, omit=0, exclude=(), keep_root=False,
         # Asked for: three runs of 0.9.1 voiced their one- and two-part pads in three and thinned them by hand.  Those that
         # name the chord come first, the root where it is to be kept, the third (a suspended chord's fourth), then the
         # seventh (a sixth, a diminished seventh).
-        named = lambda i: 0 if keep_root and i == 0 else 1 if i in (3, 4, 5) else 2 if i in (9, 10, 11) else 3
+        third = next((i for i in (4, 3, 5) if i in iv), None)      # a major third first: in a 7#9 the 3 is the ninth
+        seventh = next((i for i in (10, 11, 9) if i in iv), None)  # a sixth or a diminished seventh where there is no seventh
+        named = lambda i: 0 if keep_root and i == 0 else 1 if i == third else 2 if i == seventh else 3
         keep = sorted(keep, key=named)[:voices]
     for _ in range(omit):
         if len(keep) > 1 and rank(keep[0]) < 9:

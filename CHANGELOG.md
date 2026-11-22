@@ -8,11 +8,11 @@ Smaller, safer and easier to install. The same project renders to the same audio
 
 ### Changed
 
-- **`SKILL.md` is about 30% shorter (6,093 words to 4,295) and ordered by need.** What must hold comes first (listening, files from elsewhere, the configuration, rights), then what goes wrong without a word, the workflow and the commands of a normal piece. Rarer commands, every option and what a render writes moved to the new [commands.md](skills/music-production/references/commands.md); each sentence of the old file has a place.
+- **`SKILL.md` is about 28% shorter (6,093 words to 4,360) and ordered by need.** What must hold comes first (listening, files from elsewhere, the configuration, rights), then what goes wrong without a word, the workflow and the commands of a normal piece. Rarer commands and options and what a render writes moved to the new [commands.md](skills/music-production/references/commands.md); each sentence of the old file has a place.
 - **`studio.py sounds` prints one line a patch** with what tells them apart (25 patches were about 12 KB of JSON). `--json` prints everything.
-- **`clean` also takes standalone `review` folders**, by the record they already keep. It no longer lists a finished audition that has nothing left to remove, puts folders before cache entries in its list, and counts an entry once: an audition's cache that a kept render also used was removed twice, and the second attempt stopped the clean.
+- **`clean` also takes standalone `review` folders**, by the record they already keep. A folder of which nothing can go is no longer counted as removed: it is named with what stays in it. Folders come before cache entries in its list.
 - **A part the plan names and the project does not have yet is one question** (`plan.unwritten:<parts>`), not one per section, so a score reviewed before its other parts are written shows its real differences. A decision on it covers those parts and no part named later.
-- `analyze` gives a `--span` its own level, correlation and mono fold; where nothing is on the lead bus the melody stems stand in, and a section's melody group starts from the part the plan says leads it.
+- `analyze` gives a `--span` its own level, correlation and mono fold; where nothing is on the lead bus the melody stems stand in, and the melody group of a section or a span starts from the part the plan says leads it.
 
 ### Added
 
@@ -20,6 +20,10 @@ Smaller, safer and easier to install. The same project renders to the same audio
 - The render's summary gives the MP3's true peak, a loop seam that may click, where the master's highest sample lies when the true peak holds a wide master's gain, and an end of three seconds or more under -60 dBFS.
 - `voice_lead(..., thin=True)` voices a chord in fewer voices than its essential tones: the third, then the seventh. Without it such a chord is still refused.
 - The chords `9#11`, `maj9#11`, `maj13#11`, `6/9#11`, `13sus` and `13sus4`. `song.part(..., engine='additive')` takes that engine's `instrument` settings.
+
+### Fixed
+
+- **`clean` keeps a take that a kept render plays from an audition's cache.** The entry was removed with that cache, and the clean then stopped halfway. A Surge take cannot be made again, so the next render of that piece would have sounded different.
 
 ### Security
 

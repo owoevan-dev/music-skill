@@ -187,7 +187,8 @@ def render(report, folder):
     if mastering.get('peak_held_db'):
         high = m.get('highest_sample') or {}
         lines.append(f'The gain was held {mastering["peak_held_db"]:g} dB under the target by the true peak (dynamics "wide")'
-                     + (f'; the master\'s highest sample is at {high["seconds"]:g} s, bar {high["bar"]} (a sample peak, usually where the true peak is).' if high else '.'))
+                     + (f'; the master\'s highest sample is at {high["seconds"]:g} s, ' + ('in the tail' if high.get('in_tail') else f'bar {high["bar"]}')
+                        + ' (a sample peak, usually where the true peak is).' if high else '.'))
     buses = report.get('buses') or {}
     if buses.get('level_change_db'):
         lines.append('Each bus against the sum of its stems (dB): ' + ', '.join(f'{k} {v:+g}' for k, v in buses['level_change_db'].items()) + '.')
@@ -210,7 +211,7 @@ def render(report, folder):
         lines.append("Removed, as an earlier full render's: " + ', '.join(report['earlier_delivery_removed']) + '.')
     if tail_line(report):
         lines.append(tail_line(report))
-    if (report.get('silent_end_seconds') or 0) >= SILENT_END:
+    if (report.get('silent_end_seconds') or 0) >= SILENT_END and (report.get('clock_tail_seconds') or 0) > 1:   # (a tail is at least 1 s)
         lines.append(f'The file ends in {report["silent_end_seconds"]:g} s under -60 dBFS: a shorter clock.tail_seconds would end it sooner.')
     lines.append(f'Parts: {report["stem_count"]}; raw synthesis from the cache {report["cache_hits"]}, processed stems from the '
                  f'cache {report.get("stems_reused", 0)} (stem_receipts.json names which).')

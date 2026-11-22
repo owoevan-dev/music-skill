@@ -438,7 +438,7 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
     # Cache entries first: an audition's own cache must be empty before its folder can go.
     entries = [f for f in folders if f.parent in caches and f.name not in used and entry_record(f)]
     entries += [e for f, (kind, _) in listed.items() if kind == 'audition' and _folder(f / 'cache')
-                for e in sorted((f / 'cache').iterdir()) if _folder(e) and entry_record(e)]
+                for e in sorted((f / 'cache').iterdir()) if _folder(e) and entry_record(e) and e.name not in used]   # (a render kept may have played an audition's cache: its take is the only one)
     entries = list(dict.fromkeys(entries))   # an audition's own cache that a kept render also uses is in both lists: removed twice, the second stopped the clean
     cleared = set()  # the cache entries that go (or would go, in a dry run)
     for e in entries:
@@ -541,10 +541,17 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
         else:
             goes_whole = whole(f, known)
         # What stays: its own files no tool recorded (or changed since), and the folders inside it that stay.
-        if (plan['kind'] == 'audition' and not goes_whole and not plan['take'] and not plan['inner'] and not files.occupied(f / 'cache')
-                and all(p.parent == f and p.name in AUDITION_KEEPS for p in plan['stay'])):
-            continue   # a finished audition down to what it keeps: every later clean listed it as one to remove (a run of 0.9.1)
         stays = [p.relative_to(root).as_posix() for p in plan['stay']] + [rel(u) + '/' for u in plan['inner'] if not whole(u, known)]
+        if plan['kind'] == 'audition' and _folder(f / 'cache'):
+            stays += [rel(c) + '/' for c in sorted((f / 'cache').iterdir()) if _folder(c) and entry_record(c) and c not in cleared]   # a take a kept render plays, or one held
+        if not goes_whole and not plan['take']:
+            # Nothing of it goes, so it is not a folder removed.  A finished audition down to what it keeps is its end state
+            # (every later clean listed it as one to remove: a run of 0.9.1); any other says what stays in it.
+            if not (plan['kind'] == 'audition' and not plan['inner'] and own_cache_goes(f)
+                    and all(p.parent == f and p.name in AUDITION_KEEPS for p in plan['stay'])):
+                report['left_alone'].append({'kind': plan['kind'], 'path': rel(f), 'title': None, 'why': 'what stays in it: '
+                                             + ', '.join(stays[:5]) + (f' and {len(stays) - 5} more' if len(stays) > 5 else '')})
+            continue
         report['listed'].append({'kind': plan['kind'], 'path': rel(f), 'bytes': plan['bytes'], 'whole': goes_whole,
                                  'kept_inside': stays[:20]})
         report['bytes'] += plan['bytes']

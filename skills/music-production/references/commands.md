@@ -10,13 +10,14 @@ Contents: [Every command](#every-command) · [What each is for](#what-each-is-fo
 python <skill>/scripts/studio.py doctor   --config <config.json>
 python <skill>/scripts/studio.py start    <project> --title "<title>" --tempo 96 --section verse:8 --section chorus:8 --part "piano harmony vcsl 0:0" --part "lead melody iowa_winds 0:73" --config <config.json>   # compose.py and the song.json it writes; --part "<id> <role> <words that find its preset>", as instruments takes them; --meter 6/8
 python <skill>/scripts/studio.py words    <project>   # the piece's twelve words, drawn once; --own "a, b, c" for the user's own, --none "<why>" for none
+python <skill>/scripts/studio.py round    <project>/song.json --config <config.json> --output <project>/r1
 python <skill>/scripts/studio.py round    <project>/song.json --config <config.json> --output <project>/r2 --previous <project>/r1 --clip <project>/r1_r2.mp3
 python <skill>/scripts/studio.py render   <project>/song.json --config <config.json> --output <project>/final
-python <skill>/scripts/studio.py clean    <project> --keep <project>/final --keep <project>/r6 --remove   # without --remove: the list only
+python <skill>/scripts/studio.py clean    <project> --keep <project>/final --keep <project>/r2 --remove   # the final and the last round; without --remove: the list only
 python <skill>/scripts/studio.py validate <project>/song.json
 python <skill>/scripts/studio.py review   <project>/song.json --output <project>/review_a --config <config.json>
 python <skill>/scripts/studio.py analyze  <project>/r2 --span chorus:17-24 --reference synthwave --output <project>/r2/synthwave.json
-python <skill>/scripts/studio.py compare  <project>/r6 <project>/final --clip <project>/r6_final.mp3 --config <config.json>
+python <skill>/scripts/studio.py compare  <project>/r2 <project>/final --clip <project>/r2_final.mp3 --config <config.json>
 python <skill>/scripts/studio.py profile  <project>/song.json --output <project>/profile_r1.json
 python <skill>/scripts/studio.py sounds   --role pad --character warm,slow --seed <piece seed>   # one line a patch; --centroid 600-900 --attack 0.1-0.3: by measured range; --id <id>: one patch's controls; --json: every figure
 python <skill>/scripts/studio.py instruments viola --config <config.json>   # a preset's bank and program, the keys its samples cover, its layers
@@ -65,7 +66,7 @@ A render never writes over a folder. For a new final after a change, render to a
 
 A render writes `master.wav` (24-bit), `master.flac` (not in a draft), `preview.mp3`, `composition.mid` (performed), `score.mid` (notation timing), one MIDI per part in `midi/`, processed stems in `stems/` (each part before its bus and without the shared reverbs) and `report.json`. With `mix.chain` `"bus"`, `returns/` holds the buses that have parts and the reverb and delay returns in use, which add up to `premix.wav`, the mix before mastering. A project with `loop` also gets `loop.wav`, `loop.ogg` (where the FFmpeg has the libvorbis encoder) and `loop.json`: the loop with the tail folded back from its start, the loop points and a cue point per section written into the files. With `loop.layers`, every layer also comes as its own loop in `layers/`; a draft leaves out the Ogg copies and the layers, and the check that the MP3 decodes to the master's loudness.
 
-Stems, returns and the premix are 32-bit float WAV, which Python's `wave` module refuses: a script of yours reads them with `musiclib.audio.read_wav(path)`, which gives `(frames, rate)`.
+Stems, returns and the premix are 32-bit float WAV, which Python's `wave` module refuses: a script of yours reads them with `samples, info = musiclib.audio.read_wav(path)` (the rate is `info['sample_rate']`).
 
 ## The cache
 

@@ -542,19 +542,33 @@ def define(S):
         told=run('review',song,'--output',folder/'seen_json','--json');assert told.stderr.startswith('Note: compose.py') and json.loads(told.stdout)['title'],told.stderr[:200]   # stdout stays JSON
         other=folder/'song_r1.json';save_json(other,example());os.utime(other,ns=(stamp,stamp))   # a kept copy is not what the script writes
         assert behind_script(other) is None and 'compose.py' not in validate_it(other).stdout
+        cut=subprocess.run([sys.executable,'-X','utf8',str(SCRIPTS/'excerpt.py'),str(song),'--first-bar','1','--bars','1','--output',str(folder/'passage.json')],capture_output=True,text=True,encoding='utf-8')
+        assert cut.returncode==0 and cut.stdout.strip()==str(folder/'passage.json') and cut.stderr.startswith('Note: compose.py'),(cut.stdout,cut.stderr[:200])   # stdout stays the path
+        if os.name=='nt':assert behind_script(folder/'SONG.JSON'),'the same file, named in other capitals'
         os.utime(script,ns=(stamp-5_000_000_000,stamp-5_000_000_000))
         assert behind_script(song) is None and 'compose.py' not in validate_it(song).stdout
         script.unlink();assert behind_script(song) is None and behind_script(folder/'missing'/'song.json') is None
         # S2. A decision goes on answering its question: one that counts more now is named, and only that.
-        old={'questions':[],'answered':[{'id':'vertical','text':'1 sustained collision'},{'id':'clash:a','text':'bar 28 beat 3: x'},{'id':'less','text':'9 notes'},{'id':'same','text':'bar 2: y'}]}
-        now={'questions':[],'answered':[{'id':'vertical','text':'19 sustained collisions, in other words'},{'id':'clash:a','text':'bar 30 beat 3: x'},{'id':'less','text':'4 notes'},{'id':'same','text':'bar 2: reworded y'},{'id':'first','text':'5 notes'}]}
-        moved=[{'id':'vertical','was':1,'now':19},{'id':'clash:a','was':None,'now':None}]
+        old={'questions':[{'id':'asked','text':'3 notes'}],'answered':[{'id':'vertical','text':'1 sustained collision'},{'id':'clash:a','text':'bar 28 beat 3: x'},{'id':'less','text':'9 notes'},{'id':'same','text':'bar 2: y'}]}
+        now={'questions':[],'answered':[{'id':'vertical','text':'19 sustained collisions, in other words'},{'id':'clash:a','text':'bar 30 beat 3: x'},{'id':'less','text':'4 notes'},{'id':'same','text':'bar 2: reworded y'},{'id':'asked','text':'3 notes'},{'id':'first','text':'5 notes'}]}
+        moved=[{'id':'vertical','was':1,'now':19},{'id':'clash:a','was':None,'now':None},{'id':'first','was':0,'now':5}]   # (`first`: nothing of it the round before, under a decision already there)
         assert answered_moved(old,now)==moved,answered_moved(old,now)
         # The same count somewhere else (the text names only the first), and a round from before `places` was kept.
         at=lambda place:{'questions':[],'answered':[{'id':'parallels','text':'2 times two parts move in parallel (first at bar 1)',**({'places':place} if place else {})}]}
         assert answered_moved(at('aaa'),at('bbb'))==[{'id':'parallels','was':None,'now':None}] and answered_moved(at('aaa'),at('aaa'))==[] and answered_moved(at(None),at('bbb'))==[]
-        from musiclib.review import places
-        fifths=lambda bar:{'parallel_fifths_octaves':{'examples':[{'at':f'bar {bar} beat 1','parts':['a','b'],'pitches':[[60,67]]}]}}
+        assert answered_moved({'questions':[]},{'questions':[],'answered':[{'id':'first','text':'5 notes'}]})==[]   # a record from before `answered` was kept
+        from musiclib.review import parallels,place_digest,places
+        # Every finding counts, not the ones a list keeps: 43 parallels with the last moved, close intervals with another pitch.
+        def many(last):
+            q=example();a,b=[t for t in q['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];q['tracks']=[a,b]
+            for t,base in ((a,67),(b,60)):
+                t['notes']=[{'id':f'{t["id"]}_{k}','on':float(k) if k<43 else last,'duration':.9 if k<43 else .7,'pitch':base+(k%4)*2} for k in range(44)]
+                t['performance']['notes']={n['id']:{'velocity':80} for n in t['notes']}
+            return parallels(q,Clock(q))
+        kept,shifted=many(43.0),many(43.25)
+        assert kept['count']==shifted['count']>40 and kept['examples']==shifted['examples'] and kept['places']!=shifted['places'],(kept['count'],shifted['count'])
+        assert place_digest([{'at':'bar 1','notes':[36,37]}])!=place_digest([{'at':'bar 1','notes':[36,39]}])
+        fifths=lambda bar:{'parallel_fifths_octaves':{'places':place_digest([{'at':f'bar {bar} beat 1','parts':['a','b'],'pitches':[[60,67]]}])}}
         assert places(fifths(1),'parallels')==places(fifths(1),'parallels')!=places(fifths(2),'parallels') and places(fifths(1),'stiffness:lead') is None
         line=lambda t,base:(t.update(notes=[{'id':f'{t["id"]}_{k}','on':float(k),'duration':1,'pitch':base+x} for k,x in enumerate((0,2,4,5))]),t['performance'].update(notes={f'{t["id"]}_{k}':{'velocity':80} for k in range(4)}))
         twin=example();a,b=[t for t in twin['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];line(a,67);line(b,60)
@@ -563,20 +577,23 @@ def define(S):
         (folder/'r1'/'review').mkdir(parents=True);save_json(folder/'r1'/'review'/'score_review.json',old)
         got=since(now,folder/'r1'/'render');assert got['answered_moved']==moved and got['previous']=='r1',got
         shown=sm.review(review(example(),folder/'seen'),folder/'seen',got)
-        assert 'Answered in a decision, but moved since r1: vertical (1 -> 19), clash:a.' in shown,shown[-900:]
+        assert 'Answered in a decision, but moved since r1: vertical (1 -> 19), clash:a, first (0 -> 5).' in shown,shown[-900:]
         # S3. Notes that begin partway through a ramp of `performance.bend`, as a scoop of one point makes them.
         played=example();clock=Clock(played)
-        def bent(points,*on,length=.9):
+        def bent(points,*on,length=.9,**part):
             """The notes `on` as played, of `length` beats, under the curve `points`: (beats counted, ...)."""
-            t={'performance':{'bend':points}};now=[{'start_seconds':clock.seconds(b),'end_seconds':clock.seconds(b+length)} for b in on]
+            t={'engine':'soundfont','performance':{'bend':points},**part};now=[{'start_seconds':clock.seconds(b),'end_seconds':clock.seconds(b+length)} for b in on]
             return [round(b,3) for b,_ in bends_across(t,clock,now)]
-        assert bent([[1.9,-1],[2,0],[5.9,-1],[6,0]],2,3,4,5,6)==[3,4,5]                  # a scoop of one point ramps over the notes before it
+        assert bent([[1.9,-1],[2,0],[5.9,-1],[6,0]],2,3,4,5,6)==[4,5]                    # a scoop of one point ramps over the notes before it
         assert bent([[1.9,-1],[2,0],[3.89,0],[3.9,-1],[4,0]],2,3,3.5,4)==[]               # held at 0 until the next
         assert bent([[142.97,0],[142.995,-2],[143.22,0]],143)==[]                         # its own scoop, begun just before it
         assert bent([[1,0],[1.5,-1]],1,2,3)==[1,2,3]                                      # a bend never brought back: the notes after it
-        assert bent([[0,0],[2,-2]],0,1,2)==[0,1,2]                                        # a ramp, the last note on its end
+        assert bent([[0,0],[2,-2]],0,1,2)==[1,2]                                          # a ramp: from a quarter-tone
         assert bent([[2,.35],[2.1,-.35],[2.2,.35],[2.3,-.35],[2.4,.35],[2.5,0]],2)==[]    # a vibrato about the pitch
-        assert bent([],1,2)==[] and bent([[1,.2]],2)==[]                                  # none, and one under a quarter-tone
+        assert bent([],1,2)==[] and bent([[1,.4]],2)==[] and bent([[1,.5]],2)==[2]        # none, under a quarter-tone, and a quarter-tone
+        assert bent([[0,0],[1,-1]],2,3,reverse=True)==[] and bent([[0,0],[1,-1]],2,3,engine='noise')==[] and bent([[0,0],[1,-1]],2,3,engine='surge')==[2,3]   # the wheel an engine plays
+        changing=example();changing['clock']['tempo']=[[0,120],[1,30]];ticking=Clock(changing);spread={'engine':'soundfont','performance':{'bend':[[0,-1],[1,-1],[1.001,0]]}}
+        assert bends_across(spread,ticking,[{'start_seconds':0,'end_seconds':ticking.seconds(2)}])==[]   # off pitch for half its beats, a fifth of its seconds
         p=example();t=next(x for x in p['tracks'] if len(x['notes'])>=8 and x.get('role')=='melody');on=sorted({n['on'] for n in t['notes']})
         t['performance']['bend']=[[on[1]-.05,-1.5],[on[1],0],[on[6]-.05,-1.5],[on[6],0]]
         qid=f'bend:{t["id"]}';asked=review(p,folder/'bend')
@@ -590,7 +607,9 @@ def define(S):
         assert 'the MP3 decodes to -0.2 dBTP' in told and 'above full scale' not in told,told
         assert 'above full scale' in sm.render({**base,'mp3':{'mp3_true_peak_dbtp':.3,'over_full_scale':True}},folder)
         assert 'the MP3 decodes' not in sm.render(base,folder)   # a draft has no MP3 figures
-        from musiclib.render import peak_frames
+        from musiclib.render import highest_sample,peak_frames
+        at=lambda s:highest_sample(round(s*audio.RATE),clock)
+        assert at(0)=={'seconds':0,'bar':1} and at(clock.end-.01)['bar']==played['clock']['bars'] and at(clock.end+.1)=={'seconds':round(clock.end+.1,3),'in_tail':True}   # no bar past the last
         x=np.zeros((144000,2),dtype=np.float32);x[60000,1]=.9;x[50000,0]=-.95;x[70000,0]=.01   # the highest is the negative one, on the first channel
         assert peak_frames(x)==(50000,70000) and peak_frames(np.zeros((1000,2),dtype=np.float32))==(0,-1) and peak_frames(np.ones((48001,2),dtype=np.float32)*.5)[1]==48000
         loop={'start_bar':0,'end_bar':8,'length_samples':100,'files':['wav'],'seam':{'abruptness':{'seam_step_vs_local_p999':1.69}}}

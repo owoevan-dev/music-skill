@@ -379,6 +379,11 @@ def tail_state(data):
     more=math.ceil((last+60)/falling*2)/2 if last>-60 and falling>=3 and not rises else None
     return {'last_50ms_dbfs':round(last,1),'falling_db_per_second':round(falling,1),'rises_at_the_end':bool(rises),'more_seconds_estimated':more}
 
+def highest_sample(frame,clock):
+    """Where a master's highest sample lies: its second, with the bar of the score, or `in_tail` past the last bar."""
+    at=frame/audio.RATE
+    return {'seconds':round(at,3),**({'bar':int(clock.beat(at)//clock.beats_per_bar)+1} if at<clock.end else {'in_tail':True})}
+
 def peak_frames(data,quiet=.001):
     """The frame of a master's highest sample, and of its last sample at `quiet` (-60 dBFS, as tail_quiet reads it) or over,
     -1 where none: read a second at a time, so that a long master is not held in memory a second time."""
@@ -821,8 +826,8 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
     if looped:report['loop']=looped
     top,last=peak_frames(data)
     # What holds a wide master's gain, named: one held chord set it for a whole piece and only a search of the master showed it (0.9.1).
-    report['master']={**report['master'],'highest_sample':{'seconds':round(top/audio.RATE,3),'bar':int(clock.beat(top/audio.RATE)//clock.beats_per_bar)+1}}
-    if not looped:report['silent_end_seconds']=round((len(data)-1-last)/audio.RATE,2)
+    report['master']={**report['master'],'highest_sample':highest_sample(top,clock)}
+    if not looped:report['silent_end_seconds'],report['clock_tail_seconds']=round((len(data)-1-last)/audio.RATE,2),clock.tail
     if not checks['tail_quiet']:
         # the master still sounds at its end: how loud, how fast it falls, and how much longer the tail would have to be
         report['tail']=tail_state(data)

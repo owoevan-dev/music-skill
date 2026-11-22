@@ -87,14 +87,16 @@ def compare(p, clock=None):
         before = order[order.index(name) - 1] if order.index(name) else None
         sounding = rows.get(name, {})
 
-        def settle(what, met, planned, found, text, unwritten=()):
+        def settle(what, met, planned, found, text, unwritten=(), rest=None):
+            """`unwritten`: the parts this commitment names that the project does not have; `rest`: what differs apart
+            from them, where something does."""
             out['commitments'] += 1
             if met:
                 row['kept'].append(what)
                 out['kept'] += 1
             else:
                 row['differs'].append({'what': what, 'planned': planned, 'found': found, 'text': text,
-                                       **({'unwritten': list(unwritten)} if unwritten else {})})
+                                       **({'unwritten': list(unwritten)} if unwritten else {}), **({'rest': rest} if rest else {})})
                 out['differences'] += 1
 
         def absent(part):
@@ -109,8 +111,9 @@ def compare(p, clock=None):
                 said.append('planned to sound and silent: ' + ', '.join(x + (' (not a part of the project)' if x not in tracks else '') for x in silent))
             if extra:
                 said.append('sounding and not in the plan: ' + ', '.join(extra))
-            settle('sounds', not silent and not extra, planned, found, '; '.join(said),
-                   silent if not extra and all(x not in tracks for x in silent) else ())   # all it lacks is parts not written yet
+            real = [x for x in silent if x in tracks]
+            rest = [f'planned to sound and silent: {", ".join(real)}'] * bool(real) + [f'sounding and not in the plan: {", ".join(extra)}'] * bool(extra)
+            settle('sounds', not silent and not extra, planned, found, '; '.join(said), [x for x in silent if x not in tracks], '; '.join(rest))
         for what, parts in (('leads', [entry['leads']] if 'leads' in entry else []), ('answers', list(entry.get('answers') or []))):
             for part in parts:
                 attacks = sounding.get(part, {}).get('attacks', 0)
@@ -198,10 +201,10 @@ def questions(compared):
             for d in s['differs']:
                 for part in d.get('unwritten', ()):
                     unwritten.setdefault(part, {})[s['section']] = True
-            differ = [d for d in s['differs'] if not d.get('unwritten')]
+            differ = [d for d in s['differs'] if d.get('rest') or not d.get('unwritten')]
             if differ:
                 out.append((identifier('plan', s['section']),
-                            f'Plan and score differ in {s["section"]}: ' + '; '.join(d['text'] for d in differ)
+                            f'Plan and score differ in {s["section"]}: ' + '; '.join(d.get('rest') or d['text'] for d in differ)
                             + '. Change the score, or change the plan and say why in decisions (the plan as first written stays in '
                               'the rounds\' records).'))
     if unwritten:

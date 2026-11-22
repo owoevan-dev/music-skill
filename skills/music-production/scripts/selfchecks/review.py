@@ -509,9 +509,10 @@ def define(S):
         q=copy.deepcopy(p);q['plan']['sections'][1].update(sounds=['piano','bass','lead','drums','fx','brass'],leads='fx');q['plan']['high_point']={'section':'answer'}
         q['plan']['sections'].append({'section':'coda','sounds':['piano']})
         r=review(q,work/'plan_differs');c=r['plan']
-        assert [i for i in ids(r) if i.startswith('plan')]==['plan.high_point','plan:answer','plan:coda'],ids(r)
+        assert [i for i in ids(r) if i.startswith('plan')]==['plan.high_point','plan:answer','plan:coda','plan.unwritten:brass'],ids(r)
         asked=next(x['text'] for x in r['questions'] if x['id']=='plan:answer')
-        assert 'planned to sound and silent: fx, brass (not a part of the project)' in asked and 'fx is planned to lead and has no attack in the section (fx is silent)' in asked,asked
+        assert 'planned to sound and silent: fx' in asked and 'brass' not in asked and 'fx is planned to lead and has no attack in the section (fx is silent)' in asked,asked
+        assert 'brass (answer)' in next(x['text'] for x in r['questions'] if x['id']=='plan.unwritten:brass')   # a part not written has its own question, whatever else differs there
         assert (c['commitments'],c['kept'],c['differences'])==(5,3,2) and c['sections'][2]['in_piece'] is False,c
         # The frame is checked and the names are not: a word that is not one of the three is refused, an unknown field
         # is a warning with the nearest name, and a part or a section the score lacks passes validation.

@@ -23,7 +23,7 @@ def behind_script(project):
     into running the script it came with."""
     project = Path(project)
     try:
-        if project.name != 'song.json' or project.with_name('compose.py').stat().st_mtime_ns <= project.stat().st_mtime_ns:
+        if os.path.normcase(project.name) != os.path.normcase('song.json') or project.with_name('compose.py').stat().st_mtime_ns <= project.stat().st_mtime_ns:
             return None
     except OSError:
         return None

@@ -704,7 +704,7 @@ def define(S):
         return {'meters':['5/8','3/4','4/4']}
     def chords_few_voices_and_parts_not_written_yet():
         # 0.9.2 (design-0.9.2.md, T2, T6, T8, M2): what the real pieces of 0.9.1 stumbled on in writing a score.
-        from musiclib.analysis import doublings
+        from musiclib.analysis import doublings,leads_over
         from musiclib.harmony import parse
         from musiclib.review import review
         from musiclib.voicing import chord_tones,voice_lead
@@ -713,7 +713,7 @@ def define(S):
                      ('C6/9#11',{0,4,7,9,2,6}),('C69#11',{0,4,7,9,2,6}),('C9#11',{0,4,7,10,2,6})):
             assert parse(s)['pcs']==iv and parse(s+'/E')['bass']==4,s
         # Too few voices keep what names the chord: the third, then the seventh; the root first where it is to be kept.
-        for s,voices,want in (('Fm7',1,{8}),('Ddim7',2,{5,11}),('Bm7b5',2,{2,9}),('C7sus4',2,{5,10})):
+        for s,voices,want in (('Fm7',1,{8}),('Ddim7',2,{5,11}),('Bm7b5',2,{2,9}),('C7sus4',2,{5,10}),('C7#9',2,{4,10}),('C13',2,{4,10})):
             got=voice_lead([s],voices=voices,thin=True);assert len(got[0])==voices and {x%12 for x in got[0]}==want,(s,got)
             if s!='C7sus4':rejects(lambda:voice_lead([s],voices=voices))   # by default still refused: a script may rest on that
         assert voice_lead(['Cm7'],voices=2)==voice_lead(['Cm7'],voices=2,thin=True) and {x%12 for x in voice_lead(['Cm7'],voices=2)[0]}=={3,10}   # what worked stays as it was
@@ -722,6 +722,11 @@ def define(S):
         from musiclib.views import KIND_OF
         assert all(q in KIND_OF for q in ('9#11','maj9#11','maj13#11','6/9#11','69#11','13sus','13sus4')),'each chord quality has its kind in the score views'
         rejects(lambda:chord_tones('C',0))
+        # A span is read by the lead of the sections it lies in, across a change of lead too.
+        led=example();melody={t['id'] for t in led['tracks'] if t.get('role')=='melody'};assert melody
+        led['plan']={'identity':'x','sections':[{'section':'question','leads':'piano'},{'section':'answer','leads':'bass'}]}
+        assert leads_over(led,0,8)=={'piano'} and leads_over(led,8,16)=={'bass'} and leads_over(led,4,12)=={'piano','bass'},leads_over(led,4,12)
+        led['plan']['sections'].pop();assert leads_over(led,4,12)=={'piano'}|melody and leads_over(example(),4,12)==melody
         # A part the plan names and the project does not have yet is one question, whatever it was planned to do.
         p=example();clock=Clock(p);first,second=p['sections'][0]['id'],p['sections'][1]['id']
         real=sorted({r['section']:r['parts'] for r in views.parts_by_section(p,clock)}[second])
@@ -733,12 +738,12 @@ def define(S):
         assert [q['id'] for q in plans]==[missing],plans
         assert all(f'{g} ({second})' in plans[0]['text'] for g in ('ghost','ghost2','ghost3','ghost4')),plans[0]['text']
         assert r['plan']['differences']==4 and r['plan']['kept']==0,r['plan']   # still counted as not held
-        # A real difference beside it keeps its own question, with the part the plan lacks named there.
+        # A real difference beside them keeps its own question, and the parts not written stay together in theirs.
         p['plan']['sections'][0]['sounds']=real[1:]+['ghost']
         r=asked('review_unwritten2');ids=[q['id'] for q in r['questions'] if q['id'].startswith('plan')]
-        assert ids==[f'plan:{second}','plan.unwritten:ghost2+ghost3+ghost4'],ids
+        assert ids==[f'plan:{second}',missing],ids
         text=next(q['text'] for q in r['questions'] if q['id']==f'plan:{second}')
-        assert f'sounding and not in the plan: {real[0]}' in text and 'ghost (not a part of the project)' in text and 'ghost2' not in text,text
+        assert f'sounding and not in the plan: {real[0]}' in text and 'ghost' not in text,text
         p['plan']['sections'][0]['sounds']=real+['ghost'];p['decisions']=list(p.get('decisions') or [])+[f'{missing}: written next round']
         r=asked('review_unwritten3');assert not any(q['id'].startswith('plan') for q in r['questions']) and any(a['id']==missing for a in r['answered'])
         p['plan']['sections'][0]['answers']=['ghost4','ghost5'];r=asked('review_unwritten4')   # a decision on one set does not cover a part named later

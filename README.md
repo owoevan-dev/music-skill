@@ -65,6 +65,8 @@ Compositions and recordings are CC0; the recordings are MP3 files on the release
 
 You get an MP3 and a WAV, the MIDI, a stem per part, the buses and reverb returns that add up to the mix, and the project file. On a 24-thread laptop each of the examples above rendered from scratch in 25 seconds (the fughetta and the chiptune) to 156 seconds (the film score, with its 57 parts).
 
+> **Making a game?** [sfx-skill](https://github.com/owoevan-dev/sfx-skill) designs its sound effects the same way: every sound is built from editable layers, with no audio-generation model, and exports to Godot, Unity, Unreal, Roblox and the web.
+
 ## Why not just generate it?
 
 | | A text-to-music model | music-skill |

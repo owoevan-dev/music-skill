@@ -65,6 +65,8 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 
 MP3와 WAV, MIDI, 파트별 스템, 더하면 믹스가 되는 버스와 리버브 리턴, 프로젝트 파일을 받습니다. 24스레드 노트북에서 위의 예제 곡들을 처음부터 렌더링하는 데 한 곡에 25초(푸게타와 칩튠)에서 156초(57개 파트의 영화 음악)가 걸렸습니다.
 
+> **게임을 만들고 있나요?** [sfx-skill](https://github.com/owoevan-dev/sfx-skill)은 같은 방식으로 효과음을 디자인합니다. 모든 소리는 편집할 수 있는 레이어로 이루어지고, 오디오 생성 모델을 쓰지 않으며, Godot, Unity, Unreal, Roblox, 웹용으로 내보낼 수 있습니다.
+
 ## 그냥 생성하면 안 되나요?
 
 | | 텍스트로 음악을 만드는 모델 | music-skill |

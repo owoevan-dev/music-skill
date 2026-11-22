@@ -65,6 +65,8 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 
 你會拿到 MP3 和 WAV、MIDI、每個聲部的分軌、加起來就是完整混音的匯流排與殘響回送，以及專案檔。在一台 24 執行緒的筆電上，上面的範例從零開始渲染，每首花了 25 秒（小賦格和 8-bit 曲）到 156 秒（57 個聲部的電影配樂）。
 
+> **在做遊戲嗎？** [sfx-skill](https://github.com/owoevan-dev/sfx-skill) 用同樣的方式設計音效：每個聲音都是可編輯的圖層，不用音訊生成模型，可匯出到 Godot、Unity、Unreal、Roblox 和網頁。
+
 ## 為什麼不直接生成？
 
 | | 文字轉音樂的模型 | music-skill |

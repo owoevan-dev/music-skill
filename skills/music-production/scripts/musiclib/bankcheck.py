@@ -20,13 +20,19 @@ TABLES = {b'pdta': (b'pmod', b'imod'), b'INFO': (b'DMOD',)}   # the modulator ta
 def refuse_unsafe(path):
     """Raise ValueError for a SoundFont FluidSynth is not safe with.  Only the bank's chunk headers and its modulator tables
     are read.  A top-level chunk of odd size is refused too: RIFF pads it and FluidSynth's reader does not, so the two would
-    find different tables after it (one inside INFO FluidSynth refuses itself)."""
+    find different tables after it (one inside INFO FluidSynth refuses itself).  So is a file that does not hold exactly
+    what its RIFF header says: FluidSynth compares the two in 32 bits, so a file 4 GiB longer passes there, and its reader
+    can then take tables this walk never reaches.  Under 4 GiB FluidSynth refuses such a file itself."""
     path = Path(path)
     with open(path, 'rb') as f:
         head = f.read(12)
         if head[:4] != b'RIFF' or head[8:12] != b'sfbk':
             raise ValueError(f'{path}: not a SoundFont 2 file')
-        for cid, off, size in _chunks(f, 12, min(path.stat().st_size, 8 + struct.unpack('<I', head[4:8])[0])):
+        end, holds = 8 + struct.unpack('<I', head[4:8])[0], path.stat().st_size
+        if end != holds:
+            raise ValueError(f'{path}: its RIFF header says {end} bytes and the file holds {holds}, so it is not played; '
+                             'it was cut short or has something after its end. Get a whole copy from its maker.')
+        for cid, off, size in _chunks(f, 12, end):
             if size & 1:
                 raise ValueError(f'{path}: its {cid.decode("latin-1")!r} chunk has an odd size, which SoundFont 2 does not allow, so it is not played')
             if cid != b'LIST':

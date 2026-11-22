@@ -583,6 +583,10 @@ def define(S):
             at=next(off-8 for cid,off,_ in _chunks(f,12,len(whole)) if cid==b'LIST' and (f.seek(off),f.read(4))[1]==b'pdta')
         odd=bytearray(whole[:at]+b'JUNK'+struct.pack('<I',1)+b'x'+b'\0'+whole[at:]);struct.pack_into('<I',odd,4,len(odd)-8);(w/'odd.sf2').write_bytes(odd)
         rejects(lambda:bankcheck.refuse_unsafe(w/'odd.sf2'))
+        # A file that does not hold what its RIFF header says, the preset tables past the end it declares among them: FluidSynth compares the two in 32 bits.
+        past=bytearray(whole);struct.pack_into('<I',past,4,at-8)
+        for name,raw in (('longer',whole+bytes(2)),('shorter',whole[:-2]),('tables_past_its_end',past)):
+            (w/f'{name}.sf2').write_bytes(raw);rejects(lambda:bankcheck.refuse_unsafe(w/f'{name}.sf2'))
         # Default modulators (INFO/DMOD): FluidSynth reads them through the same importer, so the same bound holds, and sound ones pass.
         with open(bank,'rb') as f:
             info,info_size=next((off,size) for cid,off,size in _chunks(f,12,len(whole)) if cid==b'LIST' and (f.seek(off),f.read(4))[1]==b'INFO')

@@ -22,7 +22,8 @@ It is the one command that deletes, so it errs toward keeping (musiclib.files):
 - A cache entry goes only from the kept piece's own cache (beside a kept render or round, where renders put theirs, or
   inside one of its folders that goes: a part's key leaves out the title, so a key alone does not show whose cache it
   is), only if no render that stays plays it, only if it holds nothing but what renders wrote there, and under its lock
-  (render.entry_lock), so a render never loses an entry it is using.  An entry renders of 0.5
+  (render.entry_lock), so a render never loses an entry it is using.  It never goes as part of the folder holding it:
+  what these rules keep keeps that folder too.  An entry renders of 0.5
   wrote keeps its own record of them, and while a render works in it a journal (musiclib.files), so it goes by the
   files they prove; an entry of 0.4.0, which keeps neither, goes by the names renders gave their files, its key and its
   receipt, as 0.4.0's clean took it.  A render's own unlocked_cache/ (its parts, made there where the shared cache
@@ -221,13 +222,13 @@ def keys_played(render_dir):
                                            and ENTRY_NAME.fullmatch(r['cache_key']) for r in rows)):
         return None
     named = {r['track'] for r in rows}
-    return {r['cache_key'] for r in rows} if all(isinstance(t, dict) and t.get('id') in named for t in tracks) else None
+    return {r['cache_key'] for r in rows} if all(isinstance(t, dict) and isinstance(t.get('id'), str) and t['id'] in named for t in tracks) else None
 
 
 def _plan(folder, kind, record, inner, entries=()):
     """What removing a tool's folder takes: its own files that a record (its own, or a sub-folder's such as a round's
     review/) lists unchanged, and what stays.  `inner` are the tool folders inside it, which go or stay on their own, and
-    `entries` the cache entries in it that clean takes by their own records and the keys kept renders use."""
+    `entries` the cache entries in it, which go or stay by the rules of a cache and never with this folder's files."""
     folder = Path(folder)
     finished = kind == 'audition' and record.get('status', 'PASS') != 'FAIL' and _file(folder / 'audition.mp3')
     seen = files.stamp  # a record as the plan found it: size, time and file number (files.unchanged)
@@ -282,7 +283,7 @@ def _plan(folder, kind, record, inner, entries=()):
     # What an audition's own cache holds besides its entries (a file of the user's put there) stays, and is named:
     # the cache is left out of the walk above.  (Found by GPT Pro's third review.)
     if kind == 'audition' and _folder(folder / 'cache'):
-        stay += [c for c in sorted((folder / 'cache').iterdir()) if not (_folder(c) and entry_record(c))]
+        stay += [c for c in sorted((folder / 'cache').iterdir()) if c not in entries]
     return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner, 'holders': holders, 'last': last, 'entries': list(entries)}
 
 
@@ -449,35 +450,34 @@ def _hold(units, listed, remove):
 def _remove(root, kept, used, folders, units, caches, listed, left, held, remove, rel):
     """The listed folders' plans, and with `remove` their removal, each folder under its lock (`held`), which is let
     go as soon as that folder is done."""
-    # A cache holding a take a kept render plays is the kept piece's only where its renders put one: beside a kept render or
-    # round, or inside one of its folders that goes.  Two pieces can hold the same take, as a part's key leaves out the
-    # title, so one shared key says nothing of whose cache it is.  What cannot be shown to be the piece's stays.
+    # Every folder named by a cache key that holds anything, with the tool folder nearest above it.  None goes with that folder's
+    # own files: an entry keeps its own record, so a walk of the folder would take it as recorded (`--cache older/cache`:
+    # removing `older` took what another piece's render plays from it).  The rules below decide; one they cannot read stays.
+    named = {f: next((u for u in f.parents if u in units), None) for f in folders
+             if f not in units and ENTRY_NAME.fullmatch(f.name) and f.parent.name != files.UNLOCKED_CACHE and any(f.iterdir())}
+    recognised = [e for e in named if entry_record(e)]
+    # A cache is the kept piece's only where its renders put one: beside a kept render or round that plays from it, or inside
+    # one of its folders that goes.  Two pieces can hold the same take, as a part's key leaves out the title, so one shared
+    # key says nothing of whose cache it is.  What cannot be shown to be the piece's stays.
     beside = {(round_dir or render_dir).parent for render_dir, round_dir, _, _ in kept}
-    own = {c for c in caches if c.parent in beside or any(f in c.parents for f in listed)}
+    own = {c for c in caches if c.parent in beside} | {e.parent for e in recognised if named[e] in listed}
     # A render that stays may play from the same cache (`--cache` shared with another piece): what it plays stays, and where
     # one does not show what it plays, no entry goes.
     kept_renders = {k[0] for k in kept}
     staying = [keys_played(f) for f, (kind, _) in units.items() if kind == 'render' and f not in listed and f not in kept_renders]
     known = None not in staying
     played = used.union(*(k for k in staying if k is not None))
-    for c in sorted(caches):
-        if (c not in own or not known) and any(f.parent == c and f.name not in played and entry_record(f) for f in folders):
+    for c in sorted(caches | own):
+        if (c not in own or not known) and any(e.parent == c and e.name not in played for e in recognised):
             left.append({'kind': 'cache', 'path': rel(c), 'title': None,
-                         'why': "not beside a kept render or round, so it cannot be shown to be this piece's" if c not in own
-                         else 'a render that stays does not name the cache key of every part, so no entry goes'})
-    # The cache entries that go or stay by their own records and the keys renders that stay use: those of the piece's own
-    # caches, and those of a listed audition's own.  A folder holding one does not take it with its own
-    # files (`--cache r1/cache`: removing r1 took the only copy of a Surge take the final plays).
-    handled = [f for f in folders if f.parent in own and entry_record(f)]
-    handled += [e for f, (kind, _) in listed.items() if kind == 'audition' and _folder(f / 'cache')
-                for e in sorted((f / 'cache').iterdir()) if _folder(e) and entry_record(e)]
-    handled = list(dict.fromkeys(handled))   # an audition's own cache that a kept render also uses is in both
+                         'why': "neither beside a kept render or round nor inside a folder of this piece that goes, so it cannot be shown to be this piece's"
+                         if c not in own else 'a render that stays does not name the cache key of every part, so no entry goes'})
+    handled = [e for e in recognised if e.parent in own]
     within = {}
-    for e in handled:
-        for h in e.parents:
-            if h in listed:
-                within.setdefault(h, []).append(e)
-    plans = {f: _plan(f, kind, record, [u for u in units if u != f and f in u.parents], within.get(f, ())) for f, (kind, record) in listed.items()}
+    for e, holder in named.items():
+        if holder in listed:
+            within.setdefault(holder, []).append(e)
+    plans ={f: _plan(f, kind, record, [u for u in units if u != f and f in u.parents], within.get(f, ())) for f, (kind, record) in listed.items()}
     # a kept round is named by its own folder, which stays whole with its render (it printed the render inside it: the
     # walkthrough of 0.8.0)
     report = {'folder': str(root), 'kept': [str(k[1] or k[0]) for k in kept], 'cache_entries_kept': len(used), 'dry_run': not remove,

@@ -1245,6 +1245,46 @@ def define(S):
         record.register(rnd,[rnd/'round.json']);render_of(rnd/'render','R',{'lead':K('d')})
         for k in 'de':entry_of(rnd.parent/'cache',K(k))
         clean(rnd.parent,[rnd],remove=True);assert (rnd.parent/'cache'/K('d')/'raw.wav').is_file() and not (rnd.parent/'cache'/K('e')).exists(),'the cache beside a kept round'
-        return {'cases':25}
+        # A cache inside an older render of the piece (`--cache past/cache`) goes by the same rules, never with the folder: what another piece plays from it stays.
+        nest=whose/'nest';n_final=render_of(nest/'final','N',{'lead':K('1')});entry_of(nest/'cache',K('1'))
+        past=render_of(nest/'past','N',{'lead':K('2'),'bass':K('3')});plays=render_of(nest/'plays','P',{'lead':K('2')})
+        for k in '234':entry_of(past/'cache',K(k))
+        r=clean(nest,[n_final],remove=True);row=next(x for x in r['listed']+r['left_alone'] if x['path']=='past')
+        assert (past/'cache'/K('2')/'raw.wav').is_file() and not (past/'cache'/K('3')).exists() and not (past/'cache'/K('4')).exists(),r
+        assert f'past/cache/{K("2")}/' in (row.get('why') or ' '.join(row['kept_inside'])),row
+        # Where a render that stays does not show what it plays, no entry of that cache goes, by itself or with the folder.
+        (plays/'stem_receipts.json').unlink();entry_of(past/'cache',K('5'))
+        r=clean(nest,[n_final],remove=True);assert all((past/'cache'/K(k)/'raw.wav').is_file() for k in '25'),r
+        assert any(x['path']=='past/cache' and 'no entry goes' in x['why'] for x in r['left_alone']),r['left_alone']
+        # What none plays goes, and the folder with it; a folder named by a key that cannot be read as an entry stays, and keeps its folder, though the render's record
+        # lists its file; an empty one holds nothing back; and the cache of another piece's render inside a folder that goes stays whole.
+        lone=whose/'lone';l_final=render_of(lone/'final','L',{'lead':K('6')});entry_of(lone/'cache',K('6'))
+        whole_past=render_of(lone/'past','L',{'lead':K('7')})
+        for k in '78':entry_of(whole_past/'cache',K(k))
+        unread=render_of(lone/'unread','L',{});(unread/'cache'/K('9')).mkdir(parents=True);(unread/'cache'/K('9')/'raw.wav').write_bytes(bytes(50));record.register(unread,[unread/'cache'/K('9')/'raw.wav'])
+        hollow=render_of(lone/'hollow','L',{});(hollow/'cache'/K('a')).mkdir(parents=True)
+        host=render_of(lone/'host','L',{});guest=render_of(host/'guest','G',{'lead':K('b')})
+        for k in 'bc':entry_of(guest/'cache',K(k))
+        hexed=render_of(lone/'hexed','L',{});render_of(hexed/K('3'),'L',{})   # a render's folder that happens to be named like a key is a render
+        r=clean(lone,[l_final],remove=True);assert not whole_past.exists() and not hollow.exists() and not hexed.exists(),r
+        assert (unread/'cache'/K('9')/'raw.wav').is_file() and (unread/'render_input.json').is_file(),r
+        assert all((guest/'cache'/K(k)/'raw.wav').is_file() for k in 'bc'),r
+        # A track's id of another type (a record saved again by another program) stops clean with a message on a kept render, and on one that stays lets no entry go.
+        typed=whose/'typed';t_final=render_of(typed/'final','T',{'lead':K('d')});t_other=render_of(typed/'other','U',{'lead':K('e')})
+        for k in 'def':entry_of(typed/'cache',K(k))
+        for wrong in (['lead'],{'name':'lead'}):
+            for folder,title in ((t_final,'T'),(t_other,'U')):
+                save_json(folder/'project.json',{'title':title,'tracks':[{'id':wrong}]})
+                if folder==t_final:assert rejects(lambda:clean(typed,[t_final],remove=True)),wrong
+                else:
+                    r=clean(typed,[t_final],remove=True);assert any('no entry goes' in x['why'] for x in r['left_alone']),r
+                assert all((typed/'cache'/K(k)/'raw.wav').is_file() for k in 'def'),wrong
+                save_json(folder/'project.json',{'title':title,'tracks':[{'id':'lead'}]})
+        # An audition that did not finish goes whole, the takes of its own cache with it.
+        heard=whose/'heard';h_final=render_of(heard/'final','H',{'lead':K('1')});entry_of(heard/'cache',K('1'));aud3=heard/'aud';aud3.mkdir()
+        save_json(aud3/'audition.json',{'kind':'music-production audition','title':'H','versions':[],'bars':[1,2],'track':'t','each_seconds':1,'status':'FAIL'})
+        record.register(aud3,[aud3/'audition.json']);entry_of(aud3/'cache',K('2'))
+        clean(heard,[h_final],remove=True);assert not aud3.exists(),'an audition goes whole with its own cache'
+        return {'cases':37}
     found = {'clean_takes_reviews_and_lists_only_what_goes': clean_takes_reviews_and_lists_only_what_goes, 'long_paths_reach_programs_in_a_form_they_open': long_paths_for_programs, 'cache_entry_locked_across_renders': entry_lock_across_renders, 'clean_removes_only_what_the_tools_made': clean_only_what_the_tools_made, 'cache_entries_go_by_their_own_record': cache_entries_by_their_record, 'files_never_overwrite_or_write_through': files_never_overwrite_or_write_through, 'journal_proves_a_stopped_run': journal_proves_a_stopped_run, 'writers_leave_whole_files_when_a_write_fails': writers_leave_whole_files_when_a_write_fails, 'run_stops_its_program_when_stopped': run_stops_its_program_when_stopped, 'clean_and_runs_never_share_a_folder': clean_and_runs_never_share_a_folder, 'render_refuses_a_linked_output': render_refuses_a_linked_output, 'bounded_reads_of_records_and_wav_headers': bounded_reads_of_records_and_wav_headers, 'shared_reports_name_folders_relatively': shared_reports_name_folders_relatively, 'selfcheck_work_must_be_new_or_empty': selfcheck_work_must_be_new_or_empty, 'render_folders_are_read_without_links': render_folders_are_read_without_links}
     return found

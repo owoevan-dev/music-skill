@@ -24,12 +24,12 @@ Smaller, safer and easier to install. The same project renders to the same audio
 ### Fixed
 
 - **`clean` keeps a take that a kept render plays from a cache inside a folder it removes**, an audition's or an earlier render's. The take went with that folder, and a Surge take cannot be made again, so the next render of that piece would have sounded different.
-- **`clean` takes cache entries only from the kept piece's own cache, and none that a render that stays still plays.** Run on a folder holding two pieces that share a part, it deleted the other piece's takes while listing that piece as left alone. A cache it cannot show to be this piece's stays, and is named.
+- **`clean` takes cache entries only from the kept piece's own cache, and none that a render that stays still plays.** Run on a folder holding two pieces that share a part, it deleted the other piece's takes while listing that piece as left alone. A cache it cannot show to be this piece's stays, and is named. A cache inside a folder that goes follows the same rules: no entry goes with the folder holding it.
 - `clean` stops, removing nothing, where a kept render's `stem_receipts.json` does not name the cache key of every part of its project. A lost row, or a receipt saved again by another program, read as a render that does not use that take.
 
 ### Security
 
-- **A SoundFont with a modulator destination past FluidSynth's 63 generators is refused before FluidSynth gets it** (CVE-2026-111123, in the pinned 2.6.1; the same destination bound as FluidSynth's own fix, released in 2.6.3), in its preset, instrument and default modulators alike. `add-soundfont`, `configure` and `doctor` name the bank, and a render or an audition stops before any program runs. None of the banks the setup installs has one.
+- **A SoundFont with a modulator destination past FluidSynth's 63 generators is refused before FluidSynth gets it** (CVE-2026-111123, in the pinned 2.6.1; the same destination bound as FluidSynth's own fix, released in 2.6.3), in its preset, instrument and default modulators alike. `add-soundfont`, `configure` and `doctor` name the bank, and a render or an audition stops before any program runs. None of the banks the setup installs has one. A bank that does not hold exactly what its RIFF header says is refused the same way, since the check and FluidSynth could otherwise read different tables.
 - SKILL.md now says that a `compose.py` that came with someone else's project is a program: read it, and do not run it unasked.
 
 ### Install

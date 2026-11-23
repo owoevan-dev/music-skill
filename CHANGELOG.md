@@ -9,6 +9,7 @@ Small fixes. The same project renders to the same audio.
 ### Changed
 
 - `SKILL.md`'s setup step: an agent that does not know where the configuration is asks the user and does not search the disk for one, where it may find an old one.
+- The tests can also be started by hand from the Actions tab, on a fork too.
 
 ### Fixed
 

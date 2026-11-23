@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:   # by hand from the Actions tab, which is how a fork runs the tests on its own branch
 
 # Changes arrive as pull requests: a pull request's branch is tested once, through its pull_request run, and a newer
 # commit on it cancels the older run. Each push to main is its own group, so a waiting run is never replaced by a

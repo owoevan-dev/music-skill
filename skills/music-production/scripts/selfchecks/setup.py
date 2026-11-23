@@ -596,9 +596,23 @@ def define(S):
             out=w/f'dmod_{dest}.sf2';out.write_bytes(raw);return out
         for dest in (0,62):bankcheck.refuse_unsafe(with_dmod(dest))
         for dest in (63,255,256,0xFFFF):rejects(lambda:bankcheck.refuse_unsafe(with_dmod(dest)))
-        for name in (b'pmod',b'imod'):   # a table's size that is no whole number of records
-            short=bytearray(whole);size_at=table(name)-4;struct.pack_into('<I',short,size_at,struct.unpack_from('<I',short,size_at)[0]-2);(w/'short.sf2').write_bytes(short)
-            rejects(lambda:bankcheck.refuse_unsafe(w/'short.sf2'))
+        # The first pdta list begins with the nine tables in FluidSynth's order: its count of the bytes left is 32 bits, so a table of over 2 GiB can stand past the
+        # end of a list and FluidSynth reads on into it.  Here, at a small size, the same layout: the tables outside an empty list, a clean list after them.
+        size=struct.unpack_from('<I',whole,at+4)[0];tail=at+8+size;inner=whole[at+12:tail]
+        def rebuilt(name,data):
+            raw=bytearray(whole[:at]+data+whole[tail:]);struct.pack_into('<I',raw,4,len(raw)-8);(w/name).write_bytes(raw);return w/name
+        swapped=bytearray(whole);swapped[table(b'pbag')-8:table(b'pbag')-4]=b'pgen';swapped[table(b'pgen')-8:table(b'pgen')-4]=b'pbag';(w/'order.sf2').write_bytes(swapped)
+        rejects(lambda:bankcheck.refuse_unsafe(w/'order.sf2'))
+        outside=bytearray(inner);struct.pack_into('<H',outside,table(b'pmod')-(at+12)+2,200)
+        rejects(lambda:bankcheck.refuse_unsafe(rebuilt('past_the_list.sf2',b'LIST'+struct.pack('<I',4)+b'pdta'+bytes(outside)+whole[at:tail])))
+        extra=b'JUNK'+struct.pack('<I',2)+b'ab'   # what FluidSynth never reads plays: more after the nine tables, and a second list
+        bankcheck.refuse_unsafe(rebuilt('more_in_the_list.sf2',b'LIST'+struct.pack('<I',size+len(extra))+whole[at+8:tail]+extra))
+        bankcheck.refuse_unsafe(rebuilt('second_list.sf2',whole[at:tail]+b'LIST'+struct.pack('<I',4)+b'pdta'))
+        for name in (b'pmod',b'imod'):   # a table's size that is no whole number of records, the nine tables still in their order
+            t=table(name);n=struct.unpack_from('<I',whole,t-4)[0];body=bytearray(whole[at:t+n]+bytes(2)+whole[t+n:tail])
+            struct.pack_into('<I',body,4,size+2);struct.pack_into('<I',body,t-4-at,n+2)
+            try:bankcheck.refuse_unsafe(rebuilt('not_whole.sf2',bytes(body)));raise AssertionError('a table of no whole number of records passed')
+            except ValueError as e:assert 'table size' in str(e),e
         unsafe=crafted(b'imod',63,'unsafe.sf2');tools=lambda:{k:{'path':str(w/n),'sha256':file_hash(w/n)} for k,n in (('fluidsynth','fs.exe'),('ffmpeg','ff.exe'))}
         for n in ('fs.exe','ff.exe'):(w/n).write_bytes(n.encode())
         run=lambda *a:subprocess.run([sys.executable,'-X','utf8',str(here/'studio.py'),*map(str,a)],capture_output=True,text=True,encoding='utf-8')

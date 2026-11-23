@@ -5,7 +5,7 @@ license: "MIT; scripts/surge_host.py is GPL-3.0-or-later (LICENSES/GPL-3.0-or-la
 compatibility: "Python 3.10+ with NumPy. FluidSynth 2.x and FFmpeg 6 or newer: pinned portable builds on Windows x64, the system packages on Linux and macOS. Sound banks are downloaded once from this project's GitHub release (twenty-five built here, six repacked unchanged from FreePats), each checked against a pinned SHA-256, with each publisher's own download as the fallback. No GPU and no audio model. Needs a shell, internet access for the setup and a folder that persists (tested: Claude Code, Codex)."
 metadata:
   author: "owoevan-dev"
-  version: "0.9.2"
+  version: "0.9.3"
 ---
 
 # Music production
@@ -37,6 +37,7 @@ What it does and does not do (say so when it matters to the request):
 Nine steps, in order. Copy the checklist into the project's notes and tick it off (its links are for reading here: copied elsewhere they point nowhere, and the notes need only the steps). Each step opens with what must be true before the next one starts.
 
 - [ ] **0. Setup.** `studio.py doctor --config <config>` passes.
+  - If you do not know where the configuration is, ask the user, who may have one or want the setup. Do not search the disk for one: a file found there may be old or someone else's, and it names the programs that run.
   - Without a configuration: the setup runs commands on the user's computer, downloads from GitHub and PyPI once and keeps a folder for later sessions (about 1 GB, about 12 GB with every bank). Where you cannot do that, say that the skill needs an agent such as Claude Code or Codex on the user's computer, and do not start the setup.
   - Otherwise tell the user what the setup installs, its size and how long it takes, and run it once they agree ([setup.md](references/setup.md)). Keep the configuration where the next session will find it (the user's choice, for example `~/.music-skill/`).
   - Install banks for the parts you plan, by group or name (`fetch_soundbanks.py --only`), not all thirty-one up front ([soundbanks.md](references/soundbanks.md)).

@@ -143,7 +143,7 @@ def define(S):
         assert low and high and max(r['centroid_hz'] for r in low)<=120<min(r['centroid_hz'] for r in high) and len(low)+len(high)==search('bass',limit=100000)['count']
         # From the command line a range's ends are plain numbers, finite and not under zero, the lower first (a review
         # of 0.6.0: nan-900, 0-inf and --1 were taken as ranges).
-        cli=lambda *a:subprocess.run([sys.executable,'-B',str(SCRIPTS.joinpath('studio.py')),'sounds','--role','pad',*a],capture_output=True,text=True)  # noqa: E731
+        cli=lambda *a:subprocess.run([sys.executable,'-B',str(SCRIPTS.joinpath('studio.py')),'sounds','--role','pad','--json',*a],capture_output=True,text=True)  # noqa: E731
         for bad in ('--centroid=nan-900','--centroid=0-inf','--centroid=--1','--attack=-inf-1','--attack=x-1','--centroid=900-600','--centroid=-','--attack=0.1'):
             r=cli(bad);assert r.returncode==2 and 'Traceback' not in r.stderr and bad.split('=')[0] in r.stderr,(bad,r.returncode,r.stderr[-200:])
         r=cli('--centroid=600-900','--attack=-0.3','--limit','5');assert r.returncode==0 and json.loads(r.stdout)['shown'],r.stderr[-200:]
@@ -551,7 +551,76 @@ def define(S):
         with contextlib.redirect_stdout(said):assert bootstrap.pedalboard_wheel(lock,cache,offline=True)==(None,None)
         assert 'set aside' in said.getvalue() and len(list(cache.glob(name+'.replaced-*')))==1
         return {'tag':tags[0]}
-    found = {'archive_cannot_escape_destination': zip_traversal, 'surge_catalog_patch_by_id_search_and_install': surge_catalog, 'soundbank_lock_hosts_hashes_and_member_paths': soundbank_lock, 'prebuilt_banks_unpack_only_when_they_match_the_lock': prebuilt_bank, 'a_config_written_elsewhere_keeps_relative_banks': relative_banks, 'a_short_or_damaged_download_is_never_kept': short_downloads, 'bootstrap_receipts_set_aside_what_it_did_not_write': bootstrap_receipts_set_aside_what_it_did_not_write, 'delete_sources_takes_only_the_installers_files': delete_sources_takes_only_the_installers_files, 'pedalboard_checked_against_its_record': pedalboard_checked_against_its_record, 'source_listing_must_name_the_pinned_samples': source_listing_must_name_the_pinned_samples, 'pedalboard_wheel_fetched_by_its_lock': pedalboard_wheel_fetched_by_its_lock}
+    def a_bank_fluidsynth_is_not_safe_with_is_refused():
+        # 0.9.2 (design-0.9.2.md, A1): a modulator's destination past FluidSynth's 63 generators writes outside a voice in
+        # the pinned build (CVE-2026-111123), so no route hands such a bank to it: add-soundfont, configure, doctor, and a
+        # render or audition, whatever the configuration says.  61 and 62 are FluidSynth's own and play.
+        import struct,subprocess,sys
+        from make_example import example
+        from musiclib import bankcheck
+        from musiclib.render import module_closure,SYNTHESIS
+        assert 'bankcheck.py' not in module_closure(SYNTHESIS),'the check must not change what a cached synthesis depends on'
+        here=SCRIPTS;w=work/'unsafe_bank';w.mkdir();bank=xf_bank();whole=bank.read_bytes()
+        def table(name):
+            """Where the bank's table `name` starts, walked as the file is laid out."""
+            with open(bank,'rb') as f:
+                from musiclib.sf2 import _chunks
+                for cid,off,size in _chunks(f,12,len(whole)):
+                    f.seek(off)
+                    if cid==b'LIST' and f.read(4)==b'pdta':
+                        return next(t for sub,t,_ in _chunks(f,off+4,off+size) if sub==name)
+        def crafted(name,dest,label=None):
+            raw=bytearray(whole);struct.pack_into('<H',raw,table(name)+2,dest)
+            out=w/(label or f'{name.decode()}_{dest}.sf2');out.write_bytes(raw);return out
+        bankcheck.refuse_unsafe(bank)
+        for name in (b'pmod',b'imod'):
+            for dest in (0,60,61,62):bankcheck.refuse_unsafe(crafted(name,dest))
+            for dest in (63,64,255,256,319,0x8000,0xFFFF):
+                rejects(lambda:bankcheck.refuse_unsafe(crafted(name,dest)))
+        # A chunk of odd size, padded as RIFF pads it: a walk that pads reads the tables after it, and FluidSynth's, which does not, reads others.
+        with open(bank,'rb') as f:
+            from musiclib.sf2 import _chunks
+            at=next(off-8 for cid,off,_ in _chunks(f,12,len(whole)) if cid==b'LIST' and (f.seek(off),f.read(4))[1]==b'pdta')
+        odd=bytearray(whole[:at]+b'JUNK'+struct.pack('<I',1)+b'x'+b'\0'+whole[at:]);struct.pack_into('<I',odd,4,len(odd)-8);(w/'odd.sf2').write_bytes(odd)
+        rejects(lambda:bankcheck.refuse_unsafe(w/'odd.sf2'))
+        # A file that does not hold what its RIFF header says, the preset tables past the end it declares among them: FluidSynth compares the two in 32 bits.
+        past=bytearray(whole);struct.pack_into('<I',past,4,at-8)
+        for name,raw in (('longer',whole+bytes(2)),('shorter',whole[:-2]),('tables_past_its_end',past)):
+            (w/f'{name}.sf2').write_bytes(raw);rejects(lambda:bankcheck.refuse_unsafe(w/f'{name}.sf2'))
+        # Default modulators (INFO/DMOD): FluidSynth reads them through the same importer, so the same bound holds, and sound ones pass.
+        with open(bank,'rb') as f:
+            info,info_size=next((off,size) for cid,off,size in _chunks(f,12,len(whole)) if cid==b'LIST' and (f.seek(off),f.read(4))[1]==b'INFO')
+        def with_dmod(dest):
+            body=struct.pack('<HHhHH',2,dest,10,0,0)+bytes(10);sub=b'DMOD'+struct.pack('<I',len(body))+body
+            raw=bytearray(whole[:info+info_size]+sub+whole[info+info_size:]);struct.pack_into('<I',raw,info-4,info_size+len(sub));struct.pack_into('<I',raw,4,len(raw)-8)
+            out=w/f'dmod_{dest}.sf2';out.write_bytes(raw);return out
+        for dest in (0,62):bankcheck.refuse_unsafe(with_dmod(dest))
+        for dest in (63,255,256,0xFFFF):rejects(lambda:bankcheck.refuse_unsafe(with_dmod(dest)))
+        for name in (b'pmod',b'imod'):   # a table's size that is no whole number of records
+            short=bytearray(whole);size_at=table(name)-4;struct.pack_into('<I',short,size_at,struct.unpack_from('<I',short,size_at)[0]-2);(w/'short.sf2').write_bytes(short)
+            rejects(lambda:bankcheck.refuse_unsafe(w/'short.sf2'))
+        unsafe=crafted(b'imod',63,'unsafe.sf2');tools=lambda:{k:{'path':str(w/n),'sha256':file_hash(w/n)} for k,n in (('fluidsynth','fs.exe'),('ffmpeg','ff.exe'))}
+        for n in ('fs.exe','ff.exe'):(w/n).write_bytes(n.encode())
+        run=lambda *a:subprocess.run([sys.executable,'-X','utf8',str(here/'studio.py'),*map(str,a)],capture_output=True,text=True,encoding='utf-8')
+        clean_cfg=w/'clean.json';save_json(clean_cfg,{**tools(),'soundfont':{'path':str(bank),'sha256':file_hash(bank)}})
+        said=run('add-soundfont','--config',clean_cfg,'--name','unsafe','--path',unsafe,'--license','x','--source','x','--version','1','--output',w/'added.json')
+        assert said.returncode==2 and 'CVE-2026-111123' in said.stderr and not (w/'added.json').exists(),said.stderr[-300:]
+        said=run('configure','--fluidsynth',w/'fs.exe','--ffmpeg',w/'ff.exe','--soundfont',unsafe,'--output',w/'configured.json')
+        assert said.returncode==2 and 'CVE-2026-111123' in said.stderr and not (w/'configured.json').exists(),said.stderr[-300:]
+        # A configuration written by hand: doctor names the bank; a render and an audition stop before any program runs (fs.exe is no program).
+        entry={'path':str(unsafe),'sha256':file_hash(unsafe)}
+        save_json(w/'as_default.json',{**tools(),'soundfont':entry})
+        save_json(w/'as_named.json',{**tools(),'soundfont':{'path':str(bank),'sha256':file_hash(bank)},'soundfonts':{'unsafe':entry}})
+        for cfg in ('as_default.json','as_named.json'):
+            said=run('doctor','--config',w/cfg);assert said.returncode==2 and 'CVE-2026-111123' in said.stderr,said.stderr[-300:]
+        q=example();sampled=next(t for t in q['tracks'] if t['engine']=='soundfont' and t['notes']);save_json(w/'plays_default.json',q)
+        said=run('render',w/'plays_default.json','--output',w/'r_default','--config',w/'as_default.json');assert said.returncode==2 and 'CVE-2026-111123' in said.stderr,said.stderr[-300:]
+        q=example();next(t for t in q['tracks'] if t['id']==sampled['id'])['soundfont']='unsafe';save_json(w/'plays_named.json',q)
+        said=run('render',w/'plays_named.json','--output',w/'r_named','--config',w/'as_named.json');assert said.returncode==2 and 'CVE-2026-111123' in said.stderr,said.stderr[-300:]
+        said=run('audition',w/'plays_default.json','--track',sampled['id'],'--sounds','soundfont:unsafe:0:0','--bars','1-2','--output',w/'aud','--config',w/'as_named.json')
+        assert said.returncode==2 and 'CVE-2026-111123' in said.stderr and not list((w/'aud').glob('[0-9]*')),said.stderr[-300:]
+        return {'destinations_refused':14,'routes':6}
+    found = {'a_bank_fluidsynth_is_not_safe_with_is_refused': a_bank_fluidsynth_is_not_safe_with_is_refused, 'archive_cannot_escape_destination': zip_traversal, 'surge_catalog_patch_by_id_search_and_install': surge_catalog, 'soundbank_lock_hosts_hashes_and_member_paths': soundbank_lock, 'prebuilt_banks_unpack_only_when_they_match_the_lock': prebuilt_bank, 'a_config_written_elsewhere_keeps_relative_banks': relative_banks, 'a_short_or_damaged_download_is_never_kept': short_downloads, 'bootstrap_receipts_set_aside_what_it_did_not_write': bootstrap_receipts_set_aside_what_it_did_not_write, 'delete_sources_takes_only_the_installers_files': delete_sources_takes_only_the_installers_files, 'pedalboard_checked_against_its_record': pedalboard_checked_against_its_record, 'source_listing_must_name_the_pinned_samples': source_listing_must_name_the_pinned_samples, 'pedalboard_wheel_fetched_by_its_lock': pedalboard_wheel_fetched_by_its_lock}
     if config:
         def bad_hash():
             cfg=json.loads(Path(config).read_text(encoding='utf-8'))
@@ -578,6 +647,12 @@ def define(S):
             studio=SCRIPTS/'studio.py';assert studio.is_file()
             run=lambda c:subprocess.run([sys.executable,str(studio),'doctor','--config',str(c)],capture_output=True,text=True,encoding='utf-8',errors='replace')
             ok=run(config);assert ok.returncode==0,ok.stderr[-300:]
+            # 0.9.2 (the walkthrough of 0.9.1, 12): doctor passed where still and video could not run, so it names Pillow's state.
+            assert any(x.startswith('Pillow') for x in ok.stdout.splitlines()),ok.stdout[-300:]
+            without=subprocess.run([sys.executable,'-X','utf8','-c',f"import sys,runpy;sys.modules['PIL']=None;sys.argv=['studio.py','doctor','--config',{str(config)!r}];sys.path.insert(0,{str(SCRIPTS)!r});runpy.run_path({str(studio)!r},run_name='__main__')"],capture_output=True,text=True,encoding='utf-8',errors='replace')
+            assert without.returncode==0 and 'Pillow: not installed; only still and video need it' in without.stdout,without.stdout[-300:]+without.stderr[-300:]
+            old=subprocess.run([sys.executable,'-X','utf8','-c',f"import sys,runpy,types;m=types.ModuleType('PIL');m.__version__='9.5.0';sys.modules['PIL']=m;sys.argv=['studio.py','doctor','--config',{str(config)!r}];sys.path.insert(0,{str(SCRIPTS)!r});runpy.run_path({str(studio)!r},run_name='__main__')"],capture_output=True,text=True,encoding='utf-8',errors='replace')
+            assert old.returncode==0 and 'Pillow 9.5.0 (still and video need 10.1 or newer' in old.stdout,old.stdout[-300:]+old.stderr[-300:]
             wrong=dict(cfg)
             for key in ('fluidsynth','ffmpeg','soundfont'):
                 value=Path(cfg[key]['path']);wrong[key]={**cfg[key],'path':str(value if value.is_absolute() else Path(config).resolve().parent/value)}

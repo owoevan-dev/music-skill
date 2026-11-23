@@ -170,6 +170,8 @@ class Song:
             # open strings by number or by name, as pitches are written everywhere else here (the project holds numbers)
             t['strings'] = [pitch_of(s, f'{ident} strings') for s in t['strings']]
         found = covered = None
+        if engine == 'additive' and isinstance(instrument, dict):   # the additive engine's own field of that name (schema.md)
+            t['instrument'], instrument = instrument, None
         if instrument is not None:
             if engine not in (None, 'soundfont'):
                 raise ValueError(f'{ident}: an instrument names a SoundFont preset; engine {engine!r} takes its own fields')

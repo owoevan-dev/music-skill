@@ -133,7 +133,7 @@ def search(config_file, words, bank=None):
     word, those that have the most are given (`every_word` false, each with the words it `has`): a search for
     "electric bass slap" is answered with "Slap Bass".  Where no word matches, the refusal names the nearest word
     that would, and the synthesizers' own lists."""
-    words = [w.lower() for w in words if w.strip()]
+    words = [x for w in words for x in w.lower().split()]   # one quoted argument, "vcsl 0:0", is its words (the walkthrough of 0.9.1)
     numbers = [w for w in words if re.fullmatch(r'\d+:\d+', w)]
     if len(numbers) > 1:
         raise ValueError(f'instruments takes one bank number and program at a time, not {" and ".join(numbers)}')
@@ -194,7 +194,8 @@ def search(config_file, words, bank=None):
         raise ValueError(f'No configured preset matches {asked!r}' + (f'; did you mean {hint[0]!r}?' if hint else '')
                          + (f' {named[0]!r} is a built-in synth preset: "engine": "synth", "synth": {{"preset": "{named[0]}"}}.' if named else '')
                          + ' Words match a preset\'s name, its family (' + ', '.join(FAMILIES) + ') or its bank; a bank number and '
-                         'program are written 0:41. The synthesizers are not in the banks: references/synth-presets.json lists the '
+                         'program are written 0:41. A kit\'s single sounds (a tambourine, a cabasa) are keys of its preset: '
+                         'references/soundbank-presets.md has the kits\' key maps. The synthesizers are not in the banks: references/synth-presets.json lists the '
                          'built-in presets, and studio.py sounds finds the Surge XT patches.')
     rows.sort(key=lambda r: (r['bank'], r['patch']['bank'], r['patch']['program']))
     return {'count': len(rows), 'every_word': every, 'words': len(words), 'presets': rows,
@@ -221,7 +222,7 @@ def summary(found):
                      + (f', {r["keys_without_a_sample"]} without a sample' if r['keys_without_a_sample'] else '')
                      + (f' (stretched over {r["keys_midi"][1] - r["keys_midi"][0] + 1 - r["keys_without_a_sample"]} keys: the instrument\'s range is in orchestration.md)' if r.get('every_key') else '')
                      + f', {r["velocity_ranges"]} velocity range{"s" if r["velocity_ranges"] != 1 else ""}'
-                     + (f'; the preset list: keys {listed["keys"]}, velocity layers {listed["velocity_layers"]}' if listed else '')
+                     + (f'; the preset list: keys {listed["keys"]}, velocity layers {listed["velocity_layers"]}'.replace('\u2013', '-').replace('\u266d', 'b').replace('\u266f', '#') if listed else '')   # a plain hyphen: a console on another code page printed the list's dash garbled
                      + (f'; has: {", ".join(r["has"])}' if 'has' in r else ''))
     if found['count'] > 60:
         lines.append(f'  and {found["count"] - 60} more (--json lists all)')

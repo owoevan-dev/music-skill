@@ -61,4 +61,4 @@ python <skill>/scripts/studio.py add-soundfont --config local-config.json --name
 python <skill>/scripts/studio.py doctor --config local-config.studio.json
 ```
 
-`add-soundfont` always writes a new configuration; `doctor` re-hashes every bank. In a project, set the track's `soundfont`, `patch` (most single-instrument banks use bank 0 program 0) and, for a kit that is not on GM keys, a `key_map` from GM numbers to its keys. Big Rusty Drums needs none: it is on GM keys (35–53, 57 and 59; 48 and 50 replay the 14-inch tom two and four semitones up).
+`add-soundfont` always writes a new configuration; `doctor` re-hashes every bank. A bank with a modulator destination of 63 or more is refused by both, and before any render or audition that would play it: the pinned FluidSynth is not safe with one (CVE-2026-111123). In a project, set the track's `soundfont`, `patch` (most single-instrument banks use bank 0 program 0) and, for a kit that is not on GM keys, a `key_map` from GM numbers to its keys. Big Rusty Drums needs none: it is on GM keys (35–53, 57 and 59; 48 and 50 replay the 14-inch tom two and four semitones up).

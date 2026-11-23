@@ -29,10 +29,10 @@ EPS = 1e-6
 # fifth, ninth, eleventh or thirteenth.  The division is this skill's, for counting; it is no judgement of a chord.
 KINDS = {
     'triad': ('', 'maj', 'M', 'm', 'min', '-', '5', 'sus2', 'sus4', 'sus', 'dim', 'o', 'aug', '+'),
-    'added': ('6', 'm6', 'add9', 'madd9', '6/9', '69'),
+    'added': ('6', 'm6', 'add9', 'madd9', '6/9', '69', '6/9#11', '69#11'),
     'seventh': ('7', 'maj7', 'M7', 'm7', 'min7', '-7', 'mMaj7', 'mmaj7', '7sus4', '7sus', 'dim7', 'o7', 'm7b5', 'ø', 'ø7'),
-    'extended': ('9', 'maj9', 'M9', 'm9', '11', 'm11', '13', 'maj13', 'm13', '9sus4'),
-    'altered': ('7#5', '+7', '7b5', '7b9', '7#9', '7#11', 'maj7#11', '7b13'),
+    'extended': ('9', 'maj9', 'M9', 'm9', '11', 'm11', '13', 'maj13', 'm13', '9sus4', '13sus', '13sus4'),
+    'altered': ('7#5', '+7', '7b5', '7b9', '7#9', '7#11', 'maj7#11', '7b13', '9#11', 'maj9#11', 'maj13#11'),
 }
 KIND_OF = {quality: kind for kind, qualities in KINDS.items() for quality in qualities}
 

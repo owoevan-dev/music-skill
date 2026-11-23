@@ -25,6 +25,7 @@ NEEDS={
     'mix_revision_reuses_all_synthesis':('actual_render_repeat_is_sample_identical',),  # render_first and its cache entries
     'bus_chain_render_and_delivery_checks':('actual_render_repeat_is_sample_identical',),  # its cache entries
     'analysis_reports_sections_stems_and_lead':('bus_chain_render_and_delivery_checks',),  # render_bus
+    'analysis_names_the_lead_the_span_and_the_peak':('bus_chain_render_and_delivery_checks',),  # render_bus
     'compare_reports_what_changed_and_where':('bus_chain_render_and_delivery_checks',),  # bus.json, render_bus
     'mix_rules_2_render_limiter_saturation_and_clarity':('bus_chain_render_and_delivery_checks',),  # render_bus
 }
@@ -47,6 +48,7 @@ ROSTER = (
     'more_than_15_melodic_parts_have_distinct_ports',
     'bounded_untrusted_midi_reader',
     'archive_cannot_escape_destination',
+    'a_bank_fluidsynth_is_not_safe_with_is_refused',
     'float_wav_roundtrip',
     'noise_engine_obeys_performance_timing_and_gate',
     'excerpt_preserves_tempo_and_score_bounds',
@@ -63,6 +65,8 @@ ROSTER = (
     'review_summary_keeps_every_question',
     'review_views_and_identifiers',
     'plan_read_against_score',
+    'faults_a_run_could_not_see_are_said',
+    'chords_few_voices_and_parts_not_written_yet',
     'association_drawn_once',
     'surge_catalog_patch_by_id_search_and_install',
     'sf2_writer_reader_roundtrip',
@@ -152,6 +156,7 @@ ROSTER = (
     'compare_reports_no_level_for_a_rewritten_file',
     'cache_entry_locked_across_renders',
     'clean_removes_only_what_the_tools_made',
+    'clean_takes_reviews_and_lists_only_what_goes',
     'cache_entries_go_by_their_own_record',
     'files_never_overwrite_or_write_through',
     'journal_proves_a_stopped_run',
@@ -232,6 +237,7 @@ ROSTER_CONFIG = (
     'effects_apply_in_the_order_listed',
     'a_reversed_note_swells_into_its_end',
     'analysis_reports_sections_stems_and_lead',
+    'analysis_names_the_lead_the_span_and_the_peak',
     'compare_reports_what_changed_and_where',
     'loop_render_folds_the_tail_into_wav_and_ogg',
     'loop_layers_render_and_add_up_to_the_mix',

@@ -519,7 +519,144 @@ def define(S):
         played=lambda p,shift=0:sorted((x['id'],x['tick']-shift,x['end_tick']-shift) for x in performed(p['tracks'][0],Clock(p),True))
         assert played(q)==played(chord,4*TPQ),(played(q),played(chord,4*TPQ))
         return {'cases':33}
-    found = {'excerpt_preserves_tempo_and_score_bounds': excerpt_clock, 'excerpt_moves_bends_sweeps_and_dynamics': excerpt_curves, 'compare_finds_level_and_local_changes': compare_unit, 'compare_reports_no_level_for_a_rewritten_file': compare_rewritten_level, 'excerpt_keeps_the_piece_at_its_edges': excerpt_keeps_the_piece_at_its_edges}
+    def faults_a_run_could_not_see_are_said():
+        # 0.9.2 (research/design-0.9.2.md, S1 to S5): what the real pieces of 0.9.1 went past without a word.
+        import os,subprocess,sys
+        from musiclib import summary as sm
+        from musiclib.review import bends_across,review
+        from musiclib.revision import answered_moved,since
+        from musiclib.starter import behind_script
+        folder=work/'unsaid';folder.mkdir()
+        # The walkthrough's wording: a tie is said as one, a reason is cut at a word.
+        from musiclib.review import most_of
+        assert most_of({'a':1,'b':1})=='a and b' and most_of({'a':3,'b':1})=='a' and most_of({k:1 for k in 'abcde'})=='a and b and c and others'
+        assert sm._cut('rising fourth then a fall',12)=='rising...' and sm._cut('short',12)=='short'
+        # S1. A script saved after the project it writes: the note is the last line, also with stderr joined to stdout.
+        song=folder/'song.json';save_json(song,example());script=folder/'compose.py';script.write_text('# a script\n',encoding='utf-8')
+        stamp=song.stat().st_mtime_ns
+        validate_it=lambda f:subprocess.run([sys.executable,'-X','utf8',str(SCRIPTS/'studio.py'),'validate',str(f)],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8')
+        os.utime(script,ns=(stamp+5_000_000_000,stamp+5_000_000_000));said=validate_it(song)
+        assert said.returncode==0 and said.stdout.rstrip().splitlines()[-1].startswith('Note: compose.py was saved after song.json'),said.stdout[-300:]
+        run=lambda *a:subprocess.run([sys.executable,'-X','utf8',str(SCRIPTS/'studio.py'),*map(str,a)],capture_output=True,text=True,encoding='utf-8')
+        told=run('review',song,'--output',folder/'seen_note');assert told.returncode==0 and told.stdout.rstrip().splitlines()[-1].startswith('Note: compose.py') and 'Note' not in told.stderr,told.stdout[-300:]   # the last line of a summary, which `| tail` keeps
+        told=run('review',song,'--output',folder/'seen_json','--json');assert told.stderr.startswith('Note: compose.py') and json.loads(told.stdout)['title'],told.stderr[:200]   # stdout stays JSON
+        other=folder/'song_r1.json';save_json(other,example());os.utime(other,ns=(stamp,stamp))   # a kept copy is not what the script writes
+        assert behind_script(other) is None and 'compose.py' not in validate_it(other).stdout
+        cut=subprocess.run([sys.executable,'-X','utf8',str(SCRIPTS/'excerpt.py'),str(song),'--first-bar','1','--bars','1','--output',str(folder/'passage.json')],capture_output=True,text=True,encoding='utf-8')
+        assert cut.returncode==0 and cut.stdout.strip()==str(folder/'passage.json') and cut.stderr.startswith('Note: compose.py'),(cut.stdout,cut.stderr[:200])   # stdout stays the path
+        if os.name=='nt':assert behind_script(folder/'SONG.JSON'),'the same file, named in other capitals'
+        os.utime(script,ns=(stamp-5_000_000_000,stamp-5_000_000_000))
+        assert behind_script(song) is None and 'compose.py' not in validate_it(song).stdout
+        script.unlink();assert behind_script(song) is None and behind_script(folder/'missing'/'song.json') is None
+        # S2. A decision goes on answering its question: one that counts more now is named, and only that.
+        old={'questions':[{'id':'asked','text':'3 notes'}],'answered':[{'id':'vertical','text':'1 sustained collision'},{'id':'clash:a','text':'bar 28 beat 3: x'},{'id':'less','text':'9 notes'},{'id':'same','text':'bar 2: y'}]}
+        now={'questions':[],'answered':[{'id':'vertical','text':'19 sustained collisions, in other words'},{'id':'clash:a','text':'bar 30 beat 3: x'},{'id':'less','text':'4 notes'},{'id':'same','text':'bar 2: reworded y'},{'id':'asked','text':'3 notes'},{'id':'first','text':'5 notes'}]}
+        moved=[{'id':'vertical','was':1,'now':19},{'id':'clash:a','was':None,'now':None},{'id':'first','was':0,'now':5}]   # (`first`: nothing of it the round before, under a decision already there)
+        assert answered_moved(old,now)==moved,answered_moved(old,now)
+        # The same count somewhere else (the text names only the first), and a round from before `places` was kept.
+        at=lambda place:{'questions':[],'answered':[{'id':'parallels','text':'2 times two parts move in parallel (first at bar 1)',**({'places':place} if place else {})}]}
+        assert answered_moved(at('aaa'),at('bbb'))==[{'id':'parallels','was':None,'now':None}] and answered_moved(at('aaa'),at('aaa'))==[] and answered_moved(at(None),at('bbb'))==[]
+        assert answered_moved({'questions':[]},{'questions':[],'answered':[{'id':'first','text':'5 notes'}]})==[]   # a record from before `answered` was kept
+        came_back=answered_moved({'questions':[],'answered':[]},{'questions':[],'answered':[{'id':'bend:a','text':'a: 3 notes stay off'}]})
+        assert came_back==[{'id':'bend:a','was':0,'now':None}],came_back                 # a question that names its part first is not counted, and was not there
+        assert answered_moved({'questions':[{'id':['plan','verse'],'text':'x'}],'answered':[]},{'questions':[],'answered':[]})==[]   # a mistyped record of the round before
+        assert answered_moved({'questions':[],'answered':1},{'questions':[],'answered':[{'id':'a','text':'1 note'}]})==[]   # and one that holds no list
+        from musiclib.review import parallels,place_digest,places
+        # Every finding counts, not the ones a list keeps: 43 parallels with the last moved, close intervals with another pitch.
+        def many(last):
+            q=example();a,b=[t for t in q['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];q['tracks']=[a,b]
+            for t,base in ((a,67),(b,60)):
+                t['notes']=[{'id':f'{t["id"]}_{k}','on':float(k) if k<43 else last,'duration':.9 if k<43 else .7,'pitch':base+(k%4)*2} for k in range(44)]
+                t['performance']['notes']={n['id']:{'velocity':80} for n in t['notes']}
+            return parallels(q,Clock(q))
+        kept,shifted=many(43.0),many(43.25)
+        assert kept['count']==shifted['count']>40 and kept['examples']==shifted['examples'] and kept['places']!=shifted['places'],(kept['count'],shifted['count'])
+        assert place_digest([{'at':'bar 1','notes':[36,37]}])!=place_digest([{'at':'bar 1','notes':[36,39]}])
+        from musiclib.review import low_intervals,outside_chord,stretched,vertical
+        def score(notes):
+            q=example();t=next(x for x in q['tracks'] if x.get('role')=='melody');q['tracks']=[t];q['harmony']=[{'bar':1,'symbol':'C'}]
+            t['notes']=[{'id':f'x{k}','on':float(b),'duration':d,'pitch':x} for k,(b,x,d) in enumerate(notes)];return q
+        def past_the_list(read,notes,later):
+            a,b=read(score(notes)),read(score(later));assert a['count']==b['count']>=2 and a['examples']==b['examples'] and a['places']!=b['places'],(a,b)
+        past_the_list(lambda q:stretched(q,Clock(q),{q['tracks'][0]['id']:{60:9}},examples=1),[(0,60,1),(1,60,1),(2,60,1)],[(0,60,1),(1,60,1),(3,60,1)])
+        past_the_list(lambda q:low_intervals(q,Clock(q),limit=1),[(0,36,1),(0,37,1),(2,36,1),(2,37,1)],[(0,36,1),(0,37,1),(3,36,1),(3,37,1)])
+        def unresolved(q):
+            r=outside_chord(q,Clock(q),limit=1);return {'count':r['count'],'examples':r['examples'],'places':r['not_resolved_by_step']['melody']['places']}
+        past_the_list(unresolved,[(0,60,1),(1,69,1),(2,60,1),(3,69,1),(4,60,1)],[(0,60,1),(1,69,1),(2,60,1),(4,69,1),(5,60,1)])
+        def clashes(last,order=1):
+            q=example();a,b=[t for t in q['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];q['tracks']=[a,b][::order]
+            for t,base in ((a,60),(b,61)):
+                t['notes']=[{'id':f'{t["id"]}_{k}','on':float(k) if k<43 else last,'duration':.9,'pitch':base} for k in range(44)]
+            return vertical(q,Clock(q),digest=True)
+        here,there=clashes(43.0),clashes(43.25)
+        assert here['count']==there['count']>40 and here['examples']==there['examples'] and here['places']!=there['places'],(here['count'],there['count'])
+        assert clashes(43.0,-1)['places']==here['places'] and 'places' not in vertical(example(),Clock(example()))   # the parts' order is no change; the digest only where asked
+        def pair(later=None,role='harmony'):
+            q=example();a,b=[t for t in q['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];c=copy.deepcopy(a);c['id']='third';c['notes']=[]
+            a['role'],b['role']='harmony',role;a['notes']=[{'id':'a0','on':0.0,'duration':1,'pitch':60}];b['notes']=[{'id':'b0','on':0.0,'duration':1,'pitch':61}]
+            if later:c['notes']=[{'id':'c0','on':later,'duration':1,'pitch':40}]
+            q['tracks']=[a,b,c];return vertical(q,Clock(q),digest=True)['places']
+        assert pair()==pair(later=8.0) and pair()!=pair(role='melody'),'a part that meets nothing is no change; a part turned foreground is'
+        fifths=lambda bar:{'parallel_fifths_octaves':{'places':place_digest([{'at':f'bar {bar} beat 1','parts':['a','b'],'pitches':[[60,67]]}])}}
+        assert places(fifths(1),'parallels')==places(fifths(1),'parallels')!=places(fifths(2),'parallels') and places(fifths(1),'stiffness:lead') is None
+        line=lambda t,base:(t.update(notes=[{'id':f'{t["id"]}_{k}','on':float(k),'duration':1,'pitch':base+x} for k,x in enumerate((0,2,4,5))]),t['performance'].update(notes={f'{t["id"]}_{k}':{'velocity':80} for k in range(4)}))
+        twin=example();a,b=[t for t in twin['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];line(a,67);line(b,60)
+        twin['tracks']=[a,b];twin['decisions']=list(twin.get('decisions') or [])+['parallels: two lines in fifths, meant'];answered=review(twin,folder/'twin')['answered']
+        assert any(q['id']=='parallels' and q.get('places') for q in answered),answered
+        close=example();a,b=[t for t in close['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];line(a,61);line(b,60)
+        close['tracks']=[a,b];close['decisions']=list(close.get('decisions') or [])+['vertical: two lines a semitone apart, meant']
+        assert any(q['id']=='vertical' and q.get('places') for q in review(close,folder/'close')['answered']),'the digest of the collisions is kept'
+        (folder/'r1'/'review').mkdir(parents=True);save_json(folder/'r1'/'review'/'score_review.json',old)
+        got=since(now,folder/'r1'/'render');assert got['answered_moved']==moved and got['previous']=='r1',got
+        shown=sm.review(review(example(),folder/'seen'),folder/'seen',got)
+        assert 'moved since r1: bend:a (not there before).' in sm.review(review(example(),folder/'seen_b'),folder/'seen_b',{**got,'answered_moved':came_back}),'a question with no count'
+        assert 'Answered in a decision, but moved since r1: vertical (1 -> 19), clash:a, first (0 -> 5).' in shown,shown[-900:]
+        # S3. Notes that begin partway through a ramp of `performance.bend`, as a scoop of one point makes them.
+        played=example();clock=Clock(played)
+        def bent(points,*on,length=.9,**part):
+            """The notes `on` as played, of `length` beats, under the curve `points`: (beats counted, ...)."""
+            t={'engine':'soundfont','performance':{'bend':points},**part};now=[{'start_seconds':clock.seconds(b),'end_seconds':clock.seconds(b+length)} for b in on]
+            return [round(b,3) for b,_ in bends_across(t,clock,now)]
+        assert bent([[1.9,-1],[2,0],[5.9,-1],[6,0]],2,3,4,5,6)==[4,5]                    # a scoop of one point ramps over the notes before it
+        assert bent([[1.9,-1],[2,0],[3.89,0],[3.9,-1],[4,0]],2,3,3.5,4)==[]               # held at 0 until the next
+        assert bent([[142.97,0],[142.995,-2],[143.22,0]],143)==[]                         # its own scoop, begun just before it
+        assert bent([[1,0],[1.5,-1]],1,2,3)==[1,2,3]                                      # a bend never brought back: the notes after it
+        assert bent([[0,0],[2,-2]],0,1,2)==[1,2]                                          # a ramp: from a quarter-tone
+        assert bent([[2,.35],[2.1,-.35],[2.2,.35],[2.3,-.35],[2.4,.35],[2.5,0]],2)==[]    # a vibrato about the pitch
+        assert bent([],1,2)==[] and bent([[1,.4]],2)==[] and bent([[1,.5]],2)==[2]        # none, under a quarter-tone, and a quarter-tone
+        assert bent([[2+k/8,.6 if k%2 else -.6] for k in range(9)],2,length=1)==[]        # a vibrato of 60 cents: past a quarter-tone for a sixth of the time
+        assert bent([[0,0],[1,-1]],2,3,reverse=True)==[] and bent([[0,0],[1,-1]],2,3,engine='noise')==[] and bent([[0,0],[1,-1]],2,3,engine='surge')==[2,3]   # the wheel an engine plays
+        changing=example();changing['clock']['tempo']=[[0,120],[1,30]];ticking=Clock(changing);spread={'engine':'soundfont','performance':{'bend':[[0,-1],[1,-1],[1.001,0]]}}
+        assert bends_across(spread,ticking,[{'start_seconds':0,'end_seconds':ticking.seconds(2)}])==[]   # off pitch for half its beats, a fifth of its seconds
+        def half(bpm,on):
+            q=example();q['clock']['tempo']=[[0,bpm]];ticks=Clock(q);mid=on+1
+            return bends_across({'engine':'soundfont','performance':{'bend':[[on,-1],[mid,-1],[mid,0]]}},ticks,[{'start_seconds':ticks.seconds(on),'end_seconds':ticks.seconds(on+2)}])
+        assert not any(half(b,o) for b in (97,100,113,131,137) for o in (1,2.25,3.5,5.125,7.75)),'exactly half of a note is not most of it'
+        p=example();t=next(x for x in p['tracks'] if len(x['notes'])>=8 and x.get('role')=='melody');on=sorted({n['on'] for n in t['notes']})
+        t['performance']['bend']=[[on[1]-.05,-1.5],[on[1],0],[on[6]-.05,-1.5],[on[6],0]]
+        qid=f'bend:{t["id"]}';asked=review(p,folder/'bend')
+        assert any(q['id']==qid and 'off the written pitch' in q['text'] for q in asked['questions']),[q['id'] for q in asked['questions']]
+        p.setdefault('decisions',[]).append(f'{qid}: a glide over these notes, meant')
+        kept=review(p,folder/'bend_answered');assert not any(q['id']==qid for q in kept['questions']) and any(a['id']==qid for a in kept['answered'])
+        # S4, S5. What the render's summary says of a loop's seam and of the MP3's true peak.
+        base={'title':'x','status':'TECHNICAL_PASS_AUDITION_PENDING','runtime_seconds':1.0,'master':{'integrated_lufs':-14.0,'true_peak_dbtp':-1.0,'lra_lu':5.0},
+              'mastering':{'target_lufs':-14.0,'true_peak_ceiling_dbtp':-1.0},'checks':{'a':True},'stem_count':1,'cache_hits':0}
+        told=sm.render({**base,'mp3':{'mp3_true_peak_dbtp':-.2,'over_full_scale':False}},folder)
+        assert 'the MP3 decodes to -0.2 dBTP' in told and 'above full scale' not in told,told
+        assert 'above full scale' in sm.render({**base,'mp3':{'mp3_true_peak_dbtp':.3,'over_full_scale':True}},folder)
+        assert 'the MP3 decodes' not in sm.render(base,folder)   # a draft has no MP3 figures
+        from musiclib.render import highest_sample,peak_frames
+        at=lambda s:highest_sample(round(s*audio.RATE),clock)
+        assert at(0)=={'seconds':0,'bar':1} and at(clock.end-.01)['bar']==played['clock']['bars'] and at(clock.end+.1)=={'seconds':round(clock.end+.1,3),'in_tail':True}   # no bar past the last
+        x=np.zeros((144000,2),dtype=np.float32);x[60000,1]=.9;x[50000,0]=-.95;x[70000,0]=.01   # the highest is the negative one, on the first channel
+        assert peak_frames(x)==(50000,70000) and peak_frames(np.zeros((1000,2),dtype=np.float32))==(0,-1) and peak_frames(np.ones((48001,2),dtype=np.float32)*.5)[1]==48000
+        loop={'start_bar':0,'end_bar':8,'length_samples':100,'files':['wav'],'seam':{'abruptness':{'seam_step_vs_local_p999':1.69}}}
+        assert 'Loop seam: the step from the last sample to the first is 1.69 times' in sm.render({**base,'loop':loop},folder)
+        assert 'Loop seam' not in sm.render({**base,'loop':{**loop,'seam':{'abruptness':{'seam_step_vs_local_p999':.4}}}},folder)
+        assert 'Loop seam' not in sm.render({**base,'loop':{**loop,'seam':{}}},folder)
+        return {'cases':24}
+    found = {'excerpt_preserves_tempo_and_score_bounds': excerpt_clock, 'excerpt_moves_bends_sweeps_and_dynamics': excerpt_curves, 'compare_finds_level_and_local_changes': compare_unit, 'compare_reports_no_level_for_a_rewritten_file': compare_rewritten_level, 'excerpt_keeps_the_piece_at_its_edges': excerpt_keeps_the_piece_at_its_edges,
+             'faults_a_run_could_not_see_are_said': faults_a_run_could_not_see_are_said}
     if config:
         p, cache, render = S['p'], S['cache'], S['render']
         def local_edit():

@@ -16,6 +16,22 @@ from . import files
 SCRIPTS = Path(__file__).resolve().parents[1]
 
 
+def behind_script(project):
+    """A line for a command that read `project`, where the compose.py beside it was saved after it; else None.  The
+    script writes song.json, and a run of it that fails leaves the old one, which review, round and render then read
+    without a word (six of 23 runs of 0.9.1).  Said and not refused, since a project from elsewhere must not be pushed
+    into running the script it came with."""
+    project = Path(project)
+    try:
+        if os.path.normcase(project.name) != os.path.normcase('song.json') or project.with_name('compose.py').stat().st_mtime_ns <= project.stat().st_mtime_ns:
+            return None
+    except OSError:
+        return None
+    return ('Note: compose.py was saved after song.json, so this read the project as it was before that edit. If the script '
+            'is yours, run it again and see it finish (a run that fails leaves the old song.json); one that came with a '
+            'project from elsewhere is not run unasked.')
+
+
 def parse(sections, parts):
     """[(id, bars)] and [(id, role, instrument words or None)] from the command's --section ID:BARS and
     --part "ID ROLE [INSTRUMENT ...]"."""
@@ -98,6 +114,8 @@ def script(title, sections, parts, tempo, meter, config):
         lines.append(f'{ident} = song.part({q(ident)}, {q(role)}' + (f', {q(instrument)})' if instrument else
                                                                        ")  # the default bank's program 0; name a preset: song.part(id, role, '<bank> <bank number>:<program>') or words (studio.py instruments)"))
     lines += ['',
+              "# A synthesizer part: song.part('pad', 'harmony', engine='surge', surge={'preset': 'juno_60_strings'}), or engine='synth',",
+              "# synth={'preset': 'warm_pad'} (studio.py sounds finds a Surge patch; references/synth-presets.json lists the built-in ones).",
               '# The notes: part.note(bar, beat, pitch, beats, velocity=80) and part.chord(bar, beat, [pitches], beats, velocity=80).',
               '# One placeholder note a part (a drum part\'s kick, 36, else the middle of its keys, at a velocity its preset sounds), so',
               '# that the project renders as it stands: replace them.  What else a part and a note take: the docstrings of musiclib/builder.py.']

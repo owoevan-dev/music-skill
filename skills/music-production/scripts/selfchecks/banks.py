@@ -979,7 +979,7 @@ def define(S):
         # and gives each range's own examples (--attack showed the centroid's Hz).
         import subprocess,sys
         def sounds(*a):
-            r=subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'sounds',*a],capture_output=True,text=True,encoding='utf-8',errors='replace')
+            r=subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'sounds',*a,'--json'],capture_output=True,text=True,encoding='utf-8',errors='replace')
             return r.returncode,(json.loads(r.stdout) if r.returncode==0 else r.stderr)
         code,lower=sounds('--role','lead','--limit','3');code2,upper=sounds('--role','Lead','--limit','3')
         assert code==code2==0 and lower['count']==upper['count']>0 and lower['shown']==upper['shown'],(code,code2)
@@ -990,6 +990,10 @@ def define(S):
         code,loud=sounds('--character','FAST ATTACK,Warm','--limit','2');assert code==0 and loud==phrase,(code,loud)   # character words without regard to case too
         code,err=sounds('--attack','fast');assert code==2 and 'seconds: 0.1-0.3' in err,err
         code,err=sounds('--centroid','bright');assert code==2 and 'Hz: 600-900' in err,err
+        # 0.9.2: by default one line a patch, with what tells them apart (the JSON of 25 patches was about 12 KB a call); --json keeps it all.
+        short=subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'sounds','--role','lead','--limit','3'],capture_output=True,text=True,encoding='utf-8',errors='replace')
+        lines=short.stdout.strip().splitlines();assert short.returncode==0 and len(lines)==5 and lines[0].endswith('3 shown:'),short.stdout[:300]
+        assert all(r['id'] in short.stdout for r in lower['shown']) and all(' Hz, attack ' in x for x in lines[1:4]) and '--json' in lines[-1],short.stdout[:600]
         return {'case':'Lead = lead','refused':['leads','brite','zzz'],'phrase':'fast attack'}
     def instruments_reads_keys_and_layers_from_the_bank():
         # 0.8 step 2.6 (design-0.8.md): `studio.py instruments` finds a configured bank's presets by words of their
@@ -1031,6 +1035,11 @@ def define(S):
         both=mi2.search(work/'ins2_config.json',['viola','slap']);assert both['count']==2 and not both['every_word'] and [r['has'] for r in both['presets']]==[['slap'],['viola']],both
         whole=mi2.search(work/'ins2_config.json',['slap','bass']);assert whole['count']==1 and whole['every_word'] and 'has' not in whole['presets'][0] and mi2.summary(whole).startswith('1 preset:')
         code,err=ins('electric','viola');assert code==2 and 'No configured preset matches' in err and err.count('\n')==1,err   # a word no preset has at all is still refused
+        # 0.9.2 (T4): one quoted argument is its words; a miss on a kit's sound says where the kits' keys are; the preset list's dash prints as a hyphen.
+        code,found=ins('default 0:41');assert code==0 and found['count']==1 and found['presets'][0]['preset']=='Test Viola',found
+        code,err=ins('tambourine');assert code==2 and 'key maps' in err,err
+        row={'bank':'b','patch':{'bank':0,'program':0},'preset':'p','family':'piano','keys':'A0-C8','keys_midi':[21,108],'keys_without_a_sample':0,'velocity_ranges':1,'preset_list':{'keys':'A0–C8','velocity_layers':'3'}}
+        shown=mi2.summary({'count':1,'every_word':True,'words':1,'note':'n','presets':[row]});assert 'the preset list: keys A0-C8,' in shown and chr(0x2013) not in shown,shown
         rejects(lambda:mi2.search(work/'ins2_config.json',['viola','viloa']))
         # The review of step 5.  (1) A word with a hyphen is in a preset's name as written ("Honky-tonk Piano"), not
         # among the name's separate words: it was called a word no preset has, and the search refused.  (2) The

@@ -40,7 +40,7 @@ import numpy as np
 
 from . import audio, files
 from .measure import HALL_C80_DB, clarity_c80, k_filter, level, release
-from .model import Clock, load_project
+from .model import Clock, load_project, sounded
 
 RATE = audio.RATE
 BANDS = [(20, 60), (60, 250), (250, 800), (800, 2500), (2500, 6000), (6000, 16000)]
@@ -411,10 +411,20 @@ def mix_measures(render_dir, report, p=None):
     return out
 
 
-def doublings(p, lo, hi, share=.6):
+def doublings(p, lo, hi, share=.6, leads=(), clock=None):
     """The melody parts sounding in beats [lo, hi) and the parts that double them: at least `share` of a part's onsets
-    there fall on a melody onset of the same pitch class."""
-    melody = [t for t in p['tracks'] if t.get('role') == 'melody' and any(lo <= n['on'] < hi for n in t['notes'])]
+    there fall on a melody onset of the same pitch class.  `leads`: the parts the plan says lead here, in place of the
+    parts of role melody where one plays there (a verse tune on two horns read 8.6 dB under a trumpet that only answers it).
+    One of them that holds a note across [lo, hi) sounds there, though it starts nothing, by the note as played where
+    `clock` is given (a gate carries it past what is written, or ends it before); doubling is still read by onsets."""
+    leads = {leads} if isinstance(leads, str) else set(leads or ())
+    plays = lambda t: any(lo <= n['on'] < hi for n in t['notes'])
+    if clock is None:
+        sounds = lambda t: any(n['on'] < hi and n['on'] + n['duration'] > lo for n in t['notes'])
+    else:
+        start, stop = clock.seconds(lo), clock.seconds(hi)
+        sounds = lambda t: any(n['start_seconds'] < stop and n['end_seconds'] > start for n in sounded(t, clock))
+    melody = [t for t in p['tracks'] if t['id'] in leads and sounds(t)] or [t for t in p['tracks'] if t.get('role') == 'melody' and plays(t)]
     keys = {(round(n['on'], 3), n['pitch'] % 12) for t in melody for n in t['notes'] if lo <= n['on'] < hi}
     group = {t['id'] for t in melody}
     for t in p['tracks']:
@@ -424,6 +434,18 @@ def doublings(p, lo, hi, share=.6):
         if len(notes) >= 4 and sum((round(n['on'], 3), n['pitch'] % 12) in keys for n in notes) >= share * len(notes):
             group.add(t['id'])
     return sorted(group)
+
+
+def leads_over(p, lo, hi):
+    """The parts the plan names as lead of the sections that beats [lo, hi) lie in, with the parts of role melody where
+    one of those sections names none: a span is read by its sections, across a change of lead too (a span of one
+    section's bar, read by the span's own name, chose the flute and advised cutting the guitar the plan leads with)."""
+    plan = p.get('plan') if isinstance(p.get('plan'), dict) else {}
+    named = {e.get('section'): e['leads'] for e in plan.get('sections') or [] if isinstance(e, dict) and isinstance(e.get('leads'), str) and e['leads']}
+    bar = p['clock']['meter'][0] * 4 / p['clock']['meter'][1]
+    over = [s['id'] for s in p['sections'] if s['start_bar'] * bar < hi - 1e-9 and (s['start_bar'] + s['bars']) * bar > lo + 1e-9]
+    melody = {t['id'] for t in p['tracks'] if t.get('role') == 'melody'}
+    return {named[s] for s in over if s in named} | (melody if not over or any(s not in named for s in over) else set())
 
 
 MARGIN_DB = {'bass': 3, 'countermelody': 3}
@@ -485,10 +507,12 @@ def analyze(render_dir, bar_spans=(), reference=None):
     region_names([s['id'] for s in p['sections']], bar_spans)
     beats = {sid: ((s['start_bar']) * bpb, (s['start_bar'] + s['bars']) * bpb) for sid, s in zip([x[0] for x in spans], p['sections'])}
     beats.update({f'span:{name}': ((first - 1) * bpb, last * bpb) for name, first, last in bar_spans})
-    groups = {sid: doublings(p, *beats[sid]) for sid, _, _ in regions}
+    groups = {sid: doublings(p, *beats[sid], leads=leads_over(p, *beats[sid]), clock=clock) for sid, _, _ in regions}
     sums = {sid: [np.zeros((b - a, 2)), np.zeros((b - a, 2))] for sid, a, b in regions}
     master, _ = audio.read_wav(render_dir / 'master.wav')
-    rows = master_sections(master, spans)
+    measured_regions = master_sections(master, regions)
+    named_spans = {sid for sid, _, _ in extra}
+    rows, span_rows = [x for x in measured_regions if x['section'] not in named_spans], [x for x in measured_regions if x['section'] in named_spans]
     report_file = render_dir / 'report.json'
     report = files.read_json(report_file) if report_file.is_file() else {}
     buses = (report.get('buses') or {}).get('assignment') if report.get('chain') == 'bus' else None
@@ -502,6 +526,12 @@ def analyze(render_dir, bar_spans=(), reference=None):
             raise ValueError(f'{report_file}: its buses assign a part the project does not have, or to a bus that is none of '
                              f'{", ".join(BUSES)}; this is not a report the render wrote')
     stems, lead, accompaniment, tops = {}, None, None, {}
+    # With nothing on the lead bus (a melody routed to the ensemble bus) the melody stems stand in, as on the room chain:
+    # the bus measure then had no lead at all, and said "no lead" for four runs of 0.9.1.
+    lead_bus = buses is not None and any(b == 'lead' for b in buses.values())
+    for b in sorted(set((buses or {}).values())):   # a render's own bus files, also where the stems are read instead
+        if not (render_dir / 'returns' / f'bus_{b}.wav').is_file():
+            raise ValueError(f'{render_dir}: the report assigns parts to the bus {b}, and returns/bus_{b}.wav is missing')
     for t in p['tracks']:
         y, _ = audio.read_wav(render_dir / 'stems' / f'{t["id"]}.wav')
         tops[t['id']] = top_power(y)
@@ -511,13 +541,13 @@ def analyze(render_dir, bar_spans=(), reference=None):
         for sid, a, b in regions:
             seg = np.asarray(y[a:b], dtype=np.float64)
             sums[sid][0 if t['id'] in groups[sid] else 1][:len(seg)] += seg
-        if buses is None:
+        if not lead_bus:
             y = np.asarray(y, dtype=np.float64)
             if t.get('role') == 'melody':
                 lead = y if lead is None else lead + y
             else:
                 accompaniment = y if accompaniment is None else accompaniment + y
-    if buses is not None:
+    if lead_bus:
         lead_tracks = [tid for tid, b in buses.items() if b == 'lead']
         for b in sorted(set(buses.values())):
             y = np.asarray(audio.read_wav(render_dir / 'returns' / f'bus_{b}.wav')[0], dtype=np.float64)
@@ -585,10 +615,10 @@ def analyze(render_dir, bar_spans=(), reference=None):
         if share is not None and share > 2:
             warnings.append(f'{r["track"]}: for {share:g}% of its playing the dynamics sat between two recorded takes that '
                             'disagree in phase (the correction ran past 1.25 or under 0.8); play it in dynamics_mode "take" (the default), or keep a solo near one recorded dynamic.')
-    measured = {'render': render_dir.name, 'sections': rows, 'tonal_balance': here['tonal_balance'],
+    measured = {'render': render_dir.name, 'sections': rows, **({'spans': span_rows} if extra else {}), 'tonal_balance': here['tonal_balance'],
                 'side_minus_mid_db': here['side_minus_mid_db'], 'published_genre': genre, 'reference_comparison': comparison, 'stem_levels_lufs_ungated': stems,
                 'top_end': top_end(p, tops),
-                'lead_tracks': lead_tracks, 'lead_source': 'buses' if buses is not None else 'stems',
+                'lead_tracks': lead_tracks, 'lead_source': 'buses' if lead_bus else 'stems',
                 'lead_presence': lead_presence(lead, accompaniment, regions) if lead is not None and accompaniment is not None else [],
                 'melody_groups': melody, 'reverb': mixed['reverb'],
                 'warnings': warnings,

@@ -57,13 +57,15 @@ Compositions and recordings are CC0; the recordings are MP3 files on the release
    /plugin install music-skill@music-skill
    ```
 
-   For Codex and other agents: `npx skills add owoevan-dev/music-skill`.
+   In the Codex CLI: `codex plugin marketplace add owoevan-dev/music-skill`, then `codex plugin add music-skill@music-skill`. Other agents: `npx skills add owoevan-dev/music-skill`.
 2. Ask your agent to set up the renderer and the sound banks. It runs the commands under [Install](#install): about 3.7 GB of downloads, then about five minutes on our test machine.
 3. Ask for a piece in plain words:
 
    > Write a one-minute looping town theme for my RPG: recorder, harp and light strings.
 
 You get an MP3 and a WAV, the MIDI, a stem per part, the buses and reverb returns that add up to the mix, and the project file. On a 24-thread laptop each of the examples above rendered from scratch in 25 seconds (the fughetta and the chiptune) to 156 seconds (the film score, with its 57 parts).
+
+> **Making a game?** [sfx-skill](https://github.com/owoevan-dev/sfx-skill) designs its sound effects the same way: every sound is built from editable layers, with no audio-generation model, and exports to Godot, Unity, Unreal, Roblox and the web.
 
 ## Why not just generate it?
 
@@ -120,11 +122,24 @@ To show a piece, `studio.py video` turns a render into a scrolling piano roll wi
 /plugin install music-skill@music-skill
 ```
 
-**Codex and other agents**
+To update: in `/plugin`, open it on the Installed tab and choose **Update now**, or run `claude plugin update music-skill@music-skill` in a shell. A third-party marketplace does not update by itself unless you turn that on for it (the Marketplaces tab in `/plugin`).
+
+**Codex CLI**
+
+```
+codex plugin marketplace add owoevan-dev/music-skill
+codex plugin add music-skill@music-skill
+```
+
+To update: `codex plugin marketplace upgrade music-skill`, then `codex plugin add music-skill@music-skill` again.
+
+**Other agents**
 
 ```
 npx skills add owoevan-dev/music-skill
 ```
+
+To update: `npx skills update`.
 
 Or copy `skills/music-production` into your agent's skills folder.
 
@@ -218,7 +233,7 @@ Every recorded bank is CC0, free for any use without restrictions (the Iowa reco
 <details>
 <summary><b>How well it works</b></summary>
 
-`selfcheck.py` runs 216 checks (170 without a renderer configuration), from MIDI round trips and archive safety to real renders. A one-note revision synthesizes one part again, and `compare` finds the change from that note on, in every file it reached and nowhere else. The older single-room mix reproduces an earlier release bit for bit. The loudness meter reads −3.01 LUFS for the BS.1770 reference tone. CI runs every check, renders included, on Ubuntu with FluidSynth 2.3 and FFmpeg 6.1, on macOS with FluidSynth 2.6 and FFmpeg 9.0, and on Windows with the pinned FluidSynth 2.6.1 and FFmpeg 9.0.2 and with Surge XT.
+`selfcheck.py` runs 221 checks (174 without a renderer configuration), from MIDI round trips and archive safety to real renders. A one-note revision synthesizes one part again, and `compare` finds the change from that note on, in every file it reached and nowhere else. The older single-room mix reproduces an earlier release bit for bit. The loudness meter reads −3.01 LUFS for the BS.1770 reference tone. CI runs every check, renders included, on Ubuntu with FluidSynth 2.3 and FFmpeg 6.1, on macOS with FluidSynth 2.6 and FFmpeg 9.0, and on Windows with the pinned FluidSynth 2.6.1 and FFmpeg 9.0.2 and with Surge XT.
 
 Whether the music is good is another matter, and only listening can tell. The pieces above are the best evidence this repository has.
 
@@ -229,7 +244,7 @@ Whether the music is good is another matter, and only listening can tell. The pi
 
 **Can I use the music in a video, a game or a commercial release?** The skill and the sound banks it installs ask nothing of what you make with them. No sound bank asks for a credit: the optional ones are CC0 or free for any use, and MS Basic's MIT licence asks nothing of music played on it. The GPL programs (FFmpeg, Surge XT) cover the programs, not the music that passes through them. Whether you hold a copyright in music an agent wrote for you depends on your country's law and on how much of it you shaped.
 
-**Which agents can use it?** Any agent that loads Agent Skills and can run Python: Claude Code as a plugin, Codex, and others through `npx skills`.
+**Which agents can use it?** Any agent that loads Agent Skills and can run Python: Claude Code and the Codex CLI as a plugin, and others through `npx skills`.
 
 **Does it need the internet or a GPU?** The internet only for setup; rendering runs offline on the CPU. Your project files reach no one except through your agent, which sends what it reads to its own model.
 

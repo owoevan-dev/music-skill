@@ -1,13 +1,14 @@
 # What the commands write
 
-Read this when a command's summary points to a figure you need in full. Every command prints a short summary that
-ends with the file and the keys below; `--json` prints the whole file instead (`round` prints its round.json, `clean`
-its report). Levels are dB, loudness LUFS (ITU-R BS.1770), true peak dBTP, positions bar:beat counted from 1 unless a
+Read this when a command's summary points to a figure you need in full. `review`, `render`, `analyze`, `compare` and
+`audition` print a short summary that ends with the file and the keys below, and `round` prints those of its steps (of its
+validation only the time: the result is `validation` in round.json). `validate` prints its result as JSON and `sounds` one
+line a patch. `--json` prints the whole file instead (`round` prints its round.json, `clean` its report). Levels are dB, loudness LUFS (ITU-R BS.1770), true peak dBTP, positions bar:beat counted from 1 unless a
 key says seconds or samples.
 
 Contents: [round.json](#roundjson) · [report.json](#reportjson-render) · [stem_receipts.json](#stem_receiptsjson-render) ·
 [score_review.json](#score_reviewjson-review) · [analysis.json](#analysisjson-analyze) · [compare](#compare_namejson-compare) ·
-[audition.json](#auditionjson-audition) · [clean](#clean-its-report) · [files.json](#filesjson-every-folder) ·
+[audition.json](#auditionjson-audition) · [profile.json](#profilejson-profile) · [clean](#clean-its-report) · [files.json](#filesjson-every-folder) ·
 [what stays local](#what-stays-local)
 
 ## round.json
@@ -19,7 +20,10 @@ to end, or for `runtime_seconds`, which a round that failed has too: then `faile
 `status` (the render's; `FAIL` if it did not finish), `failed` (null, or the `step` that stopped the round and its
 `error`), `questions` (how many review questions), `new_questions` and `gone_questions` (with `--previous` a round
 made by this version: the identifiers of the questions this round asks that the round before did not, and of those
-it asked that are gone; a fix that raises another question shows in the first), `project` and `previous` (relative
+it asked that are gone; a fix that raises another question shows in the first), `answered_moved` (where there are any:
+the questions a decision answers whose figures or places moved since that round, as `id`, `was` and `now`, the two counts
+where the question begins with one and more are counted now, else null; for a question that round neither asked nor
+answered `was` is 0 and `now` its count, or null where it begins with no count; the decision still answers them, so check that it covers what is there), `project` and `previous` (relative
 to the round's folder), the
 relative paths `review`, `render`, `analysis`, `compare`, `seconds` per step and `runtime_seconds`. With `--clip`, the comparison's `clip` names the old-then-new MP3
 (or why it was not made). A round's folder can stand for its render wherever a command takes a render folder;
@@ -40,13 +44,14 @@ still carries `plan_first` on, and its `plan_changed` says the whole plan is gon
 | `earlier_delivery_removed` | only in a draft taken up (`--resume`) in a folder that held a full render: that render's `master.flac`, `loop.ogg` and layer files, which the draft removed as an earlier master's; a full render makes them again |
 | `delivery_needs`, `tail` | where the master still sounds in its last 50 ms (the check `tail_quiet`, under −60 dBFS): `tail` gives `last_50ms_dbfs`, `falling_db_per_second` (a line through the last second's level), `rises_at_the_end` (the last fifth of a second rises by 3 dB a second or more: a note or an echo that begins there, or a level that is raised) and `more_seconds_estimated` (how much longer `clock.tail_seconds` would have to be, to the next half second; null where the level falls by less than 3 dB a second or rises at the end). A full render fails on it. A draft passes and lists `tail_quiet` in `delivery_needs`, and its summary says so at every draft until the tail is long enough |
 | `checks` | every delivery check, true or false: finite audio, no clipping, the true-peak ceiling, the exact length, 48 kHz 24-bit stereo, a quiet tail, the MIDI note count, the MP3's loudness, the buses and returns adding up to the premix, the loop's points and cues |
-| `master`, `premaster` | the delivered master and the mix before mastering: `integrated_lufs`, `true_peak_dbtp`, `lra_lu` (loudness range, EBU Tech 3342), `sample_peak_dbfs`, `clipped_samples`, `frames`, `seconds`, `sha256` |
-| `mastering` | the bus chain's record: `target_lufs`, `mixed` (after the master chain), `passes` (each delivery pass: gain, limiter ceiling, loudness, true peak), `limiting_db` (level the clipper and limiter took per section), `true_peak_ceiling_dbtp` (−1, or −2 above −14 LUFS), `limiter_dbfs`; with `dynamics: "wide"` also `peak_held_db`, `lra_lu` and `range`. With `mix.rules: 2` also `rules`. A wide master under version 2 has no limiter at all: its `limiter_dbfs` and its pass's `limit_dbfs` are `null`, and it has none of the fields that follow. A glue or loud master under version 2 has `limiter_dbtp` (the true peak the limiter aimed at) in place of `limiter_dbfs`, and `limiter`: `release_ms`, `lookahead_ms`, `share_of_time_pct` (how much of the piece it worked in) and `deepest_db`; each pass then holds `limit_dbtp` and `taken_db` (the level the clipper and limiter took, which the gain put back) |
-| `buses` | `assignment` (part to bus), `spaces` (part to reverb), `returns` (the files in `returns/`), `level_change_db` (each bus against the sum of its stems, also in bus_level_change_db.json), `sum_minus_premix_peak_dbfs`. With `mix.rules: 2` also `rules`, what the mix set from the project, kept in `returns/mix_rules.json` too: `lead_threshold_dbfs` (the lead bus's compressor threshold, 6 dB over the loudest lead part's written level; `null` without a lead part and in a wide mix, where no bus compresses) and `reverb` (`null`, or with `mix.c80_db` the returns' `gain_db` and `c80_asked_db`, `c80_written_db`, `c80_db` and `c80_reached`) |
+| `master`, `premaster` | the delivered master and the mix before mastering: `integrated_lufs`, `true_peak_dbtp`, `lra_lu` (loudness range, EBU Tech 3342), `sample_peak_dbfs`, `clipped_samples`, `frames`, `seconds`, `sha256`; the master also `highest_sample`: where its highest sample lies (`seconds`, and `bar`, or `in_tail` past the last bar) |
+| `silent_end_seconds`, `clock_tail_seconds` | how long the file ends under -60 dBFS, and the project's tail (not for a loop, which folds its tail); from 3 s, on a tail longer than the least of 1 s, the summary says a shorter `clock.tail_seconds` would end it sooner |
+| `mastering` | the bus chain's record: `target_lufs`, `mixed` (after the master chain), `passes` (each delivery pass: gain, limiter ceiling, loudness, true peak), `limiting_db` (level the clipper and limiter took per section), `true_peak_ceiling_dbtp` (−1, or −2 above −14 LUFS), `limiter_dbfs`; with `dynamics: "wide"` also `peak_held_db` and `lra_lu` and no `limiting_db`, and with `mix.range_lu` also `range`. With `mix.rules: 2` also `rules`. A wide master under version 2 has no limiter at all: its `limiter_dbfs` and its pass's `limit_dbfs` are `null`, and it has none of the fields that follow. A glue or loud master under version 2 has `limiter_dbtp` (the true peak the limiter aimed at) in place of `limiter_dbfs`, and `limiter`: `release_ms`, `lookahead_ms`, `share_of_time_pct` (how much of the piece it worked in) and `deepest_db`; each pass then holds `limit_dbtp` and `taken_db` (the level the clipper and limiter took, which the gain put back) |
+| `buses` | `assignment` (part to bus), `spaces` (part to reverb), `returns` (the reverb and delay returns in `returns/`; the `bus_*.wav` beside them are not listed), `level_change_db` (each bus against the sum of its stems, also in bus_level_change_db.json), `sum_minus_premix_peak_dbfs`. With `mix.rules: 2` also `rules`, what the mix set from the project, kept in `returns/mix_rules.json` too: `lead_threshold_dbfs` (the lead bus's compressor threshold, 6 dB over the loudest lead part's written level; `null` without a lead part and in a wide mix, where no bus compresses) and `reverb` (`null`, or with `mix.c80_db` the returns' `gain_db` and `c80_asked_db`, `c80_written_db`, `c80_db` and `c80_reached`) |
 | `sections` | per section: `start_seconds`, `end_seconds`, `rms_dbfs`, `side_mid_db`, `active_tracks` |
 | `mp3` | `mp3_lufs`, `mp3_true_peak_dbtp`, `matches` (within 0.2 LU of the master), `over_full_scale` (the decoded MP3's true peak above 0 dBTP, named in the summary); none in a draft |
 | `headphones` | with `mix.headphones`: `file` (headphones.wav, beside it headphones.mp3), `integrated_lufs`, `true_peak_dbtp`, `reflections` (whether the room's first reflections are in), `responses` (the head responses' source and licence), `parts` (per part: `points`, 1 or 3, with `side_db` where its two channels differ; `by`, how its place is given; `lowest_degrees` and `highest_degrees`, clockwise from straight ahead and not wrapped at 360), `left_out` (what of the mix the headphone version does without), `limiting_db`. Its own stems, buses and returns are in `headphones/`; `process_seconds` has its FFmpeg runs under `headphone version`. `compare` compares `headphones.wav` where either render has one |
-| `loop` | a game loop: `start_sample`, `end_sample`, `length_samples`, `bpm`, `bar_beats` and `beat_count` (null where the tempo changes), `sections` (cue points), `files`, `gain_db`, `seam` (meter, timbre, pitch, abruptness and volume across the loop point), `layers` |
+| `loop` | a game loop: `start_sample`, `end_sample`, `length_samples`, `bpm`, `bar_beats` and `beat_count` (null where the tempo changes), `sections` (cue points), `files`, `gain_db`, `seam` (meter, timbre, pitch, abruptness and volume across the loop point; `seam.abruptness.folded_tail_lufs` is every lap of the tail that lies over the loop's first second), `layers` |
 | `cache_hits`, `stems_reused`, `stem_count` | parts whose raw synthesis, and whose processed stem, came from the cache |
 | `stage_seconds`, `process_seconds`, `runtime_seconds` | seconds per stage (they add up to the runtime) and in FFmpeg by kind |
 | `validation`, `dependencies`, `project_sha256`, `renderer_sha256` | the project's validation, the tools and banks with their hashes |
@@ -74,7 +79,7 @@ memory while other parts held it), `synthesis` and `processing`.
 |---|---|
 | `prompts` | every review question, as the summary prints them |
 | `association` questions | `association.missing` (the project records none), `association.whole` (words without the whole made of them), `association.gives` (the whole gave the music fewer than three levels); a project with `"association": {"none": "..."}` is asked none of them |
-| `answered` | the questions a decision answers and that are therefore not asked: `id`, the question's `text` with what it counts now, and the `reason` (the decision after the identifier and its colon). An identifier holds no colon followed by a space, and the names in it are joined by plus signs: in a name a per cent sign is written `%25` and a plus sign `%2B`, and a space after a colon `%20` (a section named `answer: reprise` gives `plan:answer:%20reprise`; the sections `a+b` and `c` give `sections_alike:a%2Bb+c`), so no two questions about different names share an identifier. The identifier a decision answers is the text before its first colon and space, that one and no other, in every round; the summary prints each question's identifier in brackets |
+| `answered` | the questions a decision answers and that are therefore not asked: `id`, the question's `text` with what it counts now, the `reason` (the decision after the identifier and its colon), and where the question counts places (collisions, parallels, close intervals, notes outside the chord, transposed samples) `places`, a digest of them, so that a round can tell a fault that moved at the same count (`answered_moved` in round.json). An identifier holds no colon followed by a space, and the names in it are joined by plus signs: in a name a per cent sign is written `%25` and a plus sign `%2B`, and a space after a colon `%20` (a section named `answer: reprise` gives `plan:answer:%20reprise`; the sections `a+b` and `c` give `sections_alike:a%2Bb+c`), so no two questions about different names share an identifier. The identifier a decision answers is the text before its first colon and space, that one and no other, in every round; the summary prints each question's identifier in brackets |
 | `plan` | null for a project without a plan, else the plan read against the score: `identity`; `high_point` (`section`, `means`, `in_piece`); `commitments`, `kept` and `differences` (counts of the statements that can be read off a score); and per planned section `kept` (the commitments the score holds), `differs` (each with `what`, `planned`, `found` and the sentence the question prints), `unread` (what cannot be read and why: a first section has none before it, a project without `harmony` has no pace) and `what_differs` (the plan's own sentence, compared with nothing) |
 | `questions` | the same questions, each with its `text` and an `id` that does not depend on the wording: the kind of question and, after a colon, the part, the parts or the section it is about (`vertical`, `outside_chord.melody`, `sections_alike:verse+chorus`, `stiffness:keys`, `restatement:chorus`). Rounds and versions are compared by these |
 | `views` | the score at a glance, which the summary prints before the questions. `parts_by_section`: per section the parts that sound in it, attacked there or held into it, each with `attacks`, `held_in`, `notes_per_bar`, `low` and `high`, `velocity`; `part_sets`: how many different sets of parts the sections have. `harmony_pace`: `entries` of `harmony`, `changes` (a chord that differs from the one before it, however it is spelled; the same chord written again is none), `changes_per_bar`, `kinds` (triad, added, seventh, extended, altered) and the same by section. `melody_rhythm`: for each part with the role `melody`, `syncopated_pct` and `pushes_pct` by the rule of `stiffness`, `longest_run` (the longest stretch it sounds without a rest of half a beat: `beats`, `seconds`, `from_bar`, `to_bar`), `bar_rhythms`, and by section its attacks, syncopations, pushes, rests and phrases. They describe the score; none is a question or a mark |
@@ -88,18 +93,23 @@ memory while other parts held it), `synthesis` and `processing`.
 | `stiffness` | `block_chord_parts`, `parts`, `no_pushes_anywhere` |
 | `melody_sections` | per section: phrases (a phrase ends at a rest of half a beat or at a note held a beat and a half), the longest of them (`longest_without_breath_*`: a guess at phrasing, not a measure of rest, which `views.melody_rhythm.longest_run` is), leaps, bars restated, the peak and where it falls |
 | `transposed_samples`, `cannot_render` | with `--config`: notes played from samples far from their pitch, notes outside a preset, parts the banks cannot play |
+| (question `bend:<part>`) | notes that `performance.bend` keeps a quarter-tone (50 cents) or more off their written pitch through most of the time they sound: a scoop written as one point ramps across the notes before it, and a bend not brought back leaves the notes after it off. A note's own short scoop or a vibrato about its pitch is not counted, nor a part whose engine or `reverse` plays no wheel; a held bend or a long glide that is meant is answered by a decision |
 | (question `piano:<part>`) | with `--config` and the `vcsl` bank installed: a piano part played on another piano than the Steinway grand ([piano-and-chamber.md](piano-and-chamber.md)); it has no field of its own, and a decision that begins with its identifier answers it. It is asked of the project's own banks only: a bank that someone configured themselves, the default bank included, may hold anything at any program |
-| `loop_seam` | a game loop's seam from the score. The pitches are the keys as written: a `performance.bend` is not read into them. `folded_tail_lufs` is every lap of the tail that lies over the loop's first second. |
+| `loop_seam` | a game loop's seam from the score. The pitches are the keys as written: a `performance.bend` is not read into them. |
 
 `notes.csv` lists every note with its bar, beat, pitch, velocity, timing and performed seconds (its header alone for a score without a note); `arrangement.md` is
 the sections, the authored decisions and the questions as a page.
+
+Stems, `returns/` and `premix.wav` are 32-bit float WAV, which Python's `wave` module refuses: read them with
+`samples, info = musiclib.audio.read_wav(path)` (the rate is `info['sample_rate']`).
 
 ## analysis.json (analyze)
 
 | Key | What it holds |
 |---|---|
-| `sections` | per section of the master: `level_lufs_ungated`, `peak_dbfs`, `crest_db`, `band_share_pct` (six bands), `lr_correlation`, `mono_sum_change_db` |
-| `lead_presence` | per section and span: `lead_minus_accompaniment_level_db`, its band-wise `_db_median` and `_db_p10`, `masked_share_pct`; `lead_tracks`, `lead_source` (buses or stems) |
+| `sections`, and with `--span` `spans` | per section (per span) of the master: `level_lufs_ungated`, `peak_dbfs`, `crest_db`, `band_share_pct` (six bands), `lr_correlation`, `mono_sum_change_db` |
+| `lead_presence` | per section and span: `lead_minus_accompaniment_level_db`, its band-wise `_db_median` and `_db_p10`, `masked_share_pct` |
+| `lead_tracks`, `lead_source` | what `lead_presence` took as the lead: the lead bus (`buses`), or where no part is on it, and on the room chain, the stems of role `melody` (`stems`) |
 | `melody_groups` | per section and span: `melody_group` (the melody and the parts doubling it), `melody_group_minus_rest_db`, `balance` (parts close to it: `level_minus_melody_db`, `suggested_cut_db`) |
 | `stem_levels_lufs_ungated` | each part's level per section and span |
 | `tonal_balance` | `slope_db_per_octave_100hz_4khz`, `low_end_vs_line_db`, `top_end_vs_line_db`, `third_octaves_db`, the published range it is read against |
@@ -122,10 +132,10 @@ longest a render can be, is read, a reference included.
 render took from the cache, where an earlier render had put it: another version of the part, or an earlier take of a Surge XT part), `changed` (one line per changed file) and `identical` (counts).
 `files.<stems|buses|returns|premix|master>.<name>` (and `files.headphones.headphones` where either render has a headphone version; `{"added": true}` or `{"removed": true}` for a file only one render has) holds per file `identical`, or `level_db` (the one gain that
 matches the two files; null where matching by it leaves more than half the file's power, as in a part rewritten), `passages` (each
-`start_s`, `end_s`, `from`, `to` and `follows_part_levels`), `difference_db` and `difference_peak_dbfs`;
+`start_s`, `end_s`, `from`, `to` and, in a file that mixes parts, `follows_part_levels`), `difference_db` and `difference_peak_dbfs`;
 `project_changes` the edits field by field (the decisions and the revision history are not among them: they change no sound), `synthesis` the parts in five lists (the summary's three, `reused` for
 those the later render took from the cache, `same_audio_synthesized_again` for those it synthesized to the same audio), `master_lufs` both masters' loudness, and `clip`
-the A/B clip. `before`, `after` and the clip's `file` are relative to the report's folder.
+the A/B clip (`levels_lufs`: the two excerpts' loudness as cut, before the louder is brought to the quieter's level). `before`, `after` and the clip's `file` are relative to the report's folder.
 
 ## audition.json (audition)
 
@@ -139,16 +149,28 @@ and its `error`), `each_seconds`, `gap_seconds`, `loudness_lufs` (the level ever
 lower where the peak guard turned them all down) and `fallbacks`. Each version's render and its `cut.wav` are in its
 numbered folder.
 
+## profile.json (profile)
+
+`studio.py profile` describes the written score, by part and by section: descriptors after Yang and Lerch (2020), which show what
+changed and not what is better.
+
+| Key | What it holds |
+|---|---|
+| `title`, `bars`, `meter`, `tempo`, `seconds`, `parts_with_notes`, `notes`, `notes_per_bar`, `melody_part`, `note` | the piece as a whole |
+| `parts` | by part id: `role`, `notes` (0 and nothing more for a part without notes), `notes_per_bar`, `ioi_beats` and `lengths_beats` (the four commonest gaps between onsets and note lengths, in beats, each with its share in %), `offbeat_onsets_pct`, `downbeat_onsets_pct`, `rhythm_repeat_pct`, `polyphony_max`, `velocity` (`mean`, `sd`, `range`). A drum part adds `drum_keys`. A pitched part adds `register` (`low`, `high`, `median`, `span`), `pitch_classes_used`, `pitch_class_entropy_bits` and `top_line` (`notes`, `mean_abs_interval`, `repeats_pct`, `steps_pct`, `leaps_pct`, `largest_leap`, `direction_changes_pct`, `recurring_cells_pct`; null for a line under three notes) |
+| `sections` | per section: `section`, `bars`, `notes_per_bar` (by part id), `onsets_per_second`, `melody_median`, `melody_high`, and `melody` (null under four notes): `phrases`, `longest_without_breath_beats`, `longest_without_breath_s`, `leaps`, `bars_restated`, `bars_compared`, `peak`, `peak_times`, `peak_first_at_pct`, `phrase_starts_beats` |
+
 ## clean (its report)
 
 `studio.py clean` writes nothing of its own; `--json` prints its report: `dry_run` (true unless `--remove` was given),
-`listed` (each folder it takes files from, or would: `kind` render, round, audition or cache entry, `path`, `bytes`,
-`whole` whether the folder goes, and `kept_inside`, the first 20 of what stays in it: files no tool recorded or changed
+`listed` (each folder it takes files from, or would: `kind` render, round, audition, review or cache entry, `path`, `bytes`,
+`whole` whether the folder goes (with any empty folder in it; clean touches no other empty folder), and `kept_inside`, the first 20 of what stays in it: files no tool recorded or changed
 since, and the folders inside it that stay, ending in `/`),
 `bytes`, `kept` (the folders kept: a round by its own folder, which stays whole with its render) and `cache_entries_kept`, `left_alone` (folders of another piece, whose piece cannot be read, with no
-files.json (made before 0.4.0), a render, round or audition at work, or inside one, cache entries holding files renders
-did not write there or that changed since: `kind`, `path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the
-`error`).  A render, round or audition holds its folder's lock file `work.lock` while it runs and removes it when it
+files.json (made before 0.4.0), a render, round or audition at work, or inside one, a folder of which nothing can go
+(`why` names what stays in it: a file no tool recorded, a take a kept render plays), a cache that cannot be shown to be this piece's or whose entries a render that stays may play (`kind` cache), cache entries holding files renders did not write there or that changed since: `kind`,
+`path`, `title`, `why`) and `not_removed` (what was held open or in use by a render, with the
+`error` and, for a folder, `bytes_removed`, what of it did go).  A render, round or audition holds its folder's lock file `work.lock` while it runs and removes it when it
 ends, `analyze` and `compare` hold the renders they read, and clean takes the same lock before it looks inside a
 folder, keeping it, and those of the tool folders holding it, until it is done there; its dry run looks at each lock
 without creating any.

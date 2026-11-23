@@ -12,7 +12,7 @@ Read this when a part is for pipe organ: a chorale or hymn, a prelude, a solemn 
 |---|---|---|
 | Pipe Organ (0:19) | The full manual registration: an 8′ foundation with 4′ and higher ranks, and a quieter 16′ sub-octave from about middle C up | C2–C7 |
 | Pipe Organ Soft (1:19) | A soft stopped flute at 8′ pitch | G2–C7 |
-| Organ Pedal (2:19) | The pedal division, its fundamental at 16′ pitch | C1–G3 |
+| Organ Pedal (2:19) | The pedal division, at 16′ pitch (from B1 to C♯3 its octave is the stronger partial: below) | C1–G3 |
 
 **Footage.** It names the pitch of a stop by the approximate length of its longest open pipe: an 8′ stop sounds at the pitch of the keys, a 4′ an octave higher, a 16′ an octave lower (Wikipedia, Organ stop). A full registration stacks such ranks into a bright, dense chorus, and a soft flute stop is close to a pure tone.
 
@@ -25,7 +25,7 @@ Read this when a part is for pipe organ: a chorale or hymn, a prelude, a solemn 
 ## Hands and feet
 
 - **Manuals.** Each hand holds up to about five notes within the span of a hand. Write the manual parts as voices: a melody, inner voices, and a tenor that the left hand can reach.
-- **Pedal.** The feet play the bass line, at most two notes at once. Write it at the pitch it sounds (C1–G3): with its 16′ fundamental it sounds an octave below the manuals' bass. It can also sustain a pedal point under changing harmony.
+- **Pedal.** The feet play the bass line, at most two notes at once. Write it at the pitch it sounds (C1–G3): at 16′ it sounds an octave below the manuals' bass. Measured from the recordings, the octave is 13 to 19 dB stronger than the fundamental from B1 to C♯3, and about level with it from C1 to B♭1, so for weight in the lowest register write a note in the lower of those ranges. It can also sustain a pedal point under changing harmony.
 - **Range.** Keep the full registration's bass above C2. Below that the pedal takes over.
 
 ## Phrasing without dynamics

@@ -458,7 +458,10 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('project',type=Path);p.add_argument('--first-bar',type=int,required=True);p.add_argument('--bars',type=int,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
     from musiclib import files
     files.fresh(a.output,'preserve prior output; use a new path')
-    save_json(a.output,extract(load_project(a.project),a.first_bar,a.bars),new=True);print(a.output)
+    save_json(a.output,extract(load_project(a.project),a.first_bar,a.bars),new=True);print(a.output,flush=True)
+    from musiclib.starter import behind_script
+    note=behind_script(a.project)
+    if note:print(note,file=sys.stderr)   # stdout stays the path
 
 if __name__=='__main__':
     from musiclib import files

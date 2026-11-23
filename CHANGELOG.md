@@ -2,6 +2,46 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.9.2] - 2026-11-23
+
+Smaller, safer and easier to install. The same project renders to the same audio.
+
+### Changed
+
+- **`SKILL.md` is about 28% shorter (6,093 words to 4,386) and ordered by need.** What must hold comes first (listening, files from elsewhere, the configuration, rights), then what goes wrong without a word, the workflow and the commands of a normal piece. Rarer commands and options and what a render writes moved to the new [commands.md](skills/music-production/references/commands.md); each sentence of the old file has a place.
+- **`studio.py sounds` prints one line a patch** with what tells them apart (25 patches were about 12 KB of JSON). `--json` prints everything.
+- **`clean` also takes standalone `review` folders**, by the record they already keep. A folder of which nothing can go is no longer counted as removed: it is named with what stays in it. Its totals count what really went, a file another program holds open is left out of them, and folders come before cache entries in its list.
+- **A part the plan names and the project does not have yet is one question** (`plan.unwritten:<parts>`), not one per section, so a score reviewed before its other parts are written shows its real differences. A decision on it covers those parts and no part named later.
+- `analyze` gives a `--span` its own level, correlation and mono fold; where nothing is on the lead bus the melody stems stand in, and the melody group of a section or a span starts from the part the plan says leads it.
+
+### Added
+
+- **What a run could not see is said.** A command that reads a `song.json` ends with a note where the `compose.py` beside it was saved after it (a script that fails leaves the old project). A round lists the answered questions whose findings moved, since a decision goes on answering its question. `review` asks about notes that `performance.bend` keeps a quarter-tone or more off their pitch.
+- The render's summary gives the MP3's true peak, a loop seam that may click, where the master's highest sample lies when the true peak holds a wide master's gain, and an end of three seconds or more under -60 dBFS.
+- `voice_lead(..., thin=True)` voices a chord in fewer voices than its essential tones: the third, then the seventh. Without it such a chord is still refused.
+- The chords `9#11`, `maj9#11`, `maj13#11`, `6/9#11`, `13sus` and `13sus4`. `song.part(..., engine='additive')` takes that engine's `instrument` settings.
+
+### Fixed
+
+- **`clean` keeps a take that a kept render plays from a cache inside a folder it removes**, an audition's or an earlier render's. The take went with that folder, and a Surge take cannot be made again, so the next render of that piece would have sounded different.
+- **`clean` takes cache entries only from the kept piece's own cache, and none that a render that stays still plays.** Run on a folder holding two pieces that share a part, it deleted the other piece's takes while listing that piece as left alone. A cache it cannot show to be this piece's stays, and is named. A cache inside a folder that goes follows the same rules: no entry goes with the folder holding it.
+- `clean` stops, removing nothing, where a kept render's `stem_receipts.json` does not name the cache key of every part of its project. A lost row, or a receipt saved again by another program, read as a render that does not use that take.
+
+### Security
+
+- **A SoundFont with a modulator destination past FluidSynth's 63 generators is refused before FluidSynth gets it** (CVE-2026-111123, in the pinned 2.6.1; the same destination bound as FluidSynth's own fix, released in 2.6.3), in its preset, instrument and default modulators alike. `add-soundfont`, `configure` and `doctor` name the bank, and a render or an audition stops before any program runs. None of the banks the setup installs has one. A bank that does not hold exactly what its RIFF header says is refused the same way, since the check and FluidSynth could otherwise read different tables.
+- SKILL.md now says that a `compose.py` that came with someone else's project is a program: read it, and do not run it unasked.
+
+### Install
+
+- The READMEs give the Codex CLI's plugin route, and how to update on each of the three routes.
+- `doctor` says whether Pillow is there for `still` and `video`, and whether it is new enough.
+
+### Documentation
+
+- Corrected against the code and the banks: the default bank's brush and marching kits and their keys, a slur's `bend_range`, crossfade with portamento, how dynamic layers are spaced, what `reverse` does on a sound that does not decay, the organ pedal's strongest partial, the steel drum's and vibraphone's off-pitch takes, the tail after a crash, what to ask of a wide game mix, how much `level_dbfs` moves when a part's loudest notes change, the keys `outputs.md` names, and which instruments the default bank holds (bandoneon, accordion, bagpipes, banjo, mandolin, shakuhachi, shamisen, timbales), which the style maps said it lacked.
+- `outputs.md` gives the keys of `profile`, and says where a loop's folded tail is measured. The ordered commands show `clean`'s list before its removal.
+
 ## [0.9.1] - 2026-11-22
 
 One recording of the Steinway corrected.

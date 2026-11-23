@@ -1500,7 +1500,7 @@ def define(S):
             # resamplers, a master with one true-peak limiter and no delay, and a clarity where a project asks one,
             # set from the project file.  None of these is set from a measurement of the audio.  The same project under
             # version 1 stays as it was (render_bus above: checked there).
-            from musiclib import loop,mixbus,measure
+            from musiclib import mixbus
             from musiclib import summary as said
             q=copy.deepcopy(p);q['mix'].update(chain='bus',rules=2);save_json(work/'rules2.json',q)
             r=render(work/'rules2.json',work/'render_rules2',config,cache);out=work/'render_rules2';ms=r['mastering'];st=r['buses']['rules']
@@ -1748,7 +1748,6 @@ def define(S):
             # mix.headphones in a render: headphones.wav beside the master, at the master's loudness and length, the
             # master and the stems the files they were without it; a part to the left is louder in the left ear; the
             # reflections can be left out; nothing of the making is left among the stems.
-            from musiclib import ears
             q=copy.deepcopy(p);q['mix']['chain']='bus';save_json(work/'ears_plain.json',q)
             plain=render(work/'ears_plain.json',work/'render_ears_plain',config,cache,draft=True)
             centred=work/'render_ears_plain'/'stems'/'piano.wav'   # the piano as the example has it: at the centre
@@ -1880,7 +1879,59 @@ def define(S):
             fall_m,fall_o=level(ym,0,.05)-level(ym,.3,.4),level(yo,0,.05)-level(yo,.3,.4)
             assert fall_m>fall_o+15 and rm['strung']['palm']==1 and rm['strung']['passes']==1,(fall_m,fall_o,rm['strung'])
             return {'apart_minus_plain':same,'tail_seconds':tail,'e2_back_under_the_note_after_next_db':round(back,1),'first_under_third':under,'e2_after_its_strings_next_db':round(e2,1),'a2_db':round(a2,1),'palm_falls_db':round(fall_m,1),'open_falls_db':round(fall_o,1)}
-        found.update({'bus_chain_render_and_delivery_checks': bus_render, 'a_chorus_pass_never_shares_another_parts_log': chorus_pass_logs, 'effects_apply_in_the_order_listed': effects_in_listed_order, 'analysis_reports_sections_stems_and_lead': analysis, 'mix_rules_2_render_limiter_saturation_and_clarity': rules_2_render, 'wide_dynamics_master_keeps_the_mix_range': wide_render, 'stage_depth_and_range_control_render': stage_and_range, 'long_automation_renders': long_automation_renders})
+        def analysis_names_the_lead_the_span_and_the_peak():
+            # 0.9.2 (design-0.9.2.md, M2, M4, M5, T12), on the bus render a check above made.
+            import shutil
+            from musiclib import audio,summary as sm
+            from musiclib.analysis import analyze
+            kept=json.loads((work/'render_bus'/'report.json').read_text(encoding='utf-8'))
+            high=kept['master']['highest_sample'];assert high['seconds']>=0 and high['bar']>=1 and kept['silent_end_seconds']>=0,kept['master']
+            base={k:kept[k] for k in ('title','status','runtime_seconds','master','mastering','checks','stem_count','cache_hits')}
+            held=sm.render({**base,'mastering':{**kept['mastering'],'peak_held_db':2.5}},work)
+            assert f"the master's highest sample is at {high['seconds']:g} s, bar {high['bar']} (a sample peak" in held,held
+            short=lambda **k:'a shorter clock.tail_seconds' in sm.render({**base,**k},work)
+            assert short(silent_end_seconds=8.1,clock_tail_seconds=5) and not short(silent_end_seconds=2.9,clock_tail_seconds=5) and not short(silent_end_seconds=8.1,clock_tail_seconds=1),'1 s is the shortest tail validate takes'
+            assert 'is at 2.116 s, in the tail (a sample peak' in sm.render({**base,'master':{**base['master'],'highest_sample':{'seconds':2.116,'in_tail':True}},'mastering':{**kept['mastering'],'peak_held_db':2.5}},work)
+            # Two parts tied far from their samples: the review names both (it stopped, comparing their records).
+            from make_example import example
+            from musiclib import review as rv
+            two=example();far=[t for t in two['tracks'] if t['engine']=='soundfont' and not t.get('drums')][:2];two['tracks']=far
+            for t in far:
+                t['notes']=t['notes'][:2];t['performance']['notes']={n['id']:t['performance']['notes'][n['id']] for n in t['notes']}
+            real=rv.sample_maps;rv.sample_maps=lambda q,c:{t['id']:{n['pitch']:9 for n in t['notes']} for t in far}
+            try:said=next(q['text'] for q in rv.review(two,work/'review_two_far',audio.load_config(config))['questions'] if q['id']=='transposed_samples')
+            finally:rv.sample_maps=real
+            assert all(t['id'] in said for t in far) and ' and ' in said,said
+            # The report's figures are the saved file's.
+            from musiclib.render import peak_frames
+            saved,info=audio.read_wav(work/'render_bus'/'master.wav');top,last=peak_frames(saved)
+            assert high['seconds']==round(top/info['sample_rate'],3) and kept['silent_end_seconds']==round((len(saved)-1-last)/info['sample_rate'],2),(high,kept['silent_end_seconds'],top,last)
+            # A span in a section the plan leads with one part reads that part as the lead, as the section does.
+            led=work/'render_bus_led';shutil.copytree(work/'render_bus',led);q=json.loads((led/'project.json').read_text(encoding='utf-8'))
+            first=q['sections'][0];other=next(t['id'] for t in q['tracks'] if t.get('role')!='melody' and not t.get('drums') and any(first['start_bar']*4<=n['on']<(first['start_bar']+first['bars'])*4 for n in t['notes']))
+            q['plan']={'identity':'x','sections':[{'section':first['id'],'leads':other}]};(led/'project.json').unlink();save_json(led/'project.json',q)
+            read=analyze(led,[('same',first['start_bar']+1,first['start_bar']+first['bars'])])['melody_groups'];by={g['region']:g['melody_group'] for g in read}
+            assert other in by['span:same'] and by['span:same']==by[first['id']],by
+            # By the note as played: written up to the span, and held into it by its gate.
+            t=next(x for x in q['tracks'] if x['id']==other);n=t['notes'][0];t['notes']=[{**n,'on':float(first['start_bar']*4),'duration':4.0}]
+            t['performance']['notes']={n['id']:{**t['performance']['notes'][n['id']],'gate':1.5}};(led/'project.json').unlink();save_json(led/'project.json',q)
+            by={g['region']:g['melody_group'] for g in analyze(led,[('held',first['start_bar']+2,first['start_bar']+2)])['melody_groups']}
+            assert other in by['span:held'],by
+            # A span has its own level, correlation and mono fold, in the file and on the summary's line.
+            spanned=analyze(work/'render_bus',[('focus',1,2)]);row=spanned['spans'][0]
+            assert row['section']=='span:focus' and row['level_lufs_ungated'] is not None and 'spans' not in analyze(work/'render_bus')
+            line=next(x for x in sm.analysis(spanned,work/'a.json',work/'render_bus').splitlines() if x.strip().startswith('span:focus'))
+            assert not line.split(':',2)[2].strip().startswith('n/a') and f'{row["level_lufs_ungated"]:g}' in line,line
+            # With nothing on the lead bus the melody stems stand in, where the summary said "no lead".
+            bare=work/'render_bus_no_lead';shutil.copytree(work/'render_bus',bare);moved=json.loads((bare/'report.json').read_text(encoding='utf-8'))
+            on_lead=[t for t,b in moved['buses']['assignment'].items() if b=='lead'];assert on_lead,moved['buses']['assignment']
+            moved['buses']['assignment']={t:('ensemble' if b=='lead' else b) for t,b in moved['buses']['assignment'].items()};(bare/'report.json').unlink();save_json(bare/'report.json',moved)
+            r=analyze(bare);melody=[t['id'] for t in json.loads((bare/'project.json').read_text(encoding='utf-8'))['tracks'] if t.get('role')=='melody']
+            assert r['lead_source']=='stems' and r['lead_tracks']==melody and r['lead_presence'],(r['lead_source'],r['lead_tracks'])
+            assert 'no lead' not in sm.analysis(r,work/'a.json',bare),'still says no lead'
+            assert analyze(work/'render_bus')['lead_source']=='buses'   # a render with a lead bus reads it, as before
+            return {'lead_stems':len(melody)}
+        found.update({'analysis_names_the_lead_the_span_and_the_peak': analysis_names_the_lead_the_span_and_the_peak, 'bus_chain_render_and_delivery_checks': bus_render, 'a_chorus_pass_never_shares_another_parts_log': chorus_pass_logs, 'effects_apply_in_the_order_listed': effects_in_listed_order, 'analysis_reports_sections_stems_and_lead': analysis, 'mix_rules_2_render_limiter_saturation_and_clarity': rules_2_render, 'wide_dynamics_master_keeps_the_mix_range': wide_render, 'stage_depth_and_range_control_render': stage_and_range, 'long_automation_renders': long_automation_renders})
         found['a_moving_part_renders_and_the_others_stay'] = a_moving_part_renders_and_the_others_stay
         found['a_part_through_an_amplifier_renders_and_the_others_stay'] = a_part_through_an_amplifier_renders_and_the_others_stay
         found['a_part_played_by_string_renders_string_by_string'] = a_part_played_by_string_renders_string_by_string

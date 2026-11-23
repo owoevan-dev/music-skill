@@ -157,7 +157,8 @@ The sentimental ballad of postwar Japan: melodies on the yonanuki scales, sung w
 
 - **In this skill**: the yonanuki minor written by hand (on A: A, B, C, E, F) and the major (on C: C, D, E, G, A);
   kobushi as an irregular `bend` around one held pitch (this skill's approximation; its depth and rate are not
-  measured) on the erhu, a violin, the saxophone or the distorted guitar. No shakuhachi or shamisen in the banks.
+  measured) on the erhu, a violin, the saxophone or the distorted guitar. The only shakuhachi (0:77) and shamisen (0:106) are General MIDI
+  presets of the default bank.
 - **Neighbours**: the pop ballad ([pop-and-ballad.md](pop-and-ballad.md)).
 
 ## Not entries

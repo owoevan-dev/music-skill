@@ -58,14 +58,17 @@ class GivenUp(UserWarning):
     """A chord's range left no voicing that keeps the spacing rules, and one that breaks them was taken."""
 
 
-def chord_tones(symbol, voices, rotation=0, omit=0, exclude=(), keep_root=False):
+def chord_tones(symbol, voices, rotation=0, omit=0, exclude=(), keep_root=False, thin=False):
     """The pitch classes one chord gives `voices` voices, with the omissions or doublings above; `rotation` starts the
     doublings further down their order (the fifth instead of the root, say), `omit` leaves out that many more tones in
     the same order, `exclude` leaves out the tones with these pitch classes first, and `keep_root` never leaves out the
-    root (where no bass part plays it)."""
+    root (where no bass part plays it).  With too few voices for the tones the chord cannot do without, it is refused
+    unless `thin`: then those that name it come first."""
     c = parse(symbol)
     if c is None:
         raise ValueError(f'Unknown chord symbol: {symbol}')
+    if voices < 1:
+        raise ValueError(f'{symbol}: voices is 1 or more, not {voices}')
     iv = [i for i in dict.fromkeys(QUALITIES[c['quality']]) if (c['root'] + i) % 12 not in exclude]
     third = any(i in iv for i in (3, 4))
     colour = any(i in iv for i in (9, 10, 11))
@@ -86,7 +89,15 @@ def chord_tones(symbol, voices, rotation=0, omit=0, exclude=(), keep_root=False)
     while len(keep) > voices and rank(keep[0]) < 9:
         keep.pop(0)
     if len(keep) > voices:
-        raise ValueError(f'{symbol} needs at least {len(keep)} voices')
+        if not thin:
+            raise ValueError(f'{symbol} needs at least {len(keep)} voices; voice_lead(..., thin=True) keeps those that name it (the third, then the seventh)')
+        # Asked for: three runs of 0.9.1 voiced their one- and two-part pads in three and thinned them by hand.  Those that
+        # name the chord come first, the root where it is to be kept, the third (a suspended chord's fourth), then the
+        # seventh (a sixth, a diminished seventh).
+        third = next((i for i in (4, 3, 5) if i in iv), None)      # a major third first: in a 7#9 the 3 is the ninth
+        seventh = next((i for i in (10, 11, 9) if i in iv), None)  # a sixth or a diminished seventh where there is no seventh
+        named = lambda i: 0 if keep_root and i == 0 else 1 if i == third else 2 if i == seventh else 3
+        keep = sorted(keep, key=named)[:voices]
     for _ in range(omit):
         if len(keep) > 1 and rank(keep[0]) < 9:
             keep.pop(0)
@@ -139,11 +150,12 @@ def _parallels(a, b, d):
 
 
 def voice_lead(symbols, voices=4, low=48, high=79, start=None, ceilings=None, avoid_parallels=False, max_gap=12,
-               against=None, keep_root=False):
+               against=None, keep_root=False, thin=False):
     """One voicing per chord symbol (a list of MIDI pitches, low to high), chosen across the whole progression to move
     as little as possible.  `start` is a voicing to begin near; `ceilings` gives, per chord, a highest pitch the voices
     may reach (under a melody, say) or None; `against` gives, per chord, the pitches other parts sound with it;
-    `keep_root` (True, or one value per chord) keeps the root where no bass part plays it.  See the module notes for the
+    `keep_root` (True, or one value per chord) keeps the root where no bass part plays it; `thin` takes fewer voices than a
+    chord's essential tones (chord_tones).  See the module notes for the
     spacing, omissions and costs."""
     if not symbols:
         return []
@@ -153,7 +165,7 @@ def voice_lead(symbols, voices=4, low=48, high=79, start=None, ceilings=None, av
         sets = []
         root = keep_root[k] if isinstance(keep_root, (list, tuple)) else keep_root
         for omit, r in itertools.product((0, 1), range(voices)):  # the doublings in order, then one tone fewer
-            pcs = chord_tones(symbol, voices, r, omit, keep_root=root)
+            pcs = chord_tones(symbol, voices, r, omit, keep_root=root, thin=thin)
             if sorted(pcs) not in [sorted(x) for x in sets]:
                 sets.append(pcs)
         others = tuple(against[k]) if against is not None and against[k] else ()
@@ -167,7 +179,7 @@ def voice_lead(symbols, voices=4, low=48, high=79, start=None, ceilings=None, av
         if blocked and not blocked & thirds and len(tones - blocked) >= 2:
             for r in range(voices):
                 pcs = chord_tones(symbol, voices, r, 0, exclude=blocked - ({c0['root']} if root else set()),
-                                  keep_root=root)
+                                  keep_root=root, thin=thin)
                 if sorted(pcs) not in [sorted(x) for x in sets]:
                     sets.append(pcs)
         c = None

@@ -1,5 +1,5 @@
-"""List, or remove, what a piece's finished work no longer uses: its render and round folders other than those kept,
-its auditions' renders and own caches, and the cache entries the kept renders do not use.
+"""List, or remove, what a piece's finished work no longer uses: its render, round and review folders other than those
+kept, its auditions' renders and own caches, and the cache entries the kept renders do not use.
 
 Ableton Live keeps decoded and analysed audio in a cache whose older files are deleted to make room, and its Cleanup
 deletes the cache files the open Set does not use (Live Reference Manual, Managing Files and Sets).  Here the kept
@@ -19,8 +19,11 @@ It is the one command that deletes, so it errs toward keeping (musiclib.files):
   nothing else stays in it), and a file is a record by what it holds: a file of the user's named files.json stays.
 - Only the kept renders' piece: a render, round or audition of another piece (another title, and for a round another
   project file) is left alone and listed, also inside a folder that goes; so is one whose piece cannot be read.
-- A cache entry goes only from a cache folder the kept renders use, only if it holds nothing but what renders wrote
-  there, and under its lock (render.entry_lock), so a render never loses an entry it is using.  An entry renders of 0.5
+- A cache entry goes only from the kept piece's own cache (beside a kept render or round, where renders put theirs, or
+  inside one of its folders that goes: a part's key leaves out the title, so a key alone does not show whose cache it
+  is), only if no render that stays plays it, only if it holds nothing but what renders wrote there, and under its lock
+  (render.entry_lock), so a render never loses an entry it is using.  It never goes as part of the folder holding it:
+  what these rules keep keeps that folder too.  An entry renders of 0.5
   wrote keeps its own record of them, and while a render works in it a journal (musiclib.files), so it goes by the
   files they prove; an entry of 0.4.0, which keeps neither, goes by the names renders gave their files, its key and its
   receipt, as 0.4.0's clean took it.  A render's own unlocked_cache/ (its parts, made there where the shared cache
@@ -33,7 +36,6 @@ It is the one command that deletes, so it errs toward keeping (musiclib.files):
   at again just before it goes, and one changed since stays.
 - A finished audition keeps its audition.mp3 and audition.json; its version renders and own cache go.
 - Links are never followed or removed; a folder or a --keep given as a link is refused."""
-import json
 import os
 import re
 from contextlib import suppress
@@ -49,8 +51,8 @@ ENTRY_NAME = re.compile(r'[0-9a-f]{20}|[0-9a-f]{64}')
 ROUND, AUDITION = 'music-production round', 'music-production audition'  # the `kind` round.json and audition.json hold
 # What names a folder's tool and its piece: they go last, with files.json, once nothing else in the folder stays, so a
 # folder a clean leaves in part (a file held open, a file of the user's) is still recognised by the next.
-TOP_RECORDS = ('render_input.json', 'project.json', 'round.json', 'audition.json')
-MARKERS = ('render_input.json', 'round.json', 'audition.json')  # of those, the ones that name the tool: removed last of all
+TOP_RECORDS = ('render_input.json', 'project.json', 'round.json', 'audition.json', 'score_review.json')
+MARKERS = ('render_input.json', 'round.json', 'audition.json', 'score_review.json')  # of those, the ones that name the tool: removed last of all
 AUDITION_KEEPS = ('audition.mp3', 'audition.json')  # what a finished audition is for: the A/B and its report
 # What renders write in a cache entry (render.make_stem, audio.fluidsynth, layered, surge), and temporary files a stopped
 # run may leave there: an entry holding anything else is left alone.
@@ -100,6 +102,16 @@ def audition_record(folder):
     return r if r.get('kind') == AUDITION or same_keys else None
 
 
+def review_record(folder):
+    """score_review.json as studio.py review writes it into a folder of its own, or None.  A round's review/ is part of
+    the round.  (Six runs of 0.9.1 ended with their `review_*` folders still there, as this was the one tool that deletes.)"""
+    folder = Path(folder)
+    if folder.name == 'review' and round_record(folder.parent):
+        return None
+    r = _record(folder / 'score_review.json')
+    return r if r and r.get('not_a_perceptual_quality_score') is True and isinstance(r.get('prompts'), list) and isinstance(r.get('title'), str) else None
+
+
 def entry_record(folder):
     """A cache entry's receipt: its folder is named by its key, receipt.json names that key, raw.wav is there.  An entry a
     render of 0.5 began, with its own record or journal, stopped before its receipt, is one too: {'key', 'partial'}."""
@@ -137,8 +149,8 @@ def _entry_own(entry):
 
 
 def unit(folder):
-    """(kind, record) of a folder a tool made: a round, a render or an audition; None otherwise."""
-    for kind, read in (('round', round_record), ('render', render_record), ('audition', audition_record)):
+    """(kind, record) of a folder a tool made: a round, a render, an audition or a review; None otherwise."""
+    for kind, read in (('round', round_record), ('render', render_record), ('audition', audition_record), ('review', review_record)):
         r = read(folder)
         if r is not None:
             return kind, r
@@ -165,6 +177,8 @@ def piece(folder, kind, record):
         if project is not None:
             project = os.path.normcase(os.path.normpath(folder / project))
         return own or _title(folder / 'render' / 'project.json'), project
+    if kind == 'review':
+        return own, None
     versions = sorted(v for v in folder.glob('[0-9][0-9]_*') if _folder(v))
     return own or next((t for t in (_title(v / 'song.json') for v in versions) if t), None), None
 
@@ -192,13 +206,33 @@ def _kept(path):
     return render_dir, round_dir, title or _title(render_dir / 'project.json'), project
 
 
-def _plan(folder, kind, record, inner):
+def keys_played(render_dir):
+    """The cache key of every part a render plays, from its stem_receipts.json; None where that does not show them all (no
+    such file, a row lost, a file saved again in another shape), since a key not named is a take that would pass for unused."""
+    render_dir = Path(render_dir)
+    project = _record(render_dir / 'project.json', files.MAX_PROJECT)
+    tracks = project.get('tracks') if project else None
+    if not isinstance(tracks, list) or not _file(render_dir / 'stem_receipts.json'):
+        return None
+    try:   # bounded, as every record from elsewhere
+        rows = files.read_json(render_dir / 'stem_receipts.json')
+    except (OSError, ValueError):
+        return None
+    if not (isinstance(rows, list) and all(isinstance(r, dict) and isinstance(r.get('track'), str) and isinstance(r.get('cache_key'), str)
+                                           and ENTRY_NAME.fullmatch(r['cache_key']) for r in rows)):
+        return None
+    named = {r['track'] for r in rows}
+    return {r['cache_key'] for r in rows} if all(isinstance(t, dict) and isinstance(t.get('id'), str) and t['id'] in named for t in tracks) else None
+
+
+def _plan(folder, kind, record, inner, entries=()):
     """What removing a tool's folder takes: its own files that a record (its own, or a sub-folder's such as a round's
-    review/) lists unchanged, and what stays.  `inner` are the tool folders inside it, which go or stay on their own."""
+    review/) lists unchanged, and what stays.  `inner` are the tool folders inside it, which go or stay on their own, and
+    `entries` the cache entries in it, which go or stay by the rules of a cache and never with this folder's files."""
     folder = Path(folder)
     finished = kind == 'audition' and record.get('status', 'PASS') != 'FAIL' and _file(folder / 'audition.mp3')
     seen = files.stamp  # a record as the plan found it: size, time and file number (files.unchanged)
-    skip = set(inner) | ({folder / 'cache'} if kind == 'audition' else set())
+    skip = set(inner) | set(entries) | ({folder / 'cache'} if kind == 'audition' else set())
     records, journals = {folder: files.recorded(folder)}, {}
     take, stay, size, holders, last = [], [], 0, [], []
     for p in files.tree(folder, skip):
@@ -249,17 +283,18 @@ def _plan(folder, kind, record, inner):
     # What an audition's own cache holds besides its entries (a file of the user's put there) stays, and is named:
     # the cache is left out of the walk above.  (Found by GPT Pro's third review.)
     if kind == 'audition' and _folder(folder / 'cache'):
-        stay += [c for c in sorted((folder / 'cache').iterdir()) if not (_folder(c) and entry_record(c))]
-    return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner, 'holders': holders, 'last': last}
+        stay += [c for c in sorted((folder / 'cache').iterdir()) if c not in entries]
+    return {'kind': kind, 'take': take, 'stay': stay, 'bytes': size, 'inner': inner, 'holders': holders, 'last': last, 'entries': list(entries)}
 
 
-def _empty_folders(folder, skip, holders=(), stamps=None):
-    """Remove the folders under `folder` (deepest first, not following links, not entering `skip`) left empty, and
+def _empty_folders(folder, skip, holders=(), stamps=None, only=None):
+    """Remove the folders under `folder` (deepest first, not following links, not entering `skip`, and of `only`, where
+    given, the folders this clean took something from, so that one it took nothing from is not touched) left empty, and
     those of `holders` (sub-folders with a record of their own) left holding nothing but that record, while it is as
     the plan found it (`stamps`, the plan's records with their size and time): one written since keeps its folder, and
     the folder holding it then stays with its records (it went unseen; found by GPT Pro's fourth review of 0.4.0)."""
     for base in sorted(files.real_folders(folder, skip), key=lambda b: -len(b.parts)):
-        if base == folder:
+        if base == folder or (only is not None and base not in only):
             continue
         with suppress(OSError):
             record = base / files.RECORD
@@ -345,15 +380,11 @@ def clean(folder, keep, remove=False):
     projects = {pr for _, _, _, pr in kept if pr}
     used = set()
     for render_dir, _, _, _ in kept:
-        receipts = render_dir / 'stem_receipts.json'
-        if _file(receipts):
-            # Bounded, as every record from elsewhere: a kept render may be one (found by GPT Pro's fourth review).
-            try:
-                listed = files.read_json(receipts)
-            except ValueError as e:
-                raise ValueError(f'--keep {render_dir}: its stem_receipts.json cannot be read ({e}), so clean cannot tell '
-                                 'which cache entries it uses') from None
-            used |= {r['cache_key'] for r in listed if isinstance(r, dict) and isinstance(r.get('cache_key'), str)} if isinstance(listed, list) else set()
+        keys = keys_played(render_dir)   # every part's key, or no removal: the only copy of a Surge take may be the one not named
+        if keys is None:
+            raise ValueError(f'--keep {render_dir}: its stem_receipts.json does not name the cache key of every part of its project, '
+                             'so clean cannot tell which cache entries it uses; nothing was removed')
+        used |= keys
     protected = {k[0] for k in kept} | {k[1] for k in kept if k[1]}
     folders = _folders(root)
     rel = lambda f: Path(f).relative_to(root).as_posix()
@@ -419,15 +450,40 @@ def _hold(units, listed, remove):
 def _remove(root, kept, used, folders, units, caches, listed, left, held, remove, rel):
     """The listed folders' plans, and with `remove` their removal, each folder under its lock (`held`), which is let
     go as soon as that folder is done."""
-    plans = {f: _plan(f, kind, record, [u for u in units if u != f and f in u.parents]) for f, (kind, record) in listed.items()}
+    # Every folder named by a cache key that holds anything, with the tool folder nearest above it.  None goes with that folder's
+    # own files: an entry keeps its own record, so a walk of the folder would take it as recorded (`--cache older/cache`:
+    # removing `older` took what another piece's render plays from it).  The rules below decide; one they cannot read stays.
+    named = {f: next((u for u in f.parents if u in units), None) for f in folders
+             if f not in units and ENTRY_NAME.fullmatch(f.name) and f.parent.name != files.UNLOCKED_CACHE and any(f.iterdir())}
+    recognised = [e for e in named if entry_record(e)]
+    # A cache is the kept piece's only where its renders put one: beside a kept render or round that plays from it, or inside
+    # one of its folders that goes.  Two pieces can hold the same take, as a part's key leaves out the title, so one shared
+    # key says nothing of whose cache it is.  What cannot be shown to be the piece's stays.
+    beside = {(round_dir or render_dir).parent for render_dir, round_dir, _, _ in kept}
+    own = {c for c in caches if c.parent in beside} | {e.parent for e in recognised if named[e] in listed}
+    # A render that stays may play from the same cache (`--cache` shared with another piece): what it plays stays, and where
+    # one does not show what it plays, no entry goes.
+    kept_renders = {k[0] for k in kept}
+    staying = [keys_played(f) for f, (kind, _) in units.items() if kind == 'render' and f not in listed and f not in kept_renders]
+    known = None not in staying
+    played = used.union(*(k for k in staying if k is not None))
+    for c in sorted(caches | own):
+        if (c not in own or not known) and any(e.parent == c and e.name not in played for e in recognised):
+            left.append({'kind': 'cache', 'path': rel(c), 'title': None,
+                         'why': "neither beside a kept render or round nor inside a folder of this piece that goes, so it cannot be shown to be this piece's"
+                         if c not in own else 'a render that stays does not name the cache key of every part, so no entry goes'})
+    handled = [e for e in recognised if e.parent in own]
+    within = {}
+    for e, holder in named.items():
+        if holder in listed:
+            within.setdefault(holder, []).append(e)
+    plans ={f: _plan(f, kind, record, [u for u in units if u != f and f in u.parents], within.get(f, ())) for f, (kind, record) in listed.items()}
     # a kept round is named by its own folder, which stays whole with its render (it printed the render inside it: the
     # walkthrough of 0.8.0)
     report = {'folder': str(root), 'kept': [str(k[1] or k[0]) for k in kept], 'cache_entries_kept': len(used), 'dry_run': not remove,
               'listed': [], 'bytes': 0, 'left_alone': left, 'not_removed': []}
     # Cache entries first: an audition's own cache must be empty before its folder can go.
-    entries = [f for f in folders if f.parent in caches and f.name not in used and entry_record(f)]
-    entries += [e for f, (kind, _) in listed.items() if kind == 'audition' and _folder(f / 'cache')
-                for e in sorted((f / 'cache').iterdir()) if _folder(e) and entry_record(e)]
+    entries = [e for e in handled if e.name not in played] if known else []
     cleared = set()  # the cache entries that go (or would go, in a dry run)
     for e in entries:
         contents = list(e.iterdir())
@@ -467,26 +523,30 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
         each again took twice as long for every level of nesting (found by GPT Pro's fourth review of 0.4.0)."""
         known = {} if known is None else known
         if f not in known:
-            known[f] = (f in plans and f not in failed and not plans[f]['stay'] and all(whole(u, known) for u in plans[f]['inner'])
+            known[f] = (f in plans and f not in failed and not plans[f]['stay'] and all(e in cleared for e in plans[f]['entries'])
+                        and all(whole(u, known) for u in plans[f]['inner'])
                         and (plans[f]['kind'] != 'audition' or own_cache_goes(f)))
         return known[f]
     # Deepest first, so that a round's render is gone before the round is looked at.
     for f in sorted(plans, key=lambda f: -len(f.parts)):
         plan = plans[f]
         known = {}  # whole(), worked out once for this folder and those inside it
-        skip = set(plan['inner']) | ({f / 'cache'} if plan['kind'] == 'audition' else set())
+        skip = set(plan['inner']) | set(plan['entries']) | ({f / 'cache'} if plan['kind'] == 'audition' else set())
+        emptied = {h for p in [x for x, _ in plan['take']] + [e for e in plan['entries'] if e in cleared] for h in p.parents if f in h.parents}
+        gone = 0   # what the removal has taken so far, for a folder it cannot finish
         if remove:
             try:
                 for p, entry in plan['take']:
                     if files.unchanged(p, entry):  # still as the plan found it
                         p.unlink()
+                        gone += entry[0]
                     else:
                         plan['stay'].append(p)  # changed since: it stays, and the folder with it
                         plan['bytes'] -= entry[0]
                 if plan['kind'] == 'audition':
                     with suppress(OSError):
                         (f / 'cache').rmdir()  # an audition's own cache, once its entries are gone
-                _empty_folders(f, skip, plan['holders'], dict(plan['last']))
+                _empty_folders(f, skip, plan['holders'], dict(plan['last']), emptied)
                 goes_whole = whole(f, known) and not files.occupied(f / 'cache') if plan['kind'] == 'audition' else whole(f, known)
                 if goes_whole:
                     # The records the plan named, and nothing found anew: a file that appeared since keeps the folder,
@@ -509,9 +569,10 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
                     # record is gone (the marker itself, held open by another program), what is left of them is
                     # recorded anew, so the next clean still knows it for the tools' (_record_left).
                     try:
-                        for p, _ in sorted(plan['last'], key=lambda e: e[0].parent == f and e[0].name in MARKERS):
+                        for p, was in sorted(plan['last'], key=lambda e: e[0].parent == f and e[0].name in MARKERS):
                             if files.regular_file(p):
                                 p.unlink()
+                                gone += was[0] if was else 0
                     except OSError:
                         _record_left(f, plan['last'])
                         raise
@@ -519,9 +580,10 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
                     files.release(f, held.pop(f))  # its lock file goes last, then the folder
                     f.rmdir()
             except OSError as e:
-                # A file another program holds open: the rest stays, its records with it, and the folder is named.
+                # A file another program holds open: the rest stays, its records with it, and the folder is named with what did go.
                 failed.add(f)
-                report['not_removed'].append({'kind': plan['kind'], 'path': rel(f), 'error': str(e)})
+                report['not_removed'].append({'kind': plan['kind'], 'path': rel(f), 'error': str(e), 'bytes_removed': gone})
+                report['bytes'] += gone
                 continue
             finally:
                 if f in held:
@@ -529,10 +591,23 @@ def _remove(root, kept, used, folders, units, caches, listed, left, held, remove
         else:
             goes_whole = whole(f, known)
         # What stays: its own files no tool recorded (or changed since), and the folders inside it that stay.
-        stays = [p.relative_to(root).as_posix() for p in plan['stay']] + [rel(u) + '/' for u in plan['inner'] if not whole(u, known)]
-        report['listed'].append({'kind': plan['kind'], 'path': rel(f), 'bytes': plan['bytes'], 'whole': goes_whole,
-                                 'kept_inside': stays[:20]})
-        report['bytes'] += plan['bytes']
+        stays = ([p.relative_to(root).as_posix() + '/' * _folder(p) for p in plan['stay']] + [rel(u) + '/' for u in plan['inner'] if not whole(u, known)]
+                 + [rel(e) + '/' for e in plan['entries'] if e not in cleared])   # a take a kept render plays, or one held
+        stays_in = lambda h: (any(s == h or h in s.parents for s in plan['stay']) or any(h in e.parents for e in plan['entries'] if e not in cleared)
+                          or any(u == h or h in u.parents for u in plan['inner'] if not whole(u, known)))
+        # The records go with what they list: all of them with a folder that goes, else those of a sub-folder nothing stays in.
+        records = [was[0] for p, was in plan['last'] if was and (goes_whole or (p.parent != f and p.parent in emptied and not stays_in(p.parent))) and not (remove and files.occupied(p))]
+        if not goes_whole and not plan['take'] and not records:
+            # Nothing of it goes, so it is not a folder removed.  A finished audition down to what it keeps is its end state
+            # (every later clean listed it as one to remove: a run of 0.9.1); any other says what stays in it.
+            if not (plan['kind'] == 'audition' and not plan['inner'] and own_cache_goes(f)
+                    and all(p.parent == f and p.name in AUDITION_KEEPS for p in plan['stay'])):
+                report['left_alone'].append({'kind': plan['kind'], 'path': rel(f), 'title': None, 'why': 'what stays in it: '
+                                             + ', '.join(stays[:5]) + (f' and {len(stays) - 5} more' if len(stays) > 5 else '')})
+            continue
+        size = plan['bytes'] + sum(records)
+        report['listed'].append({'kind': plan['kind'], 'path': rel(f), 'bytes': size, 'whole': goes_whole, 'kept_inside': stays[:20]})
+        report['bytes'] += size
     return report
 
 
@@ -541,16 +616,17 @@ def describe(report):
     for r in report['listed']:
         n, b = kinds.get(r['kind'], (0, 0))
         kinds[r['kind']] = (n + 1, b + r['bytes'])
-    plural = {'render': 'renders', 'round': 'rounds', 'audition': 'auditions', 'cache entry': 'cache entries'}
+    plural = {'render': 'renders', 'round': 'rounds', 'audition': 'auditions', 'review': 'reviews', 'cache entry': 'cache entries'}
     what = ', '.join(f'{n} {k if n == 1 else plural[k]} ({b / 1e9:.2f} GB)' for k, (n, b) in kinds.items()) or 'nothing'
     verb = 'Would remove' if report['dry_run'] else 'Removed'
     lines = [f'{verb} {what} from {report["folder"]}: {report["bytes"] / 1e9:.2f} GB in all.',
              'Kept: ' + '; '.join(report['kept']) + f'; the {report["cache_entries_kept"]} cache entries they use.']
-    for r in report['listed'][:20]:
+    shown = sorted(report['listed'], key=lambda r: r['kind'] == 'cache entry')   # the folders first: an agent checks those by name
+    for r in shown[:20]:
         part = '' if r['whole'] else ' (in part: ' + ', '.join(r['kept_inside'][:5]) + (' and more' if len(r['kept_inside']) > 5 else '') + ' stay)'
         lines.append(f'- {r["kind"]}: {r["path"]} ({r["bytes"] / 1e6:.0f} MB){part}')
     if len(report['listed']) > 20:
-        lines.append(f'- and {len(report["listed"]) - 20} more')
+        lines.append(f'- and {len(report["listed"]) - 20} more (--json lists every one)')
     if report['left_alone']:
         lines.append(f'Left alone ({len(report["left_alone"])}): ' + '; '.join(
             f'{x["kind"]} {x["path"]} ({x["why"]}{": " + repr(x["title"]) if x.get("title") else ""})' for x in report['left_alone'][:10])

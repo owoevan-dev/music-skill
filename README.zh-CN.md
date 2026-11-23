@@ -57,13 +57,15 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
    /plugin install music-skill@music-skill
    ```
 
-   Codex 和其他 agent：`npx skills add owoevan-dev/music-skill`。
+   Codex CLI：`codex plugin marketplace add owoevan-dev/music-skill`，再 `codex plugin add music-skill@music-skill`。其他 agent：`npx skills add owoevan-dev/music-skill`。
 2. 让 agent 安装渲染工具和音色库。它会执行[安装](#install)一节的命令：下载约 3.7 GB，在我们的测试电脑上接着约五分钟就完成其余步骤。
 3. 用平常的话点一首曲子：
 
    > 给我的 RPG 写一首一分钟、可以循环的城镇主题：竖笛、竖琴和轻柔的弦乐。
 
 你会得到 MP3 和 WAV、MIDI、每个声部的分轨、加起来就是完整混音的总线与混响返回，以及项目文件。在一台 24 线程的笔记本电脑上，上面的示例从零开始渲染，每首用了 25 秒（小赋格和 8-bit 曲）到 156 秒（57 个声部的电影配乐）。
+
+> **在做游戏吗？** [sfx-skill](https://github.com/owoevan-dev/sfx-skill) 用同样的方式设计音效：每个声音都是可编辑的图层，不用音频生成模型，可导出到 Godot、Unity、Unreal、Roblox 和网页。
 
 ## 为什么不直接生成？
 
@@ -120,11 +122,24 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 /plugin install music-skill@music-skill
 ```
 
-**Codex 与其他 agent**
+更新：在 `/plugin` 的 Installed 标签页打开它，选 **Update now**，或在终端运行 `claude plugin update music-skill@music-skill`。第三方 marketplace 默认不会自动更新，需要的话可以在 `/plugin` 的 Marketplaces 标签页开启。
+
+**Codex CLI**
+
+```
+codex plugin marketplace add owoevan-dev/music-skill
+codex plugin add music-skill@music-skill
+```
+
+更新：先运行 `codex plugin marketplace upgrade music-skill`，再运行一次 `codex plugin add music-skill@music-skill`。
+
+**其他 agent**
 
 ```
 npx skills add owoevan-dev/music-skill
 ```
+
+更新：`npx skills update`。
 
 也可以直接把 `skills/music-production` 复制到 agent 的 skills 文件夹。
 
@@ -218,7 +233,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 <details>
 <summary><b>效果如何</b></summary>
 
-`selfcheck.py` 共有 216 项检查（没有渲染配置时为 170 项），从 MIDI 往返转换、压缩包安全到实际渲染都包含在内。例如：只改一个音时只会重新合成一个声部，而 `compare` 只在受影响的文件里、从那个音开始找到差异；旧的单一混响混音能逐位重现之前的版本；响度测量对 BS.1770 的标准测试音读出 −3.01 LUFS。CI 会跑完所有检查（包括渲染），环境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.1、FFmpeg 9.0.2，加上 Surge XT）。
+`selfcheck.py` 共有 221 项检查（没有渲染配置时为 174 项），从 MIDI 往返转换、压缩包安全到实际渲染都包含在内。例如：只改一个音时只会重新合成一个声部，而 `compare` 只在受影响的文件里、从那个音开始找到差异；旧的单一混响混音能逐位重现之前的版本；响度测量对 BS.1770 的标准测试音读出 −3.01 LUFS。CI 会跑完所有检查（包括渲染），环境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.1、FFmpeg 9.0.2，加上 Surge XT）。
 
 音乐好不好听是另一回事，只有实际聆听才知道。上面这些曲子是这个仓库最好的证据。
 
@@ -229,7 +244,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 **做出来的音乐可以用在视频、游戏或商业作品里吗？** 这个 skill 和它安装的音色库对你做出来的东西没有任何要求。音色库都不需要署名：可选音色库是 CC0 或可自由使用，MS Basic 的 MIT 许可对用它演奏的音乐没有任何要求。GPL 许可的程序（FFmpeg、Surge XT）约束的是程序本身，不是经过它们处理的音乐。至于你对 agent 帮你写的音乐是否享有著作权，取决于你所在地的法律，以及你参与塑造了多少。
 
-**哪些 agent 可以用？** 任何能加载 Agent Skills 并运行 Python 的 agent：Claude Code（以插件安装）、Codex，以及通过 `npx skills` 安装的其他 agent。
+**哪些 agent 可以用？** 任何能加载 Agent Skills 并运行 Python 的 agent：Claude Code 和 Codex CLI（以插件安装），以及通过 `npx skills` 安装的其他 agent。
 
 **需要网络或 GPU 吗？** 只有安装时需要网络；渲染在 CPU 上离线进行。你的项目文件不会发给任何人，只有你的 agent 会把它读到的内容发给它自己的模型。
 

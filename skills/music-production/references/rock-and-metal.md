@@ -244,12 +244,12 @@ The table is an example plan. Build by addition toward the chorus (McAdams, Good
 
 | Role | Bank and preset |
 |---|---|
-| Drums | `rusty`. Kick 36 (35 the open kick); snare 38, edge 39, rimshot 40, side stick 37; toms 41, 43, 45 and 47 (48 and 50 replay the 14-inch two and four semitones up); hi-hat closed 42, pedal 44, open 46; crash 49, sizzle crash 57; ride 51, bell 53, sizzle ride 59; china 52 |
+| Drums | `rusty` (its one preset is at `"patch": {"bank": 0, "program": 0}`, not at bank 128). Kick 36 (35 the open kick); snare 38, edge 39, rimshot 40, side stick 37; toms 41, 43, 45 and 47 (48 and 50 replay the 14-inch two and four semitones up); hi-hat closed 42, pedal 44, open 46; crash 49, sizzle crash 57; ride 51, bell 53, sizzle ride 59; china 52 |
 | Bass | `bass_pick` (picked); `bass_darkblack` 0:33 (fingers, five strings), 1:33 staccato |
 | Rhythm guitars | `fsbs_direct` through `mix.amp` (any voice); or the amplified banks `fsbs_dist1` and `fsbs_dist2` (distorted), `fsbs_clean` |
 | Lead | `fsbs_direct` through `mix.amp` `lead`, or `fsbs_dist2`, with legato and bends; for a different lead, `vsco` solo violin 0:40 or the trumpet 0:56 |
 | Keys | the Steinway grand `vcsl` 0:0; a Surge organ for a rock organ (`studio.py sounds --role keys --name organ --seed <piece seed>`, then `audition`) |
-| Orchestra, choir (symphonic metal) | `vsco_strings` sections, `vsco` brass, `vocal_ah`, `vcsl` timpani 0:47 ([orchestration.md](orchestration.md)) |
+| Orchestra, choir (symphonic metal) | `vsco_strings` sections, `vsco` brass, `vocal_ah` (B♭1–C4), `vcsl` timpani 0:47 ([orchestration.md](orchestration.md)) |
 
 Probe a preset before building a part on it ([soundbank-measurements.md](soundbank-measurements.md) has what each bank measured).
 

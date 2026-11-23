@@ -78,8 +78,8 @@ bongos and timbales over clave. `latin/salsa`
 | `mix` | no source read | |
 
 - **In this skill**: the `vcsl_world` congas, bongos, claves, guiro, cowbells and shakers; `blocks.drums` in the
-  `afrocuban` feel; the pianos; `vsco` trumpets and trombones; `bass_darkblack` or `bass_sneaky`. No tres and no
-  timbales: a guitar in octaves, and a cowbell with the kit's snare and toms, stand in.
+  `afrocuban` feel; the pianos; `vsco` trumpets and trombones; `bass_darkblack` or `bass_sneaky`. No tres: a guitar
+  in octaves stands in. The timbales are keys 65 and 66 of the default bank's kit (128:0).
 - **Variants**: *Latin jazz*: jazz over Latin American rhythms, Afro-Cuban jazz, set on a clave or on
   ostinatos, and Afro-Brazilian jazz, with samba and bossa nova (WP Latin jazz).
 - **Neighbours**: Samba; `jazz/modern-combo`; Cumbia.
@@ -159,8 +159,9 @@ European roots. `latin/tango`
 | `mix` | no source read | |
 
 - **In this skill**: `vsco_strings` or `iowa_strings` violins, the `vsco` flute, the pianos, `bass_sneaky`, the
-  nylon guitar. No bandoneón or accordion is in the banks: a Surge reed or organ patch, or the harmonicas of
-  `vcsl_winds`, comes nearest.
+  nylon guitar. The only bandoneón and accordion are General MIDI presets of the default bank (Bandoneon 0:23, with
+  expression 17:23; Accordion 0:21, Italian 8:21), one velocity layer each: hear them on the part against a Surge reed or
+  organ patch and the harmonicas of `vcsl_winds`.
 - **Neighbours**: `orchestral/romantic` (its salon side); Flamenco.
 
 ## Cumbia

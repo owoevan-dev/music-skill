@@ -103,7 +103,7 @@ limit with its origin.
 
 ## Voicings that move: `musiclib.voicing`
 
-`voice_lead(symbols, voices=4, low=48, high=79, start=None, ceilings=None, avoid_parallels=False, against=None)`
+`voice_lead(symbols, voices=4, low=48, high=79, start=None, ceilings=None, avoid_parallels=False, against=None, thin=False)`
 voices a chord progression for a keyboard, pad, string or brass part. It chooses pitches, not rhythm: give each
 voicing the part's own rhythm (blocks, broken chords, a strum, held tones).
 
@@ -119,19 +119,24 @@ voicing the part's own rhythm (blocks, broken chords, a strum, held tones).
   a major seventh the root goes first. Where no bass part plays (a piano or a pad alone), pass `keep_root=True`, or one
   value per chord: a rootless A♭△7 in three voices, C E♭ G, is heard as C minor. It keeps the third or the suspended tone, the seventh or sixth, a thirteenth
   and altered tones. When the range has no room for a chord as it stands, it doubles another tone, then leaves out one
-  more (a major seventh without its root under a melody, rather than a cluster).
+  more (a major seventh without its root under a melody, rather than a cluster). With too few voices even for those (two voices on a diminished seventh) it refuses, and `thin=True` keeps the third, then the seventh or sixth.
 - `against` gives, per chord, the pitches other parts sound with it: the melody, the bass, the left hand, a part
   voiced before. The voicing keeps minor seconds and ninths away from them and, where it can, leaves their pitches to
   them; the two hands of one piano cannot strike one key at once. A tone that would rub against them wherever the
   range puts it is left out: under a melody on the root of a major-seventh chord, the accompaniment plays the triad
-  (the third stays). Voice the parts in dependency order, each against what was written before it.
+  (the third stays). Where the range and the number of voices leave no tone that does not rub, it keeps one that does, which
+  `review` counts where the two notes sound together long enough for its count. Voice the parts in dependency order, each
+  against what was written before it.
 - Where the melody anticipates a downbeat and the accompaniment pushes with it, voice the next chord at that eighth;
   where the accompaniment stays on the beat, check the early note against the old chord (`review` lists the rubs).
 - `ceilings` keeps the voicing under the melody chord by chord, leaving the lead its register: the ear follows the
   highest voice's pitch best (Hove et al. 2014, in [sound-selection.md](sound-selection.md)), chords above the
   comping range crowd the lead (Israels, in [anime-opening.md](anime-opening.md)), and chords in the lead's octave are
   a cause of a lead lost in a drop ([electronic.md](electronic.md)). The example below uses the melody's lowest note in
-  the bar less a minor third. `start` begins near a given voicing; `avoid_parallels` avoids consecutive fifths and octaves
+  the bar less a minor third; under a low note or a pickup that can leave no room, and `voice_lead` then refuses or warns
+  (`GivenUp`, with a voicing that breaks the spacing): give it one voice fewer, a lower `low`, or a ceiling from the
+  notes that matter. The whole progression is solved at once, so changing one bar can move the voicings around it:
+  to leave the rest as they are, voice a phrase at a time, each from the last voicing before it. `start` begins near a given voicing; `avoid_parallels` avoids consecutive fifths and octaves
   wherever the range allows another voicing, for common-practice and choral writing (pop and rock move in parallel on
   purpose, so it is off by default). Where the range allows none, the fewest remain; `review` lists parallels between
   parts that each play one line (voices written a part each), not inside one chord part.

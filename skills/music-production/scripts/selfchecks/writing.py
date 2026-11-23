@@ -702,5 +702,87 @@ def define(S):
         four=part([4,4],.5,[k*.5 for k in range(24)])
         assert all(abs(four[f'n{k}']-(k*.5 if k%2==0 else k*.5-.5+2/3))<2/TPQ for k in range(24)),four
         return {'meters':['5/8','3/4','4/4']}
-    found = {'performance_offset_moves_whole_part': offset_shift, 'strummed_chords_follow_the_stroke': strum, 'timing_keeps_to_the_beat_by_phase_correction': keeps_to_the_beat, 'rubato_slows_phrase_ends_and_the_close': rubato, 'swing_delays_off_beats_and_keeps_the_beat': swing, 'round_robins_bow_changes_and_portamento': variation_tools, 'phrasing_helpers_arch_swell_and_hold': phrasing_helpers, 'voicing_moves_smoothly_and_spaces_chords': voicing_helper, 'building_blocks_write_parts_from_the_pieces_settings': building_blocks, 'building_blocks_add_blasts_grids_skank_pompe_batida_slides': blocks_more, 'phrase_arches_follow_the_meter': meter_arches, 'builder_keeps_the_books_and_start_writes_a_valid_piece': builder_keeps_the_books_and_start_writes_a_valid_piece, 'swing_pairs_counted_from_each_bar_line': swing_pairs_counted_from_each_bar_line}
+    def chords_few_voices_and_parts_not_written_yet():
+        # 0.9.2 (design-0.9.2.md, T2, T6, T8, M2): what the real pieces of 0.9.1 stumbled on in writing a score.
+        from musiclib.analysis import doublings,leads_over
+        from musiclib.harmony import parse
+        from musiclib.review import review
+        from musiclib.voicing import chord_tones,voice_lead
+        from musiclib import views
+        for s,iv in (('Cmaj9#11',{0,4,7,11,2,6}),('C13sus',{0,5,7,10,2,9}),('C13sus4',{0,5,7,10,2,9}),('Cmaj13#11',{0,4,7,11,2,6,9}),
+                     ('C6/9#11',{0,4,7,9,2,6}),('C69#11',{0,4,7,9,2,6}),('C9#11',{0,4,7,10,2,6})):
+            assert parse(s)['pcs']==iv and parse(s+'/E')['bass']==4,s
+        # Too few voices keep what names the chord: the third, then the seventh; the root first where it is to be kept.
+        for s,voices,want in (('Fm7',1,{8}),('Ddim7',2,{5,11}),('Bm7b5',2,{2,9}),('C7sus4',2,{5,10}),('C7#9',2,{4,10}),('C13',2,{4,10})):
+            got=voice_lead([s],voices=voices,thin=True);assert len(got[0])==voices and {x%12 for x in got[0]}==want,(s,got)
+            if s!='C7sus4':rejects(lambda:voice_lead([s],voices=voices))   # by default still refused: a script may rest on that
+        assert voice_lead(['Cm7'],voices=2)==voice_lead(['Cm7'],voices=2,thin=True) and {x%12 for x in voice_lead(['Cm7'],voices=2)[0]}=={3,10}   # what worked stays as it was
+        assert {0,3}=={x%12 for x in chord_tones('Cm7',2,keep_root=True,thin=True)},chord_tones('Cm7',2,keep_root=True,thin=True)
+        assert len(voice_lead(['Cmaj13#11','Fm7','Ddim7'],voices=3,thin=True))==3   # a progression through them, each with its three voices
+        from musiclib.views import KIND_OF
+        assert all(q in KIND_OF for q in ('9#11','maj9#11','maj13#11','6/9#11','69#11','13sus','13sus4')),'each chord quality has its kind in the score views'
+        rejects(lambda:chord_tones('C',0))
+        # A span is read by the lead of the sections it lies in, across a change of lead too.
+        led=example();melody={t['id'] for t in led['tracks'] if t.get('role')=='melody'};assert melody
+        led['plan']={'identity':'x','sections':[{'section':'question','leads':'piano'},{'section':'answer','leads':'bass'}]}
+        assert leads_over(led,0,8)=={'piano'} and leads_over(led,8,16)=={'bass'} and leads_over(led,4,12)=={'piano','bass'},leads_over(led,4,12)
+        led['plan']['sections'].pop();assert leads_over(led,4,12)=={'piano'}|melody and leads_over(example(),4,12)==melody
+        # A lead that holds a note across a span sounds there though it starts nothing; a part's name is a whole name; no lead is no lead.
+        line_of=lambda name,role,*notes:{'id':name,'role':role,'notes':[{'on':a,'duration':d,'pitch':60} for a,d in notes]}
+        tiny={'tracks':[line_of('sax','melody',(0,1),(1,1)),line_of('alto_sax','harmony',(0,4))]}
+        assert doublings(tiny,1.5,3,leads='alto_sax')==['alto_sax'] and doublings(tiny,0,1,leads='alto_sax')==['alto_sax'] and doublings(tiny,0,1,leads=None)==['sax'],doublings(tiny,0,1,leads='alto_sax')
+        gated=example();kept=next(t for t in gated['tracks'] if t.get('role')!='melody' and not t.get('drums'));ticks=Clock(gated)
+        kept['notes']=[{'id':'h0','on':0.0,'duration':4,'pitch':48}];kept['performance']['notes']={'h0':{'velocity':80,'gate':1.5}}
+        assert kept['id'] in doublings(gated,4.5,5.5,leads=kept['id'],clock=ticks) and kept['id'] not in doublings(gated,6.5,7,leads=kept['id'],clock=ticks),'by the note as played'
+        # A part the plan names and the project does not have yet is one question, whatever it was planned to do.
+        p=example();clock=Clock(p);first,second=p['sections'][0]['id'],p['sections'][1]['id']
+        real=sorted({r['section']:r['parts'] for r in views.parts_by_section(p,clock)}[second])
+        p['plan']={'identity':'x','high_point':{'section':second,'means':'register'},
+                   'sections':[{'section':second,'sounds':real+['ghost'],'leads':'ghost2','answers':['ghost4'],'register':{'ghost3':'higher'}}]}
+        asked=lambda name:review(p,work/name)
+        r=asked('review_unwritten');plans=[q for q in r['questions'] if q['id'].startswith('plan')]
+        missing='plan.unwritten:ghost+ghost2+ghost3+ghost4'
+        assert [q['id'] for q in plans]==[missing],plans
+        assert all(f'{g} ({second})' in plans[0]['text'] for g in ('ghost','ghost2','ghost3','ghost4')),plans[0]['text']
+        assert r['plan']['differences']==4 and r['plan']['kept']==0,r['plan']   # still counted as not held
+        # A real difference beside them keeps its own question, and the parts not written stay together in theirs.
+        p['plan']['sections'][0]['sounds']=real[1:]+['ghost']
+        r=asked('review_unwritten2');ids=[q['id'] for q in r['questions'] if q['id'].startswith('plan')]
+        assert ids==[f'plan:{second}',missing],ids
+        text=next(q['text'] for q in r['questions'] if q['id']==f'plan:{second}')
+        assert f'sounding and not in the plan: {real[0]}' in text and 'ghost' not in text,text
+        p['plan']['sections'][0]['sounds']=real+['ghost'];p['decisions']=list(p.get('decisions') or [])+[f'{missing}: written next round']
+        r=asked('review_unwritten3');assert not any(q['id'].startswith('plan') for q in r['questions']) and any(a['id']==missing for a in r['answered'])
+        p['plan']['sections'][0]['answers']=['ghost4','ghost5'];r=asked('review_unwritten4')   # a decision on one set does not cover a part named later
+        assert [q['id'] for q in r['questions'] if q['id'].startswith('plan')]==['plan.unwritten:ghost+ghost2+ghost3+ghost4+ghost5'],[q['id'] for q in r['questions']]
+        # A long list of notes outside the chord keeps the foreground's: forty accompaniment notes came first by time, and hid the melody's.
+        from musiclib.review import outside_chord
+        o=example();o['clock']['bars']=max(o['clock']['bars'],40);o['sections'][-1]['bars']+=o['clock']['bars']-sum(x['bars'] for x in o['sections'])
+        o['harmony']=[{'bar':1,'symbol':'C'}];ontop=next(t for t in o['tracks'] if t.get('role')=='melody');under=next(t for t in o['tracks'] if t.get('role') not in ('melody','countermelody','bass') and not t.get('drums') and t['engine']=='soundfont')
+        def lay(t,beats,pitch):
+            t['notes']=[{'id':f'{t["id"]}_{k}','on':float(b),'duration':1,'pitch':pitch+5*(k%2)} for k,b in enumerate(beats)];t['performance']['notes']={n['id']:{'velocity':80} for n in t['notes']}
+        lay(under,range(0,60,2),61);lay(ontop,[100.0,102.0],61)
+        for t in o['tracks']:
+            if t not in (ontop,under):lay(t,[],60)
+        found=outside_chord(o,Clock(o),limit=10);assert found['count']==32 and sum(x['track']==ontop['id'] for x in found['examples'])==2 and len(found['examples'])==10,found['count']
+        assert [x['beat'] for x in found['examples']]==sorted(x['beat'] for x in found['examples'])
+        # The additive engine's field `instrument` goes through song.part; on another engine an instrument is still refused.
+        from musiclib.builder import Song
+        made=Song('x',bars=1);voice=made.part('voice','melody',{'harmonics':4},engine='additive',keys=(48,72))
+        assert voice.track['instrument']=={'harmonics':4} and voice.track['engine']=='additive',voice.track
+        rejects(lambda:made.part('other','melody','violin',engine='additive'))
+        # The two synthesizer parts as the script `start` writes shows them, written out and saved.
+        from musiclib import starter
+        shown=starter.script('x',[('a',1)],[('p','harmony',None,60,1,80)],100.0,(4,4),None)
+        assert "engine='surge', surge={'preset': 'juno_60_strings'}" in shown and "synth={'preset': 'warm_pad'}" in shown,shown[:300]
+        both=Song('y',bars=1);both.section('a',1);both.part('pad','harmony',engine='surge',surge={'preset':'juno_60_strings'}).note(1,1,60,1);both.part('syn','harmony',engine='synth',synth={'preset':'warm_pad'}).note(1,1,64,1)
+        both.save(work/'two_synths.json');saved=json.loads((work/'two_synths.json').read_text(encoding='utf-8'))
+        assert {t['id']:(t['engine'],(t.get('surge') or t.get('synth'))['preset']) for t in saved['tracks']}=={'pad':('surge','juno_60_strings'),'syn':('synth','warm_pad')},saved['tracks']
+        # The melody group of a section starts from the part the plan says leads it.
+        q=example();melody=next(t for t in q['tracks'] if t.get('role')=='melody' and t['notes']);other=next(t for t in q['tracks'] if t.get('role')!='melody' and t['notes'] and not t.get('drums'))
+        span=(0,q['clock']['bars']*Clock(q).beats_per_bar)
+        assert melody['id'] in doublings(q,*span) and other['id'] in doublings(q,*span,leads=other['id'])
+        assert doublings(q,*span,leads='no_such_part')==doublings(q,*span)   # a plan's lead that does not play there leaves the melody parts
+        return {'cases':18}
+    found = {'chords_few_voices_and_parts_not_written_yet': chords_few_voices_and_parts_not_written_yet, 'performance_offset_moves_whole_part': offset_shift, 'strummed_chords_follow_the_stroke': strum, 'timing_keeps_to_the_beat_by_phase_correction': keeps_to_the_beat, 'rubato_slows_phrase_ends_and_the_close': rubato, 'swing_delays_off_beats_and_keeps_the_beat': swing, 'round_robins_bow_changes_and_portamento': variation_tools, 'phrasing_helpers_arch_swell_and_hold': phrasing_helpers, 'voicing_moves_smoothly_and_spaces_chords': voicing_helper, 'building_blocks_write_parts_from_the_pieces_settings': building_blocks, 'building_blocks_add_blasts_grids_skank_pompe_batida_slides': blocks_more, 'phrase_arches_follow_the_meter': meter_arches, 'builder_keeps_the_books_and_start_writes_a_valid_piece': builder_keeps_the_books_and_start_writes_a_valid_piece, 'swing_pairs_counted_from_each_bar_line': swing_pairs_counted_from_each_bar_line}
     return found

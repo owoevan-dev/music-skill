@@ -12,7 +12,7 @@ own and are named with every difference they decide."""
 import statistics
 
 from . import views
-from .model import PLAN_WORDS as WORDS, Clock
+from .model import Clock
 
 REGISTER_STEP = 2   # semitones the middle pitch of a part must move for `higher` or `lower` (ours)
 VELOCITY_STEP = 3   # mean performed velocity a section must move for `louder` or `softer` (the margin of sections_alike)
@@ -87,13 +87,16 @@ def compare(p, clock=None):
         before = order[order.index(name) - 1] if order.index(name) else None
         sounding = rows.get(name, {})
 
-        def settle(what, met, planned, found, text):
+        def settle(what, met, planned, found, text, unwritten=(), rest=None):
+            """`unwritten`: the parts this commitment names that the project does not have; `rest`: what differs apart
+            from them, where something does."""
             out['commitments'] += 1
             if met:
                 row['kept'].append(what)
                 out['kept'] += 1
             else:
-                row['differs'].append({'what': what, 'planned': planned, 'found': found, 'text': text})
+                row['differs'].append({'what': what, 'planned': planned, 'found': found, 'text': text,
+                                       **({'unwritten': list(unwritten)} if unwritten else {}), **({'rest': rest} if rest else {})})
                 out['differences'] += 1
 
         def absent(part):
@@ -108,17 +111,20 @@ def compare(p, clock=None):
                 said.append('planned to sound and silent: ' + ', '.join(x + (' (not a part of the project)' if x not in tracks else '') for x in silent))
             if extra:
                 said.append('sounding and not in the plan: ' + ', '.join(extra))
-            settle('sounds', not silent and not extra, planned, found, '; '.join(said))
+            real = [x for x in silent if x in tracks]
+            rest = [f'planned to sound and silent: {", ".join(real)}'] * bool(real) + [f'sounding and not in the plan: {", ".join(extra)}'] * bool(extra)
+            settle('sounds', not silent and not extra, planned, found, '; '.join(said), [x for x in silent if x not in tracks], '; '.join(rest))
         for what, parts in (('leads', [entry['leads']] if 'leads' in entry else []), ('answers', list(entry.get('answers') or []))):
             for part in parts:
                 attacks = sounding.get(part, {}).get('attacks', 0)
                 verb = 'lead' if what == 'leads' else 'answer'
                 why = absent(part) or (f'{part} only holds notes begun earlier' if part in sounding else f'{part} is silent')
-                settle(f'{what} {part}', attacks > 0, part, attacks, f'{part} is planned to {verb} and has no attack in the section ({why})')
+                settle(f'{what} {part}', attacks > 0, part, attacks, f'{part} is planned to {verb} and has no attack in the section ({why})',
+                       [part] if part not in tracks else ())
         for part, word in (entry.get('register') or {}).items():
             what = f'register {part} {word}'
             if absent(part):
-                settle(what, False, word, None, absent(part))
+                settle(what, False, word, None, absent(part), [part])
                 continue
             here = _middle(tracks[part], lo, hi)
             earlier = None
@@ -187,14 +193,26 @@ def questions(compared):
                     f'The plan names {hp["section"]} as the high point and not by what means it is one. More parts or more notes '
                     'are one means among several (register, harmony, rhythm, dynamics, a part held back until then, a texture '
                     'that thins while the line climbs); say which this piece uses, so that the score can be read against it.'))
+    unwritten = {}   # a part the plan names and the project does not have -> the sections that name it
     for s in compared['sections']:
         if not s['in_piece']:
             out.append((identifier('plan', s['section']), f'The plan has a section {s["section"]}, which the piece does not have.'))
         elif s['differs']:
-            out.append((identifier('plan', s['section']),
-                        f'Plan and score differ in {s["section"]}: ' + '; '.join(d['text'] for d in s['differs'])
-                        + '. Change the score, or change the plan and say why in decisions (the plan as first written stays in '
-                          'the rounds\' records).'))
+            for d in s['differs']:
+                for part in d.get('unwritten', ()):
+                    unwritten.setdefault(part, {})[s['section']] = True
+            differ = [d for d in s['differs'] if d.get('rest') or not d.get('unwritten')]
+            if differ:
+                out.append((identifier('plan', s['section']),
+                            f'Plan and score differ in {s["section"]}: ' + '; '.join(d.get('rest') or d['text'] for d in differ)
+                            + '. Change the score, or change the plan and say why in decisions (the plan as first written stays in '
+                              'the rounds\' records).'))
+    if unwritten:
+        # One question for them all: a score reviewed before its other parts are written asked one per section (six runs
+        # of 0.9.1), and the differences that are real were harder to see among them.
+        out.append((identifier('plan.unwritten', *sorted(unwritten)), f'The plan names part{"s" if len(unwritten) != 1 else ""} the project does not have yet: '
+                    + '; '.join(f'{part} ({", ".join(where)})' for part, where in unwritten.items())
+                    + '. Write them, or change the plan and say why in decisions.'))
     return out
 
 

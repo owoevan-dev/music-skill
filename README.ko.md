@@ -285,7 +285,7 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 
 ## 기여
 
-버그 보고, 들어 본 소감, 음원 제안은 [Issues](https://github.com/owoevan-dev/music-skill/issues)에서 환영합니다. 사용법 질문과 아이디어는 [Discussions](https://github.com/owoevan-dev/music-skill/discussions)에 남겨 주세요. 이 스킬로 만든 음악도 그곳에서 공유할 수 있습니다. 외부의 풀 리퀘스트는 지금은 받지 않습니다. 이유와 대신할 방법은 [CONTRIBUTING.md](CONTRIBUTING.md)에 있습니다.
+버그 보고, 들어 본 소감, 음원 제안은 [Issues](https://github.com/owoevan-dev/music-skill/issues)에서 환영합니다. 사용법 질문과 아이디어는 [Discussions](https://github.com/owoevan-dev/music-skill/discussions)에 남겨 주세요. 이 스킬로 만든 음악도 그곳에서 공유할 수 있습니다. 문서와 번역에 대한 풀 리퀘스트를 환영합니다. 지금 열려 있는 범위와 진행 방식은 [CONTRIBUTING.md](CONTRIBUTING.md)에 있습니다.
 
 ## 라이선스
 

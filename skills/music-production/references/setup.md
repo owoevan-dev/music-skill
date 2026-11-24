@@ -51,10 +51,16 @@ Without Surge XT the bootstrap says so and carries on, and Surge parts play thei
 
 ```text
 python <skill>/scripts/studio.py doctor --config <work>/local-config.json
+```
+
+`doctor` re-hashes every configured file, and it is the check a session needs. The selfcheck is for when something looks wrong, or after a change to the scripts:
+
+```text
+python <skill>/scripts/selfcheck.py --work <new empty folder>
 python <skill>/scripts/selfcheck.py --work <new empty folder> --config <work>/local-config.json
 ```
 
-`doctor` re-hashes every configured file. The selfcheck runs on its own, and with a configuration (`--config`) it also makes real renders, which takes longer.
+Without a configuration it runs on its own; with one (`--config`) it also makes real renders. On a fast desktop computer the first took about three minutes and left under 1 GB in its folder, the second about half an hour and about 9 GB with the full set of banks (our measurement); a laptop takes longer. The selfcheck deletes nothing, so its folder stays until it is removed.
 
 ## Optional sound banks
 

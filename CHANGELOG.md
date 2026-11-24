@@ -14,6 +14,7 @@ Small fixes. The same project renders to the same audio.
 ### Fixed
 
 - `setup.md` gave the selfcheck's counts of an earlier version.
+- The documents said the selfcheck takes several minutes. With a configuration it takes about half an hour and leaves about 9 GB, which `setup.md` now says, along with that `doctor` is the check a session needs.
 
 ### Security
 

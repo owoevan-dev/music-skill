@@ -90,7 +90,7 @@ python <skill>/scripts/studio.py clean    <project> --keep <project>/final --kee
 python <skill>/scripts/studio.py clean    <project> --keep <project>/final --keep <project>/r2 --remove   # once that list is right
 ```
 
-The rest (`analyze`, `compare`, `sounds`, `audition`, `revise`, `export-midi`, `add-soundfont`, `still`, `video`, `excerpt.py`), more of their options (each command's `--help` has them all), what a render writes, how the cache and `--resume` work and a second final render are in [commands.md](references/commands.md). Errors go to stderr as `ERROR: ...` with exit code 2. Rendering, installing banks and the selfcheck can take several minutes: run them with a long timeout or in the background. Each summary ends with the file and the keys holding the full figures ([outputs.md](references/outputs.md)); `--json` prints the full JSON.
+The rest (`analyze`, `compare`, `sounds`, `audition`, `revise`, `export-midi`, `add-soundfont`, `still`, `video`, `excerpt.py`), more of their options (each command's `--help` has them all), what a render writes, how the cache and `--resume` work and a second final render are in [commands.md](references/commands.md). Errors go to stderr as `ERROR: ...` with exit code 2. Rendering and installing banks can take several minutes, and the selfcheck with a configuration about half an hour ([setup.md](references/setup.md#check-the-setup)): run them with a long timeout or in the background. Each summary ends with the file and the keys holding the full figures ([outputs.md](references/outputs.md)); `--json` prints the full JSON.
 
 ## Writing the project
 

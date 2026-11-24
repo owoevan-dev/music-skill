@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Pull requests to the documents and translations are open. [CONTRIBUTING.md](CONTRIBUTING.md) says what is open for now and how a pull request goes, and a template asks what a pull request changes and how it was checked. A fix in the code starts with an issue.
+
 ## [0.9.3] - 2026-11-24
 
 Small fixes. The same project renders to the same audio.

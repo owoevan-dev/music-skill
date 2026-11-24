@@ -285,7 +285,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 ## 参与贡献
 
-欢迎在 [Issues](https://github.com/owoevan-dev/music-skill/issues) 报告错误、提供试听反馈或推荐音色库。使用上的问题和想法请到 [Discussions](https://github.com/owoevan-dev/music-skill/discussions)，也欢迎在那里分享用这个 skill 做的音乐。目前不接受项目外部的 Pull Request，原因和替代做法写在 [CONTRIBUTING.md](CONTRIBUTING.md) 里。
+欢迎在 [Issues](https://github.com/owoevan-dev/music-skill/issues) 报告错误、提供试听反馈或推荐音色库。使用上的问题和想法请到 [Discussions](https://github.com/owoevan-dev/music-skill/discussions)，也欢迎在那里分享用这个 skill 做的音乐。欢迎对文档和翻译提交 Pull Request，目前开放的范围和流程写在 [CONTRIBUTING.md](CONTRIBUTING.md) 里。
 
 ## 许可
 

@@ -283,7 +283,7 @@ Whether the music is good is another matter, and only listening can tell. The pi
 
 ## Contributing
 
-Bug reports, listening notes and sound bank suggestions are welcome as [issues](https://github.com/owoevan-dev/music-skill/issues). Questions and ideas go to [Discussions](https://github.com/owoevan-dev/music-skill/discussions), where you can also share music you made with the skill. Pull requests from outside the project are closed for now; [CONTRIBUTING.md](CONTRIBUTING.md) explains why, and what to do instead.
+Bug reports, listening notes and sound bank suggestions are welcome as [issues](https://github.com/owoevan-dev/music-skill/issues). Questions and ideas go to [Discussions](https://github.com/owoevan-dev/music-skill/discussions), where you can also share music you made with the skill. Pull requests to the documents and translations are welcome; [CONTRIBUTING.md](CONTRIBUTING.md) says what is open for now and how a pull request goes.
 
 ## Licence
 

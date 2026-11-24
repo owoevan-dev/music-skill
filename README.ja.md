@@ -285,7 +285,7 @@ GPU もアカウントも音声モデルも要りません。ダウンロード�
 
 ## コントリビュート
 
-不具合の報告、試聴しての感想、音源の提案は [Issues](https://github.com/owoevan-dev/music-skill/issues) で歓迎しています。使い方の質問やアイデアは [Discussions](https://github.com/owoevan-dev/music-skill/discussions) へどうぞ。このスキルで作った曲もそこで共有できます。外部からのプルリクエストは現在受け付けていません。理由と代わりの方法は [CONTRIBUTING.md](CONTRIBUTING.md) にあります。
+不具合の報告、試聴しての感想、音源の提案は [Issues](https://github.com/owoevan-dev/music-skill/issues) で歓迎しています。使い方の質問やアイデアは [Discussions](https://github.com/owoevan-dev/music-skill/discussions) へどうぞ。このスキルで作った曲もそこで共有できます。ドキュメントと翻訳へのプルリクエストを歓迎します。いま受け付けている範囲と進め方は [CONTRIBUTING.md](CONTRIBUTING.md) にあります。
 
 ## ライセンス
 

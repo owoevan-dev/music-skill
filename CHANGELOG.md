@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.9.3] - 2026-11-24
+
+Small fixes. The same project renders to the same audio.
+
+### Changed
+
+- `SKILL.md`'s setup step: an agent that does not know where the configuration is asks the user and does not search the disk for one, where it may find an old one.
+- The tests can also be started by hand from the Actions tab, on a fork too.
+
+### Fixed
+
+- `setup.md` gave the selfcheck's counts of an earlier version.
+- The documents said the selfcheck takes several minutes. With a configuration it takes about half an hour and leaves about 9 GB, which `setup.md` now says, along with that `doctor` is the check a session needs.
+
+### Security
+
+- A SoundFont's first `pdta` list must begin with the nine tables in the order FluidSynth reads them, so that the bank check and FluidSynth read the same tables. None of the banks the setup installs is affected.
+- CI's checkouts leave no token in git's configuration.
+
 ## [0.9.2] - 2026-11-23
 
 Smaller, safer and easier to install. The same project renders to the same audio.

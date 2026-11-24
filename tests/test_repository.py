@@ -145,12 +145,14 @@ def test_markdown_section_links_resolve():
 
 
 def test_readmes_offer_every_language():
-    """Each README links to every other one, so a reader can switch from any of them."""
+    """Each README links to every other one, so a reader can switch from any of them.  The five here stay, and a new
+    translation joins them with its link in every README's line of languages."""
     readmes = sorted(p.name for p in ROOT.glob('README*.md'))
-    assert len(readmes) == 5, readmes
+    assert {'README.md', 'README.ja.md', 'README.ko.md', 'README.zh-CN.md', 'README.zh-TW.md'} <= set(readmes), readmes
     for name in readmes:
         text = (ROOT / name).read_text(encoding='utf-8')
-        assert all(other in text for other in readmes if other != name), name
+        missing = [other for other in readmes if other != name and other not in text]
+        assert not missing, f'{name} does not link {missing}: add them to the line of languages at its top'
 
 
 # FreePats credits its SF2 assembly with this address; the selfcheck tests that an absolute archive member is refused.
@@ -196,21 +198,35 @@ def test_no_personal_data():
     assert not hits, '\n'.join(hits)
 
 
+JOINERS = {chr(0x200B), chr(0x200C), chr(0x200D)}  # zero-width space, non-joiner and joiner
+
+
+def between_letters(line, k):
+    """Whether line[k] stands between two letters or marks outside ASCII: where Persian writes the zero-width non-joiner
+    in ordinary words, Indic scripts the joiners and Thai the zero-width space, and where no ASCII command or address
+    can hold it."""
+    return 0 < k < len(line) - 1 and all(ord(c) > 127 and unicodedata.category(c)[0] in 'LM' for c in (line[k - 1], line[k + 1]))
+
+
 def test_no_hidden_characters():
     """No text file holds a character that does not show: bidirectional controls, zero-width characters, a byte order
     mark, other format or control characters.  A reader cannot see them and a viewer may reorder the text around them
-    (Trojan Source, CVE-2021-42574); code that needs one writes its escape."""
+    (Trojan Source, CVE-2021-42574); code that needs one writes its escape.  A README in another language may hold a
+    zero-width space, non-joiner or joiner between two letters of its script, as the language is written."""
     hits = []
     for p in repository_files():
         if not p.is_file() or {'.git', '__pycache__', '.pytest_cache'} & set(p.parts):
             continue
         if p.suffix not in ('.py', '.md', '.json', '.txt', '.tsv', '.yaml', '.yml', '.toml', '.cfg', '.svg', ''):
             continue
+        translation = p.parent == ROOT and re.fullmatch(r'README\..+\.md', p.name)
         # split on LF alone: splitlines() also breaks at U+2028, U+2029, U+0085, VT, FF and FS to RS, and so would drop
         # the very separators this looks for (the Astra review of the fixes for 0.8.0); CR is a line ending's part
         for i, line in enumerate(p.read_text(encoding='utf-8', errors='replace').split('\n'), 1):
-            bad = sorted({f'U+{ord(c):04X}' for c in line.removesuffix('\r')
-                          if unicodedata.category(c) in ('Cc', 'Cf', 'Zl', 'Zp', 'Co', 'Cs') and c != '\t'})
+            line = line.removesuffix('\r')
+            bad = sorted({f'U+{ord(c):04X} {unicodedata.name(c, "")}'.rstrip() for k, c in enumerate(line)
+                          if unicodedata.category(c) in ('Cc', 'Cf', 'Zl', 'Zp', 'Co', 'Cs') and c != '\t'
+                          and not (translation and c in JOINERS and between_letters(line, k))})
             if bad:
                 hits.append(f'{p.relative_to(ROOT)}:{i}: {", ".join(bad)}')
     assert not hits, '\n'.join(hits[:40])

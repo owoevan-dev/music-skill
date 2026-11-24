@@ -145,12 +145,14 @@ def test_markdown_section_links_resolve():
 
 
 def test_readmes_offer_every_language():
-    """Each README links to every other one, so a reader can switch from any of them."""
+    """Each README links to every other one, so a reader can switch from any of them.  The five here stay, and a new
+    translation joins them with its link in every README's line of languages."""
     readmes = sorted(p.name for p in ROOT.glob('README*.md'))
-    assert len(readmes) == 5, readmes
+    assert {'README.md', 'README.ja.md', 'README.ko.md', 'README.zh-CN.md', 'README.zh-TW.md'} <= set(readmes), readmes
     for name in readmes:
         text = (ROOT / name).read_text(encoding='utf-8')
-        assert all(other in text for other in readmes if other != name), name
+        missing = [other for other in readmes if other != name and other not in text]
+        assert not missing, f'{name} does not link {missing}: add them to the line of languages at its top'
 
 
 # FreePats credits its SF2 assembly with this address; the selfcheck tests that an absolute archive member is refused.

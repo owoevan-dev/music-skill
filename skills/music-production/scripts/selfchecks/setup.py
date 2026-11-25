@@ -553,8 +553,9 @@ def define(S):
         return {'tag':tags[0]}
     def a_bank_fluidsynth_is_not_safe_with_is_refused():
         # 0.9.2 (design-0.9.2.md, A1): a modulator's destination past FluidSynth's 63 generators writes outside a voice in
-        # the pinned build (CVE-2026-111123), so no route hands such a bank to it: add-soundfont, configure, doctor, and a
-        # render or audition, whatever the configuration says.  61 and 62 are FluidSynth's own and play.
+        # FluidSynth up to 2.6.2 (CVE-2026-111123; 0.10 pins 2.6.3, and a system's may be older), so no route hands such a
+        # bank to it: add-soundfont, configure, doctor, and a render or audition, whatever the configuration says.  61 and
+        # 62 are FluidSynth's own and play.
         import struct,subprocess,sys
         from make_example import example
         from musiclib import bankcheck

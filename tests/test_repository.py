@@ -144,14 +144,74 @@ def test_markdown_section_links_resolve():
     assert not bad, bad
 
 
+def prose_of(text):
+    """The text without its code and comments, each taken where it opens first, as a reader of the page meets them: a fenced
+    block (to its closing fence, or to the end), an HTML comment (to its close, or to the end), an inline span of backticks
+    (to the next run of as many, within its paragraph).  A fence opened inside a comment is the comment's, a comment opened
+    inside code is the code's, and a "<!--" shown in inline code opens nothing (the Astra reviews of 0.10's whole and of its
+    fixes: taken one kind after another, each order lost a real link)."""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        if i == 0 or text[i - 1] == '\n':
+            fence = re.match(r' {0,3}(`{3,}|~{3,})', text[i:i + 64])
+            if fence:
+                mark = fence.group(1)
+                close = re.compile(r'(?m)^ {0,3}%s{%d,}[ \t]*$' % (re.escape(mark[0]), len(mark)))
+                line_end = text.find('\n', i)
+                found = close.search(text, n if line_end < 0 else line_end + 1)
+                i = n if found is None else found.end()
+                continue
+        if text.startswith('<!--', i):
+            close = text.find('-->', i + 4)
+            i = n if close < 0 else close + 3
+            continue
+        if text[i] == '`':
+            ticks = re.match(r'`+', text[i:]).group(0)
+            span = re.compile(r'(?<!`)%s(?!`)' % ticks)
+            found = span.search(text, i + len(ticks))
+            paragraph_end = re.compile(r'\n[ \t]*\n').search(text, i)
+            if found and (paragraph_end is None or found.start() < paragraph_end.start()):
+                i = found.end()
+                continue
+            out.append(ticks)   # no closing run in its paragraph: the backticks are text
+            i += len(ticks)
+            continue
+        out.append(text[i])
+        i += 1
+    return ''.join(out)
+
+
+def linked_files(text):
+    """The files a Markdown text links to, as a reader can follow them: inline links ([text](target "title")), reference
+    links whose definition ([label]: target) a link uses, and HTML links (<a href="...">, '...' or unquoted), each target
+    without "./", angle brackets or an anchor; not text inside code (fenced blocks, an unclosed one to the end, indented
+    blocks after a blank line, inline spans of any number of backticks, across lines), an HTML comment, an image (inline
+    or by reference), a bracket escaped by an odd run of backslashes or an attribute that only ends in "href", and not a
+    name written as plain text, which no reader can follow (GPT Pro's final review of 0.9.3; the Astra reviews of 0.10's
+    step 2, step 3, the whole and its fixes)."""
+    prose = re.sub(r'(?m)(?:^[ \t]*\n|\A)(?:(?: {4}|\t)[^\n]*(?:\n|\Z))+', '\n', text)        # indented blocks
+    prose = prose_of(prose)                                                                    # fences, comments, inline code
+    prose = re.sub(r'(?<!\\)((?:\\\\)*)\\\[', r'\1', prose)                                    # an escaped bracket
+    prose = re.sub(r'!\[[^\]]*\](?:\([^)]*\)|\[[^\]]*\])?', '', prose)                          # images
+    targets = re.findall(r'\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+["\'(][^)]*)?\)', prose)
+    label = lambda s: ' '.join(s.lower().split())
+    defs = {label(k): v for k, v in re.findall(r'(?m)^ {0,3}\[([^\]]+)\]:[ \t]*<?([^\s>]+)', prose)}
+    rest = re.sub(r'(?m)^ {0,3}\[[^\]]+\]:.*$', '', prose)
+    used = {label(b or a) for a, b in re.findall(r'\[([^\]]*)\]\[([^\]]*)\]', rest)}
+    used |= {label(a) for a in re.findall(r'\[([^\]]+)\](?![\[(:])', rest)}
+    targets += [v for k, v in defs.items() if k in used]
+    targets += [a or b or c for a, b, c in re.findall(r'<a\s(?:[^>]*?\s)?href\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>"\']+))', prose, re.I | re.S)]
+    return {re.sub(r'^\./', '', t.split('#', 1)[0]) for t in targets}
+
+
 def test_readmes_offer_every_language():
     """Each README links to every other one, so a reader can switch from any of them.  The five here stay, and a new
     translation joins them with its link in every README's line of languages."""
     readmes = sorted(p.name for p in ROOT.glob('README*.md'))
     assert {'README.md', 'README.ja.md', 'README.ko.md', 'README.zh-CN.md', 'README.zh-TW.md'} <= set(readmes), readmes
     for name in readmes:
-        text = (ROOT / name).read_text(encoding='utf-8')
-        missing = [other for other in readmes if other != name and other not in text]
+        linked = linked_files((ROOT / name).read_text(encoding='utf-8'))
+        missing = [other for other in readmes if other != name and other not in linked]
         assert not missing, f'{name} does not link {missing}: add them to the line of languages at its top'
 
 
@@ -346,4 +406,4 @@ def test_selfcheck(tmp_path):
     assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-3000:]
     report = load(work / 'selfcheck_report.json')
     assert report['status'] == 'PASS' and all(c['passed'] for c in report['checks'])
-    assert len(report['checks']) == (221 if CONFIG else 174), [c['name'] for c in report['checks']]
+    assert len(report['checks']) == (226 if CONFIG else 179), [c['name'] for c in report['checks']]

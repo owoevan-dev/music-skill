@@ -448,6 +448,10 @@ def install_split(item, runtime, offline, ffmpeg=None):
             'source': f'{item["page"]} ({len(item["files"])} recordings) with references/{item["spec"]}',
             'version': item['version'], 'verified_samples': len(item['files'])}
 
+# As bootstrap.py prints it (0.10); kept out of musiclib.files, part of what a cached synthesis depends on.
+LATER_SESSIONS = ('NOTE later sessions | studio.py takes this configuration from MUSIC_SKILL_CONFIG when --config is left out: set that to its absolute path, or name the file in your agent instructions (CLAUDE.md, AGENTS.md), so a later session finds it without searching the disk')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--config', type=Path, required=True)
@@ -463,6 +467,9 @@ def main():
     ap.add_argument('--delete-sources', action='store_true',
                     help='after every requested bank is verified, delete the downloads they were made from')
     args = ap.parse_args()
+    from musiclib.homepath import at_home
+    for name in ('config', 'runtime', 'output', 'archive_cache', 'vsco_source', 'prebuilt_from'):  # ~/ as the user's home (0.10)
+        setattr(args, name, at_home(getattr(args, name)))
     files.check_config_path(args.output, '--output')
     # The downloads' folder given as a link is refused before it is resolved, as a render's cache is (N1).
     if args.archive_cache and files.linked(args.archive_cache):
@@ -534,6 +541,7 @@ def _install(args, lock, only, prebuilt, config, runtime):
     # The banks that did install are written to the configuration either way; a failure is listed and ends in exit 2.
     files.save_config(args.output, config, '--output')  # never over a bank or record this run put at that path
     print('Saved', args.output.resolve())
+    print(LATER_SESSIONS, flush=True)
     if failed:
         raise ValueError(f'{len(failed)} bank(s) failed: ' + '; '.join(f'{k}: {v}' for k, v in failed.items()) +
                          '.  The others are configured; run again with --only ' + ','.join(failed) + ' (and a new --output) to retry.')

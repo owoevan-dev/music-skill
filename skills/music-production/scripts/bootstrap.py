@@ -292,6 +292,11 @@ def install_catalog(runtime,cache,args,config):
     config['surge']['catalog']=str(target)
     print('VERIFIED surge_catalog |',len(doc['presets']),'patches',flush=True)
 
+# Printed after the configuration is saved (0.10), so that whoever ran the setup records where it is.  Here and in
+# fetch_soundbanks.py, not in musiclib.files: that module is part of what a cached synthesis depends on (render.SYNTHESIS).
+LATER_SESSIONS = ('NOTE later sessions | studio.py takes this configuration from MUSIC_SKILL_CONFIG when --config is left out: set that to its absolute path, or name the file in your agent instructions (CLAUDE.md, AGENTS.md), so a later session finds it without searching the disk')
+
+
 def main():
     ap=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--runtime',type=Path,required=True);ap.add_argument('--config',type=Path,required=True);ap.add_argument('--archive-cache',type=Path);ap.add_argument('--offline',action='store_true')
@@ -301,6 +306,9 @@ def main():
     ap.add_argument('--surge-vst3',type=Path,help='this Surge XT.vst3 bundle instead of the pinned build (or, where none is pinned, the usual VST3 folders)')
     ap.add_argument('--no-surge-catalog',action='store_true',help='skip the full Surge patch set (about 217 MB): only the curated patches; parts that name a catalog patch play their fallback presets')
     args=ap.parse_args()
+    from musiclib.homepath import at_home
+    for name in ('runtime','config','archive_cache','fluidsynth','ffmpeg','surge_vst3'):  # ~/ as the user's home, as a shell would (0.10: ~/.music-skill/)
+        setattr(args,name,at_home(getattr(args,name)))
     system=args.system or os.name!='nt'
     files.check_config_path(args.config,'--config')
     # The downloads' folder given as a link is refused before it is resolved, as a render's cache is (N1).
@@ -354,6 +362,7 @@ def _install(args,system,runtime):
     files.save_config(args.config,config,'--config')  # never over a bank or record the setup put at that path
     save_receipts(runtime,receipts)
     print('Saved',args.config.resolve())
+    print(LATER_SESSIONS,flush=True)
 
 def save_receipts(runtime,receipts):
     """The receipts take their place as an installed file does (files.place): a dependency_receipts.json the bootstrap

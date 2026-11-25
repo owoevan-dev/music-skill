@@ -230,8 +230,15 @@ def audition(project_file, track_id, sounds, first_bar, last_bar, output, config
                         report = folder / 'render' / 'report.json'
                         checks = (json.loads(report.read_text(encoding='utf-8')).get('checks', {})
                                   if report.is_file() else {})
-                        if k == len(tails) - 1 or [c for c, ok in checks.items() if not ok] != ['tail_quiet']:
+                        if [c for c, ok in checks.items() if not ok] != ['tail_quiet']:
                             raise
+                        if k == len(tails) - 1:
+                            # the render's advice names more seconds of tail, past the 15 s a project takes (a release
+                            # walkthrough of 0.10 was sent there): say what is left to do instead
+                            raise ValueError(f'{current}: its master still sounds at the end of a {tail:g} s tail, the longest a '
+                                             'project takes, so no tail ends it here (its own reverb or delay rings on): hear '
+                                             'the other sounds without it, or this one on a passage that ends in a rest; '
+                                             f'{folder / "render" / "report.json"} has how loud it still is') from None
                         # This run's own render, made again with a longer tail: only what its record lists goes; a file
                         # put there meanwhile keeps it, and the audition stops rather than remove it (the whole folder
                         # went; found by GPT Pro's fifth review of 0.4.0).

@@ -4,15 +4,15 @@
   "downloads": [
     {
       "id": "fluidsynth",
-      "filename": "fluidsynth-2.6.1.zip",
-      "url": "https://github.com/FluidSynth/fluidsynth/releases/download/v2.6.1/fluidsynth-v2.6.1-win10-x64-cpp11.zip",
-      "sha256": "fab7a2e4b85675b66970f97a39bbc239729c5e0f237198b5922a6a73cbc8677c",
-      "bytes": 2727529,
+      "filename": "fluidsynth-2.6.3.zip",
+      "url": "https://github.com/FluidSynth/fluidsynth/releases/download/v2.6.3/fluidsynth-v2.6.3-win10-x64-cpp11.zip",
+      "sha256": "5522023a247de0e7d27c7678733d5abe7a591ef3b5fa400a520b8b50e0ae3791",
+      "bytes": 2732393,
       "license": "LGPL-2.1-or-later",
-      "version": "2.6.1",
-      "checksum_evidence": "GitHub official release asset digest matched local archive",
-      "executable": "fluidsynth-v2.6.1-win10-x64-cpp11/bin/fluidsynth.exe",
-      "executable_sha256": "557b9e98d860a6df6a927e58f6cc274d6451a046da780a1011810d9d00db133d"
+      "version": "2.6.3",
+      "checksum_evidence": "GitHub official release asset digest matched local archive (2026-11-25)",
+      "executable": "fluidsynth-v2.6.3-win10-x64-cpp11/bin/fluidsynth.exe",
+      "executable_sha256": "a5b9510d73140a31d7d8126858e34151630341f7d38f79b984395c106fba8430"
     },
     {
       "id": "ffmpeg",

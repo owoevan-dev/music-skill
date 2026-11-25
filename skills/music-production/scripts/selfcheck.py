@@ -1,5 +1,6 @@
 """Observable invariants and optional real render/revision tests. Not a taste test."""
 import argparse
+import os
 import importlib
 import fnmatch
 import json
@@ -138,6 +139,7 @@ ROSTER = (
     'range_control_lifts_soft_passages_only',
     'review_flags_far_transposed_samples_and_missing_keys',
     'a_piano_part_on_another_piano_is_asked_about',
+    'review_asks_when_the_sound_and_the_notes_disagree',
     'analysis_groups_octave_doublings_and_suggests_cuts',
     'analysis_names_the_parts_that_carry_the_top',
     'integer_fields_and_unknown_fields_are_reported',
@@ -178,8 +180,12 @@ ROSTER = (
     'every_command_has_help_and_an_example',
     'messages_say_where_what_and_the_rule',
     'instruments_reads_keys_and_layers_from_the_bank',
+    'config_taken_from_music_skill_config',
+    'motion_reads_what_a_held_note_does',
+    'sounds_without_leaves_out_whole_words',
     'own_folder_and_sfz_build_banks',
     'builder_keeps_the_books_and_start_writes_a_valid_piece',
+    'start_names_any_sound_a_part_plays',
     'aiff_reader_decodes_each_kind_it_takes',
     'slur_legato_plays_one_line',
     'synth_modulation_in_beats_follows_the_tempo',
@@ -279,6 +285,10 @@ def checks(work,config=None,only=None,keep_going=False):
         if only is not None and name not in prerequisites and not any(fnmatch.fnmatchcase(name,pattern) for pattern in only):
             skipped.append(name);return
         began=time.monotonic()
+        # the commands a check starts run without MUSIC_SKILL_CONFIG when checks() is called as a library too, and the
+        # caller's variable comes back after (the main guard's removal alone left a caller's CI variable to the builder
+        # check's start: the Astra review of the whole of 0.10)
+        held=os.environ.pop('MUSIC_SKILL_CONFIG',None)
         try:
             details=fn();results.append({'name':name,'passed':True,'details':details,'seconds':round(time.monotonic()-began,3)})
             print('PASS',name,flush=True)
@@ -287,6 +297,8 @@ def checks(work,config=None,only=None,keep_going=False):
             if not keep_going:
                 save_json(work/'selfcheck_report.json',{'status':'FAIL','checks':results});raise
             results[-1]['traceback']=traceback.format_exc(limit=-4)[-3000:];print('FAIL',name,repr(e)[:300],flush=True)
+        finally:
+            if held is not None:os.environ['MUSIC_SKILL_CONFIG']=held
     def rejects(fn):
         try:fn()
         except ValueError:return True
@@ -354,6 +366,13 @@ if __name__=='__main__':
     p.add_argument('--only',action='append',metavar='PATTERNS',help='run only the checks whose names match one of these comma-separated fnmatch patterns, e.g. "loop_*,revision_rounds_and_clean"; repeatable')
     p.add_argument('--keep-going',action='store_true',help='run every check and report all that fail, instead of stopping at the first failure')
     args=p.parse_args()
+    from musiclib.homepath import at_home
+    args.work,args.config=at_home(args.work),at_home(args.config)  # ~/ as the user's home (0.10)
+    # MUSIC_SKILL_CONFIG is not read here (without --config the checks run without one), and the commands the checks
+    # start must not read it either: CI sets it for the repository's tests, and a `studio.py start` checked for its
+    # refusal without a configuration took the variable's (the Astra review of 0.10's step 2).  A check that tries the
+    # variable sets it for its own commands.
+    os.environ.pop('MUSIC_SKILL_CONFIG',None)
     only=[x.strip() for v in (args.only or []) for x in v.split(',') if x.strip()] or None
     # The checks write many files under fixed names, so the folder must be new or empty: a report there or not, what
     # it already holds is not theirs to overwrite.

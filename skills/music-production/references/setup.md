@@ -15,10 +15,10 @@ requirements.txt names every file PyPI publishes for the NumPy it pins, by SHA-2
 ## Windows x64
 
 ```text
-python <skill>/scripts/bootstrap.py --runtime <work>/.runtime --config <work>/local-config.json
+python <skill>/scripts/bootstrap.py --runtime <work>/.runtime --config ~/.music-skill/local-config.json
 ```
 
-This downloads the pinned FluidSynth 2.6.1 (2.7 MB) and FFmpeg 9.0.2 essentials (115 MB) builds from their official GitHub releases and the MuseScore MS Basic SF3 (51 MB) from a pinned MuseScore commit. Every size and SHA-256 must match `runtime-lock.json`, or installation stops. Nothing runs an installer or changes the registry or PATH. With the archives already downloaded, add `--archive-cache <folder> --offline`.
+This downloads the pinned FluidSynth 2.6.3 (2.7 MB) and FFmpeg 9.0.2 essentials (115 MB) builds from their official GitHub releases and the MuseScore MS Basic SF3 (51 MB) from a pinned MuseScore commit. Every size and SHA-256 must match `runtime-lock.json`, or installation stops. Nothing runs an installer or changes the registry or PATH. With the archives already downloaded, add `--archive-cache <folder> --offline`. A setup run again with another FluidSynth (a new pin) changes the cache key of every part, as each names the FluidSynth build: the next render of a piece synthesizes every part again, a Surge part with other oscillator phases, so run it between pieces.
 
 Folder names may hold any characters and spaces: the setup, a render with Surge XT parts and the selfcheck were run in folders whose names held Chinese characters, spaces and 喆, which code page 950 lacks (Python on Traditional Chinese Windows writes piped output in that page), and the scripts print a character their output cannot hold as an escape (喆 as `喆`). Keep the runtime folder's path under 120 characters: Windows limits a path to 260 characters unless long paths are turned on and the program opts in (Microsoft, [Maximum Path Length Limitation](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation)), FluidSynth 2.6.1 does not opt in, and the setup writes files up to 133 characters below the runtime folder (our measurement).
 
@@ -31,10 +31,10 @@ Install the tools from your package manager, then bootstrap with `--system`:
 ```text
 sudo apt install fluidsynth ffmpeg libarchive-tools        # Debian 13, Ubuntu 24.04 or newer
 brew install fluid-synth ffmpeg                             # macOS
-python3 <skill>/scripts/bootstrap.py --system --runtime <work>/.runtime --config <work>/local-config.json
+python3 <skill>/scripts/bootstrap.py --system --runtime <work>/.runtime --config ~/.music-skill/local-config.json
 ```
 
-`--system` records the `fluidsynth` and `ffmpeg` found on PATH (or given with `--fluidsynth` and `--ffmpeg`) with their hash and version, and downloads only MS Basic and its licence notice, checked against the lock. It refuses FFmpeg older than 6.0. `libarchive-tools` provides `bsdtar` for the optional .7z banks. The repository's CI renders with FluidSynth 2.3.4 and FFmpeg 6.1 on Ubuntu 24.04 and with FluidSynth 2.6.1 and Homebrew's FFmpeg 9.0 on macOS; other binary versions may produce slightly different samples.
+`--system` records the `fluidsynth` and `ffmpeg` found on PATH (or given with `--fluidsynth` and `--ffmpeg`) with their hash and version, and downloads only MS Basic and its licence notice, checked against the lock. It refuses FFmpeg older than 6.0. `libarchive-tools` provides `bsdtar` for the optional .7z banks. The repository's CI renders with FluidSynth 2.3.4 and FFmpeg 6.1 on Ubuntu 24.04 and with Homebrew's current FluidSynth and FFmpeg on macOS (2.6.2 and 9.0 in its run of 24 November 2026); other binary versions may produce slightly different samples.
 
 Homebrew's `ffmpeg` is built without `libvorbis`, the Vorbis encoder the skill uses, so a game loop rendered with it gets `loop.wav` but no `loop.ogg`, and the render notes the Ogg copy as skipped. For the Ogg copy, install `ffmpeg-full`, which Homebrew keeps off PATH, and give it to the bootstrap: `brew install ffmpeg-full`, then `--ffmpeg "$(brew --prefix ffmpeg-full)/bin/ffmpeg"`. The bootstrap says when an FFmpeg cannot write Ogg, and so does `studio.py doctor`.
 
@@ -47,17 +47,23 @@ Unless you pass `--no-surge`, the bootstrap also sets up Surge XT for `surge` pa
 
 Without Surge XT the bootstrap says so and carries on, and Surge parts play their fallback presets on the built-in synth. Surge XT and pedalboard are GPL-3.0 programs; they run only inside `scripts/surge_host.py`, a GPL-3.0-or-later program the renderer starts as its own process and exchanges files with, so the rest of the skill stays MIT, and what you render with them is yours. An optional piece that fails to install (no wheel for this Python, a changed file) is skipped with its reason and the configuration is still written. Loading the plugin and a patch takes under a second per part; afterwards the render cache keeps the part's take.
 
+## Where later sessions find the configuration
+
+The configuration is a small file, and the one the setup writes may lie apart from the runtime folder it names: every path in it is absolute, so the runtime can sit on a larger drive (a configuration you wrote yourself may hold paths relative to its own folder, and moves with them). Write it into `~/.music-skill/`, as the commands above do: that folder and the environment variable `MUSIC_SKILL_CONFIG` are the two places a session looks when nobody names the configuration, and it searches nowhere else, since a file found elsewhere may be old or someone else's and a configuration names the programs that run. After saving the configuration the setup prints a `NOTE later sessions` line to that effect.
+
+To make a later session find it at once, set `MUSIC_SKILL_CONFIG` to its absolute path (a relative one is refused: each folder a command runs in would find another file), or name the path in your agent's instructions (`CLAUDE.md` for Claude Code, `AGENTS.md` for Codex). `studio.py round`, `render`, `audition`, `instruments`, `video`, `doctor` and `start` take the file `MUSIC_SKILL_CONFIG` names when `--config` is left out, and say so on stderr (`NOTE: --config <path> (from MUSIC_SKILL_CONFIG)`); a `--config` given wins. `review`, `analyze` and `compare` use a configuration only when it is named, and the selfcheck runs without one unless `--config` names it. `--config`, `MUSIC_SKILL_CONFIG` and the setup's own paths read a leading `~/` (or `~` alone) as your home folder, in PowerShell too, which passes `~` to a program as it is; a name such as `~notes.json` stays that file.
+
 ## Check the setup
 
 ```text
-python <skill>/scripts/studio.py doctor --config <work>/local-config.json
+python <skill>/scripts/studio.py doctor --config ~/.music-skill/local-config.json
 ```
 
-`doctor` re-hashes every configured file, and it is the check a session needs. The selfcheck is for when something looks wrong, or after a change to the scripts:
+`doctor` re-hashes FluidSynth, FFmpeg and every configured bank, refuses a bank FluidSynth is not safe with, runs both programs, and checks that Surge XT and pedalboard are where the configuration says. It is the check a session needs. The selfcheck is for when something looks wrong, or after a change to the scripts:
 
 ```text
 python <skill>/scripts/selfcheck.py --work <new empty folder>
-python <skill>/scripts/selfcheck.py --work <new empty folder> --config <work>/local-config.json
+python <skill>/scripts/selfcheck.py --work <new empty folder> --config ~/.music-skill/local-config.json
 ```
 
 Without a configuration it runs on its own; with one (`--config`) it also makes real renders. On a fast desktop computer the first took about three minutes and left under 1 GB in its folder, the second about half an hour and about 9 GB with the full set of banks (our measurement); a laptop takes longer. The selfcheck deletes nothing, so its folder stays until it is removed.
@@ -65,7 +71,7 @@ Without a configuration it runs on its own; with one (`--config`) it also makes 
 ## Optional sound banks
 
 ```text
-python <skill>/scripts/fetch_soundbanks.py --config <work>/local-config.json --runtime <work>/.runtime --output <work>/local-config.studio.json
+python <skill>/scripts/fetch_soundbanks.py --config ~/.music-skill/local-config.json --runtime <work>/.runtime --output ~/.music-skill/local-config.studio.json
 ```
 
 This adds the banks in [soundbanks.md](soundbanks.md) to a new configuration: three FSBS electric guitars (352, 131 and 149 MB to download) and the same guitar recorded from its pickup (67 MB), two basses (2–3 MB each), all six repacked unchanged from FreePats, and twenty-five banks built here from the samples of pinned commits or of the University of Iowa site:
@@ -74,9 +80,9 @@ This adds the banks in [soundbanks.md](soundbanks.md) to a new configuration: th
 - band and solo: a rock kit (Big Rusty Drums), a five-string bass, a pizzicato double bass, an archtop guitar, a solo cello, a tuba, a baritone and a tenor saxophone, recorders and harmonicas;
 - world: an erhu, a steel pan, a folk harp, a dan tranh, kalimbas, a balafon and world percussion; and a sung "ah".
 
-The twenty-five come as this project built them: one xz-compressed SF2 each from the repository's release `soundbanks-1`, 2.9 GB in all, checked by size and SHA-256, then unpacked and checked against the build's locked hash, so each is byte for byte what a build from the sources gives. Where the release cannot be reached or a file does not match, that bank is built from its sources instead; `--from-source` builds them all that way (larger downloads, and the builds take a while), and `--prebuilt-from <folder>` takes the assets from a local copy. The five FreePats banks come from the same release, their files repacked unchanged as tar.xz (0.6 GB) and checked against the hashes of FreePats' own files; only where the release cannot be reached do they come from FreePats as .7z archives, which need a tar with LZMA or 7-Zip (Windows 10's own tar cannot read them). All thirty are about 3.5 GB to download and 8.2 GB installed; each bank's sizes are in [soundbanks.md](soundbanks.md). `--only` takes bank names (`--only vcsl,rusty`) and groups: `orchestra` (1.5 GB to download), `band` (1.3 GB), `world` (0.5 GB) and `examples`, the banks the published examples use (2.5 GB). `--delete-sources` deletes the downloads once every requested bank is verified (the banks stay; installing one again downloads it again). Every archive, asset and sample is checked against `soundbank-lock.json`, a dropped download is tried again, and each build must reproduce its locked hash. Large banks are loaded only by the tracks that select them. A project that names a bank not yet configured stops with the command that installs it.
+The twenty-five come as this project built them: one xz-compressed SF2 each from the repository's release `soundbanks-1`, 2.9 GB in all, checked by size and SHA-256, then unpacked and checked against the build's locked hash, so each is byte for byte what a build from the sources gives. Where the release cannot be reached or a file does not match, that bank is built from its sources instead; `--from-source` builds them all that way (larger downloads, and the builds take a while), and `--prebuilt-from <folder>` takes the assets from a local copy. The six FreePats banks come from the same release, their files repacked unchanged as tar.xz (0.7 GB) and checked against the hashes of FreePats' own files; only where the release cannot be reached do they come from FreePats as .7z archives, which need a tar with LZMA or 7-Zip (Windows 10's own tar cannot read them). All thirty-one are about 3.6 GB to download and 8.2 GB installed; each bank's sizes are in [soundbanks.md](soundbanks.md). `--only` takes bank names (`--only vcsl,rusty`) and groups: `orchestra` (1.5 GB to download), `band` (1.6 GB), `world` (0.5 GB) and `examples`, the banks the published examples use (2.2 GB). `--delete-sources` deletes the downloads once every requested bank is verified (the banks stay; installing one again downloads it again). Every archive, asset and sample is checked against `soundbank-lock.json`, a dropped download is tried again, and each build must reproduce its locked hash. Large banks are loaded only by the tracks that select them. A project that names a bank not yet configured stops with the command that installs it.
 
-The downloads stay in the runtime folder unless you add `--delete-sources`, which deletes a download or a sample only while it is still the installer's own (its locked size and hash) and names anything else it finds there: all thirty take about 3.5 GB to download and 8.2 GB installed, so keep about 12 GB free. An install replaces only what an earlier install put there; a file of yours at the same place is renamed aside (`<name>.replaced-<time>`), never deleted. A bank that fails (a lost connection after its retries, a missing tool) is listed at the end; the others are still configured. A build from the sources (`--from-source`, or where the release cannot be reached) fetches only the samples the lock pins for it, each path with its git blob hash and size (a source listing that names others is refused before anything is fetched), and reproduces the locked hashes with NumPy 2.1.2, the version `requirements.txt` pins for Python 3.10–3.13; with another NumPy a few samples can round differently and the build stops with that reason. The prebuilt banks do not depend on it.
+The downloads stay in the runtime folder unless you add `--delete-sources`, which deletes a download or a sample only while it is still the installer's own (its locked size and hash) and names anything else it finds there: all thirty-one take about 3.6 GB to download and 8.2 GB installed, so keep about 12 GB free. An install replaces only what an earlier install put there; a file of yours at the same place is renamed aside (`<name>.replaced-<time>`), never deleted. A bank that fails (a lost connection after its retries, a missing tool) is listed at the end; the others are still configured. A build from the sources (`--from-source`, or where the release cannot be reached) fetches only the samples the lock pins for it, each path with its git blob hash and size (a source listing that names others is refused before anything is fetched), and reproduces the locked hashes with NumPy 2.1.2, the version `requirements.txt` pins for Python 3.10–3.13; with another NumPy a few samples can round differently and the build stops with that reason. The prebuilt banks do not depend on it.
 
 ## Your own tools or banks
 
@@ -90,8 +96,8 @@ A configuration records paths (absolute, or relative to the configuration file) 
 ## Small functional example
 
 ```text
-python <skill>/scripts/studio.py start <work>/example --title Example --section a:4 --part "piano harmony" --part "kit drums" --config <work>/local-config.json
-python <skill>/scripts/studio.py render <work>/example/song.json --config <work>/local-config.json --output <work>/example_render
+python <skill>/scripts/studio.py start <work>/example --title Example --section a:4 --part "piano harmony" --part "kit drums" --config ~/.music-skill/local-config.json
+python <skill>/scripts/studio.py render <work>/example/song.json --config ~/.music-skill/local-config.json --output <work>/example_render
 ```
 
 A four-bar skeleton, one note a part, that checks the setup, not a musical demonstration. To revise a passage on its own, `excerpt.py` cuts bars into a new project that plays the passage as the piece does: a note written across its start and still sounding there is re-attacked; one written to end at or before the start that only its gate carries past it is a legato overlap, part of the next note's attack, and is left out (a re-attack would double it), one written before the start that its timing plays after it plays where the piece plays it, and one of the passage's that its timing plays before the start sounds at the start; dynamics, bends, filter sweeps, CC and automation are cut at the values they have there, linear CC ramps included; and the piece's ritardandi that reach into the passage are kept (`clock.rubato.spans`). A loop is left out. For an exact audio excerpt cut the finished WAV instead.

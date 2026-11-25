@@ -23,6 +23,12 @@ EXAMPLES = """The usual order of a piece (SKILL.md gives it in full):
   python studio.py analyze render_final
 Each command's own help and example: python studio.py COMMAND --help"""
 
+# 0.10: a command that needs the configuration takes it from MUSIC_SKILL_CONFIG when --config is left out, so a later
+# session finds the one the user recorded without searching the disk; start too, which finds its parts' presets in it.
+# review, analyze and compare use a configuration only when it is named, as before.
+CONFIG_FROM_ENVIRONMENT = ('round', 'render', 'audition', 'instruments', 'video', 'doctor', 'start')
+CONFIG_HELP = 'the renderer configuration bootstrap.py wrote (default: the file MUSIC_SKILL_CONFIG names)'
+
 
 class Parser(argparse.ArgumentParser):
     """argparse's parser, its errors in the form every other error takes (SKILL.md: Errors go to stderr as `ERROR: ...`
@@ -45,9 +51,9 @@ def build_parser():
                'python studio.py start harbour --title "Harbour Lights" --tempo 96 --section verse:8 --section chorus:8 --part "piano harmony vcsl 0:0" --part "lead melody iowa_winds 0:73" --config config.json')
     st.add_argument('folder',type=Path,help="the piece's folder: a new one, or one with its brief and words but no compose.py or song.json");st.add_argument('--title',required=True,help="the piece's title")
     st.add_argument('--section',action='append',required=True,metavar='ID:BARS',help='a section and its bars, in order (repeatable)')
-    st.add_argument('--part',action='append',required=True,metavar='"ID ROLE [INSTRUMENT]"',help='a part: its id, its role (melody, harmony, bass, drums, ...) and words that find its preset in the configured banks, as studio.py instruments takes them (repeatable)')
+    st.add_argument('--part',action='append',required=True,metavar='"ID ROLE [INSTRUMENT]"',help='a part: its id, its role (melody, harmony, bass, drums, ...) and words that find its preset in the configured banks, as studio.py instruments takes them, or a sound as audition --sounds names one: surge:<id> (studio.py sounds), synth:<preset>, soundfont:<bank>:<bank number>:<program> (repeatable)')
     st.add_argument('--tempo',type=float,default=100,help='quarter-note BPM (default 100)');st.add_argument('--meter',default='4/4',help='beats/beat unit (default 4/4)')
-    st.add_argument('--config',type=Path,help="the renderer configuration bootstrap.py wrote: needed to find the parts' presets")
+    st.add_argument('--config',type=Path,help="the renderer configuration bootstrap.py wrote: needed to find the parts' presets (default: the file MUSIC_SKILL_CONFIG names)")
     cmd=command('validate','Check a project against the schema; print its size and any unknown field with the nearest known name','python studio.py validate song.json');project(cmd)
     cmd=command('review','Ask the questions a score raises (range, collisions, form, the plan), each with where it is; write score_review.json','python studio.py review song.json --output review_1')
     project(cmd);cmd.add_argument('--output',type=Path,required=True,help='a new folder for the review')
@@ -55,7 +61,7 @@ def build_parser():
     rnd=command('round','One revision round: validate, review, a draft render, analyze it and compare it with the previous round, each with a short summary',
                 'python studio.py round song.json --output round_2 --config config.json --previous round_1')
     rnd.add_argument('project',type=Path,help='the project file (JSON)');rnd.add_argument('--output',type=Path,required=True,help='a new folder for the round: review/, render/ and round.json')
-    rnd.add_argument('--config',type=Path,required=True,help='the renderer configuration bootstrap.py wrote');rnd.add_argument('--previous',type=Path,help="the previous round's folder (or a render folder) to compare with")
+    rnd.add_argument('--config',type=Path,help=CONFIG_HELP);rnd.add_argument('--previous',type=Path,help="the previous round's folder (or a render folder) to compare with")
     rnd.add_argument('--cache',type=Path,help='default: the folder cache next to the round, which every round shares')
     rnd.add_argument('--jobs',type=int,help='parts rendered at once (as render --jobs)')
     rnd.add_argument('--span',action='append',default=[],metavar='NAME:FIRST-LAST',help='also analyze bars FIRST to LAST (1-based) under NAME; repeatable')
@@ -65,7 +71,7 @@ def build_parser():
     cmd=command('render','Render, mix and master a project into a new folder: stems, buses, the master as WAV, FLAC and MP3, MIDI, and a game loop where asked',
                 'python studio.py render song.json --output render_final --config config.json')
     project(cmd);cmd.add_argument('--output',type=Path,required=True,help='a new folder for the render');as_json(cmd)
-    cmd.add_argument('--config',type=Path,required=True,help='the renderer configuration bootstrap.py wrote')
+    cmd.add_argument('--config',type=Path,help=CONFIG_HELP)
     cmd.add_argument('--cache',type=Path,help="the parts' synthesis cache (default: the folder cache next to the output), shared by renders of the piece")
     cmd.add_argument('--resume',action='store_true',help='take up a render of the same project that stopped, in its own folder')
     cmd.add_argument('--jobs',type=int,help='parts rendered at once (default: one per processor, at most 8, each waiting for its share of the free memory; the result is the same)')
@@ -94,17 +100,18 @@ def build_parser():
     aud.add_argument('project',type=Path,help='the project file (JSON)');aud.add_argument('--track',required=True,help='the part to audition, by its id')
     aud.add_argument('--sounds',required=True,help='comma-separated: surge:<preset>, synth:<preset>, soundfont:<bank>:<bank number>:<program>; the part as written plays first')
     aud.add_argument('--bars',required=True,metavar='FIRST-LAST',help='the passage, 1-based, at most 16 bars')
-    aud.add_argument('--output',type=Path,required=True,help='a new folder for the audition');aud.add_argument('--config',type=Path,required=True,help='the renderer configuration bootstrap.py wrote')
+    aud.add_argument('--output',type=Path,required=True,help='a new folder for the audition');aud.add_argument('--config',type=Path,help=CONFIG_HELP)
     aud.add_argument('--cache',type=Path,help="the parts' synthesis cache (as render --cache)")
     aud.add_argument('--solo',action='store_true',help='the part alone instead of in its passage with the others')
     aud.add_argument('--jobs',type=int,help='parts rendered at once in each version (as render --jobs)')
     aud.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
     snd=command('sounds','Search the Surge XT catalog: every factory and third-party patch, by role, measured character, name and source, for a shortlist to audition',
                 'python studio.py sounds --role pad --character dark,slow --seed 412')
-    snd.add_argument('--role',help='lead, brass, pad, chords, keys, pluck, bass, sequence, fx or percussion')
-    snd.add_argument('--character',default='',help='comma-separated words the measured character must contain: dark, warm, mid, bright; fast, soft, slow; dry, short, long; mono, narrow, wide; steady, moving')
+    snd.add_argument('--role',help='lead, brass, pad, chords, keys, pluck, bass, sequence, fx, percussion or other')
+    snd.add_argument('--character',default='',help='comma-separated words the measured character must contain: dark, warm, mid, bright; fast, soft, slow; dry, short, long; mono, narrow, wide; steady, moving (between playings); what a held note does: decays, darkens, brightens, pitch blip, pitch steps, level swings, pitch swings, brightness swings, inharmonic (quote a list that holds a space)')
     snd.add_argument('--centroid',help='a range of the probe note\'s spectral centroid in Hz, LOW-HIGH with either end open: 600-900, 1500-, -400')
     snd.add_argument('--attack',help='a range of its attack in seconds (the time to half its peak level), LOW-HIGH with either end open: 0.1-0.3, -0.03')
+    snd.add_argument('--without',default='',help='comma-separated words of the measured character to leave out: a patch with any of them is not listed, nor one whose figure for a word of a held note could not be read ("decays,level swings" for a held pad, quoted)')
     snd.add_argument('--name',help='text in the patch name or category');snd.add_argument('--source',help='"factory" or a designer')
     snd.add_argument('--limit',type=int,default=25,help='the most patches shown (default 25)');snd.add_argument('--all',action='store_true',help='also patches flagged silent, MPE, microtonal or off pitch')
     snd.add_argument('--id',help='one catalog patch in full: its measurement and what its mod wheel and macros move')
@@ -113,7 +120,7 @@ def build_parser():
     ins=command('instruments','Find presets in the configured banks by words of their name, family or bank: the bank and program a part takes, the keys their samples cover, their velocity layers',
                 'python studio.py instruments violin --config config.json')
     ins.add_argument('words',nargs='+',help='words of the preset name (violin), a General MIDI family (strings, brass, reed) or a bank (vsco), or a bank number and program (0:41); where no preset has them all, those that have the most are listed; a word that no preset has is refused, with the nearest word where one is near')
-    ins.add_argument('--config',type=Path,required=True,help='the renderer configuration bootstrap.py wrote');ins.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
+    ins.add_argument('--config',type=Path,help=CONFIG_HELP);ins.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
     stl=command('still',"Draw a render's piano roll at one moment as a PNG: the notes as played, coloured by what the part does, every part named in the legend (needs Pillow)",
                 'python studio.py still render_final --at 42 --output roll_42.png')
     stl.add_argument('render',type=Path,help='a render folder (the --output of studio.py render)');stl.add_argument('--at',type=float,required=True,help='the moment, in seconds from the start')
@@ -121,7 +128,7 @@ def build_parser():
     vid=command('video',"Make a render's piano roll into a video with its master as the sound: WebM (VP9, Opus) by default, MP4 (H.264, AAC) with --mp4, kept under a size (needs Pillow)",
                 'python studio.py video render_final --output roll.webm --config config.json')
     vid.add_argument('render',type=Path,help='a render folder (the --output of studio.py render)');vid.add_argument('--output',type=Path,required=True,help='a new .webm file, or .mp4 with --mp4')
-    vid.add_argument('--config',type=Path,required=True,help='the configuration bootstrap.py wrote: its FFmpeg encodes the video')
+    vid.add_argument('--config',type=Path,help='the configuration bootstrap.py wrote: its FFmpeg encodes the video (default: the file MUSIC_SKILL_CONFIG names)')
     vid.add_argument('--mp4',action='store_true',help='MP4 with H.264 and AAC, for the widest playback, where the FFmpeg has those encoders')
     vid.add_argument('--size-mb',type=float,default=10,help="the size to stay under, in MB (default 10: GitHub's limit for a video on its free plans)")
     vid.add_argument('--fps',type=int,default=30,help='frames a second (default 30)');vid.add_argument('--size',default='1280x720',help='WIDTHxHEIGHT in pixels, even numbers (default 1280x720)')
@@ -145,7 +152,7 @@ def build_parser():
     cln.add_argument('--remove',action='store_true',help='remove what the list names (without it, nothing is removed)')
     cln.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
     doctor=command('doctor','Check a renderer configuration: each program and bank there, by path and SHA-256','python studio.py doctor --config config.json')
-    doctor.add_argument('--config',type=Path,required=True,help='the configuration to check')
+    doctor.add_argument('--config',type=Path,help='the configuration to check (default: the file MUSIC_SKILL_CONFIG names)')
     configure=command('configure','Write a configuration from a FluidSynth, an FFmpeg and a SoundFont of your own (bootstrap.py writes the usual one)',
                       'python studio.py configure --fluidsynth fluidsynth.exe --ffmpeg ffmpeg.exe --soundfont bank.sf2 --output config.json')
     for arg,what in (('fluidsynth','the FluidSynth program'),('ffmpeg','the FFmpeg program'),('soundfont','the default SoundFont'),('output','a new configuration file')):
@@ -156,6 +163,29 @@ def build_parser():
     for arg,what in (('name','the name a part chooses it by (lower-case letters, digits and underscores; not "default")'),('license','its licence, as its publisher states it'),
                      ('source','where it came from'),('version','its version')):addsf.add_argument('--'+arg,required=True,help=what)
     return parser
+
+
+def config_from_environment(args):
+    """--config left out of a command that takes it from the environment: the file MUSIC_SKILL_CONFIG names (an absolute
+    path; a relative one is refused), said in a NOTE line on stderr.  A command that cannot run without a configuration and has neither stops as a missing option
+    stops (an ERROR line, exit 2); start without one goes on as before: a Surge patch or a built-in preset needs none, and a
+    part that names a SoundFont preset is refused."""
+    from musiclib.homepath import at_home
+    if getattr(args,'config',None) is not None:args.config=at_home(args.config)  # ~/ as the user's home, as a shell would (~/.music-skill/)
+    if args.command not in CONFIG_FROM_ENVIRONMENT or args.config is not None:return
+    named=os.environ.get('MUSIC_SKILL_CONFIG','')   # as it is: a file name may begin with a space
+    if named:
+        path=at_home(named)
+        if not path.is_absolute():
+            # A relative name would be read from each command's working folder, so a project's folder could choose the
+            # configuration, and so the programs that run (the Astra review of 0.10's step 2)
+            print(f'ERROR: studio.py {args.command}: MUSIC_SKILL_CONFIG names a relative path ({files.one_line(named)}): give the '
+                  "configuration's absolute path, so that a command finds the same file in every folder",file=sys.stderr);sys.exit(2)
+        args.config=path
+        print(f'NOTE: --config {files.one_line(str(path))} (from MUSIC_SKILL_CONFIG)',file=sys.stderr,flush=True)
+    elif args.command!='start':
+        print(f'ERROR: studio.py {args.command}: the following arguments are required: --config (the configuration bootstrap.py wrote, '
+              'or MUSIC_SKILL_CONFIG naming it)',file=sys.stderr);sys.exit(2)
 
 
 def main(args):
@@ -316,7 +346,8 @@ def main(args):
         if args.command=='still':print(roll.still(args.render,args.at,args.output,int(w),int(h)));return
         print(roll.video(args.render,args.output,args.config,args.mp4,args.size_mb,args.fps,int(w),int(h)));return
     if args.command=='sounds':
-        from musiclib.sounds import describe,search
+        from musiclib.sounds import describe
+        from musiclib.shortlist import search   # sounds.search with --without (0.10), outside the synthesis closure
         def span(text,what,examples):
             if text is None:return None
             lo,sep,hi=text.partition('-')
@@ -330,7 +361,8 @@ def main(args):
             if got[0] is not None and got[1] is not None and got[0]>got[1]:raise ValueError(f'{what}: the lowest is over the highest in {text!r}')
             return got
         found=describe(args.id) if args.id else search(args.role,[w for w in args.character.split(',') if w.strip()],args.name,args.source,args.limit,args.all,args.seed,
-                                                       span(args.centroid,'--centroid','Hz: 600-900, 1500-, -400'),span(args.attack,'--attack','seconds: 0.1-0.3, 0.05-, -0.03'))
+                                                       span(args.centroid,'--centroid','Hz: 600-900, 1500-, -400'),span(args.attack,'--attack','seconds: 0.1-0.3, 0.05-, -0.03'),
+                                                       [w for w in args.without.split(',') if w.strip()])
         print(json.dumps(found,ensure_ascii=True,indent=1) if args.json or args.id else summary.sounds(found));return
     p=load_project(args.project)
     if args.command=='validate':print(json.dumps(validate(p)));return
@@ -377,6 +409,7 @@ def main(args):
 if __name__=='__main__':
     files.escape_unprintable()
     args=build_parser().parse_args();code=0
+    config_from_environment(args)
     try:main(args)
     except KeyError as e:
         print('ERROR: missing field',files.one_line(str(e)),file=sys.stderr);code=2

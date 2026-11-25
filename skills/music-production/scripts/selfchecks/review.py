@@ -1334,6 +1334,101 @@ def define(S):
         assert abs(d1-18.35)<.01 and abs(d1_db-.26)<.01 and a0==15 and abs(a0_db-.37)<.01,(d1,d1_db,a0,a0_db)
         fresh=example();fresh['tracks'][0]['mix']['highpass']=a0;validate(fresh)
         return {'flagged':st['count'],'outside':st['outside_count'],'highpass_cut_db':[round(c,2) for c in cuts]}
+    def review_asks_when_the_sound_and_the_notes_disagree():
+        # 0.10 step 3d (research/design-0.10.md): sound_attack is asked where a quarter or more of the spans a part's sound
+        # is started in end before it reaches half its level, and sound_decay where a part in a sustained role, half or more
+        # of whose sounding time lies in spans held past 1.2 s, plays a sound that dies away within that; neither where the
+        # shares fall short, nor sound_decay for a melody, nor for a sound nothing measured; a decision answers each.
+        # Built-in presets here (their envelopes are in synth-presets.json): warm_pad rises over 1.2 s, pluck dies away.
+        from musiclib import review as rv
+        from musiclib.builder import Song
+        def piece(name,role,preset,beats,count=8,decisions=(),tempo=120,start=0,**synth):
+            s=Song(name,bars=8,tempo=tempo);s.section('a',8,'a')
+            part=s.part('p',role,engine='synth',synth={'preset':preset,**synth})
+            for k in range(count):b=start+k*beats;part.note(1+int(b//4),1+b%4,60,beats)
+            s.project['decisions']=list(decisions);validate(s.project);return s.project
+        def asked(p,tag,config=None):
+            out=work/f'sound_q_{tag}';r=rv.review(p,out,config)
+            return sorted(q['id'] for q in r['questions'] if q['id'].startswith('sound_')),sorted(a['id'] for a in r['answered'] if a['id'].startswith('sound_'))
+        cases=[('swell_short',('harmony','warm_pad',.5),(['sound_attack:p'],[])),    # 0.25 s notes on a 0.6 s rise to half
+               ('swell_long',('harmony','warm_pad',4),([],[])),                      # 2 s notes: past the rise
+               ('pluck_held',('harmony','pluck',4),(['sound_decay:p'],[])),          # 2 s chords on a sound gone in 0.5 s
+               ('pluck_melody',('melody','pluck',4),([],[])),                        # a melody may ring out
+               ('pluck_short',('harmony','pluck',1),([],[])),                        # 0.5 s notes: none held past 1.2 s
+               ('one_short_note',('texture','warm_pad',.5,1),(['sound_attack:p'],[])),   # one short note of one: a quarter or more
+               ('answered',('harmony','pluck',4,8,('sound_decay:p: a plucked chord left to ring, meant',)),([],['sound_decay:p']))]
+        got={}
+        for tag,args,want in cases:
+            got[tag]=asked(piece(tag,*args),tag)
+            assert got[tag]==want,(tag,got[tag])
+        # the part's entry carries what the question read
+        r=rv.review(piece('entry','harmony','pluck',4),work/'sound_q_entry')
+        entry=next(t for t in r['tracks'] if t['id']=='p')['sound']
+        assert entry=={'what':'the built-in preset pluck','attack_s':.0005,'decays':True,'from':'its envelope'},entry
+        # a Surge patch the catalog measured without the course of a note gives no sound_decay (decays is None)
+        s=rv.sound_of({'engine':'surge','surge':{'preset':'no_such_patch_here'}})
+        assert s['attack_s'] is None and s['decays'] is None,s
+        # From the Astra review of the design.  By time, not by count: a 6 s drone among ten short notes is most of what a
+        # harmony part plays.  A curated patch gives its own attack.
+        from musiclib import surge as sg
+        q=Song('drone',bars=8,tempo=120);q.section('a',8,'a');part=q.part('p','harmony',engine='synth',synth={'preset':'pluck'})
+        part.note(1,1,48,12)
+        for k in range(10):part.note(5+k//8,1+(k*.5)%4,60,.5)
+        validate(q.project);assert asked(q.project,'drone')==(['sound_decay:p'],[]),'a drone that is most of the time held'
+        late=rv.sound_of({'engine':'surge','surge':{'preset':'late_fall'}})
+        assert (late['what'],late['attack_s'],late['decays'])==('the Surge patch late_fall',sg.presets()['presets']['late_fall']['measured']['attack_s'],None),late
+        # From the Astra review of step 3.  The spans are the voices the engine plays: Surge's single-trigger glide does not
+        # start the envelope again for a note that overlaps the one before, but strikes afresh one that only touches it
+        # (eight touching notes on a slow pad are asked about with glide_ms too; eight that overlap, on two pitches, are not).
+        slow=next(k for k,e in sorted(sg.catalog().items()) if e['role']=='pad' and not e['flags'] and (e.get('measured') or {}).get('attack_s',0)>=.5)
+        def glide(name,overlap=0,**fields):
+            q=Song(name,bars=4,tempo=120);q.section('a',4,'a');part=q.part('p','harmony',engine='surge',surge={'preset':slow,**fields})
+            for k in range(8):part.note(1+k//10,1+(k*.4)%4,60+2*(k%2),.4+overlap)
+            validate(q.project);return q.project
+        assert asked(glide('voices'),'voices')==(['sound_attack:p'],[]) and asked(glide('touching',glide_ms=80),'touching')==(['sound_attack:p'],[]),slow
+        assert asked(glide('one_voice',overlap=.1,glide_ms=80),'one_voice')==([],[]),slow
+        # a mono synth's notes that meet are one voice, as synth.render plays them: eight connected 0.25 s pluck notes are one
+        # 2 s envelope dying away; an arpeggio's chord is one voice, as long as its longest note
+        assert asked(piece('mono_pluck','harmony','pluck',.5,mono=True),'mono_pluck')==(['sound_decay:p'],[])
+        q=Song('arp',bars=4,tempo=120);q.section('a',4,'a');part=q.part('p','harmony',engine='synth',synth={'preset':'warm_pad','arpeggio':{'rate_hz':30}})
+        for bar in (1,2,3):part.note(bar,1,60,4);part.note(bar,1,64,.5);part.note(bar,1,67,.5)
+        validate(q.project);assert asked(q.project,'arp')==([],[]),'an arpeggio of 2 s chords: three voices, none short'
+        # a length equal to the attack or to the hold is neither shorter nor longer, wherever the clock puts it: eight quarter
+        # notes of 0.6 s at 100 BPM on warm_pad (half its level at 0.6 s), and two-beat pluck notes of 1.2 s from any beat
+        assert asked(piece('edge_attack','harmony','warm_pad',1,tempo=100),'edge_attack')==([],[])
+        for start in (0,1,2,3):
+            assert asked(piece(f'edge_hold{start}','harmony','pluck',2,count=3,tempo=100,start=start),f'edge_hold{start}')==([],[]),start
+        # the envelope the synth plays: a part's own amp replaces the preset's whole (an empty one is the synth's default, a
+        # 5 ms attack), and a slow attack still rising at 1.2 s is not dying away
+        assert asked(piece('own_amp','harmony','warm_pad',.4,amp={}),'own_amp')==([],[])
+        rising=rv.sound_of({'engine':'synth','synth':{'preset':'warm_pad','amp':{'attack':6,'decay':.1,'sustain':1,'release':.5}}})
+        assert rising['decays'] is False and rising['attack_s']==3,rising
+        # with a configuration that has no Surge XT, a Surge part plays its fallback, and that is what is read; with swell
+        # the attack is the notes' length, so none is asked about
+        fell=rv.sound_of({'id':'p','engine':'surge','surge':{'preset':slow}},config={})
+        assert 'fallback' in fell['what'] and fell['from']=='its envelope' and fell['track']['engine']=='synth',fell
+        assert rv.sound_of({'engine':'surge','surge':{'preset':slow,'swell':True}})['attack_s'] is None
+        # From the Astra review of the whole of 0.10.  Time passes once for a chord's notes: a two-second chord of four
+        # notes and four seconds of quarter notes on a pluck hold past 1.2 s for a third of the time, not two thirds.  A
+        # swell sets the envelopes' attacks to the notes' length, so the patch's own decay is not read either.  A plugin
+        # without the pedalboard package in its folder plays the fallback, as the renderer decides.
+        q=Song('chord',bars=4,tempo=120);q.section('a',4,'a');part=q.part('p','harmony',engine='synth',synth={'preset':'pluck'})
+        for pitch in (48,52,55,60):part.note(1,1,pitch,4)
+        for k in range(8):part.note(2+k//4,1+k%4,60,1)
+        validate(q.project);assert asked(q.project,'chord')==([],[]),'a chord counted once a moment'
+        dies=next(k for k,e in sorted(sg.catalog().items()) if e['role']=='pluck' and not e['flags'] and 'decays' in e.get('character','').split(', '))
+        assert rv.sound_of({'engine':'surge','surge':{'preset':dies,'swell':True}})['decays'] is None and rv.sound_of({'engine':'surge','surge':{'preset':dies}})['decays'] is True,dies
+        (work/'sound_q_board').mkdir(exist_ok=True);(work/'sound_q_plugin.bin').write_bytes(b'not a plugin')
+        partial={'surge':{'path':str(work/'sound_q_plugin.bin'),'patches':str(work),'catalog':str(work)},'pedalboard':{'path':str(work/'sound_q_board')}}
+        assert 'fallback' in rv.sound_of({'id':'p','engine':'surge','surge':{'preset':slow}},config=partial)['what']
+        # (the Astra review of the fixes) a binary that is not the plugin that loads, and a configuration without the
+        # field the patch's folder is read from, play the fallback too, without an error
+        (work/'sound_q_board'/'pedalboard').mkdir(exist_ok=True);(work/'sound_q_other.bin').write_bytes(b'another file')
+        outside={'surge':{'path':str(work/'sound_q_plugin.bin'),'binary':str(work/'sound_q_other.bin'),'patches':str(work),'catalog':str(work)},'pedalboard':{'path':str(work/'sound_q_board')}}
+        assert 'fallback' in rv.sound_of({'id':'p','engine':'surge','surge':{'preset':slow}},config=outside)['what']
+        bare={'surge':{'path':str(work/'sound_q_plugin.bin')},'pedalboard':{'path':str(work/'sound_q_board')}}
+        assert 'fallback' in rv.sound_of({'id':'p','engine':'surge','surge':{'preset':'late_fall'}},config=bare)['what']
+        return {'cases':{k:v[0] or v[1] for k,v in got.items()},'surge pad':slow,'surge pluck that decays':dies}
     def piano_on_another_piano():
         from musiclib import review as rv
         # Known answers: with the Steinway's bank installed, a part on the Kawai, on an upright, on the Osiris or on the
@@ -1548,5 +1643,5 @@ def define(S):
         from musiclib import surge
         flagged=sum(1 for e in surge.catalog().values() if 'no clear pitch' in e.get('flags',()));assert flagged==245,flagged
         return {'patches_without_a_clear_pitch':flagged}
-    found = {'review_counts_seconds_and_ninths_and_asks_about_the_exposed': clashes_by_distance_and_place, 'review_asks_about_a_kit_levelled_by_its_peak': peak_levelled_kit, 'review_sets_apart_runs_of_doubling_and_pitchless_patches': doubling_runs_and_pitchless_patches, 'review_flags_sustained_minor_ninth': review_vertical, 'review_vertical_counts_as_0_7_0_did': vertical_as_released, 'review_vertical_matches_0_7_0_at_its_edges_and_scale': vertical_edges_and_scale, 'review_names_embellishing_tones_parallels_and_low_intervals': review_smoothness, 'review_asks_about_loops_returns_arrivals_and_blocks': review_development, 'review_summary_keeps_every_question': review_summary, 'review_views_and_identifiers': review_views_and_identifiers, 'plan_read_against_score': plan_read_against_score, 'association_drawn_once': association_drawn_once, 'score_profile_matches_a_hand_counted_line': score_profile, 'the_code_review_of_0_7_stays_fixed': code_review_of_0_7, 'style_maps_set_reviews_limits_by_axis': style_limits, 'dance_styles_ask_about_loops_only_where_nothing_moves': dance_processes, 'brightness_prompts_follow_the_genre_and_the_low_passes': brightness_prompts, 'style_tempo_ranges_ask_outside_their_sources': tempo_ranges, 'review_flags_far_transposed_samples_and_missing_keys': transposed_samples, 'a_piano_part_on_another_piano_is_asked_about': piano_on_another_piano}
+    found = {'review_counts_seconds_and_ninths_and_asks_about_the_exposed': clashes_by_distance_and_place, 'review_asks_about_a_kit_levelled_by_its_peak': peak_levelled_kit, 'review_sets_apart_runs_of_doubling_and_pitchless_patches': doubling_runs_and_pitchless_patches, 'review_flags_sustained_minor_ninth': review_vertical, 'review_vertical_counts_as_0_7_0_did': vertical_as_released, 'review_vertical_matches_0_7_0_at_its_edges_and_scale': vertical_edges_and_scale, 'review_names_embellishing_tones_parallels_and_low_intervals': review_smoothness, 'review_asks_about_loops_returns_arrivals_and_blocks': review_development, 'review_summary_keeps_every_question': review_summary, 'review_views_and_identifiers': review_views_and_identifiers, 'plan_read_against_score': plan_read_against_score, 'association_drawn_once': association_drawn_once, 'score_profile_matches_a_hand_counted_line': score_profile, 'the_code_review_of_0_7_stays_fixed': code_review_of_0_7, 'style_maps_set_reviews_limits_by_axis': style_limits, 'dance_styles_ask_about_loops_only_where_nothing_moves': dance_processes, 'brightness_prompts_follow_the_genre_and_the_low_passes': brightness_prompts, 'style_tempo_ranges_ask_outside_their_sources': tempo_ranges, 'review_flags_far_transposed_samples_and_missing_keys': transposed_samples, 'a_piano_part_on_another_piano_is_asked_about': piano_on_another_piano, 'review_asks_when_the_sound_and_the_notes_disagree': review_asks_when_the_sound_and_the_notes_disagree}
     return found

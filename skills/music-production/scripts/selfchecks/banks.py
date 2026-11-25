@@ -1121,6 +1121,308 @@ def define(S):
         finally:mi.MAX_PAIRS=limit
         return {'found':'default 0:41 Test Viola, keys G3-G4, 2 velocity ranges','misspelt':'viloa -> viola','measured':'keys and velocities overlapping together, global zones',
                 'review':'the same walk','bound':'a bank\'s pairs together'}
+    def config_taken_from_music_skill_config():
+        # 0.10 step 2 (research/progress-0.10.md): a command that needs the configuration takes the file MUSIC_SKILL_CONFIG
+        # names when --config is left out, and says so on stderr; --config given wins; with neither the command stops as a
+        # missing option stops; review, analyze and compare do not read the variable; ~ is the user's home in both.
+        import argparse,contextlib,io,subprocess,sys
+        from musiclib import sf2
+        import studio
+        t=np.arange(4800)/48000;tone=(np.sin(2*np.pi*261.63*t)*.3).astype(np.float32)
+        sf2.write(work/'env_bank.sf2','env',[{'name':'t','data':tone,'rate':48000,'root':60}],[{'name':'i','zones':[{'gens':{43:(48,72)},'sample':0}]}],
+                  [{'name':'Env Viola','bank':0,'program':41,'zones':[{'gens':{},'instrument':0}]}])
+        home=work/'env_home';(home/'.music-skill').mkdir(parents=True);cfg=home/'.music-skill'/'local-config.json'
+        save_json(cfg,{'soundfont':{'path':str(work/'env_bank.sf2'),'sha256':file_hash(work/'env_bank.sf2')}})
+        base={k:v for k,v in os.environ.items() if k!='MUSIC_SKILL_CONFIG'}   # as CI sets it for the repository's tests
+        def ins(*a,env=None,cwd=None):
+            r=subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'instruments','viola',*a,'--json'],capture_output=True,text=True,
+                             encoding='utf-8',errors='replace',env={**base,**(env or {})},cwd=cwd)
+            return r.returncode,r.stdout,r.stderr
+        noted=lambda err:err.count('\n')==1 and err.startswith('NOTE: --config ') and err.rstrip().endswith('(from MUSIC_SKILL_CONFIG)')
+        code,out,err=ins()
+        assert code==2 and err.count('\n')==1 and 'the following arguments are required: --config' in err and 'MUSIC_SKILL_CONFIG' in err,(code,err)
+        code,out,err=ins(env={'MUSIC_SKILL_CONFIG':str(cfg)})
+        assert code==0 and json.loads(out)['presets'][0]['preset']=='Env Viola' and noted(err),(code,err)
+        missing=work/'env_missing.json'
+        code,out,err=ins('--config',str(cfg),env={'MUSIC_SKILL_CONFIG':str(missing)})
+        assert code==0 and err=='',(code,err)   # the option given wins, and nothing is said
+        code,out,err=ins(env={'MUSIC_SKILL_CONFIG':str(missing)})
+        assert code==2 and err.startswith('NOTE: --config ') and 'ERROR:' in err and 'env_missing.json' in err,(code,err)
+        # a relative name would be read from each command's folder, so a project's folder could choose the configuration:
+        # refused (the Astra review of step 2), and the value is taken as it is, a leading space and all
+        code,out,err=ins(env={'MUSIC_SKILL_CONFIG':'local-config.json'},cwd=home/'.music-skill')
+        assert code==2 and 'names a relative path' in err and len(err.splitlines())==1,(code,err)
+        code,out,err=ins(env={'MUSIC_SKILL_CONFIG':' '+str(cfg)})
+        assert code==2 and 'names a relative path' in err,(code,err)
+        # "~" is the home only alone or before a slash: a file named "~own.json" is that file, as in 0.9.3
+        (home/'.music-skill'/'~own.json').write_bytes(cfg.read_bytes())
+        code,out,err=ins('--config','~own.json',cwd=home/'.music-skill');assert code==0 and err=='',(code,err)
+        homes={'HOME':str(home),'USERPROFILE':str(home)}   # where ~ points: USERPROFILE on Windows, HOME elsewhere
+        for a,env in ((('--config','~/.music-skill/local-config.json'),homes),((),{**homes,'MUSIC_SKILL_CONFIG':'~/.music-skill/local-config.json'}),
+                      ((),{**homes,'MUSIC_SKILL_CONFIG':'~//.music-skill/local-config.json'})):   # "~//": the home's, not the drive's (the Astra review of the whole)
+            code,out,err=ins(*a,env=env);assert code==0 and json.loads(out)['count']==1,(a,code,err)
+        held=os.environ.get('MUSIC_SKILL_CONFIG');os.environ['MUSIC_SKILL_CONFIG']=str(cfg)
+        try:
+            for command in ('review','analyze','compare','validate'):
+                ns=argparse.Namespace(command=command,config=None);studio.config_from_environment(ns);assert ns.config is None,command
+            said=io.StringIO()
+            with contextlib.redirect_stderr(said):
+                ns=argparse.Namespace(command='start',config=None);studio.config_from_environment(ns)
+            assert ns.config==cfg and noted(said.getvalue()),(ns,said.getvalue())
+        finally:
+            if held is None:os.environ.pop('MUSIC_SKILL_CONFIG',None)
+            else:os.environ['MUSIC_SKILL_CONFIG']=held
+        return {'without either':'refused in one line','from the variable':'a NOTE line','the option given':'wins, silently','~':'the home folder','review':'reads no variable'}
+    def motion_reads_what_a_held_note_does():
+        # 0.10 step 3a (research/design-0.10.md): musiclib.motion on probe notes whose course is known, each given the
+        # words it should have and no other: a steady tone none, nor a tremolo under the line; a decay, a tremolo, a vibrato,
+        # a pitch blip, an inharmonic set and an arpeggio their own; a note silent after 100 ms decays and has no swings; noise, with no
+        # pitch to read, none.  The catalog's probe: 50 ms of lead, 1.2 s held, 2.4 s of release.  From the Astra review of
+        # the design: a 5 Hz gate swings and does not decay whatever its phase; a blip under a 100 ms attack is still read;
+        # a filter closing or opening over the note darkens or brightens and does not swing; one channel cancelling the
+        # other leaves a steady tone steady.
+        from musiclib import motion
+        rate,lead,hold,after=48000,.05,1.2,2.4
+        t=np.arange(int((lead+hold+after)*rate))/rate;held=(t>=lead)&(t<lead+hold)
+        def tone(freq,partials=8):
+            phase=2*np.pi*np.cumsum(freq)/rate;return sum(np.sin(k*phase)/k for k in range(1,partials+1))
+        def gated(x):
+            env=np.where(held,1.0,0.0);after_=t>=lead+hold;env[after_]=np.exp(-(t[after_]-lead-hold)/.2*6.9)
+            rise=(t>=lead)&(t<lead+.01);env[rise]=(t[rise]-lead)/.01;return np.stack([x*env*.3]*2,1)
+        f0=261.63;flat=np.full_like(t,f0)
+        cases={'steady':(tone(flat),[]),
+               'decaying':(tone(flat)*10**(-20*np.maximum(0,t-lead)/20),['decays']),
+               'tremolo':(tone(flat)*10**(4*np.sin(2*np.pi*5*t)/20),['level swings']),
+               'shallow tremolo':(tone(flat)*10**(1.5*np.sin(2*np.pi*5*t)/20),[]),
+               'vibrato':(tone(f0*2**(30*np.sin(2*np.pi*6*t)/1200)),['pitch swings']),
+               'blip':(tone(f0*2**(200*np.exp(-np.maximum(0,t-lead)/.02)/1200)),['pitch blip']),
+               'inharmonic':(np.sin(2*np.pi*f0*t)+.8*np.sin(2*np.pi*f0*2.76*t)+.5*np.sin(2*np.pi*f0*5.4*t),['inharmonic']),
+               'arpeggio':(tone(f0*2**(np.array([0,4,7])[(np.floor(np.maximum(0,t-lead)*8)%3).astype(int)]/12)),['pitch steps']),
+               'short':(tone(flat)*(t<lead+.1),['decays']),
+               'gate':(tone(flat)*(np.sin(2*np.pi*5*(t-lead))>=0),['level swings']),
+               'gate, other phase':(tone(flat)*(np.sin(2*np.pi*5*(t-lead)+np.pi)>=0),['level swings']),
+               'blip under a slow attack':(tone(f0*2**(200*np.exp(-np.maximum(0,t-lead)/.02)/1200))*np.clip((t-lead)/.1,0,1),['pitch blip'])}
+        tt=np.clip(t-lead,0,hold)
+        for label,lo,hi,word in (('closing filter',12000,200,'darkens'),('opening filter',200,12000,'brightens')):
+            cut=lo*(hi/lo)**(tt/hold)
+            cases[label]=(sum((1/k)/(1+(k*f0/cut)**4)*np.sin(2*np.pi*k*f0*t) for k in range(1,33)),[word])
+        got={}
+        for name,(x,want) in cases.items():
+            m=motion.measure(gated(x),rate,60,1.0,lead,hold);got[name]=motion.words(m)
+            assert got[name]==want,(name,got[name],m)
+        both=gated(tone(flat));m=motion.measure(np.stack([both[:,0],-both[:,1]],1),rate,60,1.0,lead,hold)
+        assert motion.words(m)==[] and m['hold_end_db']==0 and m['pitch_swing_cents'] is not None,m   # the channels in opposite phase
+        m=motion.measure(gated(tone(f0*2**(30*np.sin(2*np.pi*6*t)/1200))),rate,60,1.0,lead,hold)
+        assert 50<=m['pitch_swing_cents']<=62 and abs(m['pitch_swing_hz']-6)<.5,m   # +-30 cents read as 60 between the 5th and 95th percentiles, at 6 Hz
+        m=motion.measure(gated(tone(flat)*10**(3*np.sin(2*np.pi*5*t)/20)),rate,60,1.0,lead,hold)
+        assert 5.3<=m['level_swing_db']<=6.6 and m['level_swing_hz']==5.0,m   # +-3 dB read as about 6 between the 5th and 95th percentiles
+        noise=motion.measure(gated(np.random.default_rng(1).standard_normal(len(t))),rate,60,None,lead,hold)
+        assert motion.words(noise)==[] and noise['pitch_swing_cents'] is None and noise['inharmonic_pct'] is None,noise
+        assert motion.measure(np.zeros((len(t),2)),rate,60,1.0,lead,hold)=={'silent':True}
+        # From the Astra review of step 3.  A vibrato heard through a gate has no rate (its course in the gaps is not known: a
+        # 5 Hz vibrato read 8.3 Hz with them closed up); a vibrato of 75 cents is not inharmonic (each frame is judged by the
+        # pitch heard in it); a partial on one channel only counts (the channels' summed spectra); a swing under its floor
+        # has no rate (a steady tone's level "swung" at 7.7 Hz).
+        m=motion.measure(gated(tone(f0*2**(48*np.sin(2*np.pi*5*t)/1200))*(np.sin(2*np.pi*5*(t-lead))>=0)),rate,60,1.0,lead,hold)
+        assert m['pitch_swing_hz'] is None and 'pitch swings' not in motion.words(m),m
+        m=motion.measure(gated(tone(f0*2**(75*np.sin(2*np.pi*5*t)/1200))),rate,60,1.0,lead,hold)
+        assert m['inharmonic_pct']<5 and motion.words(m)==['pitch swings'],m
+        side=np.stack([gated(tone(flat,4))[:,0],gated(np.sin(2*np.pi*f0*2.76*t)*1.2)[:,0]],1)
+        m=motion.measure(side,rate,60,1.0,lead,hold)
+        assert m['inharmonic_pct']>=30 and 'inharmonic' in motion.words(m),m
+        m=motion.measure(gated(tone(flat)),rate,60,1.0,lead,hold)
+        assert m['level_swing_hz'] is None and m['pitch_swing_hz'] is None and m['centroid_swing_hz'] is None,m
+        # From the Astra reviews of the whole of 0.10 and of its fixes.  A bass's fundamental counts (at C2 its third of an
+        # octave was its own bin, and a partial of 1% read 100% inharmonic); a gate open a quarter of the time at 3 Hz does
+        # not decay at any phase (at 2 Hz and under, a hold that holds one gap and ends in a silence cannot be told from a
+        # shot, an echo and an end); a shot, one echo and 410 ms of silence decays; a vibrato through closures of 30 ms keeps
+        # its rate.
+        x=np.maximum(0,t-lead)
+        for pitch in (36,48):
+            f=440*2**((pitch-69)/12)
+            m=motion.measure(gated(np.sin(2*np.pi*f*t)+.1*np.sin(2*np.pi*5.4*f*t)),rate,pitch,1.0,lead,hold)
+            assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5,(pitch,m)
+        for k in range(16):
+            m=motion.measure(gated(tone(flat)*(((x*3+k/16)%1)<.25)),rate,60,1.0,lead,hold)
+            assert 'decays' not in motion.words(m),(k,m)
+        m=motion.measure(gated(tone(flat)*((x<.08)|((x>=.6)&(x<.79)))),rate,60,1.0,lead,hold)
+        assert 'decays' in motion.words(m),m
+        m=motion.measure(gated(tone(f0*2**(48*np.sin(2*np.pi*5*t)/1200))*((x*5%1)<.85)),rate,60,1.0,lead,hold)
+        assert m['pitch_swing_hz']==5.0,m
+        # From the owner's question on the marks (2026-11-25) and Astra's review of its first fix.  Under LOWEST Hz there
+        # is no share (a harmonic bass at 33 Hz read 100% once: 85 ms cannot place its partials); a bell's partials (1,
+        # 2.76, 5.40, 8.93, 13.34) at 65 Hz are inharmonic though the pitch track settles 183 cents low, on a
+        # pseudo-fundamental: against the measured pitch and the track's median alike; a sine 51 cents over its measured
+        # pitch has no share (the two references fall either side of the line: it read 100%); a full tremolo at 18 Hz on
+        # a harmonic tone is not inharmonic (its sidebands stay inside the partials' peaks).
+        m=motion.measure(gated(tone(np.full_like(t,440*2**((24-69)/12)),16)),rate,24,1.0,lead,hold)
+        assert m['inharmonic_pct'] is None and 'inharmonic' not in motion.words(m),m
+        f=440*2**((36-69)/12)
+        bell=sum(a*np.sin(2*np.pi*f*r*t+i) for i,(r,a) in enumerate(zip((1,2.76,5.40,8.93,13.34),(1,.8,.6,.4,.25))))
+        m=motion.measure(gated(bell),rate,36,1.0,lead,hold)
+        assert m['inharmonic_pct']>=30 and 'inharmonic' in motion.words(m),m
+        m=motion.measure(gated(np.sin(2*np.pi*f0*2**(51/1200)*t)),rate,60,1.0,lead,hold)
+        assert m['inharmonic_pct'] is None,m
+        m=motion.measure(gated(tone(flat,12)*(1+np.sin(2*np.pi*18*t))/2),rate,60,1.0,lead,hold)
+        assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5,m
+        # From Astra's review of the revision (s010inh2).  The share needs both references, on the same peaks: harmonics
+        # 17 to 24 of 91.2 Hz alone, measured as 100 Hz, have none (one reading had a peak in its band, the other none,
+        # and the one gave the word); a second partial 50 cents sharp on the other channel, under a vibrato of 30 cents,
+        # is inharmonic and a true one is not; a glide over the held part, a vibrato heard through a gate and a synth tom
+        # still falling after its attack are harmonic (read against a fixed pitch, their motion gave 44, 48 and 46%); a
+        # vibrato too fast for the frames (90 cents at 8 Hz, read 35%) has no share; a C2 at 51.9 Hz keeps its
+        # fundamental (its bin lies under 50 Hz: a partial of 1% read 100%); at 96 kHz an 18 Hz tremolo on C2 is harmonic
+        # (frames of 4,096 samples there read it 99%).
+        f=1550/17
+        m=motion.measure(gated(sum(np.sin(2*np.pi*k*f*t) for k in range(17,25))),rate,43,100/(440*2**((43-69)/12)),lead,hold)
+        assert m['inharmonic_pct'] is None,m
+        ph=2*np.pi*np.cumsum(f0*2**(30*np.sin(2*np.pi*2*(t-lead))/1200))/rate
+        for cents,want in ((50,['pitch swings','inharmonic']),(0,['pitch swings'])):
+            m=motion.measure(np.stack([gated(np.sin(ph))[:,0],gated(.83*np.sin(2*2**(cents/1200)*ph))[:,0]],1),rate,60,1.0,lead,hold)
+            assert motion.words(m)==want and m['inharmonic_pct'] is not None,(cents,m)
+        glide=f0*2**(75*np.clip(2*(t-lead-.15)/(hold-.15)-1,-1,1)/1200)
+        vibrato=f0*2**(60*np.sin(2*np.pi*3*(t-lead))/1200)
+        tom=440*2**((48-69)/12)*2**(300*np.exp(-np.maximum(0,t-lead)/.15)/1200)
+        for name,x,pitch in (('glide',tone(glide,1),60),('gated vibrato',tone(vibrato,1)*((((t-lead)*5)%1)<.5),60),
+                             ('falling tom',tone(tom)*np.exp(-np.maximum(0,t-lead)/.25),48)):
+            m=motion.measure(gated(x),rate,pitch,1.0,lead,hold)
+            assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5 and 'inharmonic' not in motion.words(m),(name,m)
+        m=motion.measure(gated(tone(f0*2**(90*np.sin(2*np.pi*8*t)/1200),1)),rate,60,1.0,lead,hold)
+        assert m['inharmonic_pct'] is None and 'pitch swings' in motion.words(m),m
+        f=440*2**((32-69)/12)
+        m=motion.measure(gated(np.sin(2*np.pi*f*t)+.1*np.sin(2*np.pi*5.4*f*t)),rate,32,1.0,lead,hold)
+        assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5,m
+        r96=96000;u=np.arange(int((lead+hold+after)*r96))/r96-lead;f=440*2**((36-69)/12)
+        x96=sum(np.sin(2*np.pi*k*f*u)/k for k in range(1,17))*(1+np.cos(2*np.pi*18*u))*np.clip(u/.01,0,1)*(u<hold)*.15   # every partial at phase 0 at the note-on, as Astra's
+        m=motion.measure(np.stack([x96]*2,1),r96,36,1.0,lead,hold)
+        assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5,m
+        # From Astra's review of the third revision (s010inh3).  A sine gliding up 800 cents and holding is harmonic (its
+        # track readings over 600 cents from the median let the glide's frames by: 37%); a vibrato of 150 cents at 14 Hz,
+        # which the track narrows to about 80, has no share (three frames passed and read 66%); a 50.2 Hz tone whose
+        # vibrato takes it under 50 Hz, a partial at 5.4 times sounding only there, is not inharmonic (frames whose moved
+        # reference lay under 50 Hz were read: 36%); a partial at 16.4 times, past the 16th harmonic's 40 cents, does not
+        # count (40%); a partial's power does not hang on where it falls between bins (modes at 1 and 2.75 times, 25.8%
+        # off, read 32.1% and 20.1% with the fundamental midway between bins and on one).
+        u=t-lead
+        rise=f0*2**(800*(.5-.5*np.cos(np.pi*np.clip((u-.72)/.085,0,1)))/1200)
+        m=motion.measure(gated(tone(rise,1)),rate,60,1.0,lead,hold)
+        assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5,m
+        m=motion.measure(gated(tone(f0*2**(75*np.sin(2*np.pi*14*t)/1200),1)),rate,60,1.0,lead,hold)
+        assert m['inharmonic_pct'] is None and 'pitch swings' in motion.words(m),m
+        cents=65*np.sin(2*np.pi*2.5*u);under=50.2*2**(cents/1200)<49.5;ph=2*np.pi*np.cumsum(50.2*2**(cents/1200))/rate
+        m=motion.measure(np.stack([gated(np.sin(ph)*(1+under))[:,0],gated(np.sin(5.4*ph)*under*(1+under))[:,0]],1),rate,32,50.2/(440*2**((32-69)/12)),lead,hold)
+        assert 'inharmonic' not in motion.words(m),m
+        def pair(f,partials):   # the first partial on one channel, the others on the other, at f
+            return np.stack([gated(np.sin(2*np.pi*f*t))[:,0],gated(sum(a*np.sin(2*np.pi*r*f*t) for r,a in partials))[:,0]],1)
+        hz54=440*2**((54-69)/12)
+        m=motion.measure(pair(187.5,((16.4,.9),)),rate,54,187.5/hz54,lead,hold)
+        assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5,m
+        shares=[motion.measure(pair(k*48000/4096,((2.75,.59),)),rate,54,k*48000/4096/hz54,lead,hold)['inharmonic_pct'] for k in (17.5,18)]
+        assert all(s is not None and abs(s-25.8)<2.5 for s in shares),shares
+        # From Astra's review of the fourth revision (s010inh4).  Under a vibrato of 30 cents the same 800-cent rise is
+        # harmonic (frames whose only readings were the far ones were judged unmoved: 38%); a vibrato of 200 cents at
+        # 18 Hz, begun at its crest, has no share (its swing read 9.1 Hz, and its frames passed at 100%); two partials two
+        # bins apart, 26.5% off, read so (the bin between them counted by both: 33%); a partial at 8.45 times 750 Hz that
+        # a vibrato of 100 cents spreads, 38.4% of the power, reads so (three bins held 54% of it: 26%); a second note a
+        # fifth up is left out with its frames, one an octave down counts against the share, as the guide says.
+        rise=800*(.5-.5*np.cos(np.pi*np.clip((u-.72)/.085,0,1)))
+        m=motion.measure(gated(tone(f0*2**((30*np.sin(2*np.pi*5*u)+rise)/1200),1)),rate,60,1.0,lead,hold)
+        assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5,m
+        m=motion.measure(gated(tone(f0*2**(100*np.sin(2*np.pi*18.15*u+np.pi/2)/1200),1)),rate,60,1.0,lead,hold)
+        assert m['inharmonic_pct'] is None,m
+        b24=24*48000/4096
+        m=motion.measure(pair(b24,((26/24,.6),)),rate,60,b24/f0,lead,hold)
+        assert m['inharmonic_pct'] is not None and abs(m['inharmonic_pct']-26.5)<1.5,m
+        ph=2*np.pi*np.cumsum(750*2**(50*np.sin(2*np.pi*3*u)/1200))/rate
+        m=motion.measure(np.stack([gated(np.sin(ph))[:,0],gated(.79*np.sin(8.45*ph))[:,0]],1),rate,72,750/(440*2**((72-69)/12)),lead,hold)
+        assert m['inharmonic_pct'] is not None and abs(m['inharmonic_pct']-38.4)<2 and 'inharmonic' in motion.words(m),m
+        for cents,marked in ((702,False),(-1200,True)):
+            m=motion.measure(gated(tone(f0*2**(cents*(u>=.72)/1200),1)),rate,60,1.0,lead,hold)
+            assert m['inharmonic_pct'] is not None and (m['inharmonic_pct']>=30)==marked,(cents,m)
+        # From Astra's review of the fifth revision (s010inh5).  A harmonic C4 under a 140-cent vibrato whose second
+        # harmonic outweighs it until 0.34 s, so the track reads an octave off there, is harmonic (those frames, judged
+        # unmoved, read 43%); two partials two bins apart, both between bins, 37.2% off, read so (shared by their bins,
+        # 27%).
+        cents=-70*np.cos(2*np.pi*2*(u-.26));ph=2*np.pi*np.cumsum(f0*2**(cents/1200))/rate;fade=1-np.clip((u-.34)/.015,0,1)
+        m=motion.measure(gated(np.sin(ph)*(1-.91*fade)+np.sin(2*ph)*(.15+2.25*fade)),rate,60,1.0,lead,hold)
+        assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5,m
+        b=23.5625*48000/4096
+        m=motion.measure(pair(b,((25.5625/23.5625,.77),)),rate,60,b/f0,lead,hold)
+        assert m['inharmonic_pct'] is not None and abs(m['inharmonic_pct']-37.2)<1.5,m
+        # From Astra's review of the sixth revision (s010inh6).  A 600 Hz sine under a vibrato of 180 cents at 18 Hz, read
+        # against a measured pitch 75 cents off (so with the references held fixed), has no share (the fixed test took no
+        # account of the track's narrowing: 100%); a partial 62 cents under the fundamental, both between bins, is placed
+        # where it is (by a parabola it was taken for 39 cents off: 0.0% for 44.4%); a second note 1,100 cents up after a
+        # first one with a vibrato is left out with its frames, as the guide says.
+        x=np.arange(len(t))/rate-lead;hz74=440*2**((74-69)/12)
+        m=motion.measure(gated(np.sin(2*np.pi*np.cumsum(600*2**(90*np.sin(2*np.pi*18*x)/1200))/rate)),rate,74,600*2**(75/1200)/hz74,lead,hold)
+        assert m['inharmonic_pct'] is None,m
+        b=56.625*48000/4096;hz76=440*2**((76-69)/12)
+        m=motion.measure(pair(b,((54.625/56.625,1/1.12),)),rate,76,b/hz76,lead,hold)
+        assert m['inharmonic_pct'] is not None and abs(m['inharmonic_pct']-44.4)<1.5 and 'inharmonic' in motion.words(m),m
+        hz57=440*2**((57-69)/12)
+        m=motion.measure(gated(tone(hz57*2**(np.where(x<.72,30*np.sin(2*np.pi*4*x),1100.)/1200),1)),rate,57,1.0,lead,hold)
+        assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5,m
+        # From Astra's review of the seventh revision (s010inh7).  The 18 Hz vibrato of 180 cents with one 120 ms gap (which
+        # takes the swing's rate) has no share (100%); a C#2 under a 60% tremolo at 16 Hz is not inharmonic (placed by the
+        # two-bin ratio, which reads one side, its fundamental fell 80 cents off: 60%); an accented note 1,100 cents up
+        # fading into a vibrato's note is left out with its frames (one octave-off reading set aside, one kept: 52%).
+        m=motion.measure(gated(np.sin(2*np.pi*np.cumsum(600*2**(90*np.sin(2*np.pi*18*x)/1200))/rate)*np.clip(np.maximum(.5-x,x-.62)/.005,0,1)),rate,74,600/hz74,lead,hold)
+        assert m['inharmonic_pct'] is None,m
+        hz37=440*2**((37-69)/12)
+        m=motion.measure(gated(np.sin(2*np.pi*hz37*t)*(1+.6*np.cos(2*np.pi*16*x))),rate,37,1.0,lead,hold)
+        assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<20,m
+        fade=.5-.5*np.cos(np.pi*np.clip((x-.33)/.01,0,1))
+        m=motion.measure(gated(5*tone(np.full_like(t,hz57*2**(1100/1200)),1)*(1-fade)+tone(hz57*2**(30*np.sin(2*np.pi*4*x)/1200),1)*fade),rate,57,1.0,lead,hold)
+        assert m['inharmonic_pct'] is not None and m['inharmonic_pct']<5,m
+        return {'words':got}
+    def sounds_without_leaves_out_whole_words():
+        # 0.10 step 3b (research/design-0.10.md, and the Astra reviews of the design and of step 3): --without leaves out the
+        # patches whose character holds any of its words, as a whole phrase or one of its words, and the patches not known
+        # to lack a held note's word of it (its figure was not read: None, a silent playing, or no measurement), before the
+        # count and the seeded spread; --character keeps every word it is given, an older word matched as 0.9.3 matched it
+        # ("bright" does not find "brightens" or "brightness swings"), a held note's word whole; an unknown word is refused
+        # with the nearest.
+        import subprocess,sys
+        from musiclib import motion,shortlist,surge
+        catalog=surge.catalog()
+        def phrases(r):return [x for x in r.get('character','').split(', ') if x]
+        def words_of(r):return set(phrases(r))|{t for x in phrases(r) for t in x.split()}
+        def unread(e,w):   # read here again from motion's own tables: none of the phrases the word names held, and for one of
+            # them no figure, or a swing at its line with no rate (whether it repeats is not known: the Astra review of the whole)
+            names=[p for p in motion.WORDS if w==p or w in p.split()];m=e.get('measured') or {}
+            return not set(names)&set(phrases(e)) and any(m.get(motion.FIGURES[p]) is None or (p in motion.RATES and m[motion.FIGURES[p]]>=motion.LINES[p]
+                                                                                           and m.get(motion.RATES[p]) is None) for p in names)
+        gated={'character':'mid, soft, short, wide, steady','measured':{'hold_end_db':0.0,'centroid_drift_oct':0.0,'onset_pitch_cents':3.0,'pitch_steps_pct':0.0,
+               'level_swing_db':2.0,'level_swing_hz':None,'pitch_swing_cents':85.7,'pitch_swing_hz':None,'centroid_swing_oct':.2,'centroid_swing_hz':None,'inharmonic_pct':1.0}}
+        assert shortlist.unread(gated,'pitch swings') and shortlist.unread(gated,'swings') and not shortlist.unread(gated,'level swings') and not shortlist.unread(gated,'decays')
+        timed={t for w in motion.WORDS for t in [w]+w.split()}
+        everything=shortlist.search('pad',limit=10**6)
+        for words in (['decays'],['swings'],['pitch'],['decays','level swings'],['pitch blip'],['bright']):
+            kept=shortlist.search('pad',limit=10**6,without=words)
+            gone={r['id'] for r in everything['shown'] if set(words)&words_of(r) or any(unread(catalog[r['id']],w) for w in words if w in timed)}
+            assert kept['count']==everything['count']-len(gone) and {r['id'] for r in kept['shown']}=={r['id'] for r in everything['shown']}-gone,(words,kept['count'],len(gone))
+        assert any('pitch swings' in phrases(r) or 'pitch blip' in phrases(r) for r in everything['shown']),'the catalog holds the words of a held note'
+        # an older word finds what it found in 0.9.3: none of the patches whose "bright" is only in a held note's word
+        older_bright=lambda e:any('bright' in x for x in phrases(e) if x not in motion.WORDS)
+        only_held=[k for k,e in catalog.items() if not older_bright(e) and {'brightens','brightness swings'}&set(phrases(e))]
+        bright=shortlist.search(None,character=['bright'],limit=10**6,everything=True)
+        assert only_held and not {r['id'] for r in bright['shown']}&set(only_held) and all(older_bright(r) for r in bright['shown'])
+        assert not shortlist.search(None,character=['bright'],limit=10**6,everything=True,without=['bright'])['count']
+        darkens=shortlist.search(None,character=['darkens'],limit=10**6,everything=True)
+        assert darkens['count'] and all('darkens' in phrases(r) for r in darkens['shown'])
+        both=shortlist.search('pad',character=['slow swell'],limit=10**6,without=['decays'])
+        assert all('slow swell' in phrases(r) and 'decays' not in phrases(r) for r in both['shown']) and both['count']==len(both['shown'])
+        few=shortlist.search('pad',limit=5,seed=3,without=['decays'])
+        assert few['count']==shortlist.search('pad',limit=10**6,without=['decays'])['count'] and len(few['shown'])==5 and 'left out by --without decays' in few['note'],few['note']
+        try:shortlist.search('pad',without=['decay']);raise AssertionError('an unknown word taken')
+        except ValueError as e:assert "did you mean 'decays'?" in str(e),e
+        unknown={k for k,e in catalog.items() if (e.get('measured') or {}).get('hold_end_db') is None}
+        all_kept=shortlist.search(None,limit=10**6,everything=True,without=['decays'])
+        assert unknown and not {r['id'] for r in all_kept['shown']}&unknown and len(shortlist.search(None,limit=10**6,everything=True)['shown'])>all_kept['count']
+        r=subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'sounds','--role','pad','--without','decays','--limit','3','--json'],capture_output=True,text=True,encoding='utf-8',errors='replace')
+        assert r.returncode==0 and json.loads(r.stdout)['count']==shortlist.search('pad',limit=10**6,without=['decays'])['count'],r.stderr[-300:]
+        return {'pads':everything['count'],'without decays':shortlist.search('pad',limit=10**6,without=['decays'])['count'],'bright':bright['count'],'not read':len(unknown)}
     def own_folder_and_sfz_build_banks():
         # 0.8 step 3 (design-0.8.md): `soundbank.py folder` builds one preset from a folder of one's own samples named by
         # a template (each pitch from {note}, checked; levels matched; the velocity range shared evenly by the dynamics,
@@ -1908,7 +2210,7 @@ def define(S):
         first,last=min(c['start'] for c in channels),max(c['start']+len(c['add'])-1 for c in channels)   # both of them words it changes
         assert (first,last)==(137,12671),(first,last)
         return {'takes':len(takes),'numbers':numbers,'words_changed':changed,'first_frame':first,'last_frame':last}
-    found = {'sf2_writer_reader_roundtrip': sf2_roundtrip, 'sf2_inventory_reports_keys_layers_seconds_and_loops': sf2_inventory, 'soundbank_builds_a_kit_with_microphones_and_choke': kit_build, 'soundbank_keeps_recorded_loops_and_evens_takes': loop_build, 'soundbank_levels_every_dynamic_of_a_note_together': across_levels, 'soundbank_builds_dynamic_layers_and_legato_presets': expressive_bank, 'soundbank_ring_db_keeps_each_take_to_its_own_decay': ring_cut, 'soundbank_denoise_keeps_each_layers_partials': denoise_keeps_each_layers_partials, 'split_finds_each_note_of_a_chromatic_run': split_run, 'split_reads_a_high_passed_copy_and_leaves_out_takes': split_highpass, 'a_soft_take_made_from_the_loud_one': soft_take_from_the_loud_one, 'settled_bands_are_closed_once': settled_bands_are_closed_once, 'full_scale_storage_keeps_the_level_heard': full_scale_keeps_the_level, 'stored_patch_changes_the_named_take_alone': stored_patch_changes_the_named_take_alone, 'the_steinway_patch_is_as_described': the_steinway_patch_is_as_described,'soundbank_tunes_split_notes_and_quiets_borrowed_dynamics': split_bank, 'noise_reduction_lowers_hiss_and_keeps_the_note': noise_reduction, 'click_repair_takes_out_a_knock_and_keeps_the_ring': click_repair, 'denoise_keeps_a_soft_low_note_out_of_the_rumble': denoise_keeps_low_partials, 'noise_profile_reads_gated_and_breathy_recordings': noise_profile, 'split_keeps_the_note_not_its_faint_ring': split_ignores_faint_rings, 'a_cut_manifest_writes_only_inside_its_folder': files_stay_inside, 'wav_readers_decode_each_encoding_and_keep_their_header_rules': wav_readers, 'wav_readers_keep_their_policies_on_the_same_bytes': wav_policies_side_by_side, 'bank_files_named_by_template': bank_files_named_by_template, 'bank_build_opens_no_link_below_its_root': bank_build_opens_no_link_below_its_root, 'bank_cut_checks_each_span_first': bank_cut_checks_each_span_first, 'aiff_reader_walks_headers_and_refuses_what_it_cannot_hold': aiff_reader_walks_headers_and_refuses_what_it_cannot_hold, 'sounds_search_names_what_it_does_not_know': sounds_search_names_what_it_does_not_know, 'instruments_reads_keys_and_layers_from_the_bank': instruments_reads_keys_and_layers_from_the_bank, 'own_folder_and_sfz_build_banks': own_folder_and_sfz_build_banks,'aiff_reader_decodes_each_kind_it_takes': aiff_reader, 'flac_source_must_be_flac': flac_source_must_be_flac, 'soundfont_tables_must_hold_together': soundfont_tables_must_hold_together, 'sf2_tables_are_refused_by_their_size': sf2_tables_by_their_size, 'sf2_tables_may_end_without_their_terminal_records': sf2_tables_without_terminal_records, 'sf2_reader_refuses_early_and_keeps_its_forms': sf2_reader_refuses_early_and_keeps_its_forms}
+    found = {'sf2_writer_reader_roundtrip': sf2_roundtrip, 'sf2_inventory_reports_keys_layers_seconds_and_loops': sf2_inventory, 'soundbank_builds_a_kit_with_microphones_and_choke': kit_build, 'soundbank_keeps_recorded_loops_and_evens_takes': loop_build, 'soundbank_levels_every_dynamic_of_a_note_together': across_levels, 'soundbank_builds_dynamic_layers_and_legato_presets': expressive_bank, 'soundbank_ring_db_keeps_each_take_to_its_own_decay': ring_cut, 'soundbank_denoise_keeps_each_layers_partials': denoise_keeps_each_layers_partials, 'split_finds_each_note_of_a_chromatic_run': split_run, 'split_reads_a_high_passed_copy_and_leaves_out_takes': split_highpass, 'a_soft_take_made_from_the_loud_one': soft_take_from_the_loud_one, 'settled_bands_are_closed_once': settled_bands_are_closed_once, 'full_scale_storage_keeps_the_level_heard': full_scale_keeps_the_level, 'stored_patch_changes_the_named_take_alone': stored_patch_changes_the_named_take_alone, 'the_steinway_patch_is_as_described': the_steinway_patch_is_as_described,'soundbank_tunes_split_notes_and_quiets_borrowed_dynamics': split_bank, 'noise_reduction_lowers_hiss_and_keeps_the_note': noise_reduction, 'click_repair_takes_out_a_knock_and_keeps_the_ring': click_repair, 'denoise_keeps_a_soft_low_note_out_of_the_rumble': denoise_keeps_low_partials, 'noise_profile_reads_gated_and_breathy_recordings': noise_profile, 'split_keeps_the_note_not_its_faint_ring': split_ignores_faint_rings, 'a_cut_manifest_writes_only_inside_its_folder': files_stay_inside, 'wav_readers_decode_each_encoding_and_keep_their_header_rules': wav_readers, 'wav_readers_keep_their_policies_on_the_same_bytes': wav_policies_side_by_side, 'bank_files_named_by_template': bank_files_named_by_template, 'bank_build_opens_no_link_below_its_root': bank_build_opens_no_link_below_its_root, 'bank_cut_checks_each_span_first': bank_cut_checks_each_span_first, 'aiff_reader_walks_headers_and_refuses_what_it_cannot_hold': aiff_reader_walks_headers_and_refuses_what_it_cannot_hold, 'sounds_search_names_what_it_does_not_know': sounds_search_names_what_it_does_not_know, 'instruments_reads_keys_and_layers_from_the_bank': instruments_reads_keys_and_layers_from_the_bank, 'config_taken_from_music_skill_config': config_taken_from_music_skill_config, 'motion_reads_what_a_held_note_does': motion_reads_what_a_held_note_does, 'sounds_without_leaves_out_whole_words': sounds_without_leaves_out_whole_words, 'own_folder_and_sfz_build_banks': own_folder_and_sfz_build_banks,'aiff_reader_decodes_each_kind_it_takes': aiff_reader, 'flac_source_must_be_flac': flac_source_must_be_flac, 'soundfont_tables_must_hold_together': soundfont_tables_must_hold_together, 'sf2_tables_are_refused_by_their_size': sf2_tables_by_their_size, 'sf2_tables_may_end_without_their_terminal_records': sf2_tables_without_terminal_records, 'sf2_reader_refuses_early_and_keeps_its_forms': sf2_reader_refuses_early_and_keeps_its_forms}
     if config:
         def preset_list_matches_the_banks():
             # 0.8 step 2.6: what `instruments` reads from each configured bank against references/soundbank-presets.md, row

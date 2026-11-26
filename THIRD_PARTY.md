@@ -6,7 +6,7 @@ Nothing in this list is bundled in the repository, apart from what [Data](#data)
 
 | Software | Licence | How it is used |
 |---|---|---|
-| [FluidSynth](https://github.com/FluidSynth/fluidsynth) 2.6.1 (Windows build) or the system package | LGPL-2.1-or-later | run as a separate program to render each part |
+| [FluidSynth](https://github.com/FluidSynth/fluidsynth) 2.6.3 (Windows build) or the system package | LGPL-2.1-or-later | run as a separate program to render each part |
 | [FFmpeg](https://ffmpeg.org) 9.0.2 essentials build by [Gyan](https://www.gyan.dev/ffmpeg/builds/) (Windows) or the system package | GPL-3.0 for that build; system packages carry their own | run as a separate program for mixing, measuring and encoding |
 | [NumPy](https://numpy.org) | BSD-3-Clause | installed from PyPI |
 | [Surge XT](https://surge-synthesizer.github.io/) 1.3.4 (the plugin-only releases for Windows, Linux and macOS) or your own install | GPL-3.0-or-later | optional, installed by default; run as a separate program (through pedalboard) to play `surge` parts |

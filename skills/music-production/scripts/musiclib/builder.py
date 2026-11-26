@@ -30,7 +30,7 @@ from pathlib import Path
 from . import files
 from .model import TPQ, check_meter, key_map_pitches, save_json, validate
 
-START_SAVE = 'MUSIC_SKILL_START_SAVE'   # set by studio.py start for its first run of compose.py: its save replaces nothing
+START_SAVE = 'MUSIC_SKILL_START_SAVE'   # a save that replaces nothing (studio.py start set it for its run of compose.py before 0.10)
 NAMES =('C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B')
 PCS = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
 
@@ -226,8 +226,8 @@ class Song:
     def save(self, path):
         """Validate the project and write it (over an earlier one of the same script); returns validate's summary.  Where
         no file is there yet, it is made only while the name stays free: a file put there meanwhile is never replaced
-        (files.publish_new).  In start's first run (START_SAVE set) nothing there is the script's own: start found no
-        song.json, so one there now was made by something else after start looked.  The flag alone decides, not a
+        (files.publish_new).  With START_SAVE set (start set it for its run of compose.py before 0.10, which saves its skeleton
+        itself) nothing there is the script's own: a song.json there was made by something else.  The flag alone decides, not a
         comparison of resolved paths, which a link swapped for a file between the two resolutions defeated (the Astra
         reviews of the fixes for 0.8.0): start's skeleton saves one file."""
         summary = validate(self.project)

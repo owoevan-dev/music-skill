@@ -7,8 +7,6 @@ validated in memory first, so a preset it cannot name, an id compose.py cannot u
 refused before anything is written."""
 import keyword
 import os
-import subprocess
-import sys
 from pathlib import Path
 
 from . import files
@@ -189,7 +187,8 @@ def script(title, sections, parts, tempo, meter, config):
 
 
 def start(folder, title, sections, parts, tempo=100.0, meter='4/4', config=None):
-    """Write folder/compose.py and run it once, so that folder/song.json is there, validated.  The folder may hold the
+    """Write folder/compose.py and the song.json it writes: the same skeleton, validated and saved by start, which does not
+    run the script (nothing in the folder is imported or run).  The folder may hold the
     piece's brief and words already (SKILL.md's steps 1 and 2 come first: a folder that was there was refused, the review
     of 0.8.0), but no compose.py or song.json; it is made where it is missing.  With a configuration, a part that names no
     instrument plays the default bank's program 0 (its kit at 128:0 for a drum part), written out so that it is checked."""
@@ -273,22 +272,16 @@ def start(folder, title, sections, parts, tempo=100.0, meter='4/4', config=None)
             f.write(script(title, sections, placed, tempo, (beats, unit), config))
     except FileExistsError:
         raise ValueError(f'{script_path} was made by something else while start wrote it; it is left as it is') from None
-    # The script by its absolute path, which no option begins like: a folder named "-cprint(1)" was read as Python's
-    # -c option, and a relative one was looked for again inside itself (the Astra review of step 2)
-    # Its save may make song.json but replace nothing: start found none, so one there now was made by something else
-    # after start looked (it was taken for the script's own and replaced: the Astra review of the fixes for 0.8.0)
-    from .builder import START_SAVE
-    run = subprocess.run([sys.executable, str(script_path)], capture_output=True, text=True, encoding='utf-8', errors='replace', cwd=folder,
-                         env={**os.environ, START_SAVE: '1'})
-    if run.returncode:
-        last = (run.stderr.strip().splitlines() or ['(no message)'])[-1]
-        if files.occupied(folder / 'song.json'):
-            # start found none, so unless the script saved this one before it stopped it is another's, which its save
-            # refused to replace; the line below told the user to run compose.py, whose save replaced it (GPT Pro's
-            # second review of 0.8.0)
-            raise ValueError(f"{folder / 'compose.py'} was written, but it stopped: {last}. A song.json is there now that start did not find: "
-                             "unless compose.py saved it before it stopped, it is another's, and running compose.py would replace it, so "
-                             "move it aside first or start in another folder")
-        raise ValueError(f'{folder / "compose.py"} was written, but it stopped: {last}. Fix that line of the script, then run it: python compose.py')
+    # The first song.json is the skeleton compose.py writes, validated above, saved here rather than by running compose.py:
+    # Python runs a script with its own folder first on the import path, so a module file in the piece's folder (a
+    # pathlib.py) was imported before the skill's (GPT Pro's second full review of 0.10); the script writes the same
+    # project.  The save makes song.json but replaces nothing: start found none, so one there now was made by something else
+    # after start looked (it was taken for the script's own and replaced: the Astra review of the fixes for 0.8.0).
+    from .model import save_json
+    try:
+        save_json(folder.absolute() / 'song.json', probe.project, new=True)
+    except FileExistsError:
+        raise ValueError(f"{folder / 'compose.py'} was written, but {folder / 'song.json'} was made by something else while the song was saved: "
+                         "it is left as it is, and running compose.py would replace it, so move it aside first or start in another folder") from None
     return files.joined([f'Wrote {folder / "compose.py"} and the song.json it writes ({len(parts)} parts, {len(sections)} sections, validated).',
                          'Write the notes in compose.py, run python compose.py, then studio.py validate and studio.py review.'])

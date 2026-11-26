@@ -1411,6 +1411,17 @@ def define(S):
         part.note(1,1,60,4.03);part.note(2,2,62,1.2)
         q.project['tracks'][0]['performance']['cc']=[[0,64,127],[4,64,0],[4.02,64,127],[6,64,0]];validate(q.project)
         assert asked(q.project,'repedal')==([],[]),slow
+        # From GPT Pro's second full review: the catalog measured each patch with its mod wheel at rest, so the eight short
+        # notes with CC1 moved are not asked about on a slow pad whose wheel moves something (verb_pad's shortens its attack),
+        # and are on one whose wheel moves nothing, and with the wheel left at 0
+        def wheel_notes(name,preset,value):
+            q=Song(name,bars=4,tempo=120);q.section('a',4,'a');part=q.part('p','harmony',engine='surge',surge={'preset':preset})
+            for k in range(8):part.note(1+k//10,1+(k*.4)%4,60+2*(k%2),.4)
+            q.project['tracks'][0]['performance']['cc']=[[0,1,value]];validate(q.project);return q.project
+        slow_pads=[k for k,e in sorted(sg.catalog().items()) if e['role']=='pad' and not e['flags'] and (e.get('measured') or {}).get('attack_s',0)>=.5]
+        moving=next(k for k in slow_pads if sg.catalog()[k].get('wheel'));still=next(k for k in slow_pads if sg.catalog()[k].get('wheel')==[])
+        assert asked(wheel_notes('wheel',moving,127),'wheel')==([],[]) and asked(wheel_notes('wheel_rest',moving,0),'wheel_rest')==(['sound_attack:p'],[]),moving
+        assert asked(wheel_notes('wheel_still',still,127),'wheel_still')==(['sound_attack:p'],[]),still
         assert asked(glide('macro',macros={'1':.5}),'macro')==([],[]) and asked(glide('vtc',velocity_to_cutoff=24),'vtc')==([],[]),slow
         from musiclib.model import Clock
         assert rv.sound_of({'engine':'surge','surge':{'preset':slow,'macros':{'1':.5}}})['attack_s'] is None and rv.pedal_down({'performance':{'cc':[[0,64,127],[2,64,0],[3,64,100]]}},Clock(held))==[(0.0,1.0),(1.5,float('inf'))]

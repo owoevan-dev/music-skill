@@ -631,17 +631,20 @@ def define(S):
             r=start(other,'--title','K','--section','a:1','--part','lead melody','--config',work/'start_config.json')
             assert r.returncode==2 and 'exists' in r.stderr and (other/name).read_text(encoding='utf-8')=='mine',(name,r.stderr[-300:])
         import musiclib.starter as starter
-        real=starter.script;starter.script=lambda *a:real(*a)+'raise SystemExit("stopped here")\n'   # a compose.py that stops is reported
-        try:starter.start(work/'books_stops','B',['a:2'],['lead melody']);raise AssertionError('a stopped compose.py reported as written')
-        except ValueError as e:assert 'compose.py was written, but it stopped: stopped here' in str(e) and 'running compose.py would replace it' in str(e),str(e)
+        # start saves the skeleton itself and runs no compose.py, so that nothing in the piece's folder is imported (a pathlib.py
+        # there was, by the script's run: GPT Pro's second full review of 0.10): a script that would stop at its first line
+        # leaves start's song.json; a module in the folder is never imported; and the script, run as the user runs it, writes
+        # the very project start saved
+        real=starter.script;starter.script=lambda *a:real(*a)+'raise SystemExit("stopped here")\n'
+        try:starter.start(work/'books_stops','B',['a:2'],['lead melody'])
         finally:starter.script=real
-        # that one stopped after its save, so its song.json is there and running it again replaces that file, as the message
-        # says; one that stops before its save leaves none, and is told to fix the line and run it (GPT Pro's second review)
-        starter.script=lambda *a:real(*a).replace('song.save(','raise SystemExit("stopped here"); song.save(')
-        try:starter.start(work/'books_stops_early','B',['a:2'],['lead melody']);raise AssertionError('a compose.py stopped before its save reported as written')
-        except ValueError as e:assert 'stopped here. Fix that line of the script, then run it: python compose.py' in str(e),str(e)
-        finally:starter.script=real
-        assert not (work/'books_stops_early'/'song.json').exists()
+        validate(json.loads((work/'books_stops'/'song.json').read_text(encoding='utf-8')))
+        shadow=work/'books_shadow';shadow.mkdir();mark=work/'books_shadow.mark'
+        (shadow/'pathlib.py').write_text(f'open({str(mark)!r},"w").write("imported")\nraise RuntimeError("imported")\n',encoding='utf-8')
+        r=start(shadow,'--title','S','--section','a:1','--part','lead melody','--config',work/'start_config.json')
+        assert r.returncode==0 and not mark.exists() and (shadow/'song.json').is_file(),r.stderr[-300:]
+        again=subprocess.run([sys.executable,str(work/'books_piece'/'compose.py')],cwd=work/'books_piece',capture_output=True,text=True,encoding='utf-8',errors='replace')
+        assert again.returncode==0 and json.loads((work/'books_piece'/'song.json').read_text(encoding='utf-8'))==made,again.stderr[-300:]
         # a compose.py put in the new folder while start writes its own is left as it is (it was written over: the whole review)
         def theirs(*a):
             (work/'books_race'/'compose.py').write_text('# theirs\n',encoding='utf-8');return real(*a)

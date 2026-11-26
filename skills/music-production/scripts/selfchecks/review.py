@@ -356,8 +356,11 @@ def define(S):
             assert any(f'plays the built-in {preset}; Surge XT is installed' in x for x in prompts)==asked,prompts
             assert not any('Surge XT is installed' in x for x in run_review(song([pad]),work/f'review_nosurge_{preset}')['prompts'])
         # With the full patch set installed, a built-in preset no curated patch covers is asked about with the catalog
-        # patches named for its sound; one that no patch is named for is not.
-        assert surge.catalog_counterparts('bass_808')==['a_liv/basses/bonsai_808','vospi/basses/808_builder_a'] and not surge.catalog_counterparts('chip_triangle')
+        # patches named for its sound, dark to bright; one that no patch is named for is not.  (The two 808s measure
+        # within 10 Hz of each other, so their order is read from the catalog, not written here: it changed when the
+        # patches built an octave from their key were measured again where a part plays them.)
+        named=surge.catalog_counterparts('bass_808');centroids=[surge.catalog()[k]['measured']['centroid_hz'] for k in named]
+        assert sorted(named)==['a_liv/basses/bonsai_808','vospi/basses/808_builder_a'] and centroids==sorted(centroids) and not surge.catalog_counterparts('chip_triangle'),named
         full={**cfg,'surge':{**cfg['surge'],'catalog':str(fake/'catalog')}}
         # With the full patch set, a built-in a curated patch covers is asked about with three patches of its role
         # from the whole catalog, picked by the piece's seed: two pieces get different ones (the curated four, the

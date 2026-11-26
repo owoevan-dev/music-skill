@@ -1405,6 +1405,12 @@ def define(S):
             part.note(1,1,60,4);part.note(1,4.8,62,.6)
             q.project['tracks'][0]['performance']['cc']=[[0,64,127],[4.2,64,0]];validate(q.project);return q.project
         assert asked(phrase('pedal_glide',glide_ms=80),'pedal_glide')==([],[]) and asked(phrase('pedal_struck'),'pedal_struck')==(['sound_attack:p'],[]),slow
+        # From GPT Pro's second check of the fixes: a pedal let up at 2 s and pressed again at 2.01 s, to 3 s; a C4 let go at
+        # 2.015 s falls in both stretches and sounds to 3 s, so a D4 gliding on from 2.5 s is the same phrase, not a 0.6 s start.
+        q=Song('repedal',bars=4,tempo=120);q.section('a',4,'a');part=q.part('p','harmony',engine='surge',surge={'preset':slow,'glide_ms':80})
+        part.note(1,1,60,4.03);part.note(2,2,62,1.2)
+        q.project['tracks'][0]['performance']['cc']=[[0,64,127],[4,64,0],[4.02,64,127],[6,64,0]];validate(q.project)
+        assert asked(q.project,'repedal')==([],[]),slow
         assert asked(glide('macro',macros={'1':.5}),'macro')==([],[]) and asked(glide('vtc',velocity_to_cutoff=24),'vtc')==([],[]),slow
         from musiclib.model import Clock
         assert rv.sound_of({'engine':'surge','surge':{'preset':slow,'macros':{'1':.5}}})['attack_s'] is None and rv.pedal_down({'performance':{'cc':[[0,64,127],[2,64,0],[3,64,100]]}},Clock(held))==[(0.0,1.0),(1.5,float('inf'))]

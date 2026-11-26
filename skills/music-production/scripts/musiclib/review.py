@@ -1069,10 +1069,11 @@ def started(track,actual,clock):
         down=pedal_down(track,clock)
         if down is None:return [],'notes'
     def pedalled(b):
-        """Where a key let go at b sounds to, the pedal's coming up, if it is let go under the pedal; else None."""
-        for lo,hi in down:
-            if lo-.02<=b<hi+.02:return max(hi,b)
-        return None
+        """Where a key let go at b sounds to, if it is let go under the pedal: the latest coming up of every stretch it falls
+        in, as a pedal let up and pressed again within 20 ms falls in both (the first alone ended a C4 let go at 2.015 s, under
+        a pedal pressed again at 2.01 s and held to 3 s, at 2.015 s: GPT Pro's second check of the fixes); else None."""
+        ups=[max(hi,b) for lo,hi in down if lo-.02<=b<hi+.02]
+        return max(ups) if ups else None
     if track['engine']=='surge' and 'glide_ms' in (track.get('surge') or {}):
         # The phrases first, each note held on to where it sounds (a note let go under the pedal to the pedal's coming up),
         # then a phrase with such a note left out whole: leaving the note out first made the phrase's later notes a fresh

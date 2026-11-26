@@ -1378,12 +1378,15 @@ def define(S):
         part.note(1,1,48,12)
         for k in range(10):part.note(5+k//8,1+(k*.5)%4,60,.5)
         validate(q.project);assert asked(q.project,'drone')==(['sound_decay:p'],[]),'a drone that is most of the time held'
-        late=rv.sound_of({'engine':'surge','surge':{'preset':'late_fall'}})
-        assert (late['what'],late['attack_s'],late['decays'])==('the Surge patch late_fall',sg.presets()['presets']['late_fall']['measured']['attack_s'],None),late
+        def twin(name):   # a curated patch's file as the catalog lists it
+            return next(e for e in sg.catalog().values() if e['sha256']==sg.presets()['presets'][name]['sha256'])
+        plain=next(k for k in sorted(sg.presets()['presets']) if twin(k)['per_note']=={})
+        mine=rv.sound_of({'engine':'surge','surge':{'preset':plain}})
+        assert (mine['what'],mine['attack_s'],mine['decays'])==(f'the Surge patch {plain}',sg.presets()['presets'][plain]['measured']['attack_s'],None),mine
         # From the Astra review of step 3.  The spans are the voices the engine plays: Surge's single-trigger glide does not
         # start the envelope again for a note that overlaps the one before, but strikes afresh one that only touches it
         # (eight touching notes on a slow pad are asked about with glide_ms too; eight that overlap, on two pitches, are not).
-        slow=next(k for k,e in sorted(sg.catalog().items()) if e['role']=='pad' and not e['flags'] and (e.get('measured') or {}).get('attack_s',0)>=.5)
+        slow=next(k for k,e in sorted(sg.catalog().items()) if e['role']=='pad' and not e['flags'] and e['per_note']=={} and (e.get('measured') or {}).get('attack_s',0)>=.5)
         def glide(name,overlap=0,**fields):
             q=Song(name,bars=4,tempo=120);q.section('a',4,'a');part=q.part('p','harmony',engine='surge',surge={'preset':slow,**fields})
             for k in range(8):part.note(1+k//10,1+(k*.4)%4,60+2*(k%2),.4+overlap)
@@ -1418,10 +1421,30 @@ def define(S):
             q=Song(name,bars=4,tempo=120);q.section('a',4,'a');part=q.part('p','harmony',engine='surge',surge={'preset':preset})
             for k in range(8):part.note(1+k//10,1+(k*.4)%4,60+2*(k%2),.4)
             q.project['tracks'][0]['performance']['cc']=[[0,1,value]];validate(q.project);return q.project
-        slow_pads=[k for k,e in sorted(sg.catalog().items()) if e['role']=='pad' and not e['flags'] and (e.get('measured') or {}).get('attack_s',0)>=.5]
+        slow_pads=[k for k,e in sorted(sg.catalog().items()) if e['role']=='pad' and not e['flags'] and e['per_note']=={} and (e.get('measured') or {}).get('attack_s',0)>=.5]
         moving=next(k for k in slow_pads if sg.catalog()[k].get('wheel'));still=next(k for k in slow_pads if sg.catalog()[k].get('wheel')==[])
         assert asked(wheel_notes('wheel',moving,127),'wheel')==([],[]) and asked(wheel_notes('wheel_rest',moving,0),'wheel_rest')==(['sound_attack:p'],[]),moving
         assert asked(wheel_notes('wheel_still',still,127),'wheel_still')==(['sound_attack:p'],[]),still
+        # From GPT Pro's last review of 0.10: the catalog measured one note at velocity 100, and bright_pad's velocity
+        # shortens its attack (0.32 s at 100), so that its one 0.275 s note at velocity 127 passes half its level.  A patch
+        # whose envelopes a note's velocity, its key or another source that differs from note to note moves (per_note; a
+        # curated patch's from its file in the catalog) is not asked about; a curated patch whose file routes none is, at
+        # 127 too, and so is a catalog pad with none; a patch with no per_note listed counts as one with some.
+        def one_note(name,preset,velocity):
+            q=Song(name,bars=4,tempo=120);q.section('a',4,'a');part=q.part('p','harmony',engine='surge',surge={'preset':preset})
+            part.note(1,1,60,.55,velocity=velocity);validate(q.project);return q.project
+        assert twin('bright_pad')['per_note'] and asked(one_note('touch','bright_pad',127),'touch')==([],[])
+        slow_plain=next(k for k in sorted(sg.presets()['presets']) if twin(k)['per_note']=={} and sg.presets()['presets'][k]['measured']['attack_s']>=.4)
+        assert asked(one_note('touch_plain',slow_plain,127),'touch_plain')==(['sound_attack:p'],[]),slow_plain
+        touchy=next(k for k,e in sorted(sg.catalog().items()) if e['role']=='pad' and not e['flags'] and e['per_note'] and (e.get('measured') or {}).get('attack_s',0)>=.5)
+        assert asked(wheel_notes('touchy',touchy,0),'touchy')==([],[]) and asked(wheel_notes('plain',slow,0),'plain')==(['sound_attack:p'],[]),(touchy,slow)
+        rings=next(k for k,e in sorted(sg.catalog().items()) if e['role']=='pluck' and not e['flags'] and e['per_note'] and 'decays' in e.get('character','').split(', '))
+        assert rv.sound_of({'engine':'surge','surge':{'preset':rings}})['decays'] is None and rv.sound_of({'engine':'surge','surge':{'preset':touchy}})['attack_s'] is None,(rings,touchy)
+        listed=sg.catalog()[slow].pop('per_note')
+        try:
+            assert rv.sound_of({'engine':'surge','surge':{'preset':slow}})['attack_s'] is None,'no per_note listed'
+        finally:
+            sg.catalog()[slow]['per_note']=listed
         assert asked(glide('macro',macros={'1':.5}),'macro')==([],[]) and asked(glide('vtc',velocity_to_cutoff=24),'vtc')==([],[]),slow
         from musiclib.model import Clock
         assert rv.sound_of({'engine':'surge','surge':{'preset':slow,'macros':{'1':.5}}})['attack_s'] is None and rv.pedal_down({'performance':{'cc':[[0,64,127],[2,64,0],[3,64,100]]}},Clock(held))==[(0.0,1.0),(1.5,float('inf'))]
@@ -1454,7 +1477,7 @@ def define(S):
         for pitch in (48,52,55,60):part.note(1,1,pitch,4)
         for k in range(8):part.note(2+k//4,1+k%4,60,1)
         validate(q.project);assert asked(q.project,'chord')==([],[]),'a chord counted once a moment'
-        dies=next(k for k,e in sorted(sg.catalog().items()) if e['role']=='pluck' and not e['flags'] and 'decays' in e.get('character','').split(', '))
+        dies=next(k for k,e in sorted(sg.catalog().items()) if e['role']=='pluck' and not e['flags'] and e['per_note']=={} and 'decays' in e.get('character','').split(', '))
         assert rv.sound_of({'engine':'surge','surge':{'preset':dies,'swell':True}})['decays'] is None and rv.sound_of({'engine':'surge','surge':{'preset':dies}})['decays'] is True,dies
         (work/'sound_q_board').mkdir(exist_ok=True);(work/'sound_q_plugin.bin').write_bytes(b'not a plugin')
         partial={'surge':{'path':str(work/'sound_q_plugin.bin'),'patches':str(work),'catalog':str(work)},'pedalboard':{'path':str(work/'sound_q_board')}}

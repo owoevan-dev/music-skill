@@ -975,7 +975,9 @@ def sound_of(t,config=None):
     is taken to play it.  A Surge patch: the catalog's figures (a curated one its own attack and no decay, as the catalog's
     copy of its file may be played at another octave); with `swell`, macros, `velocity_to_cutoff`, or a mod wheel (CC1)
     moved on a patch whose wheel moves anything, neither, as each plays the patch otherwise than at the saved settings and
-    the wheel at rest it was measured at (the Astra reviews of step 3 and of the whole of 0.10, GPT Pro's reviews of 0.10).  A built-in preset: the amplitude envelope of the patch as the synth builds it
+    the wheel at rest it was measured at, nor on a patch whose envelopes a note's velocity, its key or another source that
+    differs from note to note moves, as the catalog measured one note at velocity 100 (the Astra reviews of step 3 and of
+    the whole of 0.10, GPT Pro's reviews of 0.10).  A built-in preset: the amplitude envelope of the patch as the synth builds it
     (synth.patch_of: a part's own `amp` replaces the preset's whole), half its attack time, as it rises in a straight line
     to full level, and its level at the end of the hold against the most it reached by then, so a slow attack still
     rising is not taken for dying away (the Astra review of step 3)."""
@@ -1000,7 +1002,13 @@ def sound_of(t,config=None):
         # attack from about 0.9 s to 0.52 s: GPT Pro's second full review of 0.10).
         wheel=any(c==1 and v>0 for _,c,v in ((t.get('performance') or {}).get('cc') or []))
         moves=(surge.catalog().get(name) or {}).get('wheel') if curated is None else None
-        if spec.get('swell') or spec.get('macros') or 'velocity_to_cutoff' in spec or (wheel and moves!=[]):attack=decays=None
+        # And they are of one note at velocity 100: a patch whose envelopes a note's velocity, its key or another source
+        # that differs from note to note moves (the catalog's per_note; a curated patch's is its file's in the catalog, and
+        # a patch with none listed counts as one that has) sounds otherwise on a part's other notes (bright_pad's velocity
+        # shortens its attack, so that a 0.275 s note at 127 passes half its level: GPT Pro's last review of 0.10).
+        twin=surge.catalog().get(name) if curated is None else next((e for e in surge.catalog().values() if e.get('sha256')==curated.get('sha256')),None)
+        per_note=(twin or {}).get('per_note')
+        if spec.get('swell') or spec.get('macros') or 'velocity_to_cutoff' in spec or (wheel and moves!=[]) or per_note!={}:attack=decays=None
         return {'what':f'the Surge patch {name}','attack_s':attack,'decays':decays,'from':"measured on the catalog's held probe note",'track':t}
     if t['engine']=='synth':
         what=f'the built-in preset {(t.get("synth") or {})["preset"]}' if (t.get('synth') or {}).get('preset') else 'its synth patch'

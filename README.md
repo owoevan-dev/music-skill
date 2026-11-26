@@ -177,7 +177,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 No GPU, no account, no audio model. Every download comes from its publisher or this project's own release and is checked against a pinned SHA-256.
 
-**What it runs, fetches and sends.** The skill runs its Python scripts, FluidSynth, FFmpeg and, if installed, Surge XT, all on your computer, and renders offline. Its own downloaders fetch tools and sound banks only from github.com and GitHub's download hosts (api.github.com, raw.githubusercontent.com, objects.githubusercontent.com, release-assets.githubusercontent.com) and, when a bank is built from its sources, from the University of Iowa's theremin.music.uiowa.edu, and they refuse a redirect to any other host. Python packages (NumPy, and pedalboard for Surge XT) come through pip, from PyPI unless you have set pip to use another package index; the pedalboard wheel is still checked against its pinned SHA-256. It sends nothing: no telemetry, no account, no uploads ([PRIVACY.md](PRIVACY.md)).
+**What it runs, fetches and sends.** The skill runs its Python scripts, FluidSynth, FFmpeg and, if installed, Surge XT, all on your computer, and renders offline. Its own downloaders fetch tools and sound banks only from github.com and GitHub's download hosts (api.github.com, raw.githubusercontent.com, objects.githubusercontent.com, release-assets.githubusercontent.com), the pedalboard wheel for Surge XT from PyPI's file host (files.pythonhosted.org) and, when a bank is built from its sources, from the University of Iowa's theremin.music.uiowa.edu, and they refuse a redirect to any other host. The setup checks the pedalboard wheel against its pinned size and SHA-256 and has pip install that file without going online; NumPy comes through pip, from PyPI unless you have set pip to use another package index. It sends nothing: no telemetry, no account, no uploads ([PRIVACY.md](PRIVACY.md)).
 
 </details>
 
@@ -233,7 +233,7 @@ Every recorded bank is CC0, free for any use without restrictions (the Iowa reco
 <details>
 <summary><b>How well it works</b></summary>
 
-`selfcheck.py` runs 221 checks (174 without a renderer configuration), from MIDI round trips and archive safety to real renders. A one-note revision synthesizes one part again, and `compare` finds the change from that note on, in every file it reached and nowhere else. The older single-room mix reproduces an earlier release bit for bit. The loudness meter reads −3.01 LUFS for the BS.1770 reference tone. CI runs every check, renders included, on Ubuntu with FluidSynth 2.3 and FFmpeg 6.1, on macOS with FluidSynth 2.6 and FFmpeg 9.0, and on Windows with the pinned FluidSynth 2.6.1 and FFmpeg 9.0.2 and with Surge XT.
+`selfcheck.py` runs 226 checks (179 without a renderer configuration), from MIDI round trips and archive safety to real renders. A one-note revision synthesizes one part again, and `compare` finds the change from that note on, in every file it reached and nowhere else. The older single-room mix reproduces an earlier release bit for bit. The loudness meter reads −3.01 LUFS for the BS.1770 reference tone. CI runs every check, renders included, on Ubuntu with FluidSynth 2.3 and FFmpeg 6.1, on macOS with FluidSynth 2.6 and FFmpeg 9.0, and on Windows with the pinned FluidSynth 2.6.3 and FFmpeg 9.0.2 and with Surge XT.
 
 Whether the music is good is another matter, and only listening can tell. The pieces above are the best evidence this repository has.
 

@@ -109,6 +109,39 @@ def define(S):
             assert item['url'].endswith('/'+item['filename']) and len(item['sha256'])==64 and len(item['executable_sha256'])==64
             assert item['executable'].startswith(item['extract']) and item['bytes']>1e7
         assert surge_platform() in (None,'windows-x86_64','linux-x86_64','macos-universal')
+        # Both setups find a system program on PATH, never in the working folder unless PATH names it (the security check
+        # of 0.10.0: Windows' shutil.which looked there first before Python 3.12), here with which made to answer so
+        import shutil
+        import fetch_soundbanks as fsb
+        tools,here=work/'path_tools',work/'path_here';tools.mkdir();here.mkdir()
+        exe='tool.exe' if os.name=='nt' else 'tool'
+        for folder in (tools,here):(folder/exe).write_bytes(b'');os.chmod(folder/exe,0o755)
+        real_which,old_path,old_cwd=shutil.which,os.environ.get('PATH',''),os.getcwd()
+        same=lambda a,b:a is not None and os.path.normcase(os.path.abspath(a))==os.path.normcase(os.path.abspath(b))
+        try:
+            os.chdir(here);shutil.which=lambda name,*a,**k:str(here/exe)
+            for find in (bs.on_path,fsb.on_path):
+                os.environ['PATH']=str(tools);assert same(find('tool'),tools/exe),find('tool')
+                os.environ['PATH']=str(here)+os.pathsep+str(tools);assert same(find('tool'),here/exe),find('tool')   # PATH names it: the user's own
+                os.environ['PATH']=os.pathsep+str(work/'path_none');assert same(find('tool'),here/exe),find('tool')   # an empty entry names it too (SEC4)
+                os.environ['PATH']=str(work/'path_none');assert find('tool') is None
+        finally:
+            shutil.which=real_which;os.environ['PATH']=old_path;os.chdir(old_cwd)
+        # the 7-Zip fallback takes Program Files only where the environment names it absolutely, on Windows: with it unset,
+        # a 7-Zip/7z.exe in the working folder is not taken (GPT Pro's check of the security fixes, SEC2)
+        seven=work/'path_7z';(seven/'7-Zip').mkdir(parents=True);(seven/'7-Zip'/'7z.exe').write_bytes(b'')
+        held={k:os.environ.get(k) for k in ('ProgramFiles','ProgramFiles(x86)','SystemRoot','PATH')}
+        try:
+            for k in ('ProgramFiles','ProgramFiles(x86)','SystemRoot'):os.environ.pop(k,None)
+            os.environ['PATH']=str(work/'path_none');os.chdir(seven)
+            try:kind,tool=fsb.archive_tool()
+            except ValueError:tool=None
+            assert tool is None or not same(os.path.dirname(os.path.dirname(os.path.abspath(tool))),seven),tool
+        finally:
+            os.chdir(old_cwd)
+            for k,v in held.items():
+                if v is None:os.environ.pop(k,None)
+                else:os.environ[k]=v
         return True
     def surge_catalog():
         # Any patch of the measured catalog is a Surge preset by its id: found by role and measured character (flagged
@@ -553,8 +586,9 @@ def define(S):
         return {'tag':tags[0]}
     def a_bank_fluidsynth_is_not_safe_with_is_refused():
         # 0.9.2 (design-0.9.2.md, A1): a modulator's destination past FluidSynth's 63 generators writes outside a voice in
-        # the pinned build (CVE-2026-111123), so no route hands such a bank to it: add-soundfont, configure, doctor, and a
-        # render or audition, whatever the configuration says.  61 and 62 are FluidSynth's own and play.
+        # FluidSynth up to 2.6.2 (CVE-2026-111123; 0.10 pins 2.6.3, and a system's may be older), so no route hands such a
+        # bank to it: add-soundfont, configure, doctor, and a render or audition, whatever the configuration says.  61 and
+        # 62 are FluidSynth's own and play.
         import struct,subprocess,sys
         from make_example import example
         from musiclib import bankcheck

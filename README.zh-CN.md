@@ -177,7 +177,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 不需要 GPU、账号或音频模型。所有文件都从发布者或本项目自己的 release 下载，并用锁定的 SHA-256 校验。
 
-**它运行什么、下载什么、发送什么**：skill 运行的是它的 Python 脚本、FluidSynth、FFmpeg，以及已安装时的 Surge XT，全部在你的电脑上运行，渲染不需要联网。skill 自己的下载程序只从 github.com 和 GitHub 的下载主机（api.github.com、raw.githubusercontent.com、objects.githubusercontent.com、release-assets.githubusercontent.com）下载工具和音色库；只有从原始录音构建音色库时，才会连到爱荷华大学的 theremin.music.uiowa.edu。它会拒绝重定向到其他主机。Python 包（NumPy，以及 Surge XT 用的 pedalboard）通过 pip 下载，除非你给 pip 设置了其他包索引，否则来自 PyPI；pedalboard 的 wheel 仍会用锁定的 SHA-256 校验。它不发送任何东西：没有遥测、没有账号、不上传（[PRIVACY.md](PRIVACY.md)）。
+**它运行什么、下载什么、发送什么**：skill 运行的是它的 Python 脚本、FluidSynth、FFmpeg，以及已安装时的 Surge XT，全部在你的电脑上运行，渲染不需要联网。skill 自己的下载程序只从 github.com 和 GitHub 的下载主机（api.github.com、raw.githubusercontent.com、objects.githubusercontent.com、release-assets.githubusercontent.com）下载工具和音色库，从 PyPI 的文件主机（files.pythonhosted.org）下载 Surge XT 用的 pedalboard wheel；只有从原始录音构建音色库时，才会连到爱荷华大学的 theremin.music.uiowa.edu。它会拒绝重定向到其他主机。安装程序会用锁定的大小和 SHA-256 校验 pedalboard 的 wheel，再让 pip 离线安装这个文件；NumPy 通过 pip 下载，除非你给 pip 设置了其他包索引，否则来自 PyPI。它不发送任何东西：没有遥测、没有账号、不上传（[PRIVACY.md](PRIVACY.md)）。
 
 </details>
 
@@ -233,7 +233,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 <details>
 <summary><b>效果如何</b></summary>
 
-`selfcheck.py` 共有 221 项检查（没有渲染配置时为 174 项），从 MIDI 往返转换、压缩包安全到实际渲染都包含在内。例如：只改一个音时只会重新合成一个声部，而 `compare` 只在受影响的文件里、从那个音开始找到差异；旧的单一混响混音能逐位重现之前的版本；响度测量对 BS.1770 的标准测试音读出 −3.01 LUFS。CI 会跑完所有检查（包括渲染），环境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.1、FFmpeg 9.0.2，加上 Surge XT）。
+`selfcheck.py` 共有 226 项检查（没有渲染配置时为 179 项），从 MIDI 往返转换、压缩包安全到实际渲染都包含在内。例如：只改一个音时只会重新合成一个声部，而 `compare` 只在受影响的文件里、从那个音开始找到差异；旧的单一混响混音能逐位重现之前的版本；响度测量对 BS.1770 的标准测试音读出 −3.01 LUFS。CI 会跑完所有检查（包括渲染），环境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.3、FFmpeg 9.0.2，加上 Surge XT）。
 
 音乐好不好听是另一回事，只有实际聆听才知道。上面这些曲子是这个仓库最好的证据。
 

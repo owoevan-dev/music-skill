@@ -31,6 +31,10 @@ on each at 0.75 or more, and in brackets weaker ones with their loadings:
 - Simple spectral centroid followed perceived brightness better than a centroid relative to the fundamental
   (Schubert and Wolfe 2006, as Zacharakis et al. read their results).
 - For English listeners "dark" loaded with thick and deep (0.70), not on the dimension of brilliant.
+- Two of the correlates are measured on one held note of each Surge patch of the catalog, where the note lets them be read:
+  centroid fluctuation (`brightness swings`) and inharmonicity (`inharmonic`, where its share can be read: not for a patch
+  without a clear pitch, a chord patch or one sounding under 50 Hz, among others), with what else a held note does
+  ([sound-selection.md](sound-selection.md#with-the-tools)).
 
 **Models of single sounds.** The Audio Commons project trained models on listeners' ratings of sound effects and
 validated them (Pearce, Brookes and Mason 2018): brightness from the share of high-frequency energy and the centroid

@@ -7,8 +7,6 @@ validated in memory first, so a preset it cannot name, an id compose.py cannot u
 refused before anything is written."""
 import keyword
 import os
-import subprocess
-import sys
 from pathlib import Path
 
 from . import files
@@ -30,6 +28,61 @@ def behind_script(project):
     return ('Note: compose.py was saved after song.json, so this read the project as it was before that edit. If the script '
             'is yours, run it again and see it finish (a run that fails leaves the old song.json); one that came with a '
             'project from elsewhere is not run unasked.')
+
+
+# A part's sound written as `studio.py audition --sounds` writes one (0.10): any sound a part can play, beside the words
+# that find a SoundFont preset.  Three runs of 0.9.1's gallery wrote their Surge and synth parts into compose.py by hand.
+FORMS = ('surge:', 'synth:', 'soundfont:')
+
+
+def sound_form(ident, instrument):
+    """A part's instrument written as audition --sounds writes a sound (surge:<id>[+setting], synth:<preset>,
+    soundfont:<bank>:<bank number>:<program>), checked against the lists: ('surge' or 'synth', the part's fields for its
+    engine), or ('soundfont', '<bank> <bank number>:<program>'); None for words that find a SoundFont preset; and
+    ('unknown', the reason with the nearest names) for anything else that begins like one of those forms (a Surge patch
+    or a built-in preset that is not there, a SoundFont sound without its bank or numbers, a space in it).  start looks
+    an unknown one up as the words it was in 0.9.3, and a SoundFont sound whose bank or preset is not configured too, and
+    refuses only where that finds nothing either: a configured preset may be named "synth:zed tone" or "soundfont:odd",
+    and 0.9.3 found it (the Astra reviews of 0.10's design and of its step 3)."""
+    if not instrument or not instrument.startswith(FORMS):
+        return None
+    kind = instrument.split(':', 1)[0]
+    if len(instrument.split()) > 1:
+        return 'unknown', f'part {ident}: {instrument!r}: a sound named as {kind}: is one word, with no space'
+    from .audition import parse_sound
+    try:
+        sound = parse_sound(instrument)
+    except ValueError as e:
+        return 'unknown', f'part {ident}: {e}{nearest(kind, instrument)}'
+    if sound[0] == 'surge':
+        return 'surge', {'surge': {'preset': sound[1], **dict(sound[2] if len(sound) > 2 else ())}}
+    if sound[0] == 'synth':
+        return 'synth', {'synth': {'preset': sound[1]}}
+    if not sound[1]:   # "soundfont::0:41" read as the words " 0:41" took whichever bank had that preset
+        return 'unknown', f'part {ident}: {instrument!r}: a SoundFont sound names its bank, soundfont:<bank>:<bank number>:<program>'
+    return 'soundfont', f'{sound[1]} {sound[2]}:{sound[3]}'
+
+
+def nearest(kind, instrument):
+    """'; the nearest: ...' for a Surge patch or built-in preset that is not there, else ''."""
+    import difflib
+    from . import surge, synth
+    asked = instrument.split(':', 1)[1].split('+')[0]
+    names = [*surge.presets()['presets'], *surge.catalog()] if kind == 'surge' else list(synth.presets()) if kind == 'synth' else []
+    close = difflib.get_close_matches(asked, names, n=3, cutoff=.6)
+    return f'; the nearest: {", ".join(close)}' if close else ''
+
+
+def probe_pitch(engine, fields):
+    """Where a Surge or synth part's placeholder note goes: the pitch the catalog's probe note is written at (C2 for basses,
+    C5 for leads, plucks and brass, C4 otherwise, as scripts/surge_catalog.py plays its probe), else middle C.  Written
+    there, a patch with a `transpose` plays it where the renderer moves its notes, as every note of the part."""
+    if engine != 'surge':
+        return 60
+    from . import surge
+    entry = surge.entry(fields['surge']['preset']) or {}
+    measured = entry.get('measured', {}).get('probe_pitch')
+    return measured if isinstance(measured, int) else {'bass': 36, 'lead': 72, 'pluck': 72, 'brass': 72}.get(entry.get('role'), 60)
 
 
 def parse(sections, parts):
@@ -91,8 +144,15 @@ def script(title, sections, parts, tempo, meter, config):
              'studio.py start wrote this skeleton.  musiclib.builder does the bookkeeping (note ids, a performance entry for',
              'each note, each note checked against its part\'s keys as it is written, a save that validates); every note is',
              'yours.  Bars and beats count from 1; a beat is a quarter note; a pitch is a MIDI number or a name (C4 is 60)."""',
+             'import os',
              'import sys',
-             'from pathlib import Path',
+             '',
+             "# Python looks first in a script's own folder, so a file there named as a library (json.py, pathlib.py) would run",
+             '# in its place: this folder leaves the import path before anything else is imported, by where it really is (run',
+             '# through a link, the script is found in the folder the link leads to).',
+             'HERE = {os.path.normcase(os.path.realpath(d)) for d in (os.path.dirname(os.path.abspath(__file__)), os.path.dirname(os.path.realpath(__file__)))}',
+             'sys.path[:] = [p for p in sys.path if os.path.normcase(os.path.realpath(p or os.curdir)) not in HERE]',
+             'from pathlib import Path  # noqa: E402',
              '',
              '# The skill and its configuration on this machine: a copy of this script elsewhere names its own.',
              f'SKILL = {spelled(SCRIPTS)}',
@@ -111,6 +171,10 @@ def script(title, sections, parts, tempo, meter, config):
               "# song.harmony(1, 1, 'Cmaj7')",
               '']
     for ident, role, instrument, _, _, _ in parts:
+        if isinstance(instrument, tuple):   # a Surge or synth part: its engine and the fields that name its sound
+            engine, fields = instrument
+            lines.append(f'{ident} = song.part({q(ident)}, {q(role)}, engine={q(engine)}, {engine}={fields[engine]!r})')
+            continue
         lines.append(f'{ident} = song.part({q(ident)}, {q(role)}' + (f', {q(instrument)})' if instrument else
                                                                        ")  # the default bank's program 0; name a preset: song.part(id, role, '<bank> <bank number>:<program>') or words (studio.py instruments)"))
     lines += ['',
@@ -130,7 +194,8 @@ def script(title, sections, parts, tempo, meter, config):
 
 
 def start(folder, title, sections, parts, tempo=100.0, meter='4/4', config=None):
-    """Write folder/compose.py and run it once, so that folder/song.json is there, validated.  The folder may hold the
+    """Write folder/compose.py and the song.json it writes: the same skeleton, validated and saved by start, which does not
+    run the script (nothing in the folder is imported or run).  The folder may hold the
     piece's brief and words already (SKILL.md's steps 1 and 2 come first: a folder that was there was refused, the review
     of 0.8.0), but no compose.py or song.json; it is made where it is missing.  With a configuration, a part that names no
     instrument plays the default bank's program 0 (its kit at 128:0 for a drum part), written out so that it is checked."""
@@ -145,8 +210,13 @@ def start(folder, title, sections, parts, tempo=100.0, meter='4/4', config=None)
     except ValueError:
         raise ValueError(f'--meter {meter!r}: beats/beat unit, e.g. 4/4 or 6/8') from None
     sections, parts = parse(sections, parts)
-    if config is None and any(instrument for _, _, instrument in parts):
-        raise ValueError('a part\'s instrument is found in the configured banks: give --config <the configuration bootstrap.py wrote>')
+    forms = {ident: sound_form(ident, instrument) for ident, _, instrument in parts}   # malformed sounds refused here, before anything is made
+    unknown = next((form[1] for form in forms.values() if form and form[0] == 'unknown'), None)
+    if config is None and unknown:
+        raise ValueError(unknown)
+    if config is None and any(instrument and (forms[ident] is None or forms[ident][0] == 'soundfont') for ident, _, instrument in parts):
+        raise ValueError('a part\'s instrument is found in the configured banks: give --config <the configuration bootstrap.py wrote> '
+                         '(a Surge patch or a built-in synth preset needs none: surge:<id>, synth:<preset>)')
     from .builder import Song
     from .model import validate
     probe = Song(title, bars=sum(b for _, b in sections), tempo=tempo, meter=(beats, unit), tail_seconds=4, config=config)
@@ -154,6 +224,34 @@ def start(folder, title, sections, parts, tempo=100.0, meter='4/4', config=None)
         probe.section(ident, bars, 'what this section does')
     placed, length = [], min(1, probe.beats_per_bar)   # a quarter note, or a bar of 1/8 or 3/16 whole
     for ident, role, instrument in parts:
+        form = forms[ident]
+        if form is not None and form[0] in ('surge', 'synth'):
+            engine, fields = form
+            part = probe.part(ident, role, engine=engine, **fields)
+            pitch = probe_pitch(engine, fields)
+            part.note(1, 1, pitch, length, velocity=64)
+            placed.append((ident, role, form, pitch, length, 64))
+            continue
+        if form is not None and form[0] in ('soundfont', 'unknown'):
+            # soundfont:<bank>:<n>:<program> as the bank words a part takes; where that is not configured, or the form is
+            # no sound at all, the words it was in 0.9.3, which found a configured preset so named (a part 0.9.3 took is
+            # taken: the Astra review of step 3)
+            why, named = form[1], instrument
+            if form[0] == 'soundfont':
+                try:
+                    part = probe.part(ident, role, form[1])
+                    why, named = None, form[1]
+                except ValueError as e:
+                    why = f'part {ident}: {e}'
+            if why is not None:
+                try:
+                    part = probe.part(ident, role, instrument)
+                except ValueError as e:
+                    raise ValueError(f'{why}; as words for a configured preset: {e}') from None
+            pitch, velocity = placeholder(part, config)
+            part.note(1, 1, pitch, length, velocity=velocity)
+            placed.append((ident, role, named, pitch, length, velocity))
+            continue
         # with a configuration, the default bank's preset the part would play, found and checked as a named one (a part
         # that named none was given middle C whatever that preset had: the review of 0.8.0)
         named = instrument or (f'default {128 if role == "drums" else 0}:0' if config else None)
@@ -181,22 +279,16 @@ def start(folder, title, sections, parts, tempo=100.0, meter='4/4', config=None)
             f.write(script(title, sections, placed, tempo, (beats, unit), config))
     except FileExistsError:
         raise ValueError(f'{script_path} was made by something else while start wrote it; it is left as it is') from None
-    # The script by its absolute path, which no option begins like: a folder named "-cprint(1)" was read as Python's
-    # -c option, and a relative one was looked for again inside itself (the Astra review of step 2)
-    # Its save may make song.json but replace nothing: start found none, so one there now was made by something else
-    # after start looked (it was taken for the script's own and replaced: the Astra review of the fixes for 0.8.0)
-    from .builder import START_SAVE
-    run = subprocess.run([sys.executable, str(script_path)], capture_output=True, text=True, encoding='utf-8', errors='replace', cwd=folder,
-                         env={**os.environ, START_SAVE: '1'})
-    if run.returncode:
-        last = (run.stderr.strip().splitlines() or ['(no message)'])[-1]
-        if files.occupied(folder / 'song.json'):
-            # start found none, so unless the script saved this one before it stopped it is another's, which its save
-            # refused to replace; the line below told the user to run compose.py, whose save replaced it (GPT Pro's
-            # second review of 0.8.0)
-            raise ValueError(f"{folder / 'compose.py'} was written, but it stopped: {last}. A song.json is there now that start did not find: "
-                             "unless compose.py saved it before it stopped, it is another's, and running compose.py would replace it, so "
-                             "move it aside first or start in another folder")
-        raise ValueError(f'{folder / "compose.py"} was written, but it stopped: {last}. Fix that line of the script, then run it: python compose.py')
+    # The first song.json is the skeleton compose.py writes, validated above, saved here rather than by running compose.py:
+    # Python runs a script with its own folder first on the import path, so a module file in the piece's folder (a
+    # pathlib.py) was imported before the skill's (GPT Pro's second full review of 0.10); the script writes the same
+    # project.  The save makes song.json but replaces nothing: start found none, so one there now was made by something else
+    # after start looked (it was taken for the script's own and replaced: the Astra review of the fixes for 0.8.0).
+    from .model import save_json
+    try:
+        save_json(folder.absolute() / 'song.json', probe.project, new=True)
+    except FileExistsError:
+        raise ValueError(f"{folder / 'compose.py'} was written, but {folder / 'song.json'} was made by something else while the song was saved: "
+                         "it is left as it is, and running compose.py would replace it, so move it aside first or start in another folder") from None
     return files.joined([f'Wrote {folder / "compose.py"} and the song.json it writes ({len(parts)} parts, {len(sections)} sections, validated).',
                          'Write the notes in compose.py, run python compose.py, then studio.py validate and studio.py review.'])

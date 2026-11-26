@@ -1,8 +1,9 @@
 """Whether FluidSynth may be given a SoundFont, checked before it ever is.
 
-FluidSynth 2.6.1, the build pinned here, keeps a modulator's 16-bit destination in 8 bits and uses it as an index into a
-voice's 63 generators, so a destination of 63 or more can write outside them (CVE-2026-111123).  Its fix (commit d0431d3f,
-released in 2.6.3) drops a modulator with `dest >= GEN_LAST`, and the same bound refuses the bank here: every record of the
+FluidSynth up to 2.6.2 keeps a modulator's 16-bit destination in 8 bits and uses it as an index into a voice's 63
+generators, so a destination of 63 or more can write outside them (CVE-2026-111123).  Its fix (commit d0431d3f, released
+in 2.6.3, the build the setup pins since 0.10) drops a modulator with `dest >= GEN_LAST`.  The check stays, since a
+configuration may name an older FluidSynth (a system's: Ubuntu 24.04 ships 2.3.4), and the same bound refuses the bank here: every record of the
 preset and instrument modulator tables and of the default modulators (INFO/DMOD, which FluidSynth imports the same way),
 whether or not a part plays that preset, since the file is loaded whole.
 

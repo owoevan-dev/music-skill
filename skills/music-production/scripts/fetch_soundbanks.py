@@ -159,8 +159,11 @@ def archive_tool():
     """A reader for the .7z banks (LZMA-compressed): a libarchive tar built with liblzma (Windows 11's own tar.exe,
     macOS's tar, or bsdtar: on Linux, libarchive-tools), or else 7-Zip's 7z.  GNU tar cannot read 7z, and the
     tar.exe of Windows 10 lacks LZMA.  Returns (kind, path)."""
-    candidates = ([str(Path(os.environ['SystemRoot']) / 'System32' / 'tar.exe')] if os.name == 'nt' and os.environ.get('SystemRoot') else []) + \
-                 [t for t in (shutil.which('bsdtar'), shutil.which('tar')) if t]
+    # The system's own folders only where the environment names them absolutely: a folder left unset made a path relative
+    # to the working folder, where a 7-Zip\7z.exe put there was taken (GPT Pro's check of the security fixes, SEC2)
+    system = lambda var: os.name == 'nt' and os.path.isabs(os.environ.get(var, ''))
+    candidates = ([str(Path(os.environ['SystemRoot']) / 'System32' / 'tar.exe')] if system('SystemRoot') else []) + \
+                 [t for t in (on_path('bsdtar'), on_path('tar')) if t]
     for tool in candidates:
         try:
             version = subprocess.run([tool, '--version'], capture_output=True, text=True, timeout=30,
@@ -169,12 +172,40 @@ def archive_tool():
             continue
         if 'bsdtar' in version and 'liblzma' in version:
             return 'tar', tool
-    sevenzip = shutil.which('7z') or shutil.which('7za') or next(
-        (str(p) for p in [Path(os.environ.get(v, '')) / '7-Zip' / '7z.exe' for v in ('ProgramFiles', 'ProgramFiles(x86)')] if p.is_file()), None)
+    sevenzip = on_path('7z') or on_path('7za') or next(
+        (str(p) for p in [Path(os.environ[v]) / '7-Zip' / '7z.exe' for v in ('ProgramFiles', 'ProgramFiles(x86)') if system(v)] if p.is_file()), None)
     if sevenzip:
         return '7z', sevenzip
     raise ValueError('The .7z banks need a tar with LZMA (bsdtar/libarchive with liblzma; on Debian/Ubuntu '
                      '`sudo apt install libarchive-tools`) or 7-Zip (Windows 10\'s own tar.exe cannot read them)')
+
+
+def on_path(name):
+    """A program on PATH as shutil.which finds it, but not one in the working folder unless PATH names that folder: on
+    Windows, before Python 3.12, which looks there first, so a file put there would run in the program's place (the
+    security check of 0.10.0; bootstrap.on_path is the same)."""
+    found = shutil.which(name)
+    here = os.path.normcase(os.path.abspath(os.curdir))
+    # PATH as which reads it: unset, the system's default; an empty entry is the working folder (POSIX), which PATH then
+    # names (GPT Pro's check of the security fixes, SEC4: such entries were dropped)
+    raw = os.environ.get('PATH')
+    if raw is None:
+        try:
+            raw = os.confstr('CS_PATH') or os.defpath
+        except (AttributeError, ValueError):
+            raw = os.defpath
+    folders = raw.split(os.pathsep)
+    if not found or os.path.normcase(os.path.dirname(os.path.abspath(found))) != here or here in {os.path.normcase(os.path.abspath(p or os.curdir)) for p in folders}:
+        return found
+    endings = [''] + ([e for e in os.environ.get('PATHEXT', '.COM;.EXE;.BAT;.CMD').split(';') if e] if os.name == 'nt' else [])
+    for folder in folders:
+        if not folder or os.path.normcase(os.path.abspath(folder)) == here:
+            continue
+        for ending in endings:
+            candidate = os.path.join(folder, name + ending)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                return candidate
+    return None
 
 def _run(argv):
     done = subprocess.run(argv, capture_output=True, text=True, timeout=1800, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
@@ -448,6 +479,10 @@ def install_split(item, runtime, offline, ffmpeg=None):
             'source': f'{item["page"]} ({len(item["files"])} recordings) with references/{item["spec"]}',
             'version': item['version'], 'verified_samples': len(item['files'])}
 
+# As bootstrap.py prints it (0.10); kept out of musiclib.files, part of what a cached synthesis depends on.
+LATER_SESSIONS = ('NOTE later sessions | studio.py takes this configuration from MUSIC_SKILL_CONFIG when --config is left out: set that to its absolute path, or name the file in your agent instructions (CLAUDE.md, AGENTS.md), so a later session finds it without searching the disk')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--config', type=Path, required=True)
@@ -463,6 +498,9 @@ def main():
     ap.add_argument('--delete-sources', action='store_true',
                     help='after every requested bank is verified, delete the downloads they were made from')
     args = ap.parse_args()
+    from musiclib.homepath import at_home
+    for name in ('config', 'runtime', 'output', 'archive_cache', 'vsco_source', 'prebuilt_from'):  # ~/ as the user's home (0.10)
+        setattr(args, name, at_home(getattr(args, name)))
     files.check_config_path(args.output, '--output')
     # The downloads' folder given as a link is refused before it is resolved, as a render's cache is (N1).
     if args.archive_cache and files.linked(args.archive_cache):
@@ -534,6 +572,7 @@ def _install(args, lock, only, prebuilt, config, runtime):
     # The banks that did install are written to the configuration either way; a failure is listed and ends in exit 2.
     files.save_config(args.output, config, '--output')  # never over a bank or record this run put at that path
     print('Saved', args.output.resolve())
+    print(LATER_SESSIONS, flush=True)
     if failed:
         raise ValueError(f'{len(failed)} bank(s) failed: ' + '; '.join(f'{k}: {v}' for k, v in failed.items()) +
                          '.  The others are configured; run again with --only ' + ','.join(failed) + ' (and a new --output) to retry.')

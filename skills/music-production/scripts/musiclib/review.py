@@ -964,6 +964,168 @@ def bend_question(t,clock,actual=None):
     if not across:return None
     off=max((v for _,v in across),key=abs)*100
     return (identifier('bend',t['id']),f'{t["id"]}: {len(across)} note{"s stay" if len(across)!=1 else " stays"} a quarter-tone or more off the written pitch through most of {"their" if len(across)!=1 else "its"} length because of `performance.bend` (first at {where(clock,across[0][0])}; up to {abs(off):.0f} cents {"flat" if off<0 else "sharp"}). The wheel runs straight from each point to the next and holds the last: a scoop written as one point before its note ramps across the notes before it, and a bend not brought back leaves the notes after it off. Put a point at 0 just before each scoop and where a bend ends. If this is meant (a held bend, a long glide), say so in decisions.')
+SUSTAINED=('harmony','texture','pad')   # the roles whose notes are held for the sound to fill the time (0.10, sound_decay)
+PROBE_HOLD=1.2   # seconds the catalog's probe note is held (scripts/surge_catalog.py): how far `decays` was measured
+def sound_of(t,config=None):
+    """What a Surge or built-in synth part sounds like as it plays (0.10 step 3d): {'what': its name, 'attack_s': seconds
+    to half its level, 'decays': whether it dies 12 dB away within the probe's 1.2 s hold, 'from': where the figures come
+    from, 'track': the part as its engine plays it}, a figure None where nothing gives it; None for another engine.  With
+    a configuration under which Surge XT does not play the part (surge_plays: surge.locate's checks short of its hashes) a
+    Surge part plays its fallback preset on the built-in synth, and that is what is read; without a configuration Surge XT
+    is taken to play it.  A Surge patch: the catalog's figures (a curated one its own attack and no decay, as the catalog's
+    copy of its file may be played at another octave); with `swell`, macros, `velocity_to_cutoff`, or a mod wheel (CC1)
+    moved on a patch whose wheel moves anything, neither, as each plays the patch otherwise than at the saved settings and
+    the wheel at rest it was measured at, nor on a patch whose envelopes a note's velocity, its key or another source that
+    differs from note to note moves, as the catalog measured one note at velocity 100 (the Astra reviews of step 3 and of
+    the whole of 0.10, GPT Pro's reviews of 0.10).  A built-in preset: the amplitude envelope of the patch as the synth builds it
+    (synth.patch_of: a part's own `amp` replaces the preset's whole), half its attack time, as it rises in a straight line
+    to full level, and its level at the end of the hold against the most it reached by then, so a slow attack still
+    rising is not taken for dying away (the Astra review of step 3)."""
+    from . import surge,synth
+    if t['engine']=='surge':
+        spec=t.get('surge') or {};name=spec.get('preset');found=surge.entry(name)
+        if config is not None and found is not None and not surge_plays(config,found):
+            s=sound_of(surge.fallback_track(t))
+            return {**s,'what':f'{s["what"]} (the fallback of the Surge patch {name}, which this configuration does not play)'}
+        curated=surge.presets()['presets'].get(name)
+        if curated is not None:   # its own figures (its transpose may differ from the catalog's copy of its file): no decay measured
+            attack,decays=(curated.get('measured') or {}).get('attack_s'),None
+        else:
+            e=surge.catalog().get(name) or {};m=e.get('measured') or {}
+            attack=m.get('attack_s');decays=None if m.get('hold_end_db') is None else 'decays' in (e.get('character') or '').split(', ')
+        # The figures are the patch at its saved settings.  `swell` sets the envelopes' attacks to the notes' length; a macro
+        # may move an envelope (bright_pad's Attack macro shortens its 0.32 s rise to about 0.03 s), and velocity_to_cutoff
+        # moves filter 1 by the notes' velocity: with any of them the saved patch's figures do not describe the part, and
+        # neither question reads them (GPT Pro's review of 0.10, after the Astra reviews of step 3 and of the whole).  The
+        # figures are also of the mod wheel at rest: a part that moves CC1 on a patch whose wheel moves anything (the catalog
+        # lists what it moves; a curated patch's is not listed) plays it otherwise (verb_pad's wheel takes its amplitude
+        # attack from about 0.9 s to 0.52 s: GPT Pro's second full review of 0.10).
+        wheel=any(c==1 and v>0 for _,c,v in ((t.get('performance') or {}).get('cc') or []))
+        moves=(surge.catalog().get(name) or {}).get('wheel') if curated is None else None
+        # And they are of one note at velocity 100: a patch whose envelopes a note's velocity, its key or another source
+        # that differs from note to note moves (the catalog's per_note; a curated patch's is its file's in the catalog, and
+        # a patch with none listed counts as one that has) sounds otherwise on a part's other notes (bright_pad's velocity
+        # shortens its attack, so that a 0.275 s note at 127 passes half its level: GPT Pro's last review of 0.10).
+        twin=surge.catalog().get(name) if curated is None else next((e for e in surge.catalog().values() if e.get('sha256')==curated.get('sha256')),None)
+        per_note=(twin or {}).get('per_note')
+        if spec.get('swell') or spec.get('macros') or 'velocity_to_cutoff' in spec or (wheel and moves!=[]) or per_note!={}:attack=decays=None
+        return {'what':f'the Surge patch {name}','attack_s':attack,'decays':decays,'from':"measured on the catalog's held probe note",'track':t}
+    if t['engine']=='synth':
+        what=f'the built-in preset {(t.get("synth") or {})["preset"]}' if (t.get('synth') or {}).get('preset') else 'its synth patch'
+        try:amp=synth.patch_of(t).get('amp') or {}
+        except ValueError:return {'what':what,'attack_s':None,'decays':None,'from':'its envelope','track':t}
+        if not isinstance(amp,dict):return {'what':what,'attack_s':None,'decays':None,'from':'its envelope','track':t}
+        # the synth's own envelope (synth.adsr, as synth.voice plays it), key held, read at 1 kHz up to the end of the hold
+        rate=1000;n=int(round(PROBE_HOLD*rate));env=synth.adsr(n+10,n+5,amp,rate)[:n]
+        decays=bool(env[-1]<=10**(-12/20)*env.max())
+        attack=max(1e-4,amp.get('attack',.005))   # adsr's own floor and default
+        return {'what':what,'attack_s':attack/2,'decays':decays,'from':'its envelope','track':t}
+    return None
+def surge_plays(config,found):
+    """Whether Surge XT plays a part of the patch `found` (surge.entry) with this configuration, by the checks surge.locate
+    makes short of its hashes: the binary is the plugin that loads (or inside its bundle), the plugin's file, the
+    pedalboard package inside its folder, the full patch set for a catalog patch, the patch's file.  surge.installed alone
+    took a folder without pedalboard in it for Surge XT, where the renderer played the fallback (the Astra review of the
+    whole of 0.10); a configuration without a field the check reads plays the fallback, as in the renderer."""
+    import os
+    from pathlib import Path as _Path
+    s,board=config.get('surge'),config.get('pedalboard')
+    if not isinstance(s,dict) or not isinstance(board,dict) or not s.get('path') or not board.get('path'):return False
+    plugin,binary=_Path(s['path']),_Path(s.get('binary',s['path']))
+    # the binary checked must be the plugin that loads, or inside its bundle, as locate asks (the Astra review of the fixes)
+    same=lambda a,b:os.path.normcase(os.path.realpath(a))==os.path.normcase(os.path.realpath(b))
+    if not (same(binary,plugin) or any(same(plugin,up) for up in binary.parents)):return False
+    if not binary.is_file() or not (_Path(board['path'])/'pedalboard').is_dir():return False
+    folder=s.get('catalog') if found['folder']=='catalog' else s.get('patches')   # a field left out: the fallback, not an error
+    return bool(folder) and (_Path(folder)/found['patch']).is_file()
+def held_time(spans):
+    """The seconds the spans cover, each moment once: a chord's notes held together are one stretch of time."""
+    total,end=0.0,None
+    for a,b in sorted(spans):
+        if end is None or a>end:total+=b-a;end=b
+        elif b>end:total+=b-end;end=b
+    return total
+def pedal_down(track,clock):
+    """The stretches in seconds in which the part's sustain pedal is down (CC64 at 64 or more, as MIDI reads it), from its
+    performance's controller events, the last running on past the end; [] for a part with no pedal, None for one with a
+    pedal and no clock to time it."""
+    events=sorted((b,v) for b,c,v in (track.get('performance') or {}).get('cc',[]) if c==64)
+    if not events:return []
+    if clock is None:return None
+    out,start=[],None
+    for b,v in events:
+        if v>=64 and start is None:start=clock.seconds(b)
+        elif v<64 and start is not None:out.append((start,clock.seconds(b)));start=None
+    if start is not None:out.append((start,float('inf')))
+    return out
+def started(track,actual,clock):
+    """The spans (start, end in seconds) in which the part's sound is started, as its engine plays the notes, and what
+    one of them is called: a built-in synth part's voices as synth.render makes them (synth.line_voices: a mono patch's
+    notes that run on into each other are one voice, an arpeggio's chord is one), a Surge part with `glide_ms` its notes
+    merged where one overlaps the one before (Surge's single-trigger mono mode, surge.played_as, does not start the
+    envelope again there; a note that only touches the one before is struck afresh), else one span a note (the Astra
+    review of step 3: review's own grouping of touching notes missed what the synth did).  A Surge part's span let go
+    while its sustain pedal is down is left out, as Surge holds it on to an end review does not know (pedal_down)."""
+    from . import synth
+    if track['engine']=='synth' and clock is not None:
+        groups,patch=synth.line_voices(track,clock)
+        spans=[(a,a+h) for a,h in (synth.voice_held(g,patch) for g in groups)]
+        kind='chords (an arpeggio plays each as one voice)' if patch.get('arpeggio') else 'voices (its notes run on one voice where they meet)' if patch.get('mono') else 'notes'
+        return spans,kind
+    spans=sorted((a['start_seconds'],a['end_seconds']) for a in actual)
+    down=[]
+    if track['engine']=='surge':
+        # Surge XT gets the part's sustain pedal (CC64, surge.render) and holds a key let go while the pedal is down until
+        # it comes up, so where such a span ends review does not know: a span let go under the pedal, or within 20 ms of
+        # its going down or up, counts for neither question (GPT Pro's review of 0.10: a pad's 0.25 s note under a pedal
+        # held to 4 s was asked about as ending at 0.25 s).  The built-in synth, which plays a fallback, takes no pedal.
+        down=pedal_down(track,clock)
+        if down is None:return [],'notes'
+    def pedalled(b):
+        """Where a key let go at b sounds to, if it is let go under the pedal: the latest coming up of every stretch it falls
+        in, as a pedal let up and pressed again within 20 ms falls in both (the first alone ended a C4 let go at 2.015 s, under
+        a pedal pressed again at 2.01 s and held to 3 s, at 2.015 s: GPT Pro's second check of the fixes); else None."""
+        ups=[max(hi,b) for lo,hi in down if lo-.02<=b<hi+.02]
+        return max(ups) if ups else None
+    if track['engine']=='surge' and 'glide_ms' in (track.get('surge') or {}):
+        # The phrases first, each note held on to where it sounds (a note let go under the pedal to the pedal's coming up),
+        # then a phrase with such a note left out whole: leaving the note out first made the phrase's later notes a fresh
+        # start (GPT Pro's check of the fixes: a C4 held 2 s under the pedal and a D4 gliding on from 1.9 s were asked about
+        # as a 0.3 s phrase).
+        merged=[]
+        for a,b in spans:
+            p=pedalled(b);end=b if p is None else p
+            if merged and a<merged[-1][1]-1e-6:merged[-1][1]=max(merged[-1][1],end);merged[-1][2]=merged[-1][2] or p is not None
+            else:merged.append([a,end,p is not None])
+        return [(a,b) for a,b,p in merged if not p],'phrases (notes that overlap glide on one voice)'
+    return [(a,b) for a,b in spans if pedalled(b) is None],'notes'
+def sound_questions(t,actual,info,clock=None,config=None):
+    """The questions of a part's sound against its notes (0.10 step 3d, research/design-0.10.md), as [(identifier, text)]:
+    a quarter or more of the spans its sound is started in (started()) ending before it reaches half its level
+    (`sound_attack`), and a part in a sustained role, half or more of whose sounding time lies in spans held past the
+    probe's 1.2 s, on a sound that dies away within it (`sound_decay`).  A length within 10 ms of the attack or of the
+    hold is neither shorter nor longer: lengths read off the clock differ from it by a rounding, and a note of a key
+    struck again is cut a tick short (eight quarter notes of 0.6 s were three "shorter" than 0.6 s: the Astra review of
+    step 3).  Neither is a fault in itself (a plucked chord left to
+    ring is a choice): each puts the choice in front of the composer, and a decision answers it.  The figures go into the
+    part's entry as `sound`."""
+    s=sound_of(t,config)
+    if not s or not actual:return []
+    track=s.pop('track');info['sound']=s
+    spans,kind=started(track,actual,clock)
+    eps=.01;asked=[]
+    if s['attack_s'] and spans:
+        short=sum(b-a<s['attack_s']-eps for a,b in spans)
+        if short*4>=len(spans):
+            asked.append((identifier('sound_attack',t['id']),f'{t["id"]}: {short} of its {len(spans)} {kind} end before {s["what"]} reaches half its level (its attack, {s["attack_s"]:.2f} s, {s["from"]}), so they end while it is still rising. A sound with a faster attack (studio.py sounds --attack), longer notes, or say in decisions that it is meant.'))
+    if s['decays'] and t.get('role') in SUSTAINED:
+        # by time, not by count: one long drone among many short notes is most of what the part plays (the Astra review of
+        # the design); time as it passes, each moment once, not each voice of a chord apart (a two-second chord of four
+        # notes and four seconds of short notes was "67%": the Astra review of the whole of 0.10)
+        held=held_time([(a,b) for a,b in spans if b-a>PROBE_HOLD+eps]);total=held_time(spans)
+        if total>0 and held*2>=total:
+            asked.append((identifier('sound_decay',t['id']),f'{t["id"]}: a {t["role"]} part on {s["what"]}, which dies away while a note is held (12 dB down or more within {PROBE_HOLD:g} s, {s["from"]}); {held/total:.0%} of the time its sound plays lies in {kind} held longer than that. A sound that holds its level (studio.py sounds --without decays), shorter notes, or say in decisions that it is meant.'))
+    return asked
 def places(summary,qid):
     """The digest of where what an answered question counts lies now (place_digest), or None for a question that names
     its place in its own words."""
@@ -1075,6 +1237,7 @@ def review(p,out,config=None):
             kick=(t.get('drums') or t['engine']=='drum_synth' or kit_patch(t)) and any(n['pitch'] in (35,36) for n in notes)
             if (t.get('role')=='bass' or kick) and info['move']['highest']>info['move']['lowest']:   # its place changes (figures to three decimals)
                 put(identifier('moving_low',t["id"]),f'{t["id"]}: a bass part or a kick moves across the image (mix.move, from {info["move"]["lowest"]:+.2f} to {info["move"]["highest"]:+.2f}); low parts are usually kept in the centre, where both loudspeakers carry them: move another part instead, or say in decisions that it is meant.')
+        for asked in sound_questions(t,actual,info,clock,config):put(*asked)
         for n in notes:
             e=t['performance']['notes'][n['id']];a=a_by_id[n['id']]
             csv_rows.append({'track':t['id'],'role':t.get('role'),'note_id':n['id'],'bar_1_based':int(n['on']//clock.beats_per_bar)+1,'beat_in_bar':round(n['on']%clock.beats_per_bar,4),'pitch':n['pitch'],'duration_q':n['duration'],'phrase':n.get('phrase',''),'articulation':n.get('articulation',''),'velocity':e['velocity'],'timing_ms':e.get('timing_ms',0),'gate':e.get('gate',1),'start_seconds':round(a['start_seconds'],6),'end_seconds':round(a['end_seconds'],6)})
@@ -1205,16 +1368,16 @@ def review(p,out,config=None):
                     from .blocks import seed as piece_seed
                     from .sounds import search
                     s=piece_seed(p['title']);picks=[r['id'] for r in search(role,limit=3,seed=s)['shown']]
-                    put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed with its full patch set: studio.py sounds --role {role} --seed {s} lists patches for this role spread over the range (three for this piece: {", ".join(picks)}). Hear two to four on the part: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+x for x in picks)} --bars FIRST-LAST (sound-selection.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
+                    put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed with its full patch set: studio.py sounds --role {role} --seed {s} lists patches for this role spread over the range (three for this piece: {", ".join(picks)}). Hear two to four on the part: studio.py audition <song.json> --track {t["id"]} --sounds {",".join("surge:"+x for x in picks)} --bars FIRST-LAST --output <folder> --config <config.json> (sound-selection.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
                 elif full and surge.measured_counterparts(preset) and t['notes']:
                     # The 808's slide and the acid line's accents and slides: the patches measured to play them as the
                     # score asks, with the settings that do it (surge-roles.json), not every patch so named.
                     measured=surge.measured_counterparts(preset)
                     listed='; '.join(pid+(' with '+', '.join(k if v is True else f'{k} {v:g}' for k,v in s.items()) if s else '') for pid,s in measured)
-                    put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed with its full patch set, and these patches were measured to play this part as the score asks (surge-roles.json): {listed}. Hear them on the part with those settings: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+pid+"".join("+"+k if v is True else f"+{k}={v:g}" for k,v in s.items()) for pid,s in measured[:3])} --bars FIRST-LAST (electronic-sounds.md). Keep the built-in preset where none suits, where a render must repeat exactly, or where Surge XT is missing.')
+                    put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed with its full patch set, and these patches were measured to play this part as the score asks (surge-roles.json): {listed}. Hear them on the part with those settings: studio.py audition <song.json> --track {t["id"]} --sounds {",".join("surge:"+pid+"".join("+"+k if v is True else f"+{k}={v:g}" for k,v in s.items()) for pid,s in measured[:3])} --bars FIRST-LAST --output <folder> --config <config.json> (electronic-sounds.md). Keep the built-in preset where none suits, where a render must repeat exactly, or where Surge XT is missing.')
                 elif (options or named) and t['notes']:
                     which=f'its patches for this role include {", ".join(options[:4])}' if options else f'its full patch set has patches named for this sound: {", ".join(named[:4])}'
-                    put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed, and {which}. Hear them on the part: studio.py audition --track {t["id"]} --sounds {",".join("surge:"+x for x in (options or named)[:3])} --bars FIRST-LAST (electronic-sounds.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
+                    put(identifier('builtin_preset',t["id"]),f'{t["id"]}: plays the built-in {preset}; Surge XT is installed, and {which}. Hear them on the part: studio.py audition <song.json> --track {t["id"]} --sounds {",".join("surge:"+x for x in (options or named)[:3])} --bars FIRST-LAST --output <folder> --config <config.json> (electronic-sounds.md). Keep the built-in preset where a render must repeat exactly or the sound needs fields of its own.')
         st=summary['transposed_samples']=stretched(p,clock,sample_maps(p,config),limit=L('transposed_samples')['limit_semitones'])
         if st['count'] and ask('transposed_samples'):
             worst=most_of({k:v['notes'] for k,v in st['by_track'].items()})

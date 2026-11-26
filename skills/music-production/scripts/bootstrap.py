@@ -33,6 +33,7 @@ import re
 import shutil
 import tarfile
 import subprocess
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 import sys
@@ -152,13 +153,36 @@ def _download_once(item,archive):
             if count<item['bytes']:raise Short(f'{item["url"]}: {count} of {item["bytes"]} bytes arrived')
             if digest.hexdigest()!=item['sha256']:raise ValueError(f'{item["url"]}: the download does not match the lock')
 
+def on_path(name):
+    """A program on PATH as shutil.which finds it, but not one in the working folder unless PATH names that folder: on
+    Windows, before Python 3.12, which looks there first, so a file put there would run in the program's place (the
+    security check of 0.10.0)."""
+    found=shutil.which(name)
+    here=os.path.normcase(os.path.abspath(os.curdir))
+    # PATH as which reads it: unset, the system's default; an empty entry is the working folder (POSIX), which PATH then
+    # names (GPT Pro's check of the security fixes, SEC4: such entries were dropped)
+    raw=os.environ.get('PATH')
+    if raw is None:
+        try:raw=os.confstr('CS_PATH') or os.defpath
+        except (AttributeError,ValueError):raw=os.defpath
+    folders=raw.split(os.pathsep)
+    if not found or os.path.normcase(os.path.dirname(os.path.abspath(found)))!=here or here in {os.path.normcase(os.path.abspath(p or os.curdir)) for p in folders}:
+        return found
+    endings=['']+([e for e in os.environ.get('PATHEXT','.COM;.EXE;.BAT;.CMD').split(';') if e] if os.name=='nt' else [])
+    for folder in folders:
+        if not folder or os.path.normcase(os.path.abspath(folder))==here:continue
+        for ending in endings:
+            candidate=os.path.join(folder,name+ending)
+            if os.path.isfile(candidate) and os.access(candidate,os.X_OK):return candidate
+    return None
+
 def system_tool(name,given):
     """A fluidsynth/ffmpeg executable from the system: its path, hash and the first line of its version output."""
     if given:
         path=Path(given).resolve()
         if not path.is_file():raise ValueError(f'{name} not found at {path}')
     else:
-        found=shutil.which(name)
+        found=on_path(name)
         if not found:raise ValueError(f'{name} not found on PATH; install it from your package manager or pass --{name}')
         path=Path(found).resolve()
     flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
@@ -247,8 +271,11 @@ def _install_surge(lock,runtime,cache,args,system,config):
     # pip writes where its target leads: no link in it (the runtime's own folders are checked in main).
     odd=files.links_in(pylib) if files.real_folder(pylib) else []
     if odd:raise ValueError(f'{odd[0]} is a link; pedalboard is installed only into real folders')
-    done=subprocess.run([sys.executable,'-m','pip','install','--no-deps','--no-index','--no-cache-dir','--target',str(pylib),str(wheel),'-q'],
-                        capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL,creationflags=flags)
+    # python -m puts its working folder first on the import path, where a pip.py would run in pip's place: pip runs in a
+    # new empty folder, never the caller's (the security check of 0.10.0)
+    with tempfile.TemporaryDirectory() as empty:
+        done=subprocess.run([sys.executable,'-m','pip','install','--no-deps','--no-index','--no-cache-dir','--target',str(pylib.resolve()),str(Path(wheel).resolve()),'-q'],
+                            capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL,creationflags=flags,cwd=empty)
     if done.returncode or not (pylib/'pedalboard').is_dir():raise ValueError('pedalboard install failed: '+(done.stderr or '').strip()[-300:])
     # pip's RECORD lists every file it installed with its hash (PEP 376, the wheel format); its own hash goes in the
     # configuration, and a render checks the installed files against it (musiclib.surge.board_intact).
@@ -292,6 +319,11 @@ def install_catalog(runtime,cache,args,config):
     config['surge']['catalog']=str(target)
     print('VERIFIED surge_catalog |',len(doc['presets']),'patches',flush=True)
 
+# Printed after the configuration is saved (0.10), so that whoever ran the setup records where it is.  Here and in
+# fetch_soundbanks.py, not in musiclib.files: that module is part of what a cached synthesis depends on (render.SYNTHESIS).
+LATER_SESSIONS = ('NOTE later sessions | studio.py takes this configuration from MUSIC_SKILL_CONFIG when --config is left out: set that to its absolute path, or name the file in your agent instructions (CLAUDE.md, AGENTS.md), so a later session finds it without searching the disk')
+
+
 def main():
     ap=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--runtime',type=Path,required=True);ap.add_argument('--config',type=Path,required=True);ap.add_argument('--archive-cache',type=Path);ap.add_argument('--offline',action='store_true')
@@ -301,6 +333,9 @@ def main():
     ap.add_argument('--surge-vst3',type=Path,help='this Surge XT.vst3 bundle instead of the pinned build (or, where none is pinned, the usual VST3 folders)')
     ap.add_argument('--no-surge-catalog',action='store_true',help='skip the full Surge patch set (about 217 MB): only the curated patches; parts that name a catalog patch play their fallback presets')
     args=ap.parse_args()
+    from musiclib.homepath import at_home
+    for name in ('runtime','config','archive_cache','fluidsynth','ffmpeg','surge_vst3'):  # ~/ as the user's home, as a shell would (0.10: ~/.music-skill/)
+        setattr(args,name,at_home(getattr(args,name)))
     system=args.system or os.name!='nt'
     files.check_config_path(args.config,'--config')
     # The downloads' folder given as a link is refused before it is resolved, as a render's cache is (N1).
@@ -354,6 +389,7 @@ def _install(args,system,runtime):
     files.save_config(args.config,config,'--config')  # never over a bank or record the setup put at that path
     save_receipts(runtime,receipts)
     print('Saved',args.config.resolve())
+    print(LATER_SESSIONS,flush=True)
 
 def save_receipts(runtime,receipts):
     """The receipts take their place as an installed file does (files.place): a dependency_receipts.json the bootstrap

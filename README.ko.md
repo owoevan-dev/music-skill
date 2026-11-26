@@ -177,7 +177,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배포처나 이 프로젝트의 릴리스에서 내려받고, 고정된 SHA-256으로 확인합니다.
 
-**실행하는 것, 가져오는 것, 보내는 것**: 스킬은 Python 스크립트, FluidSynth, FFmpeg와 설치되어 있다면 Surge XT를 실행하며, 모두 사용자의 컴퓨터에서 동작하고 렌더링은 오프라인으로 합니다. 스킬 자체의 다운로더는 도구와 음원을 github.com과 GitHub의 다운로드 호스트(api.github.com, raw.githubusercontent.com, objects.githubusercontent.com, release-assets.githubusercontent.com), 그리고 음원을 원본 녹음에서 빌드할 때만 아이오와 대학교의 theremin.music.uiowa.edu에서만 받으며, 다른 호스트로의 리디렉션은 거부합니다. Python 패키지(NumPy, 그리고 Surge XT용 pedalboard)는 pip로 받으며, pip에 다른 패키지 인덱스를 설정하지 않았다면 PyPI에서 받습니다. 이때도 pedalboard wheel은 고정된 SHA-256으로 확인합니다. 아무것도 보내지 않습니다. 텔레메트리도, 계정도, 업로드도 없습니다([PRIVACY.md](PRIVACY.md)).
+**실행하는 것, 가져오는 것, 보내는 것**: 스킬은 Python 스크립트, FluidSynth, FFmpeg와 설치되어 있다면 Surge XT를 실행하며, 모두 사용자의 컴퓨터에서 동작하고 렌더링은 오프라인으로 합니다. 스킬 자체의 다운로더는 도구와 음원을 github.com과 GitHub의 다운로드 호스트(api.github.com, raw.githubusercontent.com, objects.githubusercontent.com, release-assets.githubusercontent.com)에서, Surge XT용 pedalboard wheel을 PyPI의 파일 호스트(files.pythonhosted.org)에서, 그리고 음원을 원본 녹음에서 빌드할 때만 아이오와 대학교의 theremin.music.uiowa.edu에서만 받으며, 다른 호스트로의 리디렉션은 거부합니다. 설치 프로그램은 pedalboard wheel을 고정된 크기와 SHA-256으로 확인한 뒤 pip가 그 파일을 오프라인으로 설치하게 합니다. NumPy는 pip로 받으며, pip에 다른 패키지 인덱스를 설정하지 않았다면 PyPI에서 받습니다. 아무것도 보내지 않습니다. 텔레메트리도, 계정도, 업로드도 없습니다([PRIVACY.md](PRIVACY.md)).
 
 </details>
 
@@ -233,7 +233,7 @@ GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배
 <details>
 <summary><b>어디까지 되나요</b></summary>
 
-`selfcheck.py`에는 221가지 검사(렌더링 설정이 없으면 174가지)가 있으며, MIDI 왕복 변환과 압축 파일 안전성부터 실제 렌더링까지 포함합니다. 예를 들어 음 하나를 고치면 그 파트만 다시 합성되고 `compare`가 그 음부터, 영향이 닿은 파일에서만 차이를 찾는지, 예전의 단일 리버브 믹스가 이전 릴리스를 비트 단위로 재현하는지, 라우드니스 측정이 BS.1770 기준 음을 −3.01 LUFS로 읽는지 확인합니다. CI에서는 Ubuntu(FluidSynth 2.3, FFmpeg 6.1), macOS(FluidSynth 2.6, FFmpeg 9.0), Windows(고정 버전 FluidSynth 2.6.1, FFmpeg 9.0.2와 Surge XT)에서 렌더링을 포함한 모든 검사를 실행합니다.
+`selfcheck.py`에는 226가지 검사(렌더링 설정이 없으면 179가지)가 있으며, MIDI 왕복 변환과 압축 파일 안전성부터 실제 렌더링까지 포함합니다. 예를 들어 음 하나를 고치면 그 파트만 다시 합성되고 `compare`가 그 음부터, 영향이 닿은 파일에서만 차이를 찾는지, 예전의 단일 리버브 믹스가 이전 릴리스를 비트 단위로 재현하는지, 라우드니스 측정이 BS.1770 기준 음을 −3.01 LUFS로 읽는지 확인합니다. CI에서는 Ubuntu(FluidSynth 2.3, FFmpeg 6.1), macOS(FluidSynth 2.6, FFmpeg 9.0), Windows(고정 버전 FluidSynth 2.6.3, FFmpeg 9.0.2와 Surge XT)에서 렌더링을 포함한 모든 검사를 실행합니다.
 
 음악으로서 좋은지는 다른 문제이고, 직접 들어 봐야만 알 수 있습니다. 위의 곡들이 이 저장소가 보여 줄 수 있는 가장 좋은 증거입니다.
 

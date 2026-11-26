@@ -8,7 +8,7 @@ Contents: [Tested baseline and its boundaries](#tested-baseline-and-its-boundari
 
 ## Tested baseline and its boundaries
 
-The pinned baseline is FluidSynth 2.6.1, FFmpeg 9.0.2 and the MuseScore MS Basic SF3 on Windows x64. Linux and macOS use the system FluidSynth and FFmpeg (6.0 or newer); the selfcheck there runs in CI, and results from other binary versions can differ slightly in samples. The engine imports NumPy only; it needs no DAW, account, plugin GUI or audio library.
+The pinned baseline is FluidSynth 2.6.3, FFmpeg 9.0.2 and the MuseScore MS Basic SF3 on Windows x64. Linux and macOS use the system FluidSynth and FFmpeg (6.0 or newer); the selfcheck there runs in CI, and results from other binary versions can differ slightly in samples. The engine imports NumPy only; it needs no DAW, account, plugin GUI or audio library.
 
 Controlled probes of the default bank: velocity changes the MS Basic piano's sound and level; CC64 at 64 or above is a sustain switch, with no continuous half-pedalling; string CC11 mainly changes gain, with no multisampled dynamic crossfade or sampled legato. Do not present a volume swell as bowing realism. A preset that renders notes is not certified for every register or articulation: for an essential instrument, render a short range, velocity and CC probe before writing the piece around it.
 

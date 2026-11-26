@@ -6,6 +6,7 @@ project, cache and render), and selfcheck runs it in its place in one order (ROS
 folder's (SCRIPTS), as they were when these checks lived in selfcheck.py."""
 import copy
 import json
+import os
 import numpy as np
 from make_example import example
 from musiclib.model import Clock, TPQ, file_hash, performed, save_json, validate
@@ -630,17 +631,34 @@ def define(S):
             r=start(other,'--title','K','--section','a:1','--part','lead melody','--config',work/'start_config.json')
             assert r.returncode==2 and 'exists' in r.stderr and (other/name).read_text(encoding='utf-8')=='mine',(name,r.stderr[-300:])
         import musiclib.starter as starter
-        real=starter.script;starter.script=lambda *a:real(*a)+'raise SystemExit("stopped here")\n'   # a compose.py that stops is reported
-        try:starter.start(work/'books_stops','B',['a:2'],['lead melody']);raise AssertionError('a stopped compose.py reported as written')
-        except ValueError as e:assert 'compose.py was written, but it stopped: stopped here' in str(e) and 'running compose.py would replace it' in str(e),str(e)
+        # start saves the skeleton itself and runs no compose.py, so that nothing in the piece's folder is imported (a pathlib.py
+        # there was, by the script's run: GPT Pro's second full review of 0.10): a script that would stop at its first line
+        # leaves start's song.json; a module in the folder is never imported; and the script, run as the user runs it, writes
+        # the very project start saved
+        real=starter.script;starter.script=lambda *a:real(*a)+'raise SystemExit("stopped here")\n'
+        try:starter.start(work/'books_stops','B',['a:2'],['lead melody'])
         finally:starter.script=real
-        # that one stopped after its save, so its song.json is there and running it again replaces that file, as the message
-        # says; one that stops before its save leaves none, and is told to fix the line and run it (GPT Pro's second review)
-        starter.script=lambda *a:real(*a).replace('song.save(','raise SystemExit("stopped here"); song.save(')
-        try:starter.start(work/'books_stops_early','B',['a:2'],['lead melody']);raise AssertionError('a compose.py stopped before its save reported as written')
-        except ValueError as e:assert 'stopped here. Fix that line of the script, then run it: python compose.py' in str(e),str(e)
-        finally:starter.script=real
-        assert not (work/'books_stops_early'/'song.json').exists()
+        validate(json.loads((work/'books_stops'/'song.json').read_text(encoding='utf-8')))
+        shadow=work/'books_shadow';shadow.mkdir();mark=work/'books_shadow.mark'
+        (shadow/'pathlib.py').write_text(f'open({str(mark)!r},"w").write("imported")\nraise RuntimeError("imported")\n',encoding='utf-8')
+        r=start(shadow,'--title','S','--section','a:1','--part','lead melody','--config',work/'start_config.json')
+        assert r.returncode==0 and not mark.exists() and (shadow/'song.json').is_file(),r.stderr[-300:]
+        again=subprocess.run([sys.executable,str(work/'books_piece'/'compose.py')],cwd=work/'books_piece',capture_output=True,text=True,encoding='utf-8',errors='replace')
+        assert again.returncode==0 and json.loads((work/'books_piece'/'song.json').read_text(encoding='utf-8'))==made,again.stderr[-300:]
+        # the script start wrote, run in that folder as the user runs it, imports neither module put beside it: it takes its
+        # folder off the import path first (the security check of 0.10.0)
+        (shadow/'json.py').write_text(f'open({str(mark)!r},"w").write("imported")\nraise RuntimeError("imported")\n',encoding='utf-8')
+        ran=subprocess.run([sys.executable,'compose.py'],cwd=shadow,capture_output=True,text=True,encoding='utf-8',errors='replace')
+        assert ran.returncode==0 and not mark.exists() and (shadow/'song.json').is_file(),ran.stderr[-300:]
+        # run through a link to its folder or to itself, Python finds the script in the folder the link leads to, and that
+        # folder leaves the import path too (GPT Pro's check of the security fixes, SEC1); not run where links cannot be
+        # made (Windows without the right to)
+        (work/'books_alias_f').mkdir()
+        for alias,target in ((work/'books_alias_d',shadow),(work/'books_alias_f'/'compose.py',shadow/'compose.py')):
+            try:os.symlink(target,alias,target_is_directory=target.is_dir())
+            except (OSError,NotImplementedError):continue
+            ran=subprocess.run([sys.executable,str(alias/'compose.py' if target.is_dir() else alias)],cwd=work,capture_output=True,text=True,encoding='utf-8',errors='replace')
+            assert ran.returncode==0 and not mark.exists(),(alias.name,ran.stderr[-300:])
         # a compose.py put in the new folder while start writes its own is left as it is (it was written over: the whole review)
         def theirs(*a):
             (work/'books_race'/'compose.py').write_text('# theirs\n',encoding='utf-8');return real(*a)
@@ -684,6 +702,70 @@ def define(S):
             r=start(work/f'books_r{i}','--title','B','--section',section,*[x for p in parts for x in ('--part',p)],*(('--config',work/'start_config.json') if i>2 else ()))
             assert r.returncode==2 and words in r.stderr and not (work/f'books_r{i}').exists(),(i,r.stderr[-300:])
         return {'ids':ids[:2],'start':'compose.py and a valid song.json','refused':['a used folder']+[w for _,_,w in refused]}
+    def start_names_any_sound_a_part_plays():
+        # 0.10 step 3c (research/design-0.10.md): `start --part` takes a sound as `audition --sounds` names one,
+        # surge:<id>[+setting], synth:<preset> and soundfont:<bank>:<bank number>:<program>, beside the words that find a
+        # SoundFont preset (three runs of 0.9.1's gallery wrote their Surge and synth parts into compose.py by hand).  A
+        # Surge or synth part needs no configuration; an unknown name is refused before anything is written, with the
+        # nearest names; compose.py writes the engine and its fields, and song.json validates.
+        import subprocess,sys
+        from musiclib import sf2
+        def start(*a):
+            return subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'start',*map(str,a)],capture_output=True,text=True,
+                                  encoding='utf-8',errors='replace',env={k:v for k,v in os.environ.items() if k!='MUSIC_SKILL_CONFIG'})
+        r=start(work/'forms_piece','--title','Forms','--section','a:2','--part','pad harmony surge:factory/pads/bright','--part','lead melody synth:warm_pad',
+                '--part','low bass surge:sub_bass_3+glide_ms=80')
+        assert r.returncode==0,r.stderr[-400:]
+        made=json.loads((work/'forms_piece'/'song.json').read_text(encoding='utf-8'));validate(made)
+        got={t['id']:(t['engine'],t.get('surge') or t.get('synth'),[n['pitch'] for n in t['notes']]) for t in made['tracks']}
+        assert got=={'pad':('surge',{'preset':'factory/pads/bright'},[60]),'lead':('synth',{'preset':'warm_pad'},[60]),
+                     'low':('surge',{'preset':'sub_bass_3','glide_ms':80},[36])},got   # placeholders at the catalog's probe: C4 for pads, C2 for basses
+        text=(work/'forms_piece'/'compose.py').read_text(encoding='utf-8')
+        assert "pad = song.part('pad', 'harmony', engine='surge', surge={'preset': 'factory/pads/bright'})" in text and \
+               "lead = song.part('lead', 'melody', engine='synth', synth={'preset': 'warm_pad'})" in text,text
+        refused=((['pad harmony surge:factory/pads/brigt'],'the nearest: factory/pads/bright'),(['lead melody synth:warm_pda'],'the nearest: warm_pad'),
+                 (['lead melody synth:nothing_like_it'],'No built-in synth preset'),(['x lead surge:juno_60_strings extra'],'is one word, with no space'),
+                 (['v harmony soundfont:default:0:41'],'give --config'),(['v harmony viola'],'surge:<id>, synth:<preset>'),
+                 (['p pad surge:juno_60_strings+glide=3'],'A Surge setting after a patch'))
+        for i,(parts,words) in enumerate(refused):   # each refused before its folder is made
+            r=start(work/f'forms_r{i}','--title','F','--section','a:1',*[x for p in parts for x in ('--part',p)])
+            assert r.returncode==2 and words in r.stderr and not (work/f'forms_r{i}').exists(),(i,r.stderr[-300:])
+        # soundfont:<bank>:<n>:<program> with a configuration plays as the words "<bank> <n>:<program>" do
+        t=np.arange(4800)/48000;tone=(np.sin(2*np.pi*261.63*t)*.3).astype(np.float32)
+        sf2.write(work/'forms_bank.sf2','forms',[{'name':'t','data':tone,'rate':48000,'root':60}],[{'name':'i','zones':[{'gens':{43:(48,72)},'sample':0}]}],
+                  [{'name':'Forms Viola','bank':0,'program':41,'zones':[{'gens':{},'instrument':0}]}])
+        save_json(work/'forms_config.json',{'soundfont':{'path':str(work/'forms_bank.sf2'),'sha256':file_hash(work/'forms_bank.sf2')}})
+        r=start(work/'forms_sf','--title','S','--section','a:1','--part','v harmony soundfont:default:0:41','--part','p pad surge:juno_60_strings',
+                '--config',work/'forms_config.json')
+        assert r.returncode==0,r.stderr[-400:]
+        made=json.loads((work/'forms_sf'/'song.json').read_text(encoding='utf-8'))
+        assert [(t['id'],t['engine'],t.get('patch')) for t in made['tracks']]==[('v','soundfont',{'bank':0,'program':41}),('p','surge',None)],made['tracks']
+        assert "v = song.part('v', 'harmony', 'default 0:41')" in (work/'forms_sf'/'compose.py').read_text(encoding='utf-8')
+        # A name that is no Surge patch or built-in preset is looked up as the words it was in 0.9.3, so a configured preset
+        # named so still plays (the Astra review of the design); where nothing has it, both refusals are said
+        sf2.write(work/'forms_colon.sf2','colon',[{'name':'t','data':tone,'rate':48000,'root':60}],[{'name':'i','zones':[{'gens':{43:(48,72)},'sample':0}]}],
+                  [{'name':'synth:pluk','bank':0,'program':5,'zones':[{'gens':{},'instrument':0}]}])
+        save_json(work/'forms_colon.json',{'soundfont':{'path':str(work/'forms_colon.sf2'),'sha256':file_hash(work/'forms_colon.sf2')}})
+        r=start(work/'forms_legacy','--title','L','--section','a:1','--part','x lead synth:pluk','--config',work/'forms_colon.json')
+        assert r.returncode==0 and "x = song.part('x', 'lead', 'synth:pluk')" in (work/'forms_legacy'/'compose.py').read_text(encoding='utf-8'),r.stderr[-300:]
+        r=start(work/'forms_neither','--title','N','--section','a:1','--part','x lead synth:pluk','--config',work/'forms_config.json')
+        assert r.returncode==2 and 'the nearest: pluck' in r.stderr and 'as words for a configured preset' in r.stderr and not (work/'forms_neither').exists(),r.stderr[-300:]
+        # From the Astra review of step 3: every part 0.9.3 took is taken as it took it, a name with a space, a SoundFont sound
+        # without its numbers and one whose bank is not configured among them; a SoundFont sound without its bank is not
+        # read as words that find whichever bank has the preset; a curated patch's typo gets its nearest names
+        odd=['synth:zed tone','soundfont:odd','soundfont:no:0:8']
+        sf2.write(work/'forms_odd.sf2','odd',[{'name':'t','data':tone,'rate':48000,'root':60}],[{'name':'i','zones':[{'gens':{43:(48,72)},'sample':0}]}],
+                  [{'name':n,'bank':0,'program':4+i,'zones':[{'gens':{},'instrument':0}]} for i,n in enumerate(odd)]+[{'name':'Odd Viola','bank':0,'program':41,'zones':[{'gens':{},'instrument':0}]}])
+        save_json(work/'forms_odd.json',{'soundfont':{'path':str(work/'forms_odd.sf2'),'sha256':file_hash(work/'forms_odd.sf2')}})
+        r=start(work/'forms_odd','--title','O','--section','a:1',*[x for i,n in enumerate(odd) for x in ('--part',f'p{i} harmony {n}')],'--config',work/'forms_odd.json')
+        assert r.returncode==0,r.stderr[-300:]
+        assert [t.get('patch') for t in json.loads((work/'forms_odd'/'song.json').read_text(encoding='utf-8'))['tracks']]==[{'bank':0,'program':4+i} for i in range(3)]
+        r=start(work/'forms_nobank','--title','N','--section','a:1','--part','v harmony soundfont::0:41','--config',work/'forms_odd.json')
+        assert r.returncode==2 and 'names its bank' in r.stderr and not (work/'forms_nobank').exists(),r.stderr[-300:]
+        r=start(work/'forms_curated','--title','C','--section','a:1','--part','p pad surge:juno_60_string')
+        assert r.returncode==2 and 'the nearest: juno_60_strings' in r.stderr,r.stderr[-300:]
+        return {'forms':['surge:<id>[+setting]','synth:<preset>','soundfont:<bank>:<n>:<program>'],'refused':[w for _,w in refused],
+                'a configured preset named like a form':'still found','found as in 0.9.3':odd}
     def swing_pairs_counted_from_each_bar_line():
         # Swing pairs are counted from each bar line (a drum machine delays the even steps of the beat: Linn 2013): in
         # 5/8 eighth swing every downbeat stays on time and the bar's fifth eighth is straight; in 3/4 quarter swing beat
@@ -784,5 +866,5 @@ def define(S):
         assert melody['id'] in doublings(q,*span) and other['id'] in doublings(q,*span,leads=other['id'])
         assert doublings(q,*span,leads='no_such_part')==doublings(q,*span)   # a plan's lead that does not play there leaves the melody parts
         return {'cases':18}
-    found = {'chords_few_voices_and_parts_not_written_yet': chords_few_voices_and_parts_not_written_yet, 'performance_offset_moves_whole_part': offset_shift, 'strummed_chords_follow_the_stroke': strum, 'timing_keeps_to_the_beat_by_phase_correction': keeps_to_the_beat, 'rubato_slows_phrase_ends_and_the_close': rubato, 'swing_delays_off_beats_and_keeps_the_beat': swing, 'round_robins_bow_changes_and_portamento': variation_tools, 'phrasing_helpers_arch_swell_and_hold': phrasing_helpers, 'voicing_moves_smoothly_and_spaces_chords': voicing_helper, 'building_blocks_write_parts_from_the_pieces_settings': building_blocks, 'building_blocks_add_blasts_grids_skank_pompe_batida_slides': blocks_more, 'phrase_arches_follow_the_meter': meter_arches, 'builder_keeps_the_books_and_start_writes_a_valid_piece': builder_keeps_the_books_and_start_writes_a_valid_piece, 'swing_pairs_counted_from_each_bar_line': swing_pairs_counted_from_each_bar_line}
+    found = {'chords_few_voices_and_parts_not_written_yet': chords_few_voices_and_parts_not_written_yet, 'performance_offset_moves_whole_part': offset_shift, 'strummed_chords_follow_the_stroke': strum, 'timing_keeps_to_the_beat_by_phase_correction': keeps_to_the_beat, 'rubato_slows_phrase_ends_and_the_close': rubato, 'swing_delays_off_beats_and_keeps_the_beat': swing, 'round_robins_bow_changes_and_portamento': variation_tools, 'phrasing_helpers_arch_swell_and_hold': phrasing_helpers, 'voicing_moves_smoothly_and_spaces_chords': voicing_helper, 'building_blocks_write_parts_from_the_pieces_settings': building_blocks, 'building_blocks_add_blasts_grids_skank_pompe_batida_slides': blocks_more, 'phrase_arches_follow_the_meter': meter_arches, 'builder_keeps_the_books_and_start_writes_a_valid_piece': builder_keeps_the_books_and_start_writes_a_valid_piece, 'swing_pairs_counted_from_each_bar_line': swing_pairs_counted_from_each_bar_line, 'start_names_any_sound_a_part_plays': start_names_any_sound_a_part_plays}
     return found

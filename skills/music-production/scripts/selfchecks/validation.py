@@ -248,6 +248,11 @@ def define(S):
         (work/'text_words').mkdir();(work/'text_none').mkdir();save_json(work/'text_words'/'association.json',{'source':'user','words':['calm\x1b[2J\nFORGED\u202e',kept]})
         for run,shown in ((cli('words',work/'text_words'),'calm\\x1b[2J\\nFORGED\\u202e, '+kept),(cli('words',work/'text_none','--none','asked \x1b[2J\nnone\u202e'),'(asked \\x1b[2J\\nnone\\u202e)')):
             assert run.returncode==0 and shown in run.stdout and not set(run.stdout)&{'\x1b','\u202e'},(run.stdout,run.stderr[-300:])
+        # a record found in the folder is told as its record has it, and what is printed is bounded as --own bounds new
+        # words, 24 of 60 characters (the security check of 0.10.0)
+        (work/'text_many').mkdir();save_json(work/'text_many'/'association.json',{'source':'user','words':[f'word {k} '+'x'*80 for k in range(30)]})
+        run=cli('words',work/'text_many');lines=run.stdout.splitlines()
+        assert run.returncode==0 and 'its record says' in lines[0] and lines[1].endswith(', and 6 more') and lines[1].count('...')==24,run.stdout[:400]
         # Every exception text a script prints (beside its final error) goes through one_line: an installer's FAILED
         # line carried a download's or an archive's text as it came
         import ast

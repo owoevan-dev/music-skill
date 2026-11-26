@@ -177,7 +177,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 不需要 GPU、帳號或音訊模型。所有檔案都從發布者或本專案自己的 release 下載，並以鎖定的 SHA-256 核對。
 
-**它執行什麼、下載什麼、傳送什麼**：skill 執行的是它的 Python 腳本、FluidSynth、FFmpeg，以及已安裝時的 Surge XT，全部在你的電腦上執行，渲染不需要連網。skill 自己的下載程式只從 github.com 和 GitHub 的下載主機（api.github.com、raw.githubusercontent.com、objects.githubusercontent.com、release-assets.githubusercontent.com）下載工具和音色庫；只有從原始錄音建置音色庫時，才會連到愛荷華大學的 theremin.music.uiowa.edu。它會拒絕轉址到其他主機。Python 套件（NumPy，以及 Surge XT 用的 pedalboard）透過 pip 下載，除非你替 pip 設定了其他套件索引，否則來自 PyPI；pedalboard 的 wheel 仍會以鎖定的 SHA-256 核對。它不傳送任何東西：沒有遙測、沒有帳號、不上傳（[PRIVACY.md](PRIVACY.md)）。
+**它執行什麼、下載什麼、傳送什麼**：skill 執行的是它的 Python 腳本、FluidSynth、FFmpeg，以及已安裝時的 Surge XT，全部在你的電腦上執行，渲染不需要連網。skill 自己的下載程式只從 github.com 和 GitHub 的下載主機（api.github.com、raw.githubusercontent.com、objects.githubusercontent.com、release-assets.githubusercontent.com）下載工具和音色庫，從 PyPI 的檔案主機（files.pythonhosted.org）下載 Surge XT 用的 pedalboard wheel；只有從原始錄音建置音色庫時，才會連到愛荷華大學的 theremin.music.uiowa.edu。它會拒絕轉址到其他主機。安裝程式會以鎖定的大小和 SHA-256 核對 pedalboard 的 wheel，再讓 pip 離線安裝這個檔案；NumPy 透過 pip 下載，除非你替 pip 設定了其他套件索引，否則來自 PyPI。它不傳送任何東西：沒有遙測、沒有帳號、不上傳（[PRIVACY.md](PRIVACY.md)）。
 
 </details>
 
@@ -233,7 +233,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 <details>
 <summary><b>效果如何</b></summary>
 
-`selfcheck.py` 共有 221 項檢查（沒有渲染設定時為 174 項），從 MIDI 來回轉換、壓縮檔安全，到實際渲染都包括在內。例如：只改一個音時只會重新合成一個聲部，而 `compare` 只在受影響的檔案裡、從那個音開始找到差異；舊的單一殘響混音能逐位元重現先前的版本；響度量測對 BS.1770 的標準測試音讀出 −3.01 LUFS。CI 會跑完所有檢查（包括渲染），環境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.1、FFmpeg 9.0.2，加上 Surge XT）。
+`selfcheck.py` 共有 226 項檢查（沒有渲染設定時為 179 項），從 MIDI 來回轉換、壓縮檔安全，到實際渲染都包括在內。例如：只改一個音時只會重新合成一個聲部，而 `compare` 只在受影響的檔案裡、從那個音開始找到差異；舊的單一殘響混音能逐位元重現先前的版本；響度量測對 BS.1770 的標準測試音讀出 −3.01 LUFS。CI 會跑完所有檢查（包括渲染），環境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.3、FFmpeg 9.0.2，加上 Surge XT）。
 
 音樂好不好聽是另一回事，只有實際聆聽才知道。上面這些曲子是這個 repo 最好的證據。
 

@@ -1060,6 +1060,7 @@ def started(track,actual,clock):
         kind='chords (an arpeggio plays each as one voice)' if patch.get('arpeggio') else 'voices (its notes run on one voice where they meet)' if patch.get('mono') else 'notes'
         return spans,kind
     spans=sorted((a['start_seconds'],a['end_seconds']) for a in actual)
+    down=[]
     if track['engine']=='surge':
         # Surge XT gets the part's sustain pedal (CC64, surge.render) and holds a key let go while the pedal is down until
         # it comes up, so where such a span ends review does not know: a span let go under the pedal, or within 20 ms of
@@ -1067,14 +1068,23 @@ def started(track,actual,clock):
         # held to 4 s was asked about as ending at 0.25 s).  The built-in synth, which plays a fallback, takes no pedal.
         down=pedal_down(track,clock)
         if down is None:return [],'notes'
-        spans=[(a,b) for a,b in spans if not any(lo-.02<=b<hi+.02 for lo,hi in down)]
+    def pedalled(b):
+        """Where a key let go at b sounds to, the pedal's coming up, if it is let go under the pedal; else None."""
+        for lo,hi in down:
+            if lo-.02<=b<hi+.02:return max(hi,b)
+        return None
     if track['engine']=='surge' and 'glide_ms' in (track.get('surge') or {}):
+        # The phrases first, each note held on to where it sounds (a note let go under the pedal to the pedal's coming up),
+        # then a phrase with such a note left out whole: leaving the note out first made the phrase's later notes a fresh
+        # start (GPT Pro's check of the fixes: a C4 held 2 s under the pedal and a D4 gliding on from 1.9 s were asked about
+        # as a 0.3 s phrase).
         merged=[]
         for a,b in spans:
-            if merged and a<merged[-1][1]-1e-6:merged[-1][1]=max(merged[-1][1],b)
-            else:merged.append([a,b])
-        return [tuple(x) for x in merged],'phrases (notes that overlap glide on one voice)'
-    return spans,'notes'
+            p=pedalled(b);end=b if p is None else p
+            if merged and a<merged[-1][1]-1e-6:merged[-1][1]=max(merged[-1][1],end);merged[-1][2]=merged[-1][2] or p is not None
+            else:merged.append([a,end,p is not None])
+        return [(a,b) for a,b,p in merged if not p],'phrases (notes that overlap glide on one voice)'
+    return [(a,b) for a,b in spans if pedalled(b) is None],'notes'
 def sound_questions(t,actual,info,clock=None,config=None):
     """The questions of a part's sound against its notes (0.10 step 3d, research/design-0.10.md), as [(identifier, text)]:
     a quarter or more of the spans its sound is started in (started()) ending before it reaches half its level

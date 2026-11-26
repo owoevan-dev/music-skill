@@ -1397,6 +1397,14 @@ def define(S):
         held=glide('pedal');held['tracks'][0]['performance']['cc']=[[0,64,127],[8,64,0]];validate(held)
         early=glide('pedal_up');early['tracks'][0]['performance']['cc']=[[0,64,127],[.1,64,0]];validate(early)
         assert asked(held,'pedal')==([],[]) and asked(early,'pedal_up')==(['sound_attack:p'],[]),slow
+        # From GPT Pro's check of the fixes.  A phrase is grouped before a pedal-held note is left out: a C4 held 2 s under the
+        # pedal and a D4 gliding on from 1.9 s to 2.2 s (the pedal up at 2.1 s) are one phrase, left out whole, not a 0.3 s
+        # start; without glide_ms the D4 is struck afresh and is asked about.
+        def phrase(name,**fields):
+            q=Song(name,bars=4,tempo=120);q.section('a',4,'a');part=q.part('p','harmony',engine='surge',surge={'preset':slow,**fields})
+            part.note(1,1,60,4);part.note(1,4.8,62,.6)
+            q.project['tracks'][0]['performance']['cc']=[[0,64,127],[4.2,64,0]];validate(q.project);return q.project
+        assert asked(phrase('pedal_glide',glide_ms=80),'pedal_glide')==([],[]) and asked(phrase('pedal_struck'),'pedal_struck')==(['sound_attack:p'],[]),slow
         assert asked(glide('macro',macros={'1':.5}),'macro')==([],[]) and asked(glide('vtc',velocity_to_cutoff=24),'vtc')==([],[]),slow
         from musiclib.model import Clock
         assert rv.sound_of({'engine':'surge','surge':{'preset':slow,'macros':{'1':.5}}})['attack_s'] is None and rv.pedal_down({'performance':{'cc':[[0,64,127],[2,64,0],[3,64,100]]}},Clock(held))==[(0.0,1.0),(1.5,float('inf'))]

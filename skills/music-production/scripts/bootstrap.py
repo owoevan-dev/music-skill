@@ -33,6 +33,7 @@ import re
 import shutil
 import tarfile
 import subprocess
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 import sys
@@ -152,13 +153,30 @@ def _download_once(item,archive):
             if count<item['bytes']:raise Short(f'{item["url"]}: {count} of {item["bytes"]} bytes arrived')
             if digest.hexdigest()!=item['sha256']:raise ValueError(f'{item["url"]}: the download does not match the lock')
 
+def on_path(name):
+    """A program on PATH as shutil.which finds it, but not one in the working folder unless PATH names that folder: on
+    Windows, before Python 3.12, which looks there first, so a file put there would run in the program's place (the
+    security check of 0.10.0)."""
+    found=shutil.which(name)
+    here=os.path.normcase(os.path.abspath(os.curdir))
+    folders=[p for p in os.environ.get('PATH','').split(os.pathsep) if p]
+    if not found or os.path.normcase(os.path.dirname(os.path.abspath(found)))!=here or here in {os.path.normcase(os.path.abspath(p)) for p in folders}:
+        return found
+    endings=['']+([e for e in os.environ.get('PATHEXT','.COM;.EXE;.BAT;.CMD').split(';') if e] if os.name=='nt' else [])
+    for folder in folders:
+        if os.path.normcase(os.path.abspath(folder))==here:continue
+        for ending in endings:
+            candidate=os.path.join(folder,name+ending)
+            if os.path.isfile(candidate) and os.access(candidate,os.X_OK):return candidate
+    return None
+
 def system_tool(name,given):
     """A fluidsynth/ffmpeg executable from the system: its path, hash and the first line of its version output."""
     if given:
         path=Path(given).resolve()
         if not path.is_file():raise ValueError(f'{name} not found at {path}')
     else:
-        found=shutil.which(name)
+        found=on_path(name)
         if not found:raise ValueError(f'{name} not found on PATH; install it from your package manager or pass --{name}')
         path=Path(found).resolve()
     flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
@@ -247,8 +265,11 @@ def _install_surge(lock,runtime,cache,args,system,config):
     # pip writes where its target leads: no link in it (the runtime's own folders are checked in main).
     odd=files.links_in(pylib) if files.real_folder(pylib) else []
     if odd:raise ValueError(f'{odd[0]} is a link; pedalboard is installed only into real folders')
-    done=subprocess.run([sys.executable,'-m','pip','install','--no-deps','--no-index','--no-cache-dir','--target',str(pylib),str(wheel),'-q'],
-                        capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL,creationflags=flags)
+    # python -m puts its working folder first on the import path, where a pip.py would run in pip's place: pip runs in a
+    # new empty folder, never the caller's (the security check of 0.10.0)
+    with tempfile.TemporaryDirectory() as empty:
+        done=subprocess.run([sys.executable,'-m','pip','install','--no-deps','--no-index','--no-cache-dir','--target',str(pylib.resolve()),str(Path(wheel).resolve()),'-q'],
+                            capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL,creationflags=flags,cwd=empty)
     if done.returncode or not (pylib/'pedalboard').is_dir():raise ValueError('pedalboard install failed: '+(done.stderr or '').strip()[-300:])
     # pip's RECORD lists every file it installed with its hash (PEP 376, the wheel format); its own hash goes in the
     # configuration, and a render checks the installed files against it (musiclib.surge.board_intact).

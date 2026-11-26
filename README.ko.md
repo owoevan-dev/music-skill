@@ -177,7 +177,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 GPU도, 계정도, 오디오 모델도 필요 없습니다. 모든 파일은 배포처나 이 프로젝트의 릴리스에서 내려받고, 고정된 SHA-256으로 확인합니다.
 
-**실행하는 것, 가져오는 것, 보내는 것**: 스킬은 Python 스크립트, FluidSynth, FFmpeg와 설치되어 있다면 Surge XT를 실행하며, 모두 사용자의 컴퓨터에서 동작하고 렌더링은 오프라인으로 합니다. 스킬 자체의 다운로더는 도구와 음원을 github.com과 GitHub의 다운로드 호스트(api.github.com, raw.githubusercontent.com, objects.githubusercontent.com, release-assets.githubusercontent.com), 그리고 음원을 원본 녹음에서 빌드할 때만 아이오와 대학교의 theremin.music.uiowa.edu에서만 받으며, 다른 호스트로의 리디렉션은 거부합니다. Python 패키지(NumPy, 그리고 Surge XT용 pedalboard)는 pip로 받으며, pip에 다른 패키지 인덱스를 설정하지 않았다면 PyPI에서 받습니다. 이때도 pedalboard wheel은 고정된 SHA-256으로 확인합니다. 아무것도 보내지 않습니다. 텔레메트리도, 계정도, 업로드도 없습니다([PRIVACY.md](PRIVACY.md)).
+**실행하는 것, 가져오는 것, 보내는 것**: 스킬은 Python 스크립트, FluidSynth, FFmpeg와 설치되어 있다면 Surge XT를 실행하며, 모두 사용자의 컴퓨터에서 동작하고 렌더링은 오프라인으로 합니다. 스킬 자체의 다운로더는 도구와 음원을 github.com과 GitHub의 다운로드 호스트(api.github.com, raw.githubusercontent.com, objects.githubusercontent.com, release-assets.githubusercontent.com)에서, Surge XT용 pedalboard wheel을 PyPI의 파일 호스트(files.pythonhosted.org)에서, 그리고 음원을 원본 녹음에서 빌드할 때만 아이오와 대학교의 theremin.music.uiowa.edu에서만 받으며, 다른 호스트로의 리디렉션은 거부합니다. 설치 프로그램은 pedalboard wheel을 고정된 크기와 SHA-256으로 확인한 뒤 pip가 그 파일을 오프라인으로 설치하게 합니다. NumPy는 pip로 받으며, pip에 다른 패키지 인덱스를 설정하지 않았다면 PyPI에서 받습니다. 아무것도 보내지 않습니다. 텔레메트리도, 계정도, 업로드도 없습니다([PRIVACY.md](PRIVACY.md)).
 
 </details>
 

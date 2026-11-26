@@ -1172,7 +1172,15 @@ def define(S):
         finally:
             if held is None:os.environ.pop('MUSIC_SKILL_CONFIG',None)
             else:os.environ['MUSIC_SKILL_CONFIG']=held
-        return {'without either':'refused in one line','from the variable':'a NOTE line','the option given':'wins, silently','~':'the home folder','review':'reads no variable'}
+        # a configuration inside the folder of the project a command works on is said in a WARNING line, one elsewhere is
+        # not (the security check of 0.10.0)
+        beside=work/'cfg_beside';beside.mkdir();(beside/'song.json').write_text('{}',encoding='utf-8');(beside/'cfg.json').write_text('{}',encoding='utf-8')
+        for given,warned in ((beside/'cfg.json',True),(cfg,False)):
+            said=io.StringIO()
+            with contextlib.redirect_stderr(said):studio.config_beside(argparse.Namespace(command='render',config=given,project=beside/'song.json'))
+            assert said.getvalue().startswith('WARNING: studio.py render: the configuration')==warned and (said.getvalue()=='')!=warned,(given,said.getvalue())
+        return {'without either':'refused in one line','from the variable':'a NOTE line','the option given':'wins, silently','~':'the home folder','review':'reads no variable',
+                'a configuration in the piece\'s folder':'a WARNING line'}
     def motion_reads_what_a_held_note_does():
         # 0.10 step 3a (research/design-0.10.md): musiclib.motion on probe notes whose course is known, each given the
         # words it should have and no other: a steady tone none, nor a tremolo under the line; a decay, a tremolo, a vibrato,

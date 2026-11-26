@@ -645,6 +645,11 @@ def define(S):
         assert r.returncode==0 and not mark.exists() and (shadow/'song.json').is_file(),r.stderr[-300:]
         again=subprocess.run([sys.executable,str(work/'books_piece'/'compose.py')],cwd=work/'books_piece',capture_output=True,text=True,encoding='utf-8',errors='replace')
         assert again.returncode==0 and json.loads((work/'books_piece'/'song.json').read_text(encoding='utf-8'))==made,again.stderr[-300:]
+        # the script start wrote, run in that folder as the user runs it, imports neither module put beside it: it takes its
+        # folder off the import path first (the security check of 0.10.0)
+        (shadow/'json.py').write_text(f'open({str(mark)!r},"w").write("imported")\nraise RuntimeError("imported")\n',encoding='utf-8')
+        ran=subprocess.run([sys.executable,'compose.py'],cwd=shadow,capture_output=True,text=True,encoding='utf-8',errors='replace')
+        assert ran.returncode==0 and not mark.exists() and (shadow/'song.json').is_file(),ran.stderr[-300:]
         # a compose.py put in the new folder while start writes its own is left as it is (it was written over: the whole review)
         def theirs(*a):
             (work/'books_race'/'compose.py').write_text('# theirs\n',encoding='utf-8');return real(*a)

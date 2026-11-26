@@ -160,7 +160,7 @@ def archive_tool():
     macOS's tar, or bsdtar: on Linux, libarchive-tools), or else 7-Zip's 7z.  GNU tar cannot read 7z, and the
     tar.exe of Windows 10 lacks LZMA.  Returns (kind, path)."""
     candidates = ([str(Path(os.environ['SystemRoot']) / 'System32' / 'tar.exe')] if os.name == 'nt' and os.environ.get('SystemRoot') else []) + \
-                 [t for t in (shutil.which('bsdtar'), shutil.which('tar')) if t]
+                 [t for t in (on_path('bsdtar'), on_path('tar')) if t]
     for tool in candidates:
         try:
             version = subprocess.run([tool, '--version'], capture_output=True, text=True, timeout=30,
@@ -169,12 +169,32 @@ def archive_tool():
             continue
         if 'bsdtar' in version and 'liblzma' in version:
             return 'tar', tool
-    sevenzip = shutil.which('7z') or shutil.which('7za') or next(
+    sevenzip = on_path('7z') or on_path('7za') or next(
         (str(p) for p in [Path(os.environ.get(v, '')) / '7-Zip' / '7z.exe' for v in ('ProgramFiles', 'ProgramFiles(x86)')] if p.is_file()), None)
     if sevenzip:
         return '7z', sevenzip
     raise ValueError('The .7z banks need a tar with LZMA (bsdtar/libarchive with liblzma; on Debian/Ubuntu '
                      '`sudo apt install libarchive-tools`) or 7-Zip (Windows 10\'s own tar.exe cannot read them)')
+
+
+def on_path(name):
+    """A program on PATH as shutil.which finds it, but not one in the working folder unless PATH names that folder: on
+    Windows, before Python 3.12, which looks there first, so a file put there would run in the program's place (the
+    security check of 0.10.0; bootstrap.on_path is the same)."""
+    found = shutil.which(name)
+    here = os.path.normcase(os.path.abspath(os.curdir))
+    folders = [p for p in os.environ.get('PATH', '').split(os.pathsep) if p]
+    if not found or os.path.normcase(os.path.dirname(os.path.abspath(found))) != here or here in {os.path.normcase(os.path.abspath(p)) for p in folders}:
+        return found
+    endings = [''] + ([e for e in os.environ.get('PATHEXT', '.COM;.EXE;.BAT;.CMD').split(';') if e] if os.name == 'nt' else [])
+    for folder in folders:
+        if os.path.normcase(os.path.abspath(folder)) == here:
+            continue
+        for ending in endings:
+            candidate = os.path.join(folder, name + ending)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                return candidate
+    return None
 
 def _run(argv):
     done = subprocess.run(argv, capture_output=True, text=True, timeout=1800, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))

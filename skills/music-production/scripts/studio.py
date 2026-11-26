@@ -17,9 +17,9 @@ from musiclib import files,midi,summary
 EXAMPLES = """The usual order of a piece (SKILL.md gives it in full):
   python studio.py validate song.json
   python studio.py review song.json --output review_1
-  python studio.py round song.json --output round_1 --config config.json
-  python studio.py round song.json --output round_2 --config config.json --previous round_1
-  python studio.py render song.json --output render_final --config config.json
+  python studio.py round song.json --output round_1 --config ~/.music-skill/local-config.json
+  python studio.py round song.json --output round_2 --config ~/.music-skill/local-config.json --previous round_1
+  python studio.py render song.json --output render_final --config ~/.music-skill/local-config.json
   python studio.py analyze render_final
 Each command's own help and example: python studio.py COMMAND --help"""
 
@@ -48,7 +48,7 @@ def build_parser():
     project=lambda cmd:cmd.add_argument('project',type=Path,help='the project file (JSON)')
     as_json=lambda cmd:cmd.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
     st=command('start','Start a piece: in its folder (made if missing; its brief and words may be there), a compose.py that writes song.json through musiclib.builder (sections and parts named, a performance entry for every note), and that song.json, validated',
-               'python studio.py start harbour --title "Harbour Lights" --tempo 96 --section verse:8 --section chorus:8 --part "piano harmony vcsl 0:0" --part "lead melody iowa_winds 0:73" --config config.json')
+               'python studio.py start harbour --title "Harbour Lights" --tempo 96 --section verse:8 --section chorus:8 --part "piano harmony vcsl 0:0" --part "lead melody iowa_winds 0:73" --config ~/.music-skill/local-config.json')
     st.add_argument('folder',type=Path,help="the piece's folder: a new one, or one with its brief and words but no compose.py or song.json");st.add_argument('--title',required=True,help="the piece's title")
     st.add_argument('--section',action='append',required=True,metavar='ID:BARS',help='a section and its bars, in order (repeatable)')
     st.add_argument('--part',action='append',required=True,metavar='"ID ROLE [INSTRUMENT]"',help='a part: its id, its role (melody, harmony, bass, drums, ...) and words that find its preset in the configured banks, as studio.py instruments takes them, or a sound as audition --sounds names one: surge:<id> (studio.py sounds), synth:<preset>, soundfont:<bank>:<bank number>:<program> (repeatable)')
@@ -59,7 +59,7 @@ def build_parser():
     project(cmd);cmd.add_argument('--output',type=Path,required=True,help='a new folder for the review')
     cmd.add_argument('--config',type=Path,help='also check each note against the samples of its bank');as_json(cmd)
     rnd=command('round','One revision round: validate, review, a draft render, analyze it and compare it with the previous round, each with a short summary',
-                'python studio.py round song.json --output round_2 --config config.json --previous round_1')
+                'python studio.py round song.json --output round_2 --config ~/.music-skill/local-config.json --previous round_1')
     rnd.add_argument('project',type=Path,help='the project file (JSON)');rnd.add_argument('--output',type=Path,required=True,help='a new folder for the round: review/, render/ and round.json')
     rnd.add_argument('--config',type=Path,help=CONFIG_HELP);rnd.add_argument('--previous',type=Path,help="the previous round's folder (or a render folder) to compare with")
     rnd.add_argument('--cache',type=Path,help='default: the folder cache next to the round, which every round shares')
@@ -69,7 +69,7 @@ def build_parser():
     rnd.add_argument('--clip',type=Path,metavar='MP3',help='with --previous: an old-then-new MP3 of 8 seconds around the first change in the master, both at the same loudness')
     rnd.add_argument('--json',action='store_true',help="print round.json instead of the steps' summaries")
     cmd=command('render','Render, mix and master a project into a new folder: stems, buses, the master as WAV, FLAC and MP3, MIDI, and a game loop where asked',
-                'python studio.py render song.json --output render_final --config config.json')
+                'python studio.py render song.json --output render_final --config ~/.music-skill/local-config.json')
     project(cmd);cmd.add_argument('--output',type=Path,required=True,help='a new folder for the render');as_json(cmd)
     cmd.add_argument('--config',type=Path,help=CONFIG_HELP)
     cmd.add_argument('--cache',type=Path,help="the parts' synthesis cache (default: the folder cache next to the output), shared by renders of the piece")
@@ -96,7 +96,7 @@ def build_parser():
     cmd.add_argument('--pitch',type=int,help='the new MIDI pitch');cmd.add_argument('--velocity',type=int,help='the new MIDI velocity');cmd.add_argument('--duration',type=float,help='the new length in beats')
     cmd.add_argument('--output',type=Path,required=True,help='a new project file')
     aud=command('audition',"Play one part's passage on several sounds in turn: the same notes in the same mix, at one loudness, with each sound's measured brightness",
-                'python studio.py audition song.json --track lead --sounds surge:juno_60_strings,synth:warm_pad --bars 9-12 --output aud_lead --config config.json')
+                'python studio.py audition song.json --track lead --sounds surge:juno_60_strings,synth:warm_pad --bars 9-12 --output aud_lead --config ~/.music-skill/local-config.json')
     aud.add_argument('project',type=Path,help='the project file (JSON)');aud.add_argument('--track',required=True,help='the part to audition, by its id')
     aud.add_argument('--sounds',required=True,help='comma-separated: surge:<preset>, synth:<preset>, soundfont:<bank>:<bank number>:<program>; the part as written plays first')
     aud.add_argument('--bars',required=True,metavar='FIRST-LAST',help='the passage, 1-based, at most 16 bars')
@@ -118,7 +118,7 @@ def build_parser():
     snd.add_argument('--seed',type=int,help="the piece's seed (musiclib.blocks.seed(title)): which patch each band of the spread shows, so two pieces see different ones")
     snd.add_argument('--json',action='store_true',help='print the full JSON instead of one line a patch (--id always prints it)')
     ins=command('instruments','Find presets in the configured banks by words of their name, family or bank: the bank and program a part takes, the keys their samples cover, their velocity layers',
-                'python studio.py instruments violin --config config.json')
+                'python studio.py instruments violin --config ~/.music-skill/local-config.json')
     ins.add_argument('words',nargs='+',help='words of the preset name (violin), a General MIDI family (strings, brass, reed) or a bank (vsco), or a bank number and program (0:41); where no preset has them all, those that have the most are listed; a word that no preset has is refused, with the nearest word where one is near')
     ins.add_argument('--config',type=Path,help=CONFIG_HELP);ins.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
     stl=command('still',"Draw a render's piano roll at one moment as a PNG: the notes as played, coloured by what the part does, every part named in the legend (needs Pillow)",
@@ -126,7 +126,7 @@ def build_parser():
     stl.add_argument('render',type=Path,help='a render folder (the --output of studio.py render)');stl.add_argument('--at',type=float,required=True,help='the moment, in seconds from the start')
     stl.add_argument('--output',type=Path,required=True,help='a new PNG file');stl.add_argument('--size',default='1280x720',help='WIDTHxHEIGHT in pixels, even numbers (default 1280x720)')
     vid=command('video',"Make a render's piano roll into a video with its master as the sound: WebM (VP9, Opus) by default, MP4 (H.264, AAC) with --mp4, kept under a size (needs Pillow)",
-                'python studio.py video render_final --output roll.webm --config config.json')
+                'python studio.py video render_final --output roll.webm --config ~/.music-skill/local-config.json')
     vid.add_argument('render',type=Path,help='a render folder (the --output of studio.py render)');vid.add_argument('--output',type=Path,required=True,help='a new .webm file, or .mp4 with --mp4')
     vid.add_argument('--config',type=Path,help='the configuration bootstrap.py wrote: its FFmpeg encodes the video (default: the file MUSIC_SKILL_CONFIG names)')
     vid.add_argument('--mp4',action='store_true',help='MP4 with H.264 and AAC, for the widest playback, where the FFmpeg has those encoders')
@@ -151,14 +151,14 @@ def build_parser():
     cln.add_argument('--keep',type=Path,action='append',required=True,help='a render or round folder that stays (repeatable): the final render and the previous round')
     cln.add_argument('--remove',action='store_true',help='remove what the list names (without it, nothing is removed)')
     cln.add_argument('--json',action='store_true',help='print the full JSON instead of the summary')
-    doctor=command('doctor','Check a renderer configuration: each program and bank there, by path and SHA-256','python studio.py doctor --config config.json')
+    doctor=command('doctor','Check a renderer configuration: each program and bank there, by path and SHA-256','python studio.py doctor --config ~/.music-skill/local-config.json')
     doctor.add_argument('--config',type=Path,help='the configuration to check (default: the file MUSIC_SKILL_CONFIG names)')
     configure=command('configure','Write a configuration from a FluidSynth, an FFmpeg and a SoundFont of your own (bootstrap.py writes the usual one)',
                       'python studio.py configure --fluidsynth fluidsynth.exe --ffmpeg ffmpeg.exe --soundfont bank.sf2 --output config.json')
     for arg,what in (('fluidsynth','the FluidSynth program'),('ffmpeg','the FFmpeg program'),('soundfont','the default SoundFont'),('output','a new configuration file')):
         configure.add_argument('--'+arg,type=Path,required=True,help=what)
     addsf=command('add-soundfont','Write a new config that adds a named SoundFont to an existing one',
-                  'python studio.py add-soundfont --config config.json --path harp.sf2 --name harp --license CC0-1.0 --source "the publisher\'s page" --version 1 --output config2.json')
+                  'python studio.py add-soundfont --config ~/.music-skill/local-config.json --path harp.sf2 --name harp --license CC0-1.0 --source "the publisher\'s page" --version 1 --output with-harp.json')
     for arg,what in (('config','the configuration to add to'),('path','the SoundFont file'),('output','a new configuration file')):addsf.add_argument('--'+arg,type=Path,required=True,help=what)
     for arg,what in (('name','the name a part chooses it by (lower-case letters, digits and underscores; not "default")'),('license','its licence, as its publisher states it'),
                      ('source','where it came from'),('version','its version')):addsf.add_argument('--'+arg,required=True,help=what)
@@ -186,6 +186,26 @@ def config_from_environment(args):
     elif args.command!='start':
         print(f'ERROR: studio.py {args.command}: the following arguments are required: --config (the configuration bootstrap.py wrote, '
               'or MUSIC_SKILL_CONFIG naming it)',file=sys.stderr);sys.exit(2)
+
+
+def config_beside(args):
+    """A configuration inside the folder of the project, render or piece a command works on may have come with it, and a
+    configuration names the programs that run (its tools are checked only against its own hashes): said in a WARNING line
+    on stderr, not refused, as a user may keep their own there (the security check of 0.10.0)."""
+    cfg=getattr(args,'config',None)
+    if cfg is None:return
+    try:cfg=Path(cfg).resolve()
+    except (OSError,RuntimeError):return
+    for name in ('project','render','folder'):
+        given=getattr(args,name,None)
+        if given is None:continue
+        try:place=Path(given).resolve()
+        except (OSError,RuntimeError):continue
+        if (place if place.is_dir() else place.parent) in cfg.parents:
+            print(f'WARNING: studio.py {args.command}: the configuration {files.one_line(str(cfg))} lies in the folder of {files.one_line(str(given))}. '
+                  'A configuration names the programs that run: use the one the setup wrote on this machine or one the user names, '
+                  'not one that came with a piece or a download (SKILL.md).',file=sys.stderr,flush=True)
+            return
 
 
 def main(args):
@@ -410,6 +430,7 @@ if __name__=='__main__':
     files.escape_unprintable()
     args=build_parser().parse_args();code=0
     config_from_environment(args)
+    config_beside(args)
     try:main(args)
     except KeyError as e:
         print('ERROR: missing field',files.one_line(str(e)),file=sys.stderr);code=2

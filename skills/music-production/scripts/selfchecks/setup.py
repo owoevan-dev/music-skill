@@ -109,6 +109,23 @@ def define(S):
             assert item['url'].endswith('/'+item['filename']) and len(item['sha256'])==64 and len(item['executable_sha256'])==64
             assert item['executable'].startswith(item['extract']) and item['bytes']>1e7
         assert surge_platform() in (None,'windows-x86_64','linux-x86_64','macos-universal')
+        # Both setups find a system program on PATH, never in the working folder unless PATH names it (the security check
+        # of 0.10.0: Windows' shutil.which looked there first before Python 3.12), here with which made to answer so
+        import shutil
+        import fetch_soundbanks as fsb
+        tools,here=work/'path_tools',work/'path_here';tools.mkdir();here.mkdir()
+        exe='tool.exe' if os.name=='nt' else 'tool'
+        for folder in (tools,here):(folder/exe).write_bytes(b'');os.chmod(folder/exe,0o755)
+        real_which,old_path,old_cwd=shutil.which,os.environ.get('PATH',''),os.getcwd()
+        same=lambda a,b:a is not None and os.path.normcase(os.path.abspath(a))==os.path.normcase(os.path.abspath(b))
+        try:
+            os.chdir(here);shutil.which=lambda name,*a,**k:str(here/exe)
+            for find in (bs.on_path,fsb.on_path):
+                os.environ['PATH']=str(tools);assert same(find('tool'),tools/exe),find('tool')
+                os.environ['PATH']=str(here)+os.pathsep+str(tools);assert same(find('tool'),here/exe),find('tool')   # PATH names it: the user's own
+                os.environ['PATH']=str(work/'path_none');assert find('tool') is None
+        finally:
+            shutil.which=real_which;os.environ['PATH']=old_path;os.chdir(old_cwd)
         return True
     def surge_catalog():
         # Any patch of the measured catalog is a Surge preset by its id: found by role and measured character (flagged

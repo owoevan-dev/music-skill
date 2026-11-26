@@ -366,6 +366,22 @@ def test_requirements_pin_numpy_by_hash():
         assert len(re.findall(r'--hash=sha256:[0-9a-f]{64}', entry)) >= 20, entry[:80]
 
 
+def test_readmes_name_every_download_host():
+    """Each README names every host the setup's downloaders may reach (HOSTS in bootstrap.py and fetch_soundbanks.py), as
+    SECURITY.md and PRIVACY.md say them: from 0.4.0 to 0.10.0 the READMEs left out PyPI's file host, from which the setup
+    fetches the pedalboard wheel itself."""
+    import ast
+    hosts = set()
+    for name in ('bootstrap.py', 'fetch_soundbanks.py'):
+        found = re.search(r'^HOSTS\s*=\s*([({].*?[)}])', (SCRIPTS / name).read_text(encoding='utf-8'), re.M | re.S)
+        assert found, name
+        hosts |= set(ast.literal_eval(found.group(1)))
+    assert 'files.pythonhosted.org' in hosts and 'github.com' in hosts, hosts
+    for readme in sorted(ROOT.glob('README*.md')):
+        missing = sorted(h for h in hosts if h not in readme.read_text(encoding='utf-8'))
+        assert not missing, (readme.name, missing)
+
+
 def test_files_fit_the_plugin_directory():
     """The repository root is the plugin folder the Claude plugin directory checks: every file under 5 MiB, and nothing
     binary but images (its pre-submission checklist)."""

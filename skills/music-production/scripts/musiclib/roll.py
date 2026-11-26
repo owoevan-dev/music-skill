@@ -485,7 +485,9 @@ def _video(render, output, config, mp4, size_mb, fps, width, height):
             # the first pass's statistics serve every try: they describe the picture, not the rate
             if not again:
                 one_pass(1, vbr, [], ['-an', '-f', 'null', os.devnull])
-            one_pass(2, vbr, ['-i', str(master)], ['-map', '0:v', '-map', '1:a', '-map_metadata', '-1', '-c:a', acodec, '-b:a', str(abr), '-shortest', str(out)])
+            # the master read as WAV and from a file alone, as every other input of FFmpeg here: a render folder from
+            # elsewhere may hold any file by that name (the security check of 0.10.0)
+            one_pass(2, vbr, ['-protocol_whitelist', 'file', '-f', 'wav', '-i', str(master)], ['-map', '0:v', '-map', '1:a', '-map_metadata', '-1', '-c:a', acodec, '-b:a', str(abr), '-shortest', str(out)])
             return out.stat().st_size
         vbr, size, made = fit_size(encode, vbr, size_mb * 1e6)
         try:

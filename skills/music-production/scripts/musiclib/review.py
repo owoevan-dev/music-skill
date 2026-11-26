@@ -973,9 +973,9 @@ def sound_of(t,config=None):
     a configuration under which Surge XT does not play the part (surge_plays: surge.locate's checks short of its hashes) a
     Surge part plays its fallback preset on the built-in synth, and that is what is read; without a configuration Surge XT
     is taken to play it.  A Surge patch: the catalog's figures (a curated one its own attack and no decay, as the catalog's
-    copy of its file may be played at another octave); with `swell` neither, as the swell sets the envelopes' attacks to
-    the notes' length and the patch's own figures no longer describe it (the Astra reviews of step 3 and of the whole of
-    0.10).  A built-in preset: the amplitude envelope of the patch as the synth builds it
+    copy of its file may be played at another octave); with `swell`, macros or `velocity_to_cutoff` neither, as each plays
+    the patch otherwise than at the saved settings it was measured at (the Astra reviews of step 3 and of the whole of
+    0.10, GPT Pro's review of 0.10).  A built-in preset: the amplitude envelope of the patch as the synth builds it
     (synth.patch_of: a part's own `amp` replaces the preset's whole), half its attack time, as it rises in a straight line
     to full level, and its level at the end of the hold against the most it reached by then, so a slow attack still
     rising is not taken for dying away (the Astra review of step 3)."""
@@ -991,7 +991,11 @@ def sound_of(t,config=None):
         else:
             e=surge.catalog().get(name) or {};m=e.get('measured') or {}
             attack=m.get('attack_s');decays=None if m.get('hold_end_db') is None else 'decays' in (e.get('character') or '').split(', ')
-        if spec.get('swell'):attack=decays=None
+        # The figures are the patch at its saved settings.  `swell` sets the envelopes' attacks to the notes' length; a macro
+        # may move an envelope (bright_pad's Attack macro shortens its 0.32 s rise to about 0.03 s), and velocity_to_cutoff
+        # moves filter 1 by the notes' velocity: with any of them the saved patch's figures do not describe the part, and
+        # neither question reads them (GPT Pro's review of 0.10, after the Astra reviews of step 3 and of the whole).
+        if spec.get('swell') or spec.get('macros') or 'velocity_to_cutoff' in spec:attack=decays=None
         return {'what':f'the Surge patch {name}','attack_s':attack,'decays':decays,'from':"measured on the catalog's held probe note",'track':t}
     if t['engine']=='synth':
         what=f'the built-in preset {(t.get("synth") or {})["preset"]}' if (t.get('synth') or {}).get('preset') else 'its synth patch'
@@ -1028,13 +1032,27 @@ def held_time(spans):
         if end is None or a>end:total+=b-a;end=b
         elif b>end:total+=b-end;end=b
     return total
+def pedal_down(track,clock):
+    """The stretches in seconds in which the part's sustain pedal is down (CC64 at 64 or more, as MIDI reads it), from its
+    performance's controller events, the last running on past the end; [] for a part with no pedal, None for one with a
+    pedal and no clock to time it."""
+    events=sorted((b,v) for b,c,v in (track.get('performance') or {}).get('cc',[]) if c==64)
+    if not events:return []
+    if clock is None:return None
+    out,start=[],None
+    for b,v in events:
+        if v>=64 and start is None:start=clock.seconds(b)
+        elif v<64 and start is not None:out.append((start,clock.seconds(b)));start=None
+    if start is not None:out.append((start,float('inf')))
+    return out
 def started(track,actual,clock):
     """The spans (start, end in seconds) in which the part's sound is started, as its engine plays the notes, and what
     one of them is called: a built-in synth part's voices as synth.render makes them (synth.line_voices: a mono patch's
     notes that run on into each other are one voice, an arpeggio's chord is one), a Surge part with `glide_ms` its notes
     merged where one overlaps the one before (Surge's single-trigger mono mode, surge.played_as, does not start the
     envelope again there; a note that only touches the one before is struck afresh), else one span a note (the Astra
-    review of step 3: review's own grouping of touching notes missed what the synth did)."""
+    review of step 3: review's own grouping of touching notes missed what the synth did).  A Surge part's span let go
+    while its sustain pedal is down is left out, as Surge holds it on to an end review does not know (pedal_down)."""
     from . import synth
     if track['engine']=='synth' and clock is not None:
         groups,patch=synth.line_voices(track,clock)
@@ -1042,6 +1060,14 @@ def started(track,actual,clock):
         kind='chords (an arpeggio plays each as one voice)' if patch.get('arpeggio') else 'voices (its notes run on one voice where they meet)' if patch.get('mono') else 'notes'
         return spans,kind
     spans=sorted((a['start_seconds'],a['end_seconds']) for a in actual)
+    if track['engine']=='surge':
+        # Surge XT gets the part's sustain pedal (CC64, surge.render) and holds a key let go while the pedal is down until
+        # it comes up, so where such a span ends review does not know: a span let go under the pedal, or within 20 ms of
+        # its going down or up, counts for neither question (GPT Pro's review of 0.10: a pad's 0.25 s note under a pedal
+        # held to 4 s was asked about as ending at 0.25 s).  The built-in synth, which plays a fallback, takes no pedal.
+        down=pedal_down(track,clock)
+        if down is None:return [],'notes'
+        spans=[(a,b) for a,b in spans if not any(lo-.02<=b<hi+.02 for lo,hi in down)]
     if track['engine']=='surge' and 'glide_ms' in (track.get('surge') or {}):
         merged=[]
         for a,b in spans:

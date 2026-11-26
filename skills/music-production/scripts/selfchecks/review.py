@@ -1390,6 +1390,16 @@ def define(S):
             validate(q.project);return q.project
         assert asked(glide('voices'),'voices')==(['sound_attack:p'],[]) and asked(glide('touching',glide_ms=80),'touching')==(['sound_attack:p'],[]),slow
         assert asked(glide('one_voice',overlap=.1,glide_ms=80),'one_voice')==([],[]),slow
+        # From GPT Pro's review of 0.10.  Surge holds a key let go under the sustain pedal until the pedal comes up, so the
+        # same eight short notes under a pedal down to beat 8 are not asked about, while a pedal up before they end asks as
+        # before; a macro or velocity_to_cutoff plays the patch otherwise than at the saved settings the catalog measured,
+        # so its figures are not read (bright_pad's Attack macro takes its rise from 0.32 s to about 0.03 s).
+        held=glide('pedal');held['tracks'][0]['performance']['cc']=[[0,64,127],[8,64,0]];validate(held)
+        early=glide('pedal_up');early['tracks'][0]['performance']['cc']=[[0,64,127],[.1,64,0]];validate(early)
+        assert asked(held,'pedal')==([],[]) and asked(early,'pedal_up')==(['sound_attack:p'],[]),slow
+        assert asked(glide('macro',macros={'1':.5}),'macro')==([],[]) and asked(glide('vtc',velocity_to_cutoff=24),'vtc')==([],[]),slow
+        from musiclib.model import Clock
+        assert rv.sound_of({'engine':'surge','surge':{'preset':slow,'macros':{'1':.5}}})['attack_s'] is None and rv.pedal_down({'performance':{'cc':[[0,64,127],[2,64,0],[3,64,100]]}},Clock(held))==[(0.0,1.0),(1.5,float('inf'))]
         # a mono synth's notes that meet are one voice, as synth.render plays them: eight connected 0.25 s pluck notes are one
         # 2 s envelope dying away; an arpeggio's chord is one voice, as long as its longest note
         assert asked(piece('mono_pluck','harmony','pluck',.5,mono=True),'mono_pluck')==(['sound_decay:p'],[])

@@ -650,6 +650,15 @@ def define(S):
         (shadow/'json.py').write_text(f'open({str(mark)!r},"w").write("imported")\nraise RuntimeError("imported")\n',encoding='utf-8')
         ran=subprocess.run([sys.executable,'compose.py'],cwd=shadow,capture_output=True,text=True,encoding='utf-8',errors='replace')
         assert ran.returncode==0 and not mark.exists() and (shadow/'song.json').is_file(),ran.stderr[-300:]
+        # run through a link to its folder or to itself, Python finds the script in the folder the link leads to, and that
+        # folder leaves the import path too (GPT Pro's check of the security fixes, SEC1); not run where links cannot be
+        # made (Windows without the right to)
+        (work/'books_alias_f').mkdir()
+        for alias,target in ((work/'books_alias_d',shadow),(work/'books_alias_f'/'compose.py',shadow/'compose.py')):
+            try:os.symlink(target,alias,target_is_directory=target.is_dir())
+            except (OSError,NotImplementedError):continue
+            ran=subprocess.run([sys.executable,str(alias/'compose.py' if target.is_dir() else alias)],cwd=work,capture_output=True,text=True,encoding='utf-8',errors='replace')
+            assert ran.returncode==0 and not mark.exists(),(alias.name,ran.stderr[-300:])
         # a compose.py put in the new folder while start writes its own is left as it is (it was written over: the whole review)
         def theirs(*a):
             (work/'books_race'/'compose.py').write_text('# theirs\n',encoding='utf-8');return real(*a)

@@ -196,12 +196,14 @@ def config_beside(args):
     if cfg is None:return
     try:cfg=Path(cfg).resolve()
     except (OSError,RuntimeError):return
-    for name in ('project','render','folder'):
+    # By what each argument is, not by what is there now (GPT Pro's check of these fixes, SEC3): a project file's folder;
+    # a piece's folder (start's may not be made yet), a render or round folder, compare's two renders, the previous round
+    for name,kind in (('project','file'),('folder','folder'),('render','folder'),('before','folder'),('after','folder'),('previous','folder')):
         given=getattr(args,name,None)
         if given is None:continue
         try:place=Path(given).resolve()
         except (OSError,RuntimeError):continue
-        if (place if place.is_dir() else place.parent) in cfg.parents:
+        if (place.parent if kind=='file' else place) in cfg.parents:
             print(f'WARNING: studio.py {args.command}: the configuration {files.one_line(str(cfg))} lies in the folder of {files.one_line(str(given))}. '
                   'A configuration names the programs that run: use the one the setup wrote on this machine or one the user names, '
                   'not one that came with a piece or a download (SKILL.md).',file=sys.stderr,flush=True)

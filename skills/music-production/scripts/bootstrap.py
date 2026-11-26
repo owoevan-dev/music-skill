@@ -159,12 +159,18 @@ def on_path(name):
     security check of 0.10.0)."""
     found=shutil.which(name)
     here=os.path.normcase(os.path.abspath(os.curdir))
-    folders=[p for p in os.environ.get('PATH','').split(os.pathsep) if p]
-    if not found or os.path.normcase(os.path.dirname(os.path.abspath(found)))!=here or here in {os.path.normcase(os.path.abspath(p)) for p in folders}:
+    # PATH as which reads it: unset, the system's default; an empty entry is the working folder (POSIX), which PATH then
+    # names (GPT Pro's check of the security fixes, SEC4: such entries were dropped)
+    raw=os.environ.get('PATH')
+    if raw is None:
+        try:raw=os.confstr('CS_PATH') or os.defpath
+        except (AttributeError,ValueError):raw=os.defpath
+    folders=raw.split(os.pathsep)
+    if not found or os.path.normcase(os.path.dirname(os.path.abspath(found)))!=here or here in {os.path.normcase(os.path.abspath(p or os.curdir)) for p in folders}:
         return found
     endings=['']+([e for e in os.environ.get('PATHEXT','.COM;.EXE;.BAT;.CMD').split(';') if e] if os.name=='nt' else [])
     for folder in folders:
-        if os.path.normcase(os.path.abspath(folder))==here:continue
+        if not folder or os.path.normcase(os.path.abspath(folder))==here:continue
         for ending in endings:
             candidate=os.path.join(folder,name+ending)
             if os.path.isfile(candidate) and os.access(candidate,os.X_OK):return candidate

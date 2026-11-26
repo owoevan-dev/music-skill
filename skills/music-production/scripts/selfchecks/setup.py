@@ -123,9 +123,25 @@ def define(S):
             for find in (bs.on_path,fsb.on_path):
                 os.environ['PATH']=str(tools);assert same(find('tool'),tools/exe),find('tool')
                 os.environ['PATH']=str(here)+os.pathsep+str(tools);assert same(find('tool'),here/exe),find('tool')   # PATH names it: the user's own
+                os.environ['PATH']=os.pathsep+str(work/'path_none');assert same(find('tool'),here/exe),find('tool')   # an empty entry names it too (SEC4)
                 os.environ['PATH']=str(work/'path_none');assert find('tool') is None
         finally:
             shutil.which=real_which;os.environ['PATH']=old_path;os.chdir(old_cwd)
+        # the 7-Zip fallback takes Program Files only where the environment names it absolutely, on Windows: with it unset,
+        # a 7-Zip/7z.exe in the working folder is not taken (GPT Pro's check of the security fixes, SEC2)
+        seven=work/'path_7z';(seven/'7-Zip').mkdir(parents=True);(seven/'7-Zip'/'7z.exe').write_bytes(b'')
+        held={k:os.environ.get(k) for k in ('ProgramFiles','ProgramFiles(x86)','SystemRoot','PATH')}
+        try:
+            for k in ('ProgramFiles','ProgramFiles(x86)','SystemRoot'):os.environ.pop(k,None)
+            os.environ['PATH']=str(work/'path_none');os.chdir(seven)
+            try:kind,tool=fsb.archive_tool()
+            except ValueError:tool=None
+            assert tool is None or not same(os.path.dirname(os.path.dirname(os.path.abspath(tool))),seven),tool
+        finally:
+            os.chdir(old_cwd)
+            for k,v in held.items():
+                if v is None:os.environ.pop(k,None)
+                else:os.environ[k]=v
         return True
     def surge_catalog():
         # Any patch of the measured catalog is a Surge preset by its id: found by role and measured character (flagged

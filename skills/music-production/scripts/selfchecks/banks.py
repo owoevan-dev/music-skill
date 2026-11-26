@@ -1179,6 +1179,14 @@ def define(S):
             said=io.StringIO()
             with contextlib.redirect_stderr(said):studio.config_beside(argparse.Namespace(command='render',config=given,project=beside/'song.json'))
             assert said.getvalue().startswith('WARNING: studio.py render: the configuration')==warned and (said.getvalue()=='')!=warned,(given,said.getvalue())
+        # by what each argument is (GPT Pro's check of the security fixes, SEC3): compare's renders are folders it works on;
+        # start's folder, not made yet, holds nothing, so a configuration beside it is not in it
+        for ns,warned in ((argparse.Namespace(command='compare',config=beside/'cfg.json',before=work/'cfg_elsewhere',after=beside),True),
+                          (argparse.Namespace(command='start',config=beside/'cfg.json',folder=beside.parent/'cfg_new_piece'),False),
+                          (argparse.Namespace(command='start',config=beside/'cfg.json',folder=beside/'new_piece'),False)):
+            said=io.StringIO()
+            with contextlib.redirect_stderr(said):studio.config_beside(ns)
+            assert (said.getvalue()!='')==warned,(ns,said.getvalue())
         return {'without either':'refused in one line','from the variable':'a NOTE line','the option given':'wins, silently','~':'the home folder','review':'reads no variable',
                 'a configuration in the piece\'s folder':'a WARNING line'}
     def motion_reads_what_a_held_note_does():

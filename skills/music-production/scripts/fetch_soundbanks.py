@@ -159,7 +159,10 @@ def archive_tool():
     """A reader for the .7z banks (LZMA-compressed): a libarchive tar built with liblzma (Windows 11's own tar.exe,
     macOS's tar, or bsdtar: on Linux, libarchive-tools), or else 7-Zip's 7z.  GNU tar cannot read 7z, and the
     tar.exe of Windows 10 lacks LZMA.  Returns (kind, path)."""
-    candidates = ([str(Path(os.environ['SystemRoot']) / 'System32' / 'tar.exe')] if os.name == 'nt' and os.environ.get('SystemRoot') else []) + \
+    # The system's own folders only where the environment names them absolutely: a folder left unset made a path relative
+    # to the working folder, where a 7-Zip\7z.exe put there was taken (GPT Pro's check of the security fixes, SEC2)
+    system = lambda var: os.name == 'nt' and os.path.isabs(os.environ.get(var, ''))
+    candidates = ([str(Path(os.environ['SystemRoot']) / 'System32' / 'tar.exe')] if system('SystemRoot') else []) + \
                  [t for t in (on_path('bsdtar'), on_path('tar')) if t]
     for tool in candidates:
         try:
@@ -170,7 +173,7 @@ def archive_tool():
         if 'bsdtar' in version and 'liblzma' in version:
             return 'tar', tool
     sevenzip = on_path('7z') or on_path('7za') or next(
-        (str(p) for p in [Path(os.environ.get(v, '')) / '7-Zip' / '7z.exe' for v in ('ProgramFiles', 'ProgramFiles(x86)')] if p.is_file()), None)
+        (str(p) for p in [Path(os.environ[v]) / '7-Zip' / '7z.exe' for v in ('ProgramFiles', 'ProgramFiles(x86)') if system(v)] if p.is_file()), None)
     if sevenzip:
         return '7z', sevenzip
     raise ValueError('The .7z banks need a tar with LZMA (bsdtar/libarchive with liblzma; on Debian/Ubuntu '
@@ -183,12 +186,20 @@ def on_path(name):
     security check of 0.10.0; bootstrap.on_path is the same)."""
     found = shutil.which(name)
     here = os.path.normcase(os.path.abspath(os.curdir))
-    folders = [p for p in os.environ.get('PATH', '').split(os.pathsep) if p]
-    if not found or os.path.normcase(os.path.dirname(os.path.abspath(found))) != here or here in {os.path.normcase(os.path.abspath(p)) for p in folders}:
+    # PATH as which reads it: unset, the system's default; an empty entry is the working folder (POSIX), which PATH then
+    # names (GPT Pro's check of the security fixes, SEC4: such entries were dropped)
+    raw = os.environ.get('PATH')
+    if raw is None:
+        try:
+            raw = os.confstr('CS_PATH') or os.defpath
+        except (AttributeError, ValueError):
+            raw = os.defpath
+    folders = raw.split(os.pathsep)
+    if not found or os.path.normcase(os.path.dirname(os.path.abspath(found))) != here or here in {os.path.normcase(os.path.abspath(p or os.curdir)) for p in folders}:
         return found
     endings = [''] + ([e for e in os.environ.get('PATHEXT', '.COM;.EXE;.BAT;.CMD').split(';') if e] if os.name == 'nt' else [])
     for folder in folders:
-        if os.path.normcase(os.path.abspath(folder)) == here:
+        if not folder or os.path.normcase(os.path.abspath(folder)) == here:
             continue
         for ending in endings:
             candidate = os.path.join(folder, name + ending)

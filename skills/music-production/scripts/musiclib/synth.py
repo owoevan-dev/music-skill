@@ -53,7 +53,7 @@ MONO_LINE_S = 30.0
 
 def validate(track):
     """Bounds of a synth part's patch (after its preset is applied)."""
-    from .model import number
+    from .played import number
     spec = track.get('synth')
     if not isinstance(spec, dict):
         raise ValueError(f'{track["id"]}: a synth part needs a "synth" object (a preset name and/or a patch)')
@@ -115,7 +115,7 @@ LFO_SHAPES = ('sine', 'triangle', 'square', 'saw')  # what lfo() draws
 def check_lfo(track, spec, name, extra, closed=True):
     """An LFO object (the patch's `lfo`, a pulse's `pwm`): a shape lfo() draws, a rate in Hz or beats, a delay and fade
     in seconds and `extra` fields within their bounds.  `closed`: no other fields (a misspelt one would be ignored)."""
-    from .model import number
+    from .played import number
     if not isinstance(spec, dict):
         raise ValueError(f'{track["id"]}: synth {name} must be an object')
     known = {'shape', 'rate_hz', 'rate_beats', 'phase', 'delay', 'fade', *extra}
@@ -136,7 +136,7 @@ def check_lfo(track, spec, name, extra, closed=True):
 def check_envelope(track, env, name, closed=True):
     """An envelope object (`amp`, `filter_env`, an FM oscillator's `index_env`): attack, decay and release 0-30 s,
     sustain 0-1.  `closed`: no other fields."""
-    from .model import number
+    from .played import number
     if not isinstance(env, dict):
         raise ValueError(f'{track["id"]}: synth {name} must be an object')
     if closed and set(env) - {'attack', 'decay', 'sustain', 'release'}:
@@ -198,7 +198,7 @@ def voice_held(group, patch):
 
 def line_voices(track, clock):
     """The part's voices as render plays them: its performed notes by start and pitch, grouped by voices()."""
-    from .model import performed
+    from .played import performed
     patch = patch_of(track)
     return voices(sorted(performed(track, clock), key=lambda e: (e['start_seconds'], e['pitch'])), patch), patch
 
@@ -489,7 +489,7 @@ def arpeggio_curve(chord, arp, start, n, rate, beats, clock):
 
 def render(project, track, path, clock=None):
     """Render a synth part to `path` (stereo float WAV at RATE)."""
-    from .model import Clock
+    from .played import Clock
     from . import audio
     clock = clock or Clock(project)
     groups, patch = line_voices(track, clock)
@@ -529,7 +529,7 @@ def render(project, track, path, clock=None):
             pitch = pitch + pe.get('semitones', 12) * np.exp(-np.arange(n) / rate / pe.get('decay', .03))
         bends = track['performance'].get('bend')
         if bends:
-            from .model import bend_curve, curve_at
+            from .played import bend_curve, curve_at
             bends = bend_curve(bends)
             pitch = pitch + np.array([curve_at(bends, clock.beat(x)) for x in t[::OVER * 48]]).repeat(OVER * 48)[:n]
         y = voice(patch, pitch, n_on, n, first['velocity'] / 127, first['id'], rate, beats)

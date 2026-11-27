@@ -1,11 +1,11 @@
 ---
 name: music-production
 description: "Use whenever the user wants original instrumental music, even if they only ask for 'a song' or 'some music': game, film, video or visual novel music, an RPG scene, a horror or anime-opening-style cue, orchestral, baroque, piano, jazz, blues, bossa nova or organ music, pop ballads, rock, metal, EDM, techno, synthwave, chiptune, lo-fi, boom bap or trap beats, an arrangement, a revision of one phrase, editable MIDI, stems or a mix. The agent writes every note into a project file; scripts check the score, play it on sampled instruments (pianos, guitars, basses, drums, orchestra, saxophones, erhu, steel drum, mallets, organ), built-in synthesizers, Surge XT presets and drum machines with player-like timing, dynamics, swing and legato, mix it with buses, sidechain, delays and reverbs, and master it to MIDI, stems, an MP3 and seamless game loops. No audio-generation model: every note can be changed and re-rendered."
-license: "MIT; scripts/surge_host.py is GPL-3.0-or-later (LICENSES/GPL-3.0-or-later.txt)"
+license: "MIT; scripts/surge_host.py and scripts/surgefx_host.py are GPL-3.0-or-later (LICENSES/GPL-3.0-or-later.txt)"
 compatibility: "Python 3.10+ with NumPy. FluidSynth 2.x and FFmpeg 6 or newer: pinned portable builds on Windows x64, the system packages on Linux and macOS. Sound banks are downloaded once from this project's GitHub release (twenty-five built here, six repacked unchanged from FreePats), each checked against a pinned SHA-256, with each publisher's own download as the fallback. No GPU and no audio model. Needs a shell, internet access for the setup and a folder that persists (tested: Claude Code, Codex)."
 metadata:
   author: "owoevan-dev"
-  version: "0.10.0"
+  version: "0.11.0"
 ---
 
 # Music production
@@ -14,7 +14,7 @@ The music is written, not generated. You decide every note, chord, velocity and 
 
 What it does and does not do (say so when it matters to the request):
 - **Does**: complete instrumental pieces up to 30 minutes and 64 parts, one meter per project with a tempo map; sampled instruments, subtractive and FM synthesizers, Surge XT with its 3,008 patches (optional, installed by default), drum machines, an additive synth voice and noise transitions; player-like timing and dynamics, swing, staggered chords, legato and pitch bends; production tools (sidechain ducking, tempo-synced delay, filter sweeps, saturation, gates, tape wobble, vinyl noise); MIDI, processed stems, a mixed and mastered WAV, FLAC and MP3.
-- **Does not**: sing or set lyrics, host your own VST plugins (only the bundled Surge XT runs), invent articulations a sample bank does not contain, or judge musical quality from numbers.
+- **Does not**: sing or set lyrics, host your own VST plugins (only the bundled Surge XT and Surge XT Effects run), invent articulations a sample bank does not contain, or judge musical quality from numbers.
 
 ## What must hold
 
@@ -48,7 +48,7 @@ Nine steps, in order. Copy the checklist into the project's notes and tick it of
 - [ ] **2. The piece's words.** The project records twelve words and the whole made of them, or that the user wanted none. The request comes first, and nothing in this step changes what it asks for.
   - Before anything step 1 listed as open is decided, `studio.py words <project>` draws twelve words at random for this piece and keeps them in `association.json`.
   - Link the request and all twelve into one connected whole: a scene, a story, a chain of associations, whatever form comes, with a place in it for every word. It need not be sensible and it need not be odd; the aim is a piece with an idea of its own.
-  - That whole, and not the single words one by one, decides what the request leaves open, on at least three different levels of the music (form, harmony or key, melody, rhythm, sounds, mix). Where the user named no title, the title comes from the whole and still says what kind of piece it is.
+  - That whole, and not the single words one by one, decides what the request leaves open, on at least three different levels of the music (form, harmony or key, melody, rhythm, sounds, mix). Where the user named no title, the title comes from the whole and still says what kind of piece it is. Where a guide offers a part several sounds or tones (a bank, a guitar's amplifier voice, an effect), the whole chooses among those the style allows: a level it gave (sounds or mix, in `association.gives`), the reason in `decisions`.
   - Write the words, the whole and what it gave into your notes (they go into the project's `association` in step 3, [schema.md](references/schema.md)), and tell the user in a sentence or two what the open parts were made of, so that they can ask for another.
   - A user who gives words of their own: `--own "..."`; a user who wants none: `--none "<why>"`, and the project then records `"association": {"none": "<why>"}` and not the file's fields ([schema.md](references/schema.md)). A revision keeps the piece's words; another piece from the same request draws its own.
 - [ ] **3. Form and theme.** The project holds its plan before it holds its notes: sections with a function each, a planned high point and an ending.
@@ -60,7 +60,7 @@ Nine steps, in order. Copy the checklist into the project's notes and tick it of
 - [ ] **5. Performance.** Velocities, gates and timing are shaped by phrase: player-like deviation from `musiclib.expression` (`drift='time'`, so a revised note moves nothing else); legato on sustained sampled leads, bends on lead guitar ([performance-and-mix.md](references/performance-and-mix.md)).
 - [ ] **6. Revision rounds.** Every review question has a musical decision, and the comparison shows that only the intended parts and bars changed (an overall level move of a changed part, and a release ringing past the edited bar, follow from the edit: [commands.md](references/commands.md#what-compare-reports)).
   - Each round is one `studio.py round` into a new folder (`r1`, `r2`, ...), from the second on with `--previous` the round before. It validates the project, reviews the score with the configuration (so notes far from their samples are found), renders a draft (the same audio as a full render; `mix.chain` is `"bus"` for a finished mix), analyzes it (`--reference` where a genre reference fits, `--span` for a passage) and compares it with the previous round, printing each step's summary.
-  - The review opens with the score at a glance: the parts sounding in each section, the harmony's pace and the melody's rhythm, each figure with its rule. Then come its questions, each with an identifier: where the score departs from the plan, where nothing changes, where parts move as blocks or never push, notes outside the written chord that are not resolved by step, parallel fifths and octaves between independent parts, close intervals under their low interval limits, a synth sound whose attack the notes end inside or that dies away under held harmony (`sound_attack`, `sound_decay`), and, with Surge XT installed, built-in synth presets a Surge patch covers.
+  - The review opens with the score at a glance: the parts sounding in each section, the harmony's pace and the melody's rhythm, each figure with its rule. Then come its questions, each with an identifier: where the score departs from the plan, where nothing changes, where a rhythm or harmony part plays the chorus as it played the verse (with the count of each such part's bar rhythms and chords by section above them), where parts move as blocks or never push, notes outside the written chord that are not resolved by step, parallel fifths and octaves between independent parts, close intervals under their low interval limits, a synth sound whose attack the notes end inside or that dies away under held harmony (`sound_attack`, `sound_decay`), and, with Surge XT installed, built-in synth presets a Surge patch covers.
   - Answer each question with a change (a prepared tension, a loop that now moves, a fix) or with a decision: one that begins with the question's identifier answers it, and it is not asked again ([schema.md](references/schema.md)).
   - Section levels, spectrum, tonal balance, stereo and lead presence are explained or fixed.
   - If the comparison shows a change you did not intend, find out why first. One cause at a time, then a full-form pass; `studio.py profile` shows whether density, register, repetition and the melody's phrases follow the plan section by section.
@@ -173,6 +173,7 @@ Read a guide when its row describes the task at hand; none needs reading in adva
 | [schema.md](references/schema.md) | writing or editing a project file |
 | [commands.md](references/commands.md) | a command or option not shown above, what a render writes, the cache, `--resume`, a failed script, a second final render, `video` |
 | [performance-and-mix.md](references/performance-and-mix.md) | shaping performance, balancing, a bright mix, the mix chain and its rules |
+| [processing.md](references/processing.md) | a part's gate, EQ, compression and effects, and Surge XT's effects (`mix.surge_fx`): their order, corrections by role, character by style, what the render says of them |
 | [measuring.md](references/measuring.md) | reading `analyze` and `compare`: each field and the values finished pieces measured |
 | [outputs.md](references/outputs.md) | a figure a command's summary points to: the keys of every file a command writes |
 

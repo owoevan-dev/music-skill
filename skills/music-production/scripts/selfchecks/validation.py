@@ -446,5 +446,81 @@ def define(S):
                            env={**os.environ,'PYTHONIOENCODING':'ascii'},creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
         assert run.returncode==0 and b'console_\\u5586' in run.stdout and out.is_file(),(run.returncode,run.stdout[-300:],run.stderr[-500:])
         return {'printing_scripts':len(printing),'escaped':True}
-    found = {'shared_tempo_clock_and_compound_meter': clock_roundtrip, 'malformed_projects_rejected': invalid, 'expressive_fields_validate': expressive_fields, 'validation_holds_its_limits_at_their_edges': validation_edges, 'effects_are_capped_per_part_and_counted_as_listed': effects_capped_per_part, 'integer_fields_and_unknown_fields_are_reported': strict_projects, 'project_text_stays_text': project_text_stays_text, 'json_read_with_a_byte_order_mark': json_read_with_a_byte_order_mark, 'every_command_has_help_and_an_example': every_command_has_help_and_an_example, 'messages_say_where_what_and_the_rule': messages_say_where_what_and_the_rule, 'json_output_survives_an_ascii_console': json_output_survives_an_ascii_console, 'notes_csv_escapes_formulas': notes_csv_escapes_formulas, 'scripts_escape_what_their_output_cannot_show': scripts_escape_what_their_output_cannot_show}
+    def mix_fields_of_0_11():
+        # 0.11's mix fields (research/design-0.11.md, after Astra's review d011a): an EQ band as an object (a peak or a
+        # shelf with its gain, a notch without one) beside the [Hz, dB] pairs; the compressor's knee, make-up, mix and
+        # detector; a noise gate; tremolo and flanger with limits of their own; a chain of Surge XT Effects, each type and
+        # parameter from references/surge-fx.json.  Each is accepted at its limits and refused past them with the part and
+        # the field named, and validation writes nothing into the project, accepted or refused.
+        from musiclib import surgefx
+        said=[]
+        def mixed(**mix):
+            q=example();q['tracks'][0]['mix'].update(mix);return q
+        def accepted(q):
+            before=json.dumps(q,sort_keys=True);validate(q);assert json.dumps(q,sort_keys=True)==before
+        def refused(q,*words):
+            before=json.dumps(q,sort_keys=True)
+            try:validate(q)
+            except ValueError as e:
+                assert str(e).startswith('piano') and all(w in str(e) for w in words),(words,str(e))
+                assert json.dumps(q,sort_keys=True)==before;said.append(str(e));return
+            raise AssertionError(f'validated: {words}')
+        accepted(mixed(eq=[[250,-2],{'type':'peak','hz':3200,'db':2.5,'q':1.4},{'type':'low_shelf','hz':20,'db':-24},
+                           {'type':'high_shelf','hz':20000,'db':12,'q':20},{'type':'notch','hz':1800,'q':.1}]))
+        refused(mixed(eq=[{'type':'notch','hz':1800,'db':-6}]),'notch','takes no db')
+        refused(mixed(eq=[{'type':'peak','hz':19.9,'db':1}]),'EQ peak hz')
+        refused(mixed(eq=[{'type':'high_shelf','hz':8000,'db':12.5}]),'EQ high_shelf db')
+        refused(mixed(eq=[{'type':'low_shelf','hz':100,'db':-24.5}]),'EQ low_shelf db')
+        refused(mixed(eq=[{'type':'peak','hz':1000,'db':1,'q':20.5}]),'EQ peak q')
+        refused(mixed(eq=[{'type':'band','hz':1000,'db':1}]),'an eq band object is a peak')
+        comp={'threshold_db':-24,'ratio':2.5,'attack_ms':15,'release_ms':140}
+        accepted(mixed(compressor={**comp,'knee_db':0,'makeup_db':36,'mix':0,'detection':'peak'}))
+        accepted(mixed(compressor={**comp,'knee_db':18,'makeup_db':0,'mix':1,'detection':'rms'}))
+        refused(mixed(compressor={**comp,'knee_db':18.5}),'compressor knee_db')
+        refused(mixed(compressor={**comp,'makeup_db':-1}),'compressor makeup_db')
+        refused(mixed(compressor={**comp,'mix':1.1}),'compressor mix')
+        refused(mixed(compressor={**comp,'detection':'peak_rms'}),'compressor detection is peak or rms')
+        accepted(mixed(noise_gate={}))
+        accepted(mixed(noise_gate={'threshold_db':-80,'range_db':0,'attack_ms':.01,'release_ms':5000}))
+        refused(mixed(noise_gate={'threshold_db':1}),'noise_gate threshold_db')
+        refused(mixed(noise_gate={'range_db':-81}),'noise_gate range_db')
+        refused(mixed(noise_gate={'release_ms':.5}),'noise_gate release_ms')
+        refused(mixed(noise_gate=[-50]),'mix.noise_gate is an object')
+        accepted(mixed(effects=[{'type':'tremolo','rate_hz':.1,'depth':1},{'type':'tremolo','rate_hz':20,'depth':0},
+                                {'type':'flanger','delay_ms':30,'depth_ms':10,'rate_hz':10,'feedback':-.95,'mix':1},
+                                {'type':'flanger','delay_ms':0,'depth_ms':0,'rate_hz':.1,'feedback':.95,'mix':0}]))
+        refused(mixed(effects=[{'type':'tremolo','rate_hz':21}]),'tremolo rate_hz')
+        refused(mixed(effects=[{'type':'flanger','feedback':.96}]),'flanger feedback')
+        refused(mixed(effects=[{'type':'flanger','delay_ms':31}]),'flanger delay_ms')
+        refused(mixed(effects=[{'type':'vibrato'}]),'effects are chorus, phaser, bitcrush, tremolo, flanger')
+        accepted(mixed(saturate=.3));accepted(mixed(saturate={}));accepted(mixed(saturate={'drive':1,'curve':'erf'}))
+        refused(mixed(saturate={'drive':1.2}),'saturate drive');refused(mixed(saturate={'curve':'hard'}),'saturate curve is one of tanh, atan, alg, erf')
+        refused(mixed(saturate={'drive':.5,'shape':'tanh'}),'saturate as an object takes drive')
+        # Surge XT Effects: every type with its defaults, each parameter at its limits or each of its values, at most four
+        types=surgefx.table()['types']
+        for name,spec in types.items():
+            accepted(mixed(surge_fx=[{'type':name}]))
+            low={k:(p['values'][0] if 'values' in p else p['min']) for k,p in spec['params'].items()}
+            high={k:(p['values'][-1] if 'values' in p else p['max']) for k,p in spec['params'].items()}
+            accepted(mixed(surge_fx=[{'type':name,'params':low},{'type':name,'params':high}]))
+        accepted(mixed(surge_fx=[{'type':'distortion'},{'type':'chorus'},{'type':'delay'},{'type':'reverb_2','comment':'room'}]))
+        refused(mixed(surge_fx=[{'type':'chorus'}]*5),'5 effects in mix.surge_fx','at most 4')
+        refused(mixed(surge_fx=[]),'mix.surge_fx is a list of one to 4')
+        refused(mixed(surge_fx={'type':'chorus'}),'mix.surge_fx is a list')
+        refused(mixed(surge_fx=[{'type':'tape'}]),'surge_fx[0]: type is one of')
+        refused(mixed(surge_fx=[{'type':'chorus','params':{'rate':1}}]),"chorus has no parameter 'rate'")
+        refused(mixed(surge_fx=[{'type':'chorus','params':{'output_mix':101}}]),'surge_fx[0] output_mix (%)')
+        refused(mixed(surge_fx=[{'type':'reverb_1'},{'type':'flanger','params':{'output_mode':'Dry'}}]),'surge_fx[1]','output_mode is one of')
+        refused(mixed(surge_fx=[{'type':'delay','params':[250]}]),'params is an object')
+        for left in ('modulation_chaos','modulation_knock'):   # held where they do not render the same twice
+            refused(mixed(surge_fx=[{'type':'spring_reverb','params':{left:0}}]),f'has no parameter {left!r}')
+        # an unknown field of an effect, a band or a gate is reported with the name it was probably meant to be (strict
+        # projects stop on it), never taken as a setting
+        q=mixed(surge_fx=[{'type':'chorus','prams':{'output_mix':30}}],eq=[{'type':'peak','hz':1000,'db':1,'gain':2}],noise_gate={'treshold_db':-40})
+        warned=validate(q)['warnings']
+        for where,word,meant in (('piano.mix.surge_fx[0]','prams','params'),('piano.mix.eq','gain',None),('piano.mix.noise_gate','treshold_db','threshold_db')):
+            hit=[w for w in warned if w.startswith(where) and repr(word) in w]
+            assert hit and (meant is None or repr(meant) in hit[0]),(where,warned)
+        return {'refused':len(said),'surge_types':len(types),'unknown_fields_warned':3}
+    found = {'shared_tempo_clock_and_compound_meter': clock_roundtrip, 'malformed_projects_rejected': invalid, 'expressive_fields_validate': expressive_fields, 'validation_holds_its_limits_at_their_edges': validation_edges, 'effects_are_capped_per_part_and_counted_as_listed': effects_capped_per_part, 'the_mix_fields_of_0_11_are_checked_at_their_limits': mix_fields_of_0_11, 'integer_fields_and_unknown_fields_are_reported': strict_projects, 'project_text_stays_text': project_text_stays_text, 'json_read_with_a_byte_order_mark': json_read_with_a_byte_order_mark, 'every_command_has_help_and_an_example': every_command_has_help_and_an_example, 'messages_say_where_what_and_the_rule': messages_say_where_what_and_the_rule, 'json_output_survives_an_ascii_console': json_output_survives_an_ascii_console, 'notes_csv_escapes_formulas': notes_csv_escapes_formulas, 'scripts_escape_what_their_output_cannot_show': scripts_escape_what_their_output_cannot_show}
     return found

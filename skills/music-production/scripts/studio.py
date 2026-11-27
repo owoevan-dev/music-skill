@@ -265,6 +265,14 @@ def main(args):
             print('Surge XT',*(files.one_line(str(x)) for x in (surge.get('version',''),'|',surge.get('license',''),'|',f'{count} patches' if count else 'no patch folder found','| host: pedalboard',host.get('version',''))))   # text a configuration holds
         else:
             print('Surge XT: not set up; synth parts written for it play their built-in fallbacks (references/setup.md)')
+        # Surge XT Effects (0.11) is optional too: without it a part's mix.surge_fx chain is left out, and the render says so.
+        from musiclib import surgefx
+        try:
+            surgefx.locate(c);fx=c['surge_fx']
+            print('Surge XT Effects',*(files.one_line(str(x)) for x in (fx.get('version',''),'|',fx.get('license',''),'|',f'{len(surgefx.table()["types"])} types','| host: pedalboard',(host or {}).get('version',''))))   # text a configuration holds
+        except surgefx.Unavailable as e:
+            why=files.one_line(str(e))
+            print(('' if why.startswith('Surge XT Effects') else 'Surge XT Effects: ')+why+'; parts with mix.surge_fx play without their chains (references/setup.md)')
         try:
             from PIL import __version__ as pillow
             import re

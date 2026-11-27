@@ -95,7 +95,7 @@ https://github.com/user-attachments/assets/ec1994cd-6e44-4262-9354-a1186ff3304b
 2. **檢查樂譜**：`review` 一開頭先列出三張從樂譜算出的表（每個段落有哪些聲部發聲、和弦多久換一次、旋律的節奏），再拿樂譜對照計畫，問出兩者不符的地方。它會列出聲部之間持續的小二度和小九度；為和弦外的每個音標出經過音、掛留音等非和弦音的類型，並詢問沒有級進解決的音；還會列出獨立聲部之間的平行五度、八度，以及音域過低的密集音程。每個問題都有識別碼，以它開頭的書面決定就是對那個問題的回答，讓每一處都是刻意的選擇，而不是意外。
 3. **演奏**：演奏模型加上真人演奏會有的偏差：每位樂手在時間和音量上緩慢的起伏、稍微拖拍的貝斯、樂句的起伏弧線，以及和弦裡各音不會同時按下、也不會同時放開。取樣的主旋律可以圓滑奏，也可以推弦。
 4. **渲染**：FluidSynth 用有授權的 SoundFont 音色庫，讓每個取樣聲部用各自的樂器演奏；電子聲部則由內建的合成器和鼓機，或 Surge XT 合成器的音色演奏。電吉他和電貝斯可以按弦彈奏，能寫悶音和死音，並透過五種吉他音箱音色和一種貝斯音箱音色發聲。
-5. **混音與母帶**：各聲部經過鼓、貝斯、節奏、合奏和主旋律匯流排，以及四種自動生成的殘響，最後由母帶處理做到 專案的目標響度（預設 −16 LUFS，串流常用 −14 LUFS），真峰值不超過 −1 dBTP。採用新版混音規則時，主旋律會保持在你寫的音量附近，母帶以真峰值限制器收尾；管弦樂曲還能指定聽起來離樂手多近，從樂手身邊到音樂廳的座位。管弦樂與管風琴可以略過壓縮器，保留完整的強弱對比；電子音樂可以加上側鏈閃避、跟著速度走的延遲、濾波掃頻，以及俱樂部等級的響亮母帶。聲部可以在立體聲場裡移動，混音還可以另外輸出一個耳機版本，把每個聲部放在頭部周圍的某個方向。
+5. **混音與母帶**：各聲部經過鼓、貝斯、節奏、合奏和主旋律匯流排，以及四種自動生成的殘響，最後由母帶處理做到 專案的目標響度（預設 −16 LUFS，串流常用 −14 LUFS），真峰值不超過 −1 dBTP。採用新版混音規則時，主旋律會保持在你寫的音量附近，母帶以真峰值限制器收尾；管弦樂曲還能指定聽起來離樂手多近，從樂手身邊到音樂廳的座位。每個聲部都可以各自加上 EQ、壓縮器、噪音門和效果（Surge XT 的殘響、合唱、鑲邊、相位、旋轉喇叭、破音和延遲等），處理後聲部會回到你寫的音量。管弦樂與管風琴可以略過壓縮器，保留完整的強弱對比；電子音樂可以加上側鏈閃避、跟著速度走的延遲、濾波掃頻，以及俱樂部等級的響亮母帶。聲部可以在立體聲場裡移動，混音還可以另外輸出一個耳機版本，把每個聲部放在頭部周圍的某個方向。
 6. **量測**：`analyze` 會量出每個段落的響度、頻譜和立體聲、主旋律比伴奏大聲多少，並把母帶的音色平衡拿去和已發表的商業錄音量測，或同曲風的參考比較。這些數字能指出問題所在，但不能取代實際聆聽。
 
 只改一個音，就只會重新合成那一個聲部；音符和混音都沒變的聲部，會像 DAW 裡凍結的音軌一樣，直接使用快取中處理好的分軌。每次渲染都會用所有聲部重新混音，所以共用殘響、殘響尾巴和母帶都會跟著改變。每一輪修改用一次 `round`：檢查樂譜、渲染草稿（聲音相同，只省去交付才需要的檔案）、測量，再與上一輪比較，每一步都給出簡短摘要。`compare` 會列出兩次渲染之間的差異：哪些聲部重新合成，以及哪些分軌、匯流排和殘響回送有變、變在哪裡、差多少。
@@ -154,7 +154,7 @@ python -m pip install -r skills/music-production/requirements.txt
 
 鋼琴捲軸的影片和圖片另外需要 Pillow，安裝流程不會自動裝：`python -m pip install pillow`。
 
-Windows x64 會下載鎖定版本的 FluidSynth 和 FFmpeg 免安裝版，以及 Surge XT 合成器和執行它的外掛主程式（約 55 MB）與它的 3,008 個音色（約 217 MB）；加上 `--no-surge-catalog` 就不裝這些音色，加上 `--no-surge` 就完全不裝 Surge：
+Windows x64 會下載鎖定版本的 FluidSynth 和 FFmpeg 免安裝版，以及 Surge XT 合成器、同一個壓縮檔裡的效果器（Surge XT Effects）和執行它們的外掛主程式（約 55 MB）與它的 3,008 個音色（約 217 MB）；加上 `--no-surge-catalog` 就不裝這些音色，加上 `--no-surge` 就完全不裝 Surge：
 
 ```
 python skills/music-production/scripts/bootstrap.py --runtime <folder>/.runtime --config <folder>/local-config.json
@@ -223,17 +223,17 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 | 管弦樂 | VSCO 2 Community Edition（Versilian Studios）的弦樂（含分部、震音與撥奏）、銅管、長號、低音號、低音提琴、木管、短笛和鐘琴；VCSL 的豎琴、木槌類打擊樂、管鐘、定音鼓和管弦打擊樂；愛荷華大學電子音樂工作室的法國號、低音長號、單簧管、長笛、獨奏弦樂和打擊樂 | CC0；愛荷華：可自由用於任何用途，沒有限制 |
 | 樂團 | FreePats FSBS 電吉他（兩種破音、一種乾淨音色）；Bass YR 撥片與指彈貝斯，取樣由 Andrea Biasior 錄製；Karoryfer Samples 的 Big Rusty Drums、五弦貝斯、撥奏低音提琴、弧頂爵士吉他、上低音薩克斯風和低音號；Karoryfer Lecolds 與 bigcat instruments 的獨奏大提琴；愛荷華大學電子音樂工作室的尼龍弦古典吉他 | CC0；愛荷華：可自由用於任何用途，沒有限制 |
 | 獨奏與世界樂器 | VCSL 的次中音薩克斯風、saxello、直笛、陶笛、口琴、民謠豎琴、越南箏（đàn tranh）、psaltery（撥弦齊特琴）、卡林巴、巴拉風和世界打擊樂；二胡；次中音鋼鼓；人聲「啊」 | CC0；鋼鼓：Unlicense |
-| 合成器 | 內建的合成器與鼓機；Surge XT 和它的 3,008 個原廠與第三方音色（其中五十個精選），選用、預設安裝 | 內建：MIT；Surge XT：GPL-3.0，由獨立的 GPL 程式執行 |
+| 合成器 | 內建的合成器與鼓機；Surge XT 和它的 3,008 個原廠與第三方音色（其中五十個精選）、Surge XT Effects，選用、預設安裝 | 內建：MIT；Surge XT 與 Surge XT Effects：GPL-3.0，由獨立的 GPL 程式執行 |
 | 其他樂器 | MuseScore MS Basic | MIT |
 
-錄音音色庫都是 CC0、可自由用於任何用途而沒有限制（愛荷華大學的錄音），或已捐贈給公有領域（鋼鼓），用它們做的音樂不需要署名。Surge XT 採用 GPL-3.0，只在本專案一個獨立的 GPL 程式（`surge_host.py`）裡執行；GPL 規範的是程式本身，不是它們演奏出來的音樂。MS Basic 是其他聲部退而使用的 General MIDI 音色庫，採用 MIT：它的聲明隨音色庫本身的複製和改作保留，用它演奏的音樂同樣不需要署名。來源和我們對各項授權的解讀列在 [THIRD_PARTY.md](THIRD_PARTY.md)。
+錄音音色庫都是 CC0、可自由用於任何用途而沒有限制（愛荷華大學的錄音），或已捐贈給公有領域（鋼鼓），用它們做的音樂不需要署名。Surge XT 和 Surge XT Effects 採用 GPL-3.0，只在本專案獨立的 GPL 程式（`surge_host.py`、`surgefx_host.py`）裡執行；GPL 規範的是程式本身，不是它們演奏出來的音樂。MS Basic 是其他聲部退而使用的 General MIDI 音色庫，採用 MIT：它的聲明隨音色庫本身的複製和改作保留，用它演奏的音樂同樣不需要署名。來源和我們對各項授權的解讀列在 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
 </details>
 
 <details>
 <summary><b>效果如何</b></summary>
 
-`selfcheck.py` 共有 226 項檢查（沒有渲染設定時為 179 項），從 MIDI 來回轉換、壓縮檔安全，到實際渲染都包括在內。例如：只改一個音時只會重新合成一個聲部，而 `compare` 只在受影響的檔案裡、從那個音開始找到差異；舊的單一殘響混音能逐位元重現先前的版本；響度量測對 BS.1770 的標準測試音讀出 −3.01 LUFS。CI 會跑完所有檢查（包括渲染），環境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.3、FFmpeg 9.0.2，加上 Surge XT）。
+`selfcheck.py` 共有 231 項檢查（沒有渲染設定時為 182 項），從 MIDI 來回轉換、壓縮檔安全，到實際渲染都包括在內。例如：只改一個音時只會重新合成一個聲部，而 `compare` 只在受影響的檔案裡、從那個音開始找到差異；舊的單一殘響混音能逐位元重現先前的版本；響度量測對 BS.1770 的標準測試音讀出 −3.01 LUFS。CI 會跑完所有檢查（包括渲染），環境是 Ubuntu（FluidSynth 2.3、FFmpeg 6.1）、macOS（FluidSynth 2.6、FFmpeg 9.0）和 Windows（固定版本的 FluidSynth 2.6.3、FFmpeg 9.0.2，加上 Surge XT）。
 
 音樂好不好聽是另一回事，只有實際聆聽才知道。上面這些曲子是這個 repo 最好的證據。
 
@@ -255,7 +255,7 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 <details>
 <summary><b>限制</b></summary>
 
-- 不會唱歌、不寫歌詞。外掛只支援 Surge XT，還不能載入你自己的 VST 外掛。
+- 不會唱歌、不寫歌詞。外掛只支援 Surge XT 和 Surge XT Effects，還不能載入你自己的 VST 外掛。
 - SFZ 樂器只讀取其中一部分：交叉淡化會改成切點，控制器、濾波器和效果則會列為未使用。
 - 音色的上限取決於免費音色庫：YR 貝斯只有一層力度，弦樂起音偏慢，馬林巴、木琴與短笛的取樣稀疏，取樣吉他的推弦是把整段取樣變調，不會有真實琴弦的音色變化。
 - 目前還沒有鋼弦木吉他、合唱，以及二胡和越南箏以外的東亞樂器音色庫；這些聲部只能用 MS Basic 取樣稀疏的 General MIDI 音色。
@@ -289,4 +289,4 @@ python skills/music-production/scripts/fetch_soundbanks.py --config <folder>/loc
 
 ## 授權
 
-本專案自己的程式碼與文件採用 [MIT](LICENSE) 授權；第三方資料、對它們的測量結果和引用的片段保留各自的條款，列在 [THIRD_PARTY.md](THIRD_PARTY.md)。範例的錄音與樂曲以 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 釋出到公有領域。第三方工具和音色庫保留各自的授權，不包含在這個 repo 裡：工具從發布者下載，三十個音色庫都從本專案的 release 下載，其中二十五個以發布者的取樣建置，五個是 FreePats 的原檔重新打包。`skills/music-production/scripts/surge_host.py` 採用 GPL-3.0-or-later，與它執行的 Surge XT 和 pedalboard 相同。範例的圖是程式直接從各自的專案檔畫出來的，圖中文字用 Noto Sans TC（SIL Open Font License）；logo 的文字是將 Noto Serif TC（SIL Open Font License）轉成外框。
+本專案自己的程式碼與文件採用 [MIT](LICENSE) 授權；第三方資料、對它們的測量結果和引用的片段保留各自的條款，列在 [THIRD_PARTY.md](THIRD_PARTY.md)。範例的錄音與樂曲以 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 釋出到公有領域。第三方工具和音色庫保留各自的授權，不包含在這個 repo 裡：工具從發布者下載，三十一個音色庫都從本專案的 release 下載，其中二十五個以發布者的取樣建置，六個是 FreePats 的原檔重新打包。`skills/music-production/scripts/surge_host.py` 和 `surgefx_host.py` 採用 GPL-3.0-or-later，與它們執行的 Surge XT、Surge XT Effects 和 pedalboard 相同。範例的圖是程式直接從各自的專案檔畫出來的，圖中文字用 Noto Sans TC（SIL Open Font License）；logo 的文字是將 Noto Serif TC（SIL Open Font License）轉成外框。

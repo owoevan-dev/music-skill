@@ -392,6 +392,25 @@ def define(S):
         folded=rel(audio.RATE-5*7000)
         assert folded<-80,folded  # measured: -146.6 dB
         out[7000]['folded_fifth_db']=round(folded,1)
+        # 0.11: as an object, a curve at a drive on the same path: tanh is the number to the bit; each curve keeps the
+        # loudness and its folded fifth under -80 dB (measured: atan -124.2, alg -113.1, erf -168.7); the softest knee
+        # (atan) makes the weakest third harmonic, the firmest (erf) the strongest
+        x=np.stack([.5*np.sin(2*np.pi*7000*t)]*2,axis=1);thirds={}
+        same,_=production.saturate(x,{'mix':{'saturate':1.0}});obj,receipt=production.saturate(x,{'mix':{'saturate':{'drive':1.0,'curve':'tanh'}}})
+        assert np.array_equal(same,obj) and receipt=={'drive':1.0,'curve':'tanh'},receipt
+        for curve in production.CURVES:
+            y,receipt=production.saturate(x,{'mix':{'saturate':{'drive':1.0,'curve':curve}}});y=np.asarray(y,dtype=np.float64)
+            spec=np.abs(np.fft.rfft(y[:,0]*np.hanning(len(y))));f=np.fft.rfftfreq(len(y),1/audio.RATE)
+            rel=lambda hz:float(20*np.log10(spec[np.argmin(np.abs(f-hz))]/spec[np.argmin(np.abs(f-7000))]+1e-20))
+            kept=float(10*np.log10(np.mean(y**2)/np.mean(x**2)))
+            assert abs(kept)<.01 and rel(audio.RATE-5*7000)<-80 and receipt=={'drive':1.0,'curve':curve},(curve,kept,rel(audio.RATE-5*7000))
+            thirds[curve]=round(rel(21000),1)
+        assert min(thirds,key=thirds.get)=='atan' and max(thirds,key=thirds.get)=='erf',thirds
+        # a drive of 0 is no saturation in either form, an empty object the defaults (b011a)
+        assert [production.saturating({'saturate':v}) for v in (0,.2,{},{'drive':0},{'drive':0,'curve':'erf'},{'curve':'atan'})]==[False,True,True,False,False,True]
+        default,receipt=production.saturate(x,{'mix':{'saturate':{}}})   # drive 0.5, tanh
+        assert receipt=={'drive':.5,'curve':'tanh'} and np.array_equal(default,production.saturate(x,{'mix':{'saturate':.5}})[0])
+        out['curves_third_db']=thirds
         return out
     def worn_media():
         from musiclib import production
@@ -1931,7 +1950,109 @@ def define(S):
             assert 'no lead' not in sm.analysis(r,work/'a.json',bare),'still says no lead'
             assert analyze(work/'render_bus')['lead_source']=='buses'   # a render with a lead bus reads it, as before
             return {'lead_stems':len(melody)}
-        found.update({'analysis_names_the_lead_the_span_and_the_peak': analysis_names_the_lead_the_span_and_the_peak, 'bus_chain_render_and_delivery_checks': bus_render, 'a_chorus_pass_never_shares_another_parts_log': chorus_pass_logs, 'effects_apply_in_the_order_listed': effects_in_listed_order, 'analysis_reports_sections_stems_and_lead': analysis, 'mix_rules_2_render_limiter_saturation_and_clarity': rules_2_render, 'wide_dynamics_master_keeps_the_mix_range': wide_render, 'stage_depth_and_range_control_render': stage_and_range, 'long_automation_renders': long_automation_renders})
+        def mix_fields_of_0_11_render():
+            # 0.11's FFmpeg fields as filters: the noise gate as agate, first among the processors; an EQ object as
+            # equalizer, a shelf or bandreject; tremolo and flanger in the effects' place; the compressor's knee, make-up,
+            # mix and detector in acompressor.  Each filter is written out here as the receipt must record it, in the
+            # chain's order, and the stem is that very chain run by FFmpeg on the part's raw take.
+            q=copy.deepcopy(p);q['tracks']=[q['tracks'][0]];t=q['tracks'][0]
+            t['mix'].update(eq=[[250,-2],{'type':'peak','hz':3200,'db':2.5,'q':1.4},{'type':'low_shelf','hz':120,'db':-3,'q':.7},
+                                {'type':'high_shelf','hz':8000,'db':1.5,'q':.7},{'type':'notch','hz':1800,'q':8}],
+                            compressor={'threshold_db':-24,'ratio':2.5,'attack_ms':15,'release_ms':140,'knee_db':6,'makeup_db':1.5,'mix':.7,'detection':'peak'},
+                            noise_gate={'threshold_db':-60,'range_db':-30,'attack_ms':2,'release_ms':150},
+                            effects=[{'type':'tremolo','rate_hz':4,'depth':.25},{'type':'flanger','delay_ms':1,'depth_ms':2,'rate_hz':.3,'feedback':.3,'mix':.4}])
+            save_json(work/'fields_011.json',q);render(work/'fields_011.json',work/'render_fields_011',config,cache)
+            rec=json.loads((work/'render_fields_011'/'stem_receipts.json').read_text(encoding='utf-8'))[0];chain=rec['filter_chain']
+            want=[f'agate=threshold={10**(-60/20):.9f}:range={10**(-30/20):.9f}:attack=2:release=150:ratio=10',
+                  'equalizer=f=250:t=q:w=1:g=-2','equalizer=f=3200:t=q:w=1.4:g=2.5','lowshelf=f=120:t=q:w=0.7:g=-3','highshelf=f=8000:t=q:w=0.7:g=1.5',
+                  'bandreject=f=1800:t=q:w=8','tremolo=f=4:d=0.25','flanger=delay=1:depth=2:regen=30.0:width=40.0:speed=0.3:interp=quadratic',
+                  f'acompressor=threshold={10**(-24/20):.9f}:ratio=2.5:attack=15:release=140:makeup={10**(1.5/20):.9f}:knee={10**(6/20):.9f}:mix=0.7:detection=peak']
+            missing=[w for w in want if w not in chain];assert not missing,(missing,chain)
+            at=[chain.index(w) for w in want];assert at==sorted(at),chain   # the gate, the EQ as listed, the effects, the compressor
+            cfg=audio.load_config(config);ran=work/'fields_011_chain.wav';(work/'fields_logs').mkdir(exist_ok=True)
+            audio.ffmpeg(cfg,['-i',str(cache/rec['cache_key']/'raw.wav'),'-af',chain,'-ar',str(audio.RATE),'-c:a','pcm_f32le',str(ran)],work/'fields_logs','chain_011')
+            assert np.array_equal(audio.read_wav(ran)[0],audio.read_wav(work/'render_fields_011'/rec['processed_stem'])[0])
+            return {'filters':len(want),'stem_is_the_chain':True}
+        def surge_fx_chain():
+            # A part's Surge XT Effects chain (0.11, musiclib.surgefx).  On a configuration without the plugin the part
+            # plays without it, and its receipt, the report (also when the stem comes from the cache) and the printed
+            # summary say so.  With the plugin the chain is applied, every parameter of each type shown as the plugin read
+            # it back, the part brought back to the level it entered the chain at, the stem made the same twice and kept by
+            # the cache; a stem made while the plugin was missing is not taken for the plugin's, and a run that fails with
+            # the plugin in place keeps nothing, so the next render tries the chain again.
+            from musiclib import surgefx, summary
+            import os
+            q=copy.deepcopy(p);q['tracks']=[q['tracks'][0]];t=q['tracks'][0]
+            t['mix']['surge_fx']=[{'type':'chorus','params':{'modulation_rate':.6,'modulation_depth':40,'output_mix':35}},
+                                  {'type':'reverb_2','params':{'reverb_decay_time':1.8,'pre_delay':20,'output_mix':25}}]
+            save_json(work/'surge_fx.json',q)
+            cfg=json.loads(Path(config).read_text(encoding='utf-8'));has=bool(cfg.get('surge_fx') and cfg.get('pedalboard'))
+            # optional for users, as Surge XT is; required where CI installed it (MUSIC_SKILL_REQUIRE_SURGE)
+            assert has or not os.environ.get('MUSIC_SKILL_REQUIRE_SURGE'),'the configuration names no Surge XT Effects (surge_fx and pedalboard), and MUSIC_SKILL_REQUIRE_SURGE asks for it'
+            for key in ('fluidsynth','ffmpeg','soundfont'):
+                value=Path(cfg[key]['path']);cfg[key]['path']=str(value if value.is_absolute() else Path(config).resolve().parent/value)
+            cfg.pop('surge_fx',None);save_json(work/'no_fx_config.json',cfg)
+            fxc=work/'cache_fx';receipt=lambda name:json.loads((work/name/'stem_receipts.json').read_text(encoding='utf-8'))[0]
+            dry=render(work/'surge_fx.json',work/'render_fx_missing',work/'no_fx_config.json',fxc);rec=receipt('render_fx_missing')
+            assert rec['surge_fx']['state']=='bypassed' and 'not installed' in rec['surge_fx']['reason'] and 'surge_fx' not in rec['filter_chain'],rec.get('surge_fx')
+            # bypassed is as without the field, to the sample (no pass split round a chain that does nothing: b011a)
+            nofx=copy.deepcopy(q);nofx['tracks'][0]['mix'].pop('surge_fx');save_json(work/'surge_fx_none.json',nofx)
+            render(work/'surge_fx_none.json',work/'render_fx_none',work/'no_fx_config.json',work/'cache_fx_none')   # (a cache entry keeps one stem)
+            stem_of=lambda name:audio.read_wav(work/name/'stems'/f'{t["id"]}.wav')[0]
+            assert np.array_equal(stem_of('render_fx_missing'),stem_of('render_fx_none'))
+            # a chain that does otherwise than the stem's key said (the plugin removed during a render) is not kept
+            from musiclib import render as renderer
+            raw_take=work/'cache_fx_none'/rec['cache_key']/'raw.wav';moved=work/'fx_state_change';(moved/'stems').mkdir(parents=True);(moved/'logs').mkdir()
+            changed=renderer.process_stem(q,t,Clock(q),audio.load_config(work/'no_fx_config.json'),moved,raw_take,moved/'stems'/f'{t["id"]}.wav',
+                                          len(stem_of('render_fx_missing')),expected_fx='applied')
+            assert changed['surge_fx']['state']=='bypassed' and changed['surge_fx']['cached'] is False,changed['surge_fx']
+            assert dry['surge_fx']=={'applied':{},'bypassed':{t['id']:rec['surge_fx']['reason']}},dry.get('surge_fx')
+            told=summary.render(dry,work/'render_fx_missing')
+            assert f'Played without their Surge XT Effects chains (mix.surge_fx): {t["id"]} (' in told,told
+            again=render(work/'surge_fx.json',work/'render_fx_missing_again',work/'no_fx_config.json',fxc);kept=receipt('render_fx_missing_again')
+            assert kept['stem_reused'] and kept['surge_fx']==rec['surge_fx'] and again['surge_fx']==dry['surge_fx'],(kept.get('surge_fx'),again.get('surge_fx'))
+            out={'without_the_plugin':'played without its chain; receipt, report and summary say so, from the cache too'}
+            if has:
+                a=render(work/'surge_fx.json',work/'render_fx',config,fxc);ra=receipt('render_fx');fx=ra['surge_fx']
+                assert not ra['stem_reused'] and fx['state']=='applied' and [c['type'] for c in fx['chain']]==['chorus','reverb_2'],fx
+                assert fx['chain'][0]['shown']['modulation_rate']=='0.600 Hz' and fx['chain'][0]['shown']['output_mix']=='35.00 %',fx['chain'][0]
+                assert set(fx['chain'][1]['shown'])==set(surgefx.table()['types']['reverb_2']['params']),fx['chain'][1]   # every parameter, defaults too
+                assert isinstance(fx['level_change_db'],float) and a['surge_fx']=={'applied':{t['id']:fx['level_change_db']},'bypassed':{}},(fx,a.get('surge_fx'))
+                mode=t['mix'].get('level_mode','active_rms')
+                with_chain,without=(audio.reference_level(work/n/'stems'/f'{t["id"]}.wav',mode) for n in ('render_fx','render_fx_missing'))
+                assert abs(with_chain-without)<.05,(with_chain,without)   # the level the part entered the chain at
+                b=render(work/'surge_fx.json',work/'render_fx_again',config,fxc);rb=receipt('render_fx_again')
+                assert rb['stem_reused'] and rb['surge_fx']==fx and b['master']['sha256']==a['master']['sha256'],rb.get('surge_fx')
+                render(work/'surge_fx.json',work/'render_fx_fresh',config,work/'cache_fx_fresh');rc=receipt('render_fx_fresh')
+                assert not rc['stem_reused'] and rc['stem_sha256']==ra['stem_sha256'],(rc['stem_sha256'],ra['stem_sha256'])   # made again: the same
+                real=audio.run
+                def failing(argv,folder,label,*rest,**named):
+                    if str(label).startswith('surge_fx_'):raise RuntimeError('the host stopped (a check)')
+                    return real(argv,folder,label,*rest,**named)
+                audio.run=failing
+                try:f=render(work/'surge_fx.json',work/'render_fx_failed',config,work/'cache_fx_failing')
+                finally:audio.run=real
+                rf=receipt('render_fx_failed')
+                assert rf['surge_fx']['state']=='bypassed' and rf['surge_fx']['cached'] is False and 'failed' in rf['surge_fx']['reason'] and t['id'] in f['surge_fx']['bypassed'],rf['surge_fx']
+                render(work/'surge_fx.json',work/'render_fx_retried',config,work/'cache_fx_failing');rg=receipt('render_fx_retried')
+                assert not rg['stem_reused'] and rg['surge_fx']['state']=='applied' and rg['stem_sha256']==ra['stem_sha256'],rg.get('surge_fx')
+                # the headphone version runs the chain again: a run that fails there alone, the speaker stem from the cache,
+                # is said in the receipt, the report and the summary (Astra's review b011a)
+                hq=copy.deepcopy(q);hq['mix'].update(chain='bus',headphones=True);save_json(work/'surge_fx_phones.json',hq)
+                render(work/'surge_fx_phones.json',work/'render_fx_phones',config,work/'cache_fx_phones')
+                def phones_fail(argv,folder,label,*rest,**named):
+                    if str(label).startswith('surge_fx_') and 'headphones' in str(folder):raise RuntimeError('the host stopped (a check)')
+                    return real(argv,folder,label,*rest,**named)
+                audio.run=phones_fail
+                try:hp=render(work/'surge_fx_phones.json',work/'render_fx_phones_failed',config,work/'cache_fx_phones')
+                finally:audio.run=real
+                rh=receipt('render_fx_phones_failed')
+                assert rh['stem_reused'] and rh['surge_fx']['state']=='applied' and rh['surge_fx_headphones']['state']=='bypassed',rh
+                assert hp['surge_fx']['bypassed']=={t['id']+' (headphone version)':rh['surge_fx_headphones']['reason']},hp['surge_fx']
+                assert f'{t["id"]} (headphone version) (' in summary.render(hp,work/'render_fx_phones_failed')
+                out['with_the_plugin']='applied, level kept, made the same twice and kept; a failed run kept nothing; a headphone pass that failed is said'
+            return out
+        found.update({'analysis_names_the_lead_the_span_and_the_peak': analysis_names_the_lead_the_span_and_the_peak, 'bus_chain_render_and_delivery_checks': bus_render, 'a_chorus_pass_never_shares_another_parts_log': chorus_pass_logs, 'effects_apply_in_the_order_listed': effects_in_listed_order, 'the_mix_fields_of_0_11_render_as_their_filters': mix_fields_of_0_11_render, 'a_surge_fx_chain_applies_or_is_named_left_out': surge_fx_chain, 'analysis_reports_sections_stems_and_lead': analysis, 'mix_rules_2_render_limiter_saturation_and_clarity': rules_2_render, 'wide_dynamics_master_keeps_the_mix_range': wide_render, 'stage_depth_and_range_control_render': stage_and_range, 'long_automation_renders': long_automation_renders})
         found['a_moving_part_renders_and_the_others_stay'] = a_moving_part_renders_and_the_others_stay
         found['a_part_through_an_amplifier_renders_and_the_others_stay'] = a_part_through_an_amplifier_renders_and_the_others_stay
         found['a_part_played_by_string_renders_string_by_string'] = a_part_played_by_string_renders_string_by_string

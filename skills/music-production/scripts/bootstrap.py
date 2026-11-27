@@ -17,8 +17,11 @@ XT 1.3.4 you installed from https://surge-synthesizer.github.io/, found in the u
 hashes PyPI publishes, installed into the runtime folder only, and the curated factory patches from Surge's pinned
 repository commit, each checked by hash.  Then, unless --no-surge-catalog, every patch of the catalog
 (references/surge-catalog.json: 3,008 factory and third-party patches, about 217 MB) from the same commit, each checked
-by size and hash, for parts that name a catalog patch.  Both programs are GPL-3.0 and run as their own process; without
-them, Surge parts play their fallback presets on the built-in synth.
+by size and hash, for parts that name a catalog patch.  Surge XT Effects, the plugin of Surge XT's effects that a part's
+mix.surge_fx chain runs on, comes from the same pinned archive into a folder of its own, its binary checked by its own hash
+(beside a Surge XT given with --surge-vst3 or found installed, a Surge XT Effects.vst3 there is taken).  The programs are
+GPL-3.0 and run as their own process; without them, Surge parts play their fallback presets on the built-in synth and parts
+play without their mix.surge_fx chains.
 External files keep their own licences.
 """
 import argparse
@@ -223,6 +226,24 @@ def surge_plugin(lock,runtime,cache,args,system):
             if (Path(bundle)/inner).is_file():return Path(bundle).resolve(),(Path(bundle)/inner).resolve(),'User system installation; hash is integrity, not provenance'
     return None,None,None
 
+def surge_effects(lock,runtime,cache,args):
+    """The Surge XT Effects VST3 to load and the binary inside it to hash (mix.surge_fx, 0.11): from the pinned archive
+    surge_plugin has just fetched and checked for this machine, extracted into a folder of its own and checked by its own
+    hash; else a Surge XT Effects.vst3 beside the bundle given with --surge-vst3, or in the usual VST3 folders."""
+    e=lock['optional']['surge_xt_effects'];key=None if args.surge_vst3 else surge_platform()
+    if key in e:
+        item=lock['optional']['surge_xt'][key];part=e[key];archive=cache/item['filename']
+        if archive.stat().st_size!=item['bytes'] or file_hash(archive)!=item['sha256']:raise ValueError('Archive integrity failed: surge_xt')
+        target=runtime/'surge_xt_effects';note_aside((safe_extract_tar if item['filename'].endswith('.tar.gz') else safe_extract)(archive,target,part['extract']))
+        binary=target/part['executable']
+        if file_hash(binary)!=part['executable_sha256']:raise ValueError('Executable integrity failed: surge_xt_effects')
+        return (binary if key=='windows-x86_64' else target/part['extract'].rstrip('/')),binary,item['url']
+    kind='darwin' if sys.platform=='darwin' else 'windows' if os.name=='nt' else 'linux'
+    for bundle in ([Path(args.surge_vst3).parent/'Surge XT Effects.vst3'] if args.surge_vst3 else [Path(os.path.expandvars(p)).expanduser() for p in e['system_bundles'].get(kind,[])]):
+        for inner in e['bundle_binaries'].get(kind,[]):
+            if (Path(bundle)/inner).is_file():return Path(bundle).resolve(),(Path(bundle)/inner).resolve(),'User system installation; hash is integrity, not provenance'
+    return None,None,None
+
 def wheel_tags():
     """The wheel tags this Python installs, best first, as pip ranks them when it picks a wheel (pip's own copy of the
     packaging library); none where pip cannot be imported, as then it could not install the wheel either."""
@@ -256,7 +277,7 @@ def install_surge(lock,runtime,cache,args,system,config):
     """Surge XT, pedalboard and the curated patches; a missing piece is reported and leaves Surge parts on fallbacks."""
     try:return _install_surge(lock,runtime,cache,args,system,config)
     except (ValueError,OSError,subprocess.SubprocessError) as e:
-        config.pop('surge',None);config.pop('pedalboard',None)
+        config.pop('surge',None);config.pop('pedalboard',None);config.pop('surge_fx',None)
         print(f'SKIPPED surge_xt | {files.one_line(str(e))}; Surge parts use their fallback presets',flush=True)
 
 def _install_surge(lock,runtime,cache,args,system,config):
@@ -294,10 +315,20 @@ def _install_surge(lock,runtime,cache,args,system,config):
     except BaseException:
         shutil.rmtree(staging,ignore_errors=True);raise
     note_aside(files.install_tree(staging,patches))
+    # Surge XT Effects: a failure here leaves Surge XT and its patches installed, and only the effects chains out.
+    try:
+        fx_plugin,fx_binary,fx_source=surge_effects(lock,runtime,cache,args)
+        if fx_plugin is None:print('SKIPPED surge_xt_effects | not found beside Surge XT; parts play without their mix.surge_fx chains',flush=True)
+    except (ValueError,OSError) as err:
+        fx_plugin=None;print(f'SKIPPED surge_xt_effects | {files.one_line(str(err))}; parts play without their mix.surge_fx chains',flush=True)
     s=lock['optional']['surge_xt'];board=lock['optional']['pedalboard']
     config['surge']={'path':str(plugin),'binary':str(binary),'sha256':file_hash(binary),'version':s['version'] if source.startswith('https://') else 'system install (version not checked)','license':s['license'],'source':source,'patches':str(patches)}
     config['pedalboard']={'path':str(pylib),'sha256':meta['sha256'],'record_sha256':file_hash(records[0]),'version':board['version'],'license':board['license'],'source':meta['url']}
     print('VERIFIED surge_xt |',len(presets['presets']),'curated patches',flush=True)
+    if fx_plugin is not None:
+        e=lock['optional']['surge_xt_effects']
+        config['surge_fx']={'path':str(fx_plugin),'binary':str(fx_binary),'sha256':file_hash(fx_binary),'version':e['version'] if fx_source.startswith('https://') else 'system install (version not checked)','license':e['license'],'source':fx_source}
+        print('VERIFIED surge_xt_effects |',fx_binary.name,flush=True)
 
 def install_catalog(runtime,cache,args,config):
     """Every patch of the Surge catalog, each checked by size and hash, into the runtime folder; a failure is reported and
@@ -329,8 +360,8 @@ def main():
     ap.add_argument('--runtime',type=Path,required=True);ap.add_argument('--config',type=Path,required=True);ap.add_argument('--archive-cache',type=Path);ap.add_argument('--offline',action='store_true')
     ap.add_argument('--system',action='store_true',help='use the system fluidsynth and ffmpeg; download only the default sound bank')
     ap.add_argument('--fluidsynth',type=Path,help='with --system: this executable instead of the one on PATH');ap.add_argument('--ffmpeg',type=Path,help='with --system: this executable instead of the one on PATH')
-    ap.add_argument('--no-surge',action='store_true',help='skip Surge XT and pedalboard (Surge parts then play their fallback presets)')
-    ap.add_argument('--surge-vst3',type=Path,help='this Surge XT.vst3 bundle instead of the pinned build (or, where none is pinned, the usual VST3 folders)')
+    ap.add_argument('--no-surge',action='store_true',help='skip Surge XT, Surge XT Effects and pedalboard (Surge parts then play their fallback presets, and parts play without their mix.surge_fx chains)')
+    ap.add_argument('--surge-vst3',type=Path,help='this Surge XT.vst3 bundle instead of the pinned build (or, where none is pinned, the usual VST3 folders); a Surge XT Effects.vst3 beside it is taken for mix.surge_fx')
     ap.add_argument('--no-surge-catalog',action='store_true',help='skip the full Surge patch set (about 217 MB): only the curated patches; parts that name a catalog patch play their fallback presets')
     args=ap.parse_args()
     from musiclib.homepath import at_home

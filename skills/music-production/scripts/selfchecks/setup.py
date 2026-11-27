@@ -584,6 +584,49 @@ def define(S):
         with contextlib.redirect_stdout(said):assert bootstrap.pedalboard_wheel(lock,cache,offline=True)==(None,None)
         assert 'set aside' in said.getvalue() and len(list(cache.glob(name+'.replaced-*')))==1
         return {'tag':tags[0]}
+    def surge_xt_effects_come_from_the_pinned_archive():
+        # Surge XT Effects (mix.surge_fx, 0.11): the lock names, for each pinned Surge XT build, the effects bundle in the
+        # same archive and its binary's own hash (a record of its own beside surge_xt's, never a list in one field); setup
+        # extracts that bundle alone into a folder of its own and checks the binary, refuses one whose hash differs, and
+        # beside a Surge XT given with --surge-vst3 takes a Surge XT Effects.vst3 there, or none.
+        import hashlib
+        import bootstrap
+        lock=json.loads((SCRIPTS.parent/'references'/'runtime-lock.json').read_text(encoding='utf-8'))['optional']
+        fx,synth=lock['surge_xt_effects'],lock['surge_xt']
+        for key in ('windows-x86_64','linux-x86_64','macos-universal'):
+            part=fx[key]
+            assert key in synth and part['extract']=='Surge XT Effects.vst3/' and part['executable'].startswith(part['extract'])
+            assert len(part['executable_sha256'])==64 and part['executable_sha256']!=synth[key]['executable_sha256'] and 'filename' not in part
+        assert set(fx['system_bundles'])==set(fx['bundle_binaries'])=={'darwin','linux','windows'} and fx['version']==synth['version']
+        key=surge_platform()   # None where no build is pinned (Linux on ARM): then only the bundle beside a given one
+        inner='Surge XT Effects.vst3/Contents/x86_64-win/Surge XT Effects.vst3';binary=b'effects plugin'
+        def archive(name,members):
+            path=work/'fx_cache'/name;path.parent.mkdir(exist_ok=True)
+            with zipfile.ZipFile(path,'w') as z:
+                for member,data in members.items():z.writestr(member,data)
+            return path
+        made=archive('fx.zip',{'Surge XT.vst3/Contents/x86_64-win/Surge XT.vst3':b'synth',inner:binary,'Surge XT Effects.exe':b'standalone'})
+        fake={'surge_xt':{key:{'filename':'fx.zip','bytes':made.stat().st_size,'sha256':file_hash(made),'url':'https://github.com/x/fx.zip'}},
+              'surge_xt_effects':{'version':'1.3.4',key:{'extract':'Surge XT Effects.vst3/','executable':inner,'executable_sha256':hashlib.sha256(binary).hexdigest()},
+                                  'system_bundles':{},'bundle_binaries':{}}}
+        runtime=work/'fx_runtime';runtime.mkdir()
+        if key is not None:
+            plugin,found,source=bootstrap.surge_effects({'optional':fake},runtime,work/'fx_cache',argparse.Namespace(surge_vst3=None))
+            assert found==runtime/'surge_xt_effects'/inner and found.read_bytes()==binary and source=='https://github.com/x/fx.zip'
+            assert plugin==(found if key=='windows-x86_64' else runtime/'surge_xt_effects'/'Surge XT Effects.vst3')
+            kept=sorted(p.relative_to(runtime/'surge_xt_effects').as_posix() for p in (runtime/'surge_xt_effects').rglob('*') if p.is_file())
+            assert sorted(kept)==sorted([inner,'files.json']),kept   # the bundle alone, with the record of what setup installed there
+            wrong=copy.deepcopy(fake);wrong['surge_xt_effects'][key]['executable_sha256']='0'*64
+            try:bootstrap.surge_effects({'optional':wrong},work/'fx_runtime_wrong',work/'fx_cache',argparse.Namespace(surge_vst3=None));raise AssertionError('a changed binary was taken')
+            except ValueError as e:assert 'Executable integrity failed: surge_xt_effects' in str(e),str(e)
+        given=work/'fx_given';(given/'Surge XT.vst3').mkdir(parents=True)
+        lone={'optional':{**fake,'surge_xt_effects':{**fake['surge_xt_effects'],'bundle_binaries':{'darwin':['Contents/MacOS/Surge XT Effects'],'linux':['Contents/x86_64-linux/Surge XT Effects.so'],'windows':['Contents/x86_64-win/Surge XT Effects.vst3']}}}}
+        assert bootstrap.surge_effects(lone,runtime,work/'fx_cache',argparse.Namespace(surge_vst3=given/'Surge XT.vst3'))==(None,None,None)
+        kind='darwin' if sys.platform=='darwin' else 'windows' if os.name=='nt' else 'linux'
+        beside=given/'Surge XT Effects.vst3'/lone['optional']['surge_xt_effects']['bundle_binaries'][kind][0];beside.parent.mkdir(parents=True);beside.write_bytes(binary)
+        plugin,found,source=bootstrap.surge_effects(lone,runtime,work/'fx_cache',argparse.Namespace(surge_vst3=given/'Surge XT.vst3'))
+        assert found==beside.resolve() and plugin==(given/'Surge XT Effects.vst3').resolve() and 'not provenance' in source
+        return {'platforms':3,'pinned_here':key,'refused_changed':key is not None,'beside_given':True}
     def a_bank_fluidsynth_is_not_safe_with_is_refused():
         # 0.9.2 (design-0.9.2.md, A1): a modulator's destination past FluidSynth's 63 generators writes outside a voice in
         # FluidSynth up to 2.6.2 (CVE-2026-111123; 0.10 pins 2.6.3, and a system's may be older), so no route hands such a
@@ -668,7 +711,7 @@ def define(S):
         said=run('audition',w/'plays_default.json','--track',sampled['id'],'--sounds','soundfont:unsafe:0:0','--bars','1-2','--output',w/'aud','--config',w/'as_named.json')
         assert said.returncode==2 and 'CVE-2026-111123' in said.stderr and not list((w/'aud').glob('[0-9]*')),said.stderr[-300:]
         return {'destinations_refused':14,'routes':6}
-    found = {'a_bank_fluidsynth_is_not_safe_with_is_refused': a_bank_fluidsynth_is_not_safe_with_is_refused, 'archive_cannot_escape_destination': zip_traversal, 'surge_catalog_patch_by_id_search_and_install': surge_catalog, 'soundbank_lock_hosts_hashes_and_member_paths': soundbank_lock, 'prebuilt_banks_unpack_only_when_they_match_the_lock': prebuilt_bank, 'a_config_written_elsewhere_keeps_relative_banks': relative_banks, 'a_short_or_damaged_download_is_never_kept': short_downloads, 'bootstrap_receipts_set_aside_what_it_did_not_write': bootstrap_receipts_set_aside_what_it_did_not_write, 'delete_sources_takes_only_the_installers_files': delete_sources_takes_only_the_installers_files, 'pedalboard_checked_against_its_record': pedalboard_checked_against_its_record, 'source_listing_must_name_the_pinned_samples': source_listing_must_name_the_pinned_samples, 'pedalboard_wheel_fetched_by_its_lock': pedalboard_wheel_fetched_by_its_lock}
+    found = {'a_bank_fluidsynth_is_not_safe_with_is_refused': a_bank_fluidsynth_is_not_safe_with_is_refused, 'archive_cannot_escape_destination': zip_traversal, 'surge_catalog_patch_by_id_search_and_install': surge_catalog, 'soundbank_lock_hosts_hashes_and_member_paths': soundbank_lock, 'prebuilt_banks_unpack_only_when_they_match_the_lock': prebuilt_bank, 'a_config_written_elsewhere_keeps_relative_banks': relative_banks, 'a_short_or_damaged_download_is_never_kept': short_downloads, 'bootstrap_receipts_set_aside_what_it_did_not_write': bootstrap_receipts_set_aside_what_it_did_not_write, 'delete_sources_takes_only_the_installers_files': delete_sources_takes_only_the_installers_files, 'pedalboard_checked_against_its_record': pedalboard_checked_against_its_record, 'source_listing_must_name_the_pinned_samples': source_listing_must_name_the_pinned_samples, 'pedalboard_wheel_fetched_by_its_lock': pedalboard_wheel_fetched_by_its_lock, 'surge_xt_effects_come_from_the_pinned_archive': surge_xt_effects_come_from_the_pinned_archive}
     if config:
         def bad_hash():
             cfg=json.loads(Path(config).read_text(encoding='utf-8'))

@@ -215,6 +215,16 @@ def render(report, folder):
         lines.append(f'The file ends in {report["silent_end_seconds"]:g} s under -60 dBFS: a shorter clock.tail_seconds would end it sooner.')
     lines.append(f'Parts: {report["stem_count"]}; raw synthesis from the cache {report["cache_hits"]}, processed stems from the '
                  f'cache {report.get("stems_reused", 0)} (stem_receipts.json names which).')
+    chains = report.get('surge_fx') or {}
+    if chains.get('bypassed'):
+        lines.append('Played without their Surge XT Effects chains (mix.surge_fx): ' + '; '.join(f'{k} ({v})' for k, v in chains['bypassed'].items()) + '.')
+    # A chain is brought back to the level its part entered at; one that had moved it 12 dB or more usually has a setting at
+    # an extreme (Surge's distortion with its drive at the lowest and both high cuts at 440 Hz lost 38 dB on noise bursts,
+    # research/effects-0.11, 2026-11-28).
+    moved = {k: v for k, v in (chains.get('applied') or {}).items() if v is not None and abs(v) >= 12}
+    if moved:
+        lines.append("Surge XT Effects chains that moved their part's level 12 dB or more before it was restored: "
+                     + ', '.join(f'{k} {v:+g} dB' for k, v in moved.items()) + ': check a gain, drive or mix at an extreme.')
     loop = report.get('loop')
     if loop:
         lines.append(f'Loop: bars {loop["start_bar"] + 1}-{loop["end_bar"]}, {loop["length_samples"]} samples, loop.wav'
@@ -233,6 +243,7 @@ def render(report, folder):
     bus = report.get('chain') == 'bus'   # (a room-chain render's report has no passes, limiting or buses)
     lines.append(f'Full figures: {_rel(Path(folder) / "report.json")}: checks, master, mastering' + (' (passes, limiting_db), ' if bus else ', ')
                  + 'sections, ' + ('buses (level_change_db), ' if bus else '') + ('loop, ' if report.get('loop') else '') + ('headphones (parts), ' if heard else '')
+                 + ('surge_fx, ' if chains else '')
                  + 'stage_seconds, process_seconds; stem_receipts.json per part.')
     return joined(lines)
 

@@ -106,6 +106,15 @@
    "origin": "ours",
    "what": "chord parts struck and released as one block"
   },
+  "unchanging_part": {
+   "axis": "form",
+   "params": {
+    "share": 0.9
+   },
+   "ask": false,
+   "origin": "ours",
+   "what": "a rhythm or harmony part keeping one bar rhythm, and one chord shape where at least half its attacks are chords, over the share of its bars and chords in every section of 4 bars or more in which it attacks in 3 bars of 4, two such sections or more (views.accompaniment); asked where the entry governing the form says its sections differ in texture, or where the plan says a section differs from the one before"
+  },
   "pushes": {
    "axis": "rhythm",
    "params": {},
@@ -232,6 +241,13 @@
     "slope": -0.943,
     "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged pop",
     "borrowed": "no spectrum of J-pop read; the nearest published measurement"
+   },
+   "checks": {
+    "unchanging_part": {
+     "ask": true,
+     "origin": "source",
+     "source": "Summach 2012, in Open Music Theory (Hughes and Lavengood, Verse-Chorus Form): the chorus more intense than the verse, a fuller or busier texture; Koozin 2011, Music Theory Online 17(3), paragraphs 15-16: a rhythm guitar's voicing changes between verse and chorus, open-string chords in one and barre or power chords in the other"
+    }
    }
   },
   "pop": {
@@ -240,6 +256,13 @@
     "genre": "pop",
     "slope": -0.943,
     "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged pop"
+   },
+   "checks": {
+    "unchanging_part": {
+     "ask": true,
+     "origin": "source",
+     "source": "Summach 2012, in Open Music Theory (Hughes and Lavengood, Verse-Chorus Form): the chorus more intense than the verse, a fuller or busier texture; Koozin 2011, Music Theory Online 17(3), paragraphs 15-16: a rhythm guitar's voicing changes between verse and chorus, open-string chords in one and barre or power chords in the other"
+    }
    }
   },
   "rock": {
@@ -249,6 +272,11 @@
      "ask": false,
      "origin": "source",
      "source": "Herbst 2019 and Lilja 2015: distorted guitars play power chords, which move in parallel fifths; Wikipedia, Doom metal: guitars and bass on the same riff, \"the usual heavy metal compositional technique\" (read 9 November 2026)"
+    },
+    "unchanging_part": {
+     "ask": true,
+     "origin": "source",
+     "source": "Summach 2012, in Open Music Theory (Hughes and Lavengood, Verse-Chorus Form): the chorus more intense than the verse, a fuller or busier texture; Koozin 2011, Music Theory Online 17(3), paragraphs 15-16: a rhythm guitar's voicing changes between verse and chorus, open-string chords in one and barre or power chords in the other"
     }
    },
    "published_mix": {

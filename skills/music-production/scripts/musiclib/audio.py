@@ -13,8 +13,8 @@ import threading
 import time
 import numpy as np
 from . import files
-from .model import Clock, performed, save_json, file_hash
-from .model import bend_curve as wheel_curve
+from .played import Clock, performed, save_json, file_hash
+from .played import bend_curve as wheel_curve
 
 RATE=48000
 # The longest WAV read: a project's 30 minutes (validate) and its tail of up to 15 s, with room to spare.
@@ -25,7 +25,7 @@ TOOLS = ('fluidsynth', 'ffmpeg', 'soundfont')  # what every configuration names,
 
 def config_shape(config, where, needs=TOOLS):
     """A configuration's shape, checked before any of it is read: a JSON object; the entries `needs` names present;
-    each of fluidsynth, ffmpeg, soundfont, surge and pedalboard it holds an object with a text `path`; `soundfonts`, if
+    each of fluidsynth, ffmpeg, soundfont, surge, surge_fx and pedalboard it holds an object with a text `path`; `soundfonts`, if
     there, an object of named banks, each an object with a text `path`.  Anything else is refused naming the field: a
     null path, a list of banks or a missing tool stopped the command with a traceback (found by GPT Pro's sixth review
     of 0.4.0)."""
@@ -34,7 +34,7 @@ def config_shape(config, where, needs=TOOLS):
     for key in needs:
         if key not in config:
             raise ValueError(f'{where}: the configuration needs "{key}"; bootstrap.py writes one')
-    for key in ('fluidsynth', 'ffmpeg', 'soundfont', 'surge', 'pedalboard'):
+    for key in ('fluidsynth', 'ffmpeg', 'soundfont', 'surge', 'surge_fx', 'pedalboard'):
         if key in config and not (isinstance(config[key], dict) and isinstance(config[key].get('path'), str) and config[key]['path']):
             raise ValueError(f'{where}: "{key}" in the configuration is an object with a text "path"')
     banks = config.get('soundfonts', {})
@@ -50,7 +50,7 @@ def absolute_paths(config, base, where=None):
     """The configuration with every relative path made absolute against `base` (the folder of the file it was read
     from), so it can be written anywhere; its shape is checked first (config_shape, with no tool required)."""
     config_shape(config, where or base, needs=())
-    entries = [config[k] for k in ('fluidsynth', 'ffmpeg', 'soundfont', 'surge', 'pedalboard') if isinstance(config.get(k), dict)]
+    entries = [config[k] for k in ('fluidsynth', 'ffmpeg', 'soundfont', 'surge', 'surge_fx', 'pedalboard') if isinstance(config.get(k), dict)]
     entries += [v for v in config.get('soundfonts', {}).values() if isinstance(v, dict)]
     for entry in entries:
         for key in ('path', 'binary', 'patches'):
@@ -374,6 +374,11 @@ def rms(data):return float(np.sqrt(np.mean(np.asarray(data,dtype=np.float64)**2)
 
 def reference_level(path,mode='active_rms'):
     a,_=read_wav(path)
+    return level_of(a,mode)
+
+def level_of(a,mode='active_rms'):
+    """A part's reference level in dBFS, of its audio (frames, 2): its peak, or the 70th percentile of its active half
+    seconds' RMS.  ValueError names a stem that is silent or not finite."""
     if not np.isfinite(a).all():raise ValueError('Nonfinite stem')
     peak=float(np.max(np.abs(a)))
     if peak<1e-9:raise ValueError('Silent stem')
@@ -499,7 +504,7 @@ def noise_fx(project,track,path):
             freq=45+70*np.exp(-t*16);sig=np.sin(2*math.pi*np.cumsum(freq)/RATE)*np.exp(-t*6)*np.minimum(t/.008,1)
             wave=np.column_stack([sig,sig])*.2
         elif kind=='vinyl':
-            from .production import vinyl
+            from .vinyl import vinyl
             wave=vinyl(count,rng)*.13;fade=min(count//2,round(.05*RATE))
             wave[:fade]*=np.linspace(0,1,fade)[:,None];wave[count-fade:]*=np.linspace(1,0,fade)[:,None]
         else:

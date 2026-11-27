@@ -8,6 +8,8 @@ Contents: [The part's job](#the-parts-job) · [What puts a sound in front or beh
 
 A sound that impresses on its own is not thereby right for the piece. Flint (2007) explains that a synth patch which impresses without accompaniment was probably programmed to stand out that way, and that this does not make it suit a composition. White (2009) warns that shaping parts while they play solo tends to leave many big, bright sounds competing for the front of the mix. Senior (2024) sees little point in detailed mixing before sounds can be judged in their final context. So a sound is chosen for its job in this piece, and judged on the part's own notes with the other parts playing.
 
+**A guide's table gives options.** Where a guide names several instruments, banks, amplifier voices or effects for a part, each with the conditions it suits, none of them is the style's norm: the piece's whole (SKILL.md, step 2) chooses among those the style allows, recorded as a level it gave (`association.gives`), the reason in `decisions`. A sound is then treated as well as chosen, by its EQ, dynamics and effects, as far as the style treats its sounds ([processing.md](processing.md)).
+
 ## The part's job
 
 Owsinski names five kinds of arrangement element:

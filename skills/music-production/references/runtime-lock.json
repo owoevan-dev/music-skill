@@ -112,6 +112,56 @@
         ]
       }
     },
+    "surge_xt_effects": {
+      "version": "1.3.4",
+      "license": "GPL-3.0-or-later",
+      "home": "https://surge-synthesizer.github.io/",
+      "note": "Surge XT Effects, Surge XT's effects as a plugin of their own (mix.surge_fx, 0.11). Each platform's bundle is in the same pinned plug-in-only archive as surge_xt's (that record names the archive, its URL, size and SHA-256); this record names the bundle to extract and its binary's own SHA-256, read from the archive on 2026-11-28.",
+      "windows-x86_64": {
+        "id": "surge_xt_effects",
+        "extract": "Surge XT Effects.vst3/",
+        "executable": "Surge XT Effects.vst3/Contents/x86_64-win/Surge XT Effects.vst3",
+        "executable_sha256": "3b9f6c9b3363491a37721ed2cb9f080eb0d4abe1ce545a942e4fbb30b3e93050"
+      },
+      "linux-x86_64": {
+        "id": "surge_xt_effects",
+        "extract": "Surge XT Effects.vst3/",
+        "executable": "Surge XT Effects.vst3/Contents/x86_64-linux/Surge XT Effects.so",
+        "executable_sha256": "9b2da5f1b4a81a02ad55c88eba55257eb4a7f1747a1fd0866b8eaf5b7c8d0f45"
+      },
+      "macos-universal": {
+        "id": "surge_xt_effects",
+        "extract": "Surge XT Effects.vst3/",
+        "executable": "Surge XT Effects.vst3/Contents/MacOS/Surge XT Effects",
+        "executable_sha256": "fbbc918c0168201a3aa5670cf7e9b93e6372e2d7f6b6c8501fbd843565add3c0"
+      },
+      "system_bundles": {
+        "darwin": [
+          "/Library/Audio/Plug-Ins/VST3/Surge XT Effects.vst3",
+          "~/Library/Audio/Plug-Ins/VST3/Surge XT Effects.vst3"
+        ],
+        "linux": [
+          "~/.vst3/Surge XT Effects.vst3",
+          "/usr/lib/vst3/Surge XT Effects.vst3",
+          "/usr/local/lib/vst3/Surge XT Effects.vst3"
+        ],
+        "windows": [
+          "%CommonProgramFiles%/VST3/Surge XT Effects.vst3"
+        ]
+      },
+      "bundle_binaries": {
+        "darwin": [
+          "Contents/MacOS/Surge XT Effects"
+        ],
+        "linux": [
+          "Contents/x86_64-linux/Surge XT Effects.so",
+          "Contents/aarch64-linux/Surge XT Effects.so"
+        ],
+        "windows": [
+          "Contents/x86_64-win/Surge XT Effects.vst3"
+        ]
+      }
+    },
     "pedalboard": {
       "version": "0.9.26",
       "license": "GPL-3.0",

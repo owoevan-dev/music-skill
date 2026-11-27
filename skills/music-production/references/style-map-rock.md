@@ -213,7 +213,8 @@ straight 4/4. `rock/surf`
 
 - **In this skill**: `fsbs_clean`, or the direct guitar on `clean` or `edge` ([rock-and-metal.md](rock-and-metal.md)),
   with a high `reverb_db` on the plate and fast repeated notes for the picking (`gate` short; on a part played by
-  string, `"mute": "palm"` for the muted picking); `rusty` and `bass_pick`. The skill has no spring reverb model: the
+  string, `"mute": "palm"` for the muted picking); `rusty` and `bass_pick`. The spring reverb: Surge XT's
+  (`mix.surge_fx` `spring_reverb`, [processing.md](processing.md)), wet as the style has it; without Surge XT Effects the
   plate stands in.
 - **Neighbours**: Classic and hard rock; Punk.
 

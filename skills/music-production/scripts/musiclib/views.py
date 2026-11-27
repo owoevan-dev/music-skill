@@ -1,6 +1,7 @@
 """Views of a written score: figures an agent that cannot hear can read its piece by.
 
-Three tables, each counted from the project file alone and each named for its rule (research/design-0.7.md, 4.1):
+Four tables, each counted from the project file alone and each named for its rule (research/design-0.7.md, 4.1;
+the fourth from 0.11):
 
 - `parts_by_section`: which parts sound in each section, with their attacks, register and loudness there.  A part
   sounds in a section when a note of it does, attacked in the section or held into it.
@@ -8,6 +9,9 @@ Three tables, each counted from the project file alone and each named for its ru
   from the chord before it; an entry that writes the same chord again is none.
 - `melody_rhythm`: for each part with the role `melody`, its syncopated attacks and pushes by the rule `review`
   uses, the longest run it sounds without a rest, its phrases as `profile` guesses them, and its bar rhythms.
+- `accompaniment`: for each other pitched part, how many bar rhythms and chord shapes it plays and how much of it the
+  commonest of each takes, over the piece and by section (a part that keeps one rhythm and one shape through sections
+  that should differ is a question of `review`'s, where the style or the plan says they should).
 
 They describe.  None of them says a piece is good, and a figure is compared only with one counted the same way.
 Times are written beats (quarter notes); performance timing is left out, velocities come from the performance.
@@ -17,7 +21,7 @@ from collections import Counter
 from . import harmony
 from .files import one_line
 from .model import Clock
-from .profile import phrases, tick, top_line
+from .profile import STEPS, phrases, tick, top_line
 from .review import _meter, attack_kinds, unpitched
 
 REST = 0.5  # a gap between a part's written notes of half a beat or more is a rest; a shorter one is articulation
@@ -179,12 +183,116 @@ def melody_rhythm(p, clock=None):
     return out
 
 
+# Chord kinds by their pitch classes in any inversion (a division for counting, no judgement of a chord): a fifth (or a fourth,
+# its inversion) is `power`, octaves alone `octave`, the four triads `triad`, a suspended fourth or second `sus`, the
+# seventh chords on those triads and their shells (root, third and seventh) `seventh`, anything else `added` (sixths, added
+# ninths, clusters).
+TRIADS = {(0, 4, 7), (0, 3, 7), (0, 3, 6), (0, 4, 8)}
+SUSPENDED = {(0, 5, 7), (0, 2, 7)}
+SEVENTHS = {(0, 4, 7, 10), (0, 4, 7, 11), (0, 3, 7, 10), (0, 3, 7, 11), (0, 3, 6, 10), (0, 3, 6, 9), (0, 4, 8, 10), (0, 4, 8, 11),
+            (0, 4, 10), (0, 3, 10), (0, 4, 11), (0, 3, 11)}   # (the last four: shells, root, third and seventh)
+
+
+def chord_kind(shape):
+    """A chord's kind (power, octave, triad, sus, seventh or added) from its notes or their distances above the lowest,
+    whatever its inversion: E-G-C is a triad as C-E-G is."""
+    pcs = sorted({int(x) % 12 for x in shape})
+    if len(pcs) == 1:
+        return 'octave'
+    for kind, sets in (('power', {(0, 7)}), ('triad', TRIADS), ('sus', SUSPENDED), ('seventh', SEVENTHS)):
+        if any(tuple(sorted((q - root) % 12 for q in pcs)) in sets for root in pcs):
+            return kind
+    return 'added'
+
+
+def _beats(ticks):
+    """Attack positions in a bar as beats from 1: '1 1.5 2 3.5'."""
+    return ' '.join(f'{1 + t / STEPS:.3f}'.rstrip('0').rstrip('.') for t in sorted(ticks))
+
+
+def _median(values):
+    values = sorted(values)
+    if not values:
+        return None
+    k = len(values) // 2
+    return float(values[k]) if len(values) % 2 else (values[k - 1] + values[k]) / 2
+
+
+def accompaniment(p, clock=None, min_bars=4, presence=.75):
+    """For each pitched part with notes that is not a melody (0.11): how many bar rhythms and chords it plays and how much
+    of it the commonest of each takes, over the piece and section by section: {'part', 'role', 'bars', 'rhythms', 'rhythm',
+    'rhythm_share', 'attacks', 'chords', 'shapes', 'shape', 'shape_share', 'kind', 'kind_share', 'kinds', 'register',
+    'length', 'sections', 'absent'}.
+
+    A bar's rhythm is the set of its attack positions, to the grid of `profile` (as `melody_rhythm` counts the melody's
+    bar rhythms); `rhythm` is the commonest, as beats from 1, and `rhythm_share` the share of the bars that play it: over
+    the piece, of the bars the part plays in; in a section, of the section's bars, so a bar the part rests in counts
+    against it.  A chord is two or more notes attacked at one written position (`attacks` counts the positions); its shape
+    is their distances in semitones above the lowest note (a power chord with its octave is 0-7-12 wherever it lies), its
+    kind `chord_kind`'s (in any inversion); `shape` and `kind` are the commonest, their shares of the chords, `kinds` the
+    count by kind.  `register` is the median pitch of the notes attacked, `length` their median written length in beats.
+    A section is described for a part where it is `min_bars` bars or longer and the part attacks in at least `presence`
+    of its bars; such a section where it does not is listed in `absent`.  A description: one rhythm and one chord
+    throughout is no fault in itself."""
+    clock = clock or Clock(p)
+    bpb = clock.beats_per_bar
+    sections = spans(p, clock)
+    out = []
+    for t in p['tracks']:
+        if t.get('role') == 'melody' or not t['notes'] or unpitched(t):
+            continue
+        at = {}
+        for n in t['notes']:
+            at.setdefault(round(n['on'], 4), []).append((n['pitch'], n['duration']))
+        bars, chords = {}, {}
+        for on, played in at.items():
+            b = int(on // bpb + 1e-9)
+            bars.setdefault(b, set()).add(tick(on - b * bpb))
+            pitches = [q for q, _ in played]
+            if len(pitches) >= 2:
+                low = min(pitches)
+                chords[on] = tuple(sorted({q - low for q in pitches}))
+
+        def described(bar_ids, onsets, out_of=None):
+            rhythms = Counter(frozenset(bars[b]) for b in bar_ids)
+            shapes = Counter(chords[o] for o in onsets if o in chords)
+            row = {'bars': len(bar_ids), 'rhythms': len(rhythms)}
+            if rhythms:
+                top, n = max(rhythms.items(), key=lambda kv: (kv[1], sorted(kv[0])))
+                row.update(rhythm=_beats(top), rhythm_share=round(n / (out_of or len(bar_ids)), 3))
+            row.update(attacks=len(onsets), chords=sum(shapes.values()), shapes=len(shapes))
+            if shapes:
+                top, n = max(shapes.items(), key=lambda kv: (kv[1], kv[0]))
+                row.update(shape='-'.join(map(str, top)), shape_share=round(n / sum(shapes.values()), 3))
+                kinds = Counter(chord_kind(x) for x in shapes.elements())
+                top, n = max(kinds.items(), key=lambda kv: (kv[1], kv[0]))
+                row.update(kind=top, kind_share=round(n / sum(kinds.values()), 3), kinds=dict(kinds))
+            notes = [x for o in onsets for x in at[o]]
+            row.update(register=_median(q for q, _ in notes), length=_median(d for _, d in notes))
+            return row
+        row = {'part': t['id'], 'role': t.get('role'), **described(sorted(bars), list(at)), 'sections': [], 'absent': []}
+        row.setdefault('kinds', {})
+        for name, lo, hi, n in sections:
+            first, last = int(lo // bpb + 1e-9), int((hi - EPS) // bpb)
+            inside = [b for b in sorted(bars) if first <= b <= last]
+            if n < min_bars:
+                continue
+            if len(inside) >= presence * n:
+                row['sections'].append({'section': name, 'section_bars': n,
+                                        **described(inside, [o for o in at if lo - EPS <= o < hi - EPS], out_of=n)})
+            else:
+                row['absent'].append(name)
+        out.append(row)
+    return out
+
+
 def views(p):
-    """The three views of a project."""
+    """The four views of a project."""
     clock = Clock(p)
     rows = parts_by_section(p, clock)
     return {'parts_by_section': rows, 'part_sets': len(set(part_sets(rows))),
-            'harmony_pace': harmony_pace(p, clock), 'melody_rhythm': melody_rhythm(p, clock)}
+            'harmony_pace': harmony_pace(p, clock), 'melody_rhythm': melody_rhythm(p, clock),
+            'accompaniment': accompaniment(p, clock)}
 
 
 ROLE_ORDER = ('melody', 'countermelody', 'accent', 'harmony', 'rhythm', 'texture', 'bass', 'drums')
@@ -235,6 +343,18 @@ def describe(v):
         lines.append(f'Harmony: {h["changes"]} chord changes in {h["entries"]} entries (a change is a chord that differs from the '
                      f'one before it; the same chord written again is none), {h["changes_per_bar"]:g} a bar. By section: {by}. '
                      f'Kinds of chord: {kinds}.' + (f' Not read: {", ".join(one_line(u) for u in h["unknown"])}.' if h['unknown'] else ''))
+    acc = [a for a in v.get('accompaniment') or () if a.get('role') in ('rhythm', 'harmony')]
+    if acc:
+        lines.append("Rhythm and harmony parts (a bar rhythm is the set of its attack positions; a chord's shape its semitones "
+                     'above its lowest note; every pitched part in score_review.json, views.accompaniment):')
+    for a in acc:
+        chords = (f'; {a["chords"]} chords, {a["shapes"]} shape{"s" if a["shapes"] != 1 else ""}, the commonest {a["shape"]} in '
+                  f'{a["shape_share"]:.0%} of them ({", ".join(f"{k} {n}" for k, n in sorted(a["kinds"].items(), key=lambda kv: -kv[1]))})'
+                  if a.get('chords') else '; no chords')
+        by = '; '.join(f'{s["section"]} {s["rhythms"]} rhythm{"s" if s["rhythms"] != 1 else ""}'
+                       + (f', {s["shapes"]} shape{"s" if s["shapes"] != 1 else ""}' if s.get('chords') else '') for s in a['sections'])
+        lines.append(f'  {one_line(a["part"])} ({one_line(str(a["role"]))}): {a["bars"]} bars, {a["rhythms"]} bar rhythm{"s" if a["rhythms"] != 1 else ""}, '
+                     f'the commonest ({a["rhythm"]}) in {a["rhythm_share"]:.0%} of them{chords}' + (f'. By section: {by}' if by else '') + '.')
     for m in v['melody_rhythm']:
         run = m['longest_run']
         rests = ', '.join(f'{s["section"]} {s["rests"]}' for s in m['sections'] if s['attacks'])

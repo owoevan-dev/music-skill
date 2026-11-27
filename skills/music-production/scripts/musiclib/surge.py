@@ -79,7 +79,7 @@ def entry(name):
 
 
 def validate(track):
-    from .model import number
+    from .played import number
     from . import synth
     spec = track.get('surge')
     if not isinstance(spec, dict) or set(spec) - {'preset', 'macros', 'fallback', 'glide_ms', 'velocity_to_cutoff', 'swell'}:
@@ -200,7 +200,7 @@ def dependencies(cfg, track):
     and whether the patch plays here or why not, so that a fallback rendered before Surge XT or its full patch set was
     installed is not reused once it is."""
     found = entry(track['surge']['preset'])
-    from .model import file_hash
+    from .played import file_hash
     try:
         locate(cfg, track)
         plays = 'Surge XT'
@@ -420,7 +420,7 @@ def locate(cfg, track):
     """The plugin, pedalboard and patch file for a part, checked by hash; Unavailable with the reason otherwise.  The
     hashed binary must be the plugin that loads (the file itself, or inside its bundle), and pedalboard the files pip
     installed.  Reasons name files, not their full paths, as they go into receipts a user may share."""
-    from .model import file_hash
+    from .played import file_hash
     found = entry(track['surge']['preset'])
     surge, board = cfg.get('surge'), cfg.get('pedalboard')
     if not surge or not board:
@@ -459,7 +459,7 @@ def part_tempo(project, track):
 def swell_length(project, track):
     """The one length in seconds a swell part's notes share, at the written tempo (a riser rises over its note); a part
     whose notes differ by more than 5 ms is refused, as one patch takes one attack: split it into parts."""
-    from .model import Clock
+    from .played import Clock
     clock = Clock(project)
     lengths = [clock.seconds(n['on'] + n['duration']) - clock.seconds(n['on']) for n in track['notes']]
     if not lengths:
@@ -492,7 +492,7 @@ def render(project, track, raw, folder, cfg):
     # The patch rings on after its last event: four seconds at least, and as long as the project's tail asks
     # (tail_seconds, which the guides raise for a long release), up to the piece's end and its tail.  Four seconds
     # alone cut a longer release to silence, and the quiet-tail check then passed (found by GPT Pro's seventh review).
-    from .model import Clock
+    from .played import Clock
     clock, last = Clock(project), max((t for _, t in events), default=LEAD_S)
     duration = max(last + TAIL_S, min(LEAD_S + clock.end + clock.tail, last + clock.tail))
     with files.staged(job, 'w', encoding='utf-8') as f:

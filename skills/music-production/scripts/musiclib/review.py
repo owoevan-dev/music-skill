@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import re
 import statistics
 from . import files, harmony
 from .instruments import key_ranges, pairs
@@ -633,7 +634,10 @@ def low_intervals(p,clock,limit=40):
     worst=max(found,key=lambda x:(x['below_limit'],-x['beat']),default=None)
     return {'count':len(found),'by_parts':dict(Counter(' / '.join(x['parts']) for x in found).most_common()),'furthest_below':worst,'examples':found[:limit],'places':place_digest(found)}
 
-ARRIVALS=('chorus','hook','drop','climax','peak','summit','final','refrain')
+# 'sabi' is the chorus as Japanese songwriting names it (anime-opening.md: A-melo, B-melo, sabi; 0.11)
+ARRIVALS=('chorus','hook','drop','climax','peak','summit','final','refrain','sabi')
+# Sections named as a verse or its build (a verse, the A- and B-melo, a pre-chorus), set against an arrival by `unchanging`
+VERSES=('verse','melo')
 
 def _arrival(name):
     """A section named as an arrival (ARRIVALS) and not as the lead-in to one: prechorus, pre-chorus, pre_hook and the
@@ -834,6 +838,69 @@ def stiffness(p,clock,block_share=.9,min_chords=8):
     lines=[v for v in parts.values() if v['role'] in ('melody','countermelody','harmony','rhythm','bass','texture')]
     no_push=bool(lines) and all(v['downbeat_pushes_pct']==0 for v in lines)
     return {'block_chord_parts':blocks,'parts':parts,'no_pushes_anywhere':no_push}
+
+ROMAN=('i','ii','iii','iv','v','vi','vii','viii','ix','x','xi','xii')
+REGISTER_APART=7   # semitones of median pitch that set two sections' playing apart (ours: a fifth; an octave up is a change)
+LENGTH_APART=1.5   # the ratio of median note lengths that does (ours: short strokes against held ones)
+
+def _section_kind(name):
+    """What kind of section a name gives, for telling two kinds apart: an arrival (ARRIVALS), a build (a pre-chorus, the
+    B-melo), a verse (a verse, the A-melo), else the name without the number or Roman numeral it ends in, so that verse1,
+    Verse 2 and Verse II are one kind."""
+    n=name.lower();joined=re.sub(r'[\s_\-]+','',n)
+    if _arrival(name):return 'arrival'
+    if n.startswith('pre') or 'bmelo' in joined:return 'build'
+    if 'verse' in joined or 'amelo' in joined:return 'verse'
+    words=[w for w in re.split(r'[\s_\-]+',n) if w]
+    while len(words)>1 and (words[-1].isdigit() or words[-1] in ROMAN):words.pop()
+    return re.sub(r'\d+$','',''.join(words)) or n
+
+def _verse_like(name):
+    return _section_kind(name) in ('verse','build') and not _arrival(name)
+
+def unchanging(a,order=None,share=.9):
+    """A rhythm or harmony part (one row of views.accompaniment) that does not change where its sections should, else
+    None.  Either (`throughout`) it plays every section of its stretch, from the first it plays at length to the last, of
+    two kinds of section or more (`_section_kind`), and in each the same commonest rhythm over `share` of the section's
+    bars, the same chords or none (one shape over `share` of the chords, where chords are half its attacks or more), about
+    the same register and note length; or (`verse_and_arrival`) an arrival (ARRIVALS) is played as a verse or build of its
+    own approach was, the sections after the arrival before it: the same commonest rhythm over `share` of the bars of each,
+    chords in both or neither and then the same kind over `share` of them, the register within REGISTER_APART semitones and
+    the note lengths within LENGTH_APART of each other.  `order` is the piece's sections in order (all of them); without it
+    the part's own.  Returns {'part', 'how', 'sections', 'bars', 'rhythm', 'rhythm_share', 'shape' or 'kind', 'share'}.
+    The share and the two margins are ours (style-maps.json); the forms follow Summach 2012 and Koozin 2011."""
+    secs=a.get('sections') or []
+    if a.get('role') not in ('rhythm','harmony') or len(secs)<2:return None
+    order=list(order) if order else [x['section'] for x in secs]
+    place={name:k for k,name in enumerate(order)}
+    chordal=lambda x:x.get('chords',0)>=.5*max(x.get('attacks',0),1)
+    def near(group):
+        regs=[x['register'] for x in group if x.get('register') is not None];lens=[x['length'] for x in group if x.get('length')]
+        return (not regs or max(regs)-min(regs)<REGISTER_APART) and (not lens or max(lens)/min(lens)<LENGTH_APART)
+    first,last=place[secs[0]['section']],place[secs[-1]['section']]
+    gaps=[x for x in a.get('absent',()) if x in place and first<place[x]<last]
+    kinds={_section_kind(x['section']) for x in secs}
+    if (len(kinds)>=2 and not gaps and all(x.get('rhythm_share',0)>=share for x in secs) and len({x.get('rhythm') for x in secs})==1
+            and len({chordal(x) for x in secs})==1 and near(secs)
+            and (not chordal(secs[0]) or (all(x.get('shape_share',0)>=share for x in secs) and len({x.get('shape') for x in secs})==1))):
+        both=chordal(secs[0])
+        return {'part':a['part'],'how':'throughout','sections':[x['section'] for x in secs],'bars':sum(x['bars'] for x in secs),
+                'rhythm':secs[0]['rhythm'],'rhythm_share':min(x['rhythm_share'] for x in secs),
+                'shape':secs[0].get('shape') if both else None,'share':min(x['shape_share'] for x in secs) if both else None}
+    def alike(x,y):
+        if x.get('rhythm')!=y.get('rhythm') or min(x.get('rhythm_share',0),y.get('rhythm_share',0))<share:return False
+        if chordal(x)!=chordal(y) or not near([x,y]):return False
+        return not chordal(x) or (x.get('kind')==y.get('kind') and min(x.get('kind_share',0),y.get('kind_share',0))>=share)
+    for y in secs:
+        if not _arrival(y['section']):continue
+        before=[k for k in range(place[y['section']]) if _arrival(order[k])]
+        start=before[-1]+1 if before else 0   # its approach: the sections after the arrival before it
+        for x in secs:
+            if start<=place[x['section']]<place[y['section']] and _verse_like(x['section']) and alike(x,y):
+                return {'part':a['part'],'how':'verse_and_arrival','sections':[x['section'],y['section']],'bars':x['bars']+y['bars'],
+                        'rhythm':x['rhythm'],'rhythm_share':min(x['rhythm_share'],y['rhythm_share']),
+                        'kind':x.get('kind') if chordal(x) else None,'share':min(x['kind_share'],y['kind_share']) if chordal(x) else None}
+    return None
 
 def transposition(bank,bank_no,program,spent=None):
     """Key -> semitones between the key and the recorded pitch of the sample that plays it in a preset (the smallest
@@ -1404,6 +1471,32 @@ def review(p,out,config=None):
     from . import plan as score_plan
     compared=summary['plan']=score_plan.compare(p,clock)
     for qid,asked in score_plan.questions(compared):put(qid,asked)
+    # A rhythm or harmony part that does not change where its sections should (0.11, after Astra's reviews of the design,
+    # d011a, and of the build, b011a; unchanging): the count is in the views for every piece; the question is asked only
+    # where the style governing the form says that its sections differ in texture (the pop, J-pop and rock families:
+    # Summach 2012; Koozin 2011).  Not from the plan: its `differs` is the author's words and does not say what changes
+    # (a plan that keeps the guitar steady and adds a melody was asked about the guitar), and what it states it reads
+    # itself (plan:<section>).  Merged with the findings that say the same of the part: not asked of a part whose loop
+    # repetition asks about, nor where every part repeats one block over the sections named (static_texture).
+    # Stiffness, chords struck and released as one block, is how a chord is played, not whether the sections differ:
+    # both may be asked.
+    looped={x for g in (rep['part_loops'] if ask('repetition') else ()) for x in g['tracks']}
+    static=[(s['from_bar']-1,s['to_bar']) for s in (rep['static_spans'] if ask('static_texture') else ())]
+    bars_of={s['id']:(s['start_bar'],s['start_bar']+s['bars']) for s in p['sections']}
+    for a in summary['views']['accompaniment'] if ask('unchanging_part') else ():
+        f=unchanging(a,[s['id'] for s in p['sections']],**L('unchanging_part'))
+        if not f or a['part'] in looped:continue
+        lo,hi=min(bars_of[x][0] for x in f['sections']),max(bars_of[x][1] for x in f['sections'])
+        if any(s<=lo and hi<=e for s,e in static):continue
+        if f['how']=='throughout':
+            what=(f'one bar rhythm ({f["rhythm"]})'+(f' and one chord shape ({f["shape"]})' if f.get('shape') else '')
+                  +f' through {", ".join(f["sections"])} ({f["bars"]} bars, {f["rhythm_share"]:.0%} of each section\'s bars or more)')
+        else:
+            what=(f'{f["sections"][1]} played as {f["sections"][0]} was: the same bar rhythm ({f["rhythm"]}) in {f["rhythm_share"]:.0%} of the bars of each'
+                  +(f' and {f["kind"]} chords in {f["share"]:.0%} of the chords of each' if f.get('kind') else ''))
+        said='In pop and rock the chorus is usually fuller or busier than the verse (Summach 2012, in Open Music Theory), and a rhythm guitar often changes its voicing between them, open-string chords in one and barre or power chords in the other (Koozin 2011)'
+        put(identifier('unchanging',a['part']),f'{a["part"]}: {what}. {said}. Where the sections should differ, change its pattern, its voicing or its '
+            'register in one of them (another strum or an arpeggio, open strings against a barre, a higher position), or say in decisions that it is meant.')
     from . import association
     for qid,asked in association.questions(p):put(qid,asked)
     # Everything is composed before the first file is written, and what was written is recorded whatever stops the

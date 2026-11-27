@@ -858,12 +858,13 @@ def _section_kind(name):
 def _verse_like(name):
     return _section_kind(name) in ('verse','build') and not _arrival(name)
 
-def unchanging(a,order=None,share=.9):
+def unchanging(a,share=.9,order=None):
     """A rhythm or harmony part (one row of views.accompaniment) that does not change where its sections should, else
     None.  Either (`throughout`) it plays every section of its stretch, from the first it plays at length to the last, of
     two kinds of section or more (`_section_kind`), and in each the same commonest rhythm over `share` of the section's
     bars, the same chords or none (one shape over `share` of the chords, where chords are half its attacks or more), about
-    the same register and note length; or (`verse_and_arrival`) an arrival (ARRIVALS) is played as a verse or build of its
+    the same register and note length, the short sections between (`short`) too: one it rests in or plays otherwise
+    breaks the stretch (Astra's review b011c); or (`verse_and_arrival`) an arrival (ARRIVALS) is played as a verse or build of its
     own approach was, the sections after the arrival before it: the same commonest rhythm over `share` of the bars of each,
     chords in both or neither and then the same kind over `share` of them, the register within REGISTER_APART semitones and
     the note lengths within LENGTH_APART of each other.  `order` is the piece's sections in order (all of them); without it
@@ -879,14 +880,15 @@ def unchanging(a,order=None,share=.9):
         return (not regs or max(regs)-min(regs)<REGISTER_APART) and (not lens or max(lens)/min(lens)<LENGTH_APART)
     first,last=place[secs[0]['section']],place[secs[-1]['section']]
     gaps=[x for x in a.get('absent',()) if x in place and first<place[x]<last]
+    run=sorted(secs+[x for x in a.get('short',()) if x['section'] in place and first<place[x['section']]<last],key=lambda x:place[x['section']])
     kinds={_section_kind(x['section']) for x in secs}
-    if (len(kinds)>=2 and not gaps and all(x.get('rhythm_share',0)>=share for x in secs) and len({x.get('rhythm') for x in secs})==1
-            and len({chordal(x) for x in secs})==1 and near(secs)
-            and (not chordal(secs[0]) or (all(x.get('shape_share',0)>=share for x in secs) and len({x.get('shape') for x in secs})==1))):
-        both=chordal(secs[0])
-        return {'part':a['part'],'how':'throughout','sections':[x['section'] for x in secs],'bars':sum(x['bars'] for x in secs),
-                'rhythm':secs[0]['rhythm'],'rhythm_share':min(x['rhythm_share'] for x in secs),
-                'shape':secs[0].get('shape') if both else None,'share':min(x['shape_share'] for x in secs) if both else None}
+    if (len(kinds)>=2 and not gaps and all(x.get('rhythm_share',0)>=share for x in run) and len({x.get('rhythm') for x in run})==1
+            and len({chordal(x) for x in run})==1 and near(run)
+            and (not chordal(run[0]) or (all(x.get('shape_share',0)>=share for x in run) and len({x.get('shape') for x in run})==1))):
+        both=chordal(run[0])
+        return {'part':a['part'],'how':'throughout','sections':[x['section'] for x in run],'bars':sum(x['bars'] for x in run),
+                'rhythm':run[0]['rhythm'],'rhythm_share':min(x['rhythm_share'] for x in run),
+                'shape':run[0].get('shape') if both else None,'share':min(x['shape_share'] for x in run) if both else None}
     def alike(x,y):
         if x.get('rhythm')!=y.get('rhythm') or min(x.get('rhythm_share',0),y.get('rhythm_share',0))<share:return False
         if chordal(x)!=chordal(y) or not near([x,y]):return False
@@ -1484,7 +1486,7 @@ def review(p,out,config=None):
     static=[(s['from_bar']-1,s['to_bar']) for s in (rep['static_spans'] if ask('static_texture') else ())]
     bars_of={s['id']:(s['start_bar'],s['start_bar']+s['bars']) for s in p['sections']}
     for a in summary['views']['accompaniment'] if ask('unchanging_part') else ():
-        f=unchanging(a,[s['id'] for s in p['sections']],**L('unchanging_part'))
+        f=unchanging(a,order=[s['id'] for s in p['sections']],**L('unchanging_part'))
         if not f or a['part'] in looped:continue
         lo,hi=min(bars_of[x][0] for x in f['sections']),max(bars_of[x][1] for x in f['sections'])
         if any(s<=lo and hi<=e for s,e in static):continue

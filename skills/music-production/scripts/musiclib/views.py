@@ -222,7 +222,7 @@ def accompaniment(p, clock=None, min_bars=4, presence=.75):
     """For each pitched part with notes that is not a melody (0.11): how many bar rhythms and chords it plays and how much
     of it the commonest of each takes, over the piece and section by section: {'part', 'role', 'bars', 'rhythms', 'rhythm',
     'rhythm_share', 'attacks', 'chords', 'shapes', 'shape', 'shape_share', 'kind', 'kind_share', 'kinds', 'register',
-    'length', 'sections', 'absent'}.
+    'length', 'sections', 'short', 'absent'}.
 
     A bar's rhythm is the set of its attack positions, to the grid of `profile` (as `melody_rhythm` counts the melody's
     bar rhythms); `rhythm` is the commonest, as beats from 1, and `rhythm_share` the share of the bars that play it: over
@@ -232,8 +232,11 @@ def accompaniment(p, clock=None, min_bars=4, presence=.75):
     kind `chord_kind`'s (in any inversion); `shape` and `kind` are the commonest, their shares of the chords, `kinds` the
     count by kind.  `register` is the median pitch of the notes attacked, `length` their median written length in beats.
     A section is described for a part where it is `min_bars` bars or longer and the part attacks in at least `presence`
-    of its bars; such a section where it does not is listed in `absent`.  A description: one rhythm and one chord
-    throughout is no fault in itself."""
+    of its bars; such a section where it does not is listed in `absent`.  A shorter section is described in `short` where
+    the part attacks in it and listed in `absent` where it does not: no comparison reads it, but a part does not keep one
+    rhythm through a stretch whose short section it rests in or plays otherwise (review.unchanging; a two-bar
+    turnaround and a two-bar rest went unseen: Astra's review b011c).  `kinds` is in every row, empty where the part
+    plays no chords there.  A description: one rhythm and one chord throughout is no fault in itself."""
     clock = clock or Clock(p)
     bpb = clock.beats_per_bar
     sections = spans(p, clock)
@@ -267,15 +270,22 @@ def accompaniment(p, clock=None, min_bars=4, presence=.75):
                 kinds = Counter(chord_kind(x) for x in shapes.elements())
                 top, n = max(kinds.items(), key=lambda kv: (kv[1], kv[0]))
                 row.update(kind=top, kind_share=round(n / sum(kinds.values()), 3), kinds=dict(kinds))
+            else:
+                row['kinds'] = {}   # a section of single notes has its count too, as the piece has (Astra's review b011c)
             notes = [x for o in onsets for x in at[o]]
             row.update(register=_median(q for q, _ in notes), length=_median(d for _, d in notes))
             return row
-        row = {'part': t['id'], 'role': t.get('role'), **described(sorted(bars), list(at)), 'sections': [], 'absent': []}
-        row.setdefault('kinds', {})
+        row = {'part': t['id'], 'role': t.get('role'), **described(sorted(bars), list(at)), 'sections': [], 'short': [],
+               'absent': []}
         for name, lo, hi, n in sections:
             first, last = int(lo // bpb + 1e-9), int((hi - EPS) // bpb)
             inside = [b for b in sorted(bars) if first <= b <= last]
             if n < min_bars:
+                if inside:
+                    row['short'].append({'section': name, 'section_bars': n,
+                                         **described(inside, [o for o in at if lo - EPS <= o < hi - EPS], out_of=n)})
+                else:
+                    row['absent'].append(name)
                 continue
             if len(inside) >= presence * n:
                 row['sections'].append({'section': name, 'section_bars': n,

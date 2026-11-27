@@ -1711,7 +1711,8 @@ def define(S):
         # the same kind, about the same register and lengths), or one rhythm and shape through every section of its
         # stretch, of two kinds or more.  Asked only where the style governing the form says the sections differ (the pop,
         # J-pop and rock families); not of a part whose loop repetition asks about; a decision answers it.  Each case
-        # b011a found asked without cause is here, not asked.
+        # b011a found asked without cause is here, not asked, and those of b011c: a short section (under the view's four
+        # bars) that the part rests in or plays otherwise breaks a stretch said to keep one rhythm.
         from musiclib.review import review as review_score, unchanging
         q=example();t0=q['tracks'][2];ROOTS=(40,45,43,38,41,45,43,40,43,47,45,40,38,45,47,43)
         def gtr(sections,tid='gtr',role='rhythm'):
@@ -1770,6 +1771,20 @@ def define(S):
         ask(cycle,False,'each chorus changes from its own verse (the second as the first verse was)')
         ret=song([gtr([(4,eighths,power),(4,eighths,power,0,None,(0,1,2,3)),(4,eighths,power)])],names=('intro','interlude','outro'),bars=(4,4,4))
         ask(ret,False,'a return after a whole section of rest')
+        halves,single=(0,2),(0,)
+        turn=song([gtr([(4,halves,single),(2,eighths,power),(4,halves,single)])],names=('Opening','Turnaround','Return'),bars=(4,2,4))
+        ask(turn,False,'a two-bar turnaround of power chords between single half notes')
+        brk=song([gtr([(4,eighths,power),(2,eighths,power,0,None,(0,1)),(4,eighths,power)])],names=('Opening','Break','Return'),bars=(4,2,4))
+        r=ask(brk,False,'a return after a two-bar section of rest')
+        assert next(a for a in r['views']['accompaniment'] if a['part']=='gtr')['absent']==['Break']
+        kept=song([gtr([(4,eighths,power),(2,eighths,power),(4,eighths,power)])],names=('Opening','Turn','Return'),bars=(4,2,4))
+        r=ask(kept,True,'a short section that keeps the figure is part of the stretch')
+        assert asked(r)[0]['text'].startswith("gtr: one bar rhythm (1 1.5 2 2.5 3 3.5 4 4.5) and one chord shape (0-7-12) through Opening, Turn, Return (10 bars,"),asked(r)[0]['text']
+        mono=song([gtr([(8,eighths,single),(8,eighths,single)])])
+        r=ask(mono,True,'one line of single notes through verse and chorus')
+        row=next(a for a in r['views']['accompaniment'] if a['part']=='gtr')
+        assert row['kinds']=={} and [s.get('kinds') for s in row['sections']]==[{},{}],row
+        assert unchanging(acc,.9)['how']=='throughout'   # the share second, as it was first written
         for names in (('verse1','verse2'),('Verse I','Verse II')):
             ask(song([gtr(same)],names=names),False,f'two verses named {names}')
         assert unchanging({**acc,'role':'bass'}) is None and unchanging({**acc,'role':'melody'}) is None
@@ -1783,6 +1798,6 @@ def define(S):
         lp['performance']={'notes':{x['id']:{'velocity':80} for x in lp['notes']}}
         r=ask(song([lp],bars=(20,20)),False,'a loop repetition asks about')
         assert any(x['id'].startswith('repetition:') for x in r['questions'])
-        return {'asked':3,'not_asked':n[0]-3}
+        return {'asked':5,'not_asked':n[0]-5}
     found = {'review_counts_seconds_and_ninths_and_asks_about_the_exposed': clashes_by_distance_and_place, 'review_asks_about_a_kit_levelled_by_its_peak': peak_levelled_kit, 'review_sets_apart_runs_of_doubling_and_pitchless_patches': doubling_runs_and_pitchless_patches, 'review_flags_sustained_minor_ninth': review_vertical, 'review_vertical_counts_as_0_7_0_did': vertical_as_released, 'review_vertical_matches_0_7_0_at_its_edges_and_scale': vertical_edges_and_scale, 'review_names_embellishing_tones_parallels_and_low_intervals': review_smoothness, 'review_asks_about_loops_returns_arrivals_and_blocks': review_development, 'review_summary_keeps_every_question': review_summary, 'review_views_and_identifiers': review_views_and_identifiers, 'plan_read_against_score': plan_read_against_score, 'association_drawn_once': association_drawn_once, 'score_profile_matches_a_hand_counted_line': score_profile, 'the_code_review_of_0_7_stays_fixed': code_review_of_0_7, 'style_maps_set_reviews_limits_by_axis': style_limits, 'dance_styles_ask_about_loops_only_where_nothing_moves': dance_processes, 'a_rhythm_part_that_plays_the_chorus_as_the_verse_is_asked_about': unchanging_parts, 'brightness_prompts_follow_the_genre_and_the_low_passes': brightness_prompts, 'style_tempo_ranges_ask_outside_their_sources': tempo_ranges, 'review_flags_far_transposed_samples_and_missing_keys': transposed_samples, 'a_piano_part_on_another_piano_is_asked_about': piano_on_another_piano, 'review_asks_when_the_sound_and_the_notes_disagree': review_asks_when_the_sound_and_the_notes_disagree}
     return found

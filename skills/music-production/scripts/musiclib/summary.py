@@ -218,6 +218,10 @@ def render(report, folder):
     chains = report.get('surge_fx') or {}
     if chains.get('bypassed'):
         lines.append('Played without their Surge XT Effects chains (mix.surge_fx): ' + '; '.join(f'{k} ({v})' for k, v in chains['bypassed'].items()) + '.')
+    alone = [k for k in (chains.get('applied') or {}) if k.endswith(' (headphone version)')]
+    if alone:
+        lines.append('Surge XT Effects chains applied in the headphone version alone (the mix played those parts without them): '
+                     + ', '.join(alone) + '.')
     # A chain is brought back to the level its part entered at; one that had moved it 12 dB or more usually has a setting at
     # an extreme (Surge's distortion with its drive at the lowest and both high cuts at 440 Hz lost 38 dB on noise bursts,
     # research/effects-0.11, 2026-11-28).

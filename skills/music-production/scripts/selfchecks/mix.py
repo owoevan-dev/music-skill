@@ -2034,6 +2034,8 @@ def define(S):
                 finally:audio.run=real
                 rf=receipt('render_fx_failed')
                 assert rf['surge_fx']['state']=='bypassed' and rf['surge_fx']['cached'] is False and 'failed' in rf['surge_fx']['reason'] and t['id'] in f['surge_fx']['bypassed'],rf['surge_fx']
+                # made again without the chain from its raw take: as without the field, to the sample (Astra's review b011c)
+                assert 'surge_fx' not in rf['filter_chain'] and np.array_equal(stem_of('render_fx_failed'),stem_of('render_fx_none')),rf['filter_chain']
                 render(work/'surge_fx.json',work/'render_fx_retried',config,work/'cache_fx_failing');rg=receipt('render_fx_retried')
                 assert not rg['stem_reused'] and rg['surge_fx']['state']=='applied' and rg['stem_sha256']==ra['stem_sha256'],rg.get('surge_fx')
                 # the headphone version runs the chain again: a run that fails there alone, the speaker stem from the cache,
@@ -2050,7 +2052,19 @@ def define(S):
                 assert rh['stem_reused'] and rh['surge_fx']['state']=='applied' and rh['surge_fx_headphones']['state']=='bypassed',rh
                 assert hp['surge_fx']['bypassed']=={t['id']+' (headphone version)':rh['surge_fx_headphones']['reason']},hp['surge_fx']
                 assert f'{t["id"]} (headphone version) (' in summary.render(hp,work/'render_fx_phones_failed')
-                out['with_the_plugin']='applied, level kept, made the same twice and kept; a failed run kept nothing; a headphone pass that failed is said'
+                # and the other way: the speaker stem's run fails, the headphone version's applies (Astra's review b011c)
+                def speaker_fail(argv,folder,label,*rest,**named):
+                    if str(label).startswith('surge_fx_') and 'headphones' not in str(folder):raise RuntimeError('the host stopped (a check)')
+                    return real(argv,folder,label,*rest,**named)
+                audio.run=speaker_fail
+                try:hs=render(work/'surge_fx_phones.json',work/'render_fx_speaker_failed',config,work/'cache_fx_speaker')
+                finally:audio.run=real
+                rs=receipt('render_fx_speaker_failed')
+                assert rs['surge_fx']['state']=='bypassed' and rs['surge_fx']['cached'] is False and rs['surge_fx_headphones']['state']=='applied',rs
+                assert hs['surge_fx']=={'applied':{t['id']+' (headphone version)':rs['surge_fx_headphones']['level_change_db']},'bypassed':{t['id']:rs['surge_fx']['reason']}},hs['surge_fx']
+                assert f'applied in the headphone version alone (the mix played those parts without them): {t["id"]} (headphone version).' in summary.render(hs,work/'render_fx_speaker_failed')
+                out['with_the_plugin']=('applied, level kept, made the same twice and kept; a failed run kept nothing and is as without the field; '
+                                        'a headphone version whose chain did otherwise is said, either way')
             return out
         found.update({'analysis_names_the_lead_the_span_and_the_peak': analysis_names_the_lead_the_span_and_the_peak, 'bus_chain_render_and_delivery_checks': bus_render, 'a_chorus_pass_never_shares_another_parts_log': chorus_pass_logs, 'effects_apply_in_the_order_listed': effects_in_listed_order, 'the_mix_fields_of_0_11_render_as_their_filters': mix_fields_of_0_11_render, 'a_surge_fx_chain_applies_or_is_named_left_out': surge_fx_chain, 'analysis_reports_sections_stems_and_lead': analysis, 'mix_rules_2_render_limiter_saturation_and_clarity': rules_2_render, 'wide_dynamics_master_keeps_the_mix_range': wide_render, 'stage_depth_and_range_control_render': stage_and_range, 'long_automation_renders': long_automation_renders})
         found['a_moving_part_renders_and_the_others_stay'] = a_moving_part_renders_and_the_others_stay

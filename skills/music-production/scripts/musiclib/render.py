@@ -846,8 +846,10 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
         report['surge_fx']={'applied':{k:v.get('level_change_db') for k,v in chains.items() if v['state']=='applied'},
                             'bypassed':{k:v['reason'] for k,v in chains.items() if v['state']!='applied'}}
         for r in receipts:
+            # a headphone version whose chain did otherwise than its speaker stem's, either way (Astra's reviews b011a, b011c)
             hp=r.get('surge_fx_headphones')
-            if hp and hp.get('state')!='applied':report['surge_fx']['bypassed'][r['track']+' (headphone version)']=hp.get('reason')
+            if hp and hp.get('state')=='applied':report['surge_fx']['applied'][r['track']+' (headphone version)']=hp.get('level_change_db')
+            elif hp:report['surge_fx']['bypassed'][r['track']+' (headphone version)']=hp.get('reason')
     top,last=peak_frames(data)
     # What holds a wide master's gain, named: one held chord set it for a whole piece and only a search of the master showed it (0.9.1).
     report['master']={**report['master'],'highest_sample':highest_sample(top,clock)}
@@ -974,23 +976,34 @@ def _process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet,amp_facts,expected_
     filters.append(f'apad,atrim=end_sample={frames}')  # a chorus or phaser delays the signal and would lengthen the stem
     # One FFmpeg pass, or, around each chorus, a pass up to it, the chorus in NumPy on that file, and on. A later
     # pass's log takes ".pass{k}": a part id cannot hold a dot, so the label never names another part's log.
-    src,run,k,surge_fx=raw,[],0,bypass
-    for f in filters+[None]:
-        if isinstance(f,str):run.append(f);continue
-        if run:
-            out=stem if f is None else output/'stems'/f'.{t["id"]}.pass{k}.wav'
-            audio.ffmpeg(cfg,['-i',src,'-af',','.join(run),'-ar',str(audio.RATE),'-c:a','pcm_f32le',out],output/'logs','process_'+t['id']+(f'.pass{k}' if k else ''))
-            if src!=raw:src.unlink()
-            src,run,k=out,[],k+1
-        if f is None:break
-        if f[0]=='surge_fx':
-            # A run that failed with the plugin in place is not kept (`cached` false): the next render tries the chain again.
-            try:surge_fx={'state':'applied',**surgefx.apply(src,src,t,cfg,output/'stems',output/'logs')}
-            except surgefx.Failed as e:surge_fx={'state':'bypassed','reason':str(e),'cached':False}
-            except surgefx.Unavailable as e:surge_fx={'state':'bypassed','reason':str(e)}
-            continue
-        x,_=audio.read_wav(src);x,_=production.chorus(x,f[1]);audio.write_wav(src,x)
-    done={'reference_level_dbfs':ref,'gain_db':gain,'filter_chain':','.join(f if isinstance(f,str) else 'surge_fx' if f[0]=='surge_fx' else f'chorus(depth={f[1]}, production.chorus)' for f in filters)}
+    surge_fx=bypass
+    def through(fs):
+        """The filters `fs` from the raw take to the stem: FFmpeg's passes, the chorus and the Surge XT Effects chain;
+        returns those that ran.  A chain that cannot run after all (its host failed, or the plugin went after it was found)
+        is taken out and the part made again from its raw take, so that it is to the sample what it would be without the
+        field, as where the plugin was missing from the start (a split pass moved a master by a 24-bit count: Astra's review
+        b011c).  A run that failed with the plugin in place is not kept (`cached` false): the next render tries again."""
+        nonlocal surge_fx
+        src,run,k=raw,[],0
+        for f in fs+[None]:
+            if isinstance(f,str):run.append(f);continue
+            if run:
+                out=stem if f is None else output/'stems'/f'.{t["id"]}.pass{k}.wav'
+                audio.ffmpeg(cfg,['-i',src,'-af',','.join(run),'-ar',str(audio.RATE),'-c:a','pcm_f32le',out],output/'logs','process_'+t['id']+(f'.pass{k}' if k else ''))
+                if src!=raw:src.unlink()
+                src,run,k=out,[],k+1
+            if f is None:break
+            if f[0]=='surge_fx':
+                try:surge_fx={'state':'applied',**surgefx.apply(src,src,t,cfg,output/'stems',output/'logs')}
+                except surgefx.Unavailable as e:   # (Failed is one: it found the plugin, and the run failed)
+                    surge_fx={'state':'bypassed','reason':str(e),**({'cached':False} if isinstance(e,surgefx.Failed) else {})}
+                    if src!=raw:src.unlink()
+                    return through([g for g in fs if g is not f])
+                continue
+            x,_=audio.read_wav(src);x,_=production.chorus(x,f[1]);audio.write_wav(src,x)
+        return fs
+    ran=through(filters)
+    done={'reference_level_dbfs':ref,'gain_db':gain,'filter_chain':','.join(f if isinstance(f,str) else 'surge_fx' if f[0]=='surge_fx' else f'chorus(depth={f[1]}, production.chorus)' for f in ran)}
     if surge_fx:
         if expected_fx and surge_fx['state']!=expected_fx:surge_fx['cached']=False   # the plugin came or went during the render
         done['surge_fx']=surge_fx

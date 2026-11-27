@@ -14,7 +14,7 @@ The music is written, not generated. You decide every note, chord, velocity and 
 
 What it does and does not do (say so when it matters to the request):
 - **Does**: complete instrumental pieces up to 30 minutes and 64 parts, one meter per project with a tempo map; sampled instruments, subtractive and FM synthesizers, Surge XT with its 3,008 patches (optional, installed by default), drum machines, an additive synth voice and noise transitions; player-like timing and dynamics, swing, staggered chords, legato and pitch bends; production tools (sidechain ducking, tempo-synced delay, filter sweeps, saturation, gates, tape wobble, vinyl noise); MIDI, processed stems, a mixed and mastered WAV, FLAC and MP3.
-- **Does not**: sing or set lyrics, host your own VST plugins (only the bundled Surge XT and Surge XT Effects run), invent articulations a sample bank does not contain, or judge musical quality from numbers.
+- **Does not**: sing or set lyrics, host your own VST plugins (only Surge XT and Surge XT Effects run: the release the setup pins, or your own install of them where it pins none for your system or you point it to one), invent articulations a sample bank does not contain, or judge musical quality from numbers.
 
 ## What must hold
 

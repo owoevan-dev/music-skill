@@ -671,6 +671,7 @@
    },
    "repeat": "exact",
    "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "prefer": "For a chorus with a delay of its own beside the dry sound, surge_fx.chorus where Surge XT Effects is installed (15.6 ms by default, with more voices and filters); this one sweeps two voices within 2 ms, a light shimmer, and plays without the plugin.",
    "sources": [
     "processing.md"
    ]
@@ -703,6 +704,7 @@
    },
    "repeat": "exact",
    "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "prefer": "surge_fx.phaser where Surge XT Effects is installed: FFmpeg's phaser, as the skill runs it, leaves artefacts about 51 dB under the signal (our measurement); this one is for a render without the plugin.",
    "sources": [
     "processing.md"
    ]
@@ -1196,7 +1198,6 @@
     "darkens"
    ],
    "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid. A Surge XT chain is brought back to the level the part entered it at.",
-   "prefer": "effects.chorus is the skill's own, lighter and without the plugin.",
    "sources": [
     "surge-source",
     "kinds:S20",
@@ -1351,7 +1352,6 @@
    },
    "measured_words": [],
    "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid. A Surge XT chain is brought back to the level the part entered it at. Its noise and sample-and-hold waveforms render otherwise each time the part is processed anew.",
-   "prefer": "effects.phaser is FFmpeg's, without the plugin.",
    "sources": [
     "surge-source",
     "kinds:S23",

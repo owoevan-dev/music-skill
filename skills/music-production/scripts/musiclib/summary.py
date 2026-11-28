@@ -215,6 +215,26 @@ def render(report, folder):
         lines.append(f'The file ends in {report["silent_end_seconds"]:g} s under -60 dBFS: a shorter clock.tail_seconds would end it sooner.')
     lines.append(f'Parts: {report["stem_count"]}; raw synthesis from the cache {report["cache_hits"]}, processed stems from the '
                  f'cache {report.get("stems_reused", 0)} (stem_receipts.json names which).')
+    chains = report.get('surge_fx') or {}
+    if chains.get('bypassed'):
+        lines.append('Played without their Surge XT Effects chains (mix.surge_fx): ' + '; '.join(f'{k} ({v})' for k, v in chains['bypassed'].items()) + '.')
+    if chains.get('varies'):
+        lines.append('Surge XT Effects set to vary, played once and kept with the part until its audio or chain changes: '
+                     + '; '.join(f'{k} ({", ".join(v)})' for k, v in chains['varies'].items()) + '.')
+    if chains.get('headphones_own_take'):
+        lines.append('The headphone version played its own take of a chain that is not exact (the speaker stem\'s could not be '
+                     'kept): ' + ', '.join(chains['headphones_own_take']) + '.')
+    alone = [k for k in (chains.get('applied') or {}) if k.endswith(' (headphone version)')]
+    if alone:
+        lines.append('Surge XT Effects chains applied in the headphone version alone (the mix played those parts without them): '
+                     + ', '.join(alone) + '.')
+    # A chain is brought back to the level its part entered at; one that had moved it 12 dB or more usually has a setting at
+    # an extreme (Surge's distortion with its drive at the lowest and both high cuts at 440 Hz lost 38 dB on noise bursts,
+    # research/effects-0.11, 2026-11-28).
+    moved = {k: v for k, v in (chains.get('applied') or {}).items() if v is not None and abs(v) >= 12}
+    if moved:
+        lines.append("Surge XT Effects chains that moved their part's level 12 dB or more before it was restored: "
+                     + ', '.join(f'{k} {v:+g} dB' for k, v in moved.items()) + ': check a gain, drive or mix at an extreme.')
     loop = report.get('loop')
     if loop:
         lines.append(f'Loop: bars {loop["start_bar"] + 1}-{loop["end_bar"]}, {loop["length_samples"]} samples, loop.wav'
@@ -233,6 +253,7 @@ def render(report, folder):
     bus = report.get('chain') == 'bus'   # (a room-chain render's report has no passes, limiting or buses)
     lines.append(f'Full figures: {_rel(Path(folder) / "report.json")}: checks, master, mastering' + (' (passes, limiting_db), ' if bus else ', ')
                  + 'sections, ' + ('buses (level_change_db), ' if bus else '') + ('loop, ' if report.get('loop') else '') + ('headphones (parts), ' if heard else '')
+                 + ('surge_fx, ' if chains else '')
                  + 'stage_seconds, process_seconds; stem_receipts.json per part.')
     return joined(lines)
 
@@ -321,7 +342,9 @@ def compare(r, path):
              + ' -> '.join('n/a' if x is None else f'{x:g}' for x in r.get('master_lufs', [])) + ' LUFS.']
     lines.append('Project changes: ' + ('; '.join(s.get('project') or []) or 'none') + '.')
     for key, label in (('synthesized_again', 'Synthesized again'), ('same_inputs_new_take', 'Same inputs, a new take (Surge XT)'),
-                       ('changed_from_cache', 'Changed, taken from the cache')):
+                       ('changed_from_cache', 'Changed, taken from the cache'),
+                       ('effects_played_anew', "Played anew through Surge XT Effects set to vary (part of a change there is the effect's own)"),
+                       ('same_inputs_other_audio', 'Processed from the same inputs into other audio')):
         if s.get(key):
             lines.append(f'{label}: {", ".join(s[key])}.')
     changed = s.get('changed') or {}

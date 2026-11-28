@@ -67,6 +67,18 @@ def _unsafe(c):
     return unicodedata.category(c) in ('Cc', 'Zl', 'Zp') or c in BIDI_CONTROL
 
 
+# Characters that show nothing and can hide text in a printed line (0.11, the security check of 0.10's deferred item):
+# the zero-width space, the word joiner, the byte-order mark read as a zero-width no-break space, and the tag block
+# U+E0000-E007F, which can carry a whole text no reader sees.  Escaped in printed text only (one_line); identifiers keep
+# their own rule (id_fault), and the zero-width joiner and non-joiner, which emoji sequences and several scripts need,
+# stay as they are.
+INVISIBLE = frozenset({'\u200b', '\u2060', '\ufeff'})   # written as escapes: the characters themselves would hide in the source
+
+
+def _hidden(c):
+    return c in INVISIBLE or 0xE0000 <= ord(c) <= 0xE007F
+
+
 def one_line(text):
     """`text` with each control character written as its escape (a line break as \\n, ESC as \\x1b; the Unicode
     line and paragraph separators too): text a summary takes from a project, a record or a file's name stays on the line
@@ -74,8 +86,8 @@ def one_line(text):
     Neutralization of Escape, Meta, or Control Sequences; a title's line break began a line of review's summary: GPT's
     security audit of 0.5, L05).  A tab stays a tab: it ends no line, and text copied from a table holds them (the
     audit's re-review, N3).  The bidirectional formatting characters are escaped too, so that no text shows in another
-    order than it is (0.8 step 1.6)."""
-    return ''.join(c.encode('unicode_escape').decode('ascii') if c != '\t' and _unsafe(c) else c for c in text)
+    order than it is (0.8 step 1.6), and the invisible characters above (0.11), so that no text hides in a line."""
+    return ''.join(c.encode('unicode_escape').decode('ascii') if c != '\t' and (_unsafe(c) or _hidden(c)) else c for c in text)
 
 
 def id_fault(text):

@@ -54,7 +54,7 @@ modulation into the chorus. `jpop/anime-opening`
 | `harmony` | the family's chords and progressions; the royal road, widely described as the typical chorus progression; a modulation by a minor third at the prechorus–chorus boundary | Li 2026; Ramage 2023; WP Royal road progression |
 | `melody` | singable, mostly by step with leaps for character; a chorus higher or denser than the verse | Perricone 2000; Summach 2012 (in anime-opening.md) |
 | `rhythm` | a backbeat, half time and double time the common alternatives; moderate syncopation | OMT, Drumbeats; Witek et al. 2014 (in anime-opening.md) |
-| `timbre` | as the anime's genre asks; in a band, distorted guitars on power chords, whose distortion gives the chords a major quality | Li 2026; Lilja 2015 |
+| `timbre` | as the anime's genre asks; in a band, the guitars' tone chosen with their voicing: distorted guitars on power chords, whose distortion gives the chords a major quality, or clean and slightly broken-up guitars on the family's colour chords | Li 2026; Lilja 2015; Herbst 2019 (in anime-opening.md) |
 | `form` | 92.6% of 108 openings surveyed: one intro–verse–prechorus–chorus rotation of about 90 s; the chorus slightly longer than the verse, the prechorus shortest; 61% without a postchorus. In the one opening Li presents as the archetype, verse and chorus close on authentic cadences and the prechorus on a half cadence | Li 2026 |
 | `mix` | no source read; this skill delivers at −14 LUFS ([anime-opening.md](anime-opening.md), The mix) | |
 
@@ -179,6 +179,11 @@ sub-style is an entry of its own).
 
   What the guitars play is the piece's choice among the ways of playing in
   [rock-and-metal.md](rock-and-metal.md), Writing the guitar part; none of them is recorded as this request's norm.
+  [anime-opening.md](anime-opening.md) lays the band out by section (Arrangement, Rhythm and drums): the guitars' tone
+  with their voicing, the drums' patterns changing with the form (Geary 2024), and the four-on-the-floor that Japanese
+  rock has played since the 2000s as one groove among others (imdkm 2019, music journalism). The same holds for a
+  request for a J-pop band song outside an anime opening. A source read describes the four-on-the-floor's place in
+  Japanese rock, none the band's traits as a whole, so neither is an entry of its own.
 
 - **A J-pop ballad.** Take the pop ballad as the primary and borrow the harmony from the anime opening, the reason
   in `decisions`: the family's progressions, the royal road among them, under the ballad's slow tempo, lush
@@ -220,7 +225,8 @@ sub-style is an entry of its own).
   patterns](https://www.art-science.org/journal/v15n4/v15n4pp177/artsci-v15n4pp177.pdf) (in Japanese). *Transactions
   of the Society for Art and Science* 15(4), 177–184.
 - The sources of [anime-opening.md](anime-opening.md): Perricone (2000), Summach (2011, 2012), Tan, Lustig and
-  Temperley (2019), Witek et al. (2014), Lilja (2015), Open Music Theory.
+  Temperley (2019), Witek et al. (2014), Lilja (2015), Herbst (2019), Koozin (2011), Geary (2024), imdkm (2019),
+  Open Music Theory.
 - Wikipedia, read 9 November 2026: [J-pop](https://en.wikipedia.org/wiki/J-pop),
   [Royal road progression](https://en.wikipedia.org/wiki/Royal_road_progression),
   [City pop](https://en.wikipedia.org/wiki/City_pop), [Enka](https://en.wikipedia.org/wiki/Enka),

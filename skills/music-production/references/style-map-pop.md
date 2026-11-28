@@ -7,7 +7,7 @@ on an instrument. Read [style-maps.md](style-maps.md) first for the axes and for
 map ([style-map-jpop.md](style-map-jpop.md)).
 
 Contents: [Shared by the family](#shared-by-the-family) · [Up-tempo pop](#up-tempo-pop) · [Ballad](#ballad) ·
-[Disco](#disco) · [Synth-pop](#synth-pop) · [Hyperpop](#hyperpop) · [Sources](#sources)
+[Disco](#disco) · [Synth-pop](#synth-pop) · [Hyperpop](#hyperpop) · [Treatments by role](#treatments-by-role) · [Sources](#sources)
 
 Source tags: WP is Wikipedia, read on 9 November 2026, by article; OMT is *Open Music Theory*. The other sources are
 by author and year, in [pop-and-ballad.md](pop-and-ballad.md) unless listed below.
@@ -136,6 +136,19 @@ choruses, short songs. `pop/hyperpop`
   `loud` master; no processed vocals, so a lead takes the hook.
 - **Neighbours**: `electronic/future-bass` (its kawaii variant); `jpop/fast-electro`.
 
+<!-- treatments, written from style-maps.json -->
+## Treatments by role
+
+What published sources document of this family's processing, by a part's role (`treatments` in style-maps.json; `studio.py effects --role <role> --style <entry>` lists the tools, these first). *Usual*: a convention two sources or more corroborate, one saying it is the rule or nearly; *often*: a source speaks of its frequency; *documented*: one session, one engineer's practice or a tutorial. Each says what it was applied to: an entry about one instrument says nothing of the role's others. An entry that holds for some entries of the family names them. Every one was checked against its page ([processing.md](processing.md#choosing-a-parts-treatment)).
+
+- **Melody.** Delay (*documented*): saxophone parts through a delay and a digital reverb (ABC) (Doyle 2016).
+- **Harmony.** Modulation (*usual*): an electric piano's tremolo, panning side to side in stereo: by far its most common stereo effect, almost synonymous with it (Sasso 2016; Hastings 1989; The Rhodes Super Site, Effects (an enthusiast site; named examples only)); modulation (*often*): a phaser on the electric piano, widely used; often heard on slower songs and ballads from the later 1970s (Hastings 1989; The Rhodes Super Site, Effects (an enthusiast site; named examples only)); modulation (*often*): chorus on the electric piano, commonly applied, after the phaser had been (Sasso 2016; Hastings 1989; The Rhodes Super Site, Effects (an enthusiast site; named examples only)); colour (*documented*): an exciter to give a dull electric piano some top, with care (White 1985); modulation (*documented*): an ensemble chorus, which defined one string machine (the RS202) (Reid 2002); modulation (*documented*): chorus on backdrop parts such as pads, kept shallow and slow so that they do not recede too far (White 1998); space (*documented*, ballad): a hall on the piano (Senior 2019); dynamics (*documented*, ballad): the piano at 1.2:1 with a soft knee, 2-5 dB on chords, for sustain (Senior 2019).
+- **Rhythm.** Correction (*documented*, disco): Nile Rodgers' guitar high-passed at 160 Hz and cut at 220 Hz to leave the bass room, its treble lifted (Chic, Le Freak) (Gill 2020).
+- **Bass.** Colour (*documented*): an enhancer adding the top that a miked bass lacks (White 1995).
+- **Drums.** Space (*documented*): gated reverb on the drums, a classic sound (Phil Collins, Peter Gabriel); Hugh Padgham's own route (Howell 2005; Buskin 1992); delay (*documented*): a drum machine given a short digital delay instead of a reverb, which can muddy it (Hugh Padgham) (Buskin 1992); colour (*documented*): a touch of excitement on close-miked drums and cymbals (White 1985; White 1995).
+
+<!-- /treatments -->
+
 ## Sources
 
 - de Clercq, T. and Temperley, D. (2011); Dalla Riva, M. (2022, 2025); Léveillé Gauvin, H. (2018); Senior, M.
@@ -156,3 +169,15 @@ choruses, short songs. `pop/hyperpop`
   [Soft rock](https://en.wikipedia.org/wiki/Soft_rock),
   [Disco](https://en.wikipedia.org/wiki/Disco), [Synth-pop](https://en.wikipedia.org/wiki/Synth-pop),
   [Hyperpop](https://en.wikipedia.org/wiki/Hyperpop).
+- Doyle, T. (2016). [Classic Tracks: ABC 'The Look Of Love'](https://www.soundonsound.com/techniques/classic-tracks-abc-look-love). *Sound On Sound*, July 2016.
+- Sasso, L. (2016). [Rhodes Hog](https://www.soundonsound.com/techniques/rhodes-hog). *Sound On Sound*, January 2016.
+- Hastings, T. (1989). [Born Again: Rhodes MK80 Piano](https://www.muzines.co.uk/articles/born-again/5676). *Sound On Sound*, October 1989.
+- The Rhodes Super Site, Effects (an enthusiast site; named examples only). https://www.fenderrhodes.com/history/effects.html
+- White, P. (1985). [Getting Excited](https://www.muzines.co.uk/articles/getting-excited/6381). *Home & Studio Recording*, May 1985.
+- Reid, G. (2002). [Roland RS202 & Multivox MX202 (Retrozone)](https://www.soundonsound.com/reviews/roland-rs202-multivox-mx202-retrozone). *Sound On Sound*, July 2002.
+- White, P. (1998). [Where To Use Processors & Why, Part 4](https://www.soundonsound.com/techniques/where-use-processors-why-part-4). *Sound On Sound*, January 1998.
+- Senior, M. (2019). [Mix Rescue: Michaela Betts & Alessia McDermott](https://www.soundonsound.com/techniques/mix-rescue-michaela-betts-alessia-mcdermott). *Sound On Sound*, February 2019.
+- Gill, C. (2020). [The secrets behind Nile Rodgers' tone on Chic's Le Freak](https://guitarworld.com/features/the-secrets-behind-nile-rodgers-tone-on-chics-le-freak). *Guitar World*, 3 February 2020.
+- White, P. (1995). [How Enhancers Work](https://www.soundonsound.com/techniques/how-enhancers-work). *Sound On Sound*, February 1995.
+- Howell, S. (2005). [Q. How do I set up a gated reverb?](https://www.soundonsound.com/sound-advice/q-how-do-set-gated-reverb). *Sound On Sound*, March 2005.
+- Buskin, R. (1992). [Production Masterclass With Hugh Padgham](https://www.muzines.co.uk/articles/production-masterclass-with-hugh-padgham/2948). *Recording Musician*, October 1992.

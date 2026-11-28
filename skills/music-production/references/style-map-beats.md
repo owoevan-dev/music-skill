@@ -7,7 +7,7 @@ in [beats.md](beats.md) (groove and swing, the three main styles, the worn sound
 drops (`electronic/edm-trap`).
 
 Contents: [Shared by the family](#shared-by-the-family) · [Lo-fi](#lo-fi) · [Boom bap](#boom-bap) · [Trap](#trap) ·
-[Drill](#drill) · [Phonk](#phonk) · [Trip hop](#trip-hop) · [G-funk](#g-funk) · [Sources](#sources)
+[Drill](#drill) · [Phonk](#phonk) · [Trip hop](#trip-hop) · [G-funk](#g-funk) · [Treatments by role](#treatments-by-role) · [Sources](#sources)
 
 Source tags: WP is Wikipedia, read on 9 November 2026, by article. The other sources are by author and year, in
 [beats.md](beats.md) unless listed below.
@@ -181,6 +181,18 @@ synthesizers and a high portamento saw lead. `beats/g-funk`
   `vocal_ah` for the background voices.
 - **Neighbours**: Boom bap; the jazz and funk map; `jpop/city-pop` (funk of the same era).
 
+<!-- treatments, written from style-maps.json -->
+## Treatments by role
+
+What published sources document of this family's processing, by a part's role (`treatments` in style-maps.json; `studio.py effects --role <role> --style <entry>` lists the tools, these first). *Usual*: a convention two sources or more corroborate, one saying it is the rule or nearly; *often*: a source speaks of its frequency; *documented*: one session, one engineer's practice or a tutorial. Each says what it was applied to: an entry about one instrument says nothing of the role's others. An entry that holds for some entries of the family names them. Every one was checked against its page ([processing.md](processing.md#choosing-a-parts-treatment)).
+
+- **Harmony.** Correction (*documented*): the sample's low end rolled off and its top trimmed a little; a band-limited lo-fi channel beside it (Attack Magazine 2021; Walden 2024); lo-fi (*documented*, lo fi): gentle wow and flutter, the slow pitch drift of worn tape (White 2022; Douglas 2021); modulation (*often*, lo fi): chorus on Rhodes-style keys, particularly popular; on a glassy synth loop (White 2022; Douglas 2021); space (*documented*, lo fi): a lo-fi reverb on the piano (Walden 2024).
+- **Texture.** Noise (*documented*, lo fi): a crackle or noise bed kept barely perceptible, pumped by the kick or gated between notes (Douglas 2021; Walden 2024).
+- **Bass.** Colour (*documented*, trap): an 808 that a reviewer hears as heavily compressed and saturated, working as a bass note (Future, Mask Off) (Senior 2017).
+- **Drums.** Colour (*documented*): kicks and snares recorded hot to tape (Dr Dre, 2001); tape-style saturation on a lo-fi drum bus (Computer Music 2016; Douglas 2021); lo-fi (*documented*): the SP-1200's 26.04 kHz and the MPC60's 12 bits emulated; a decimator on a snare, sample-rate reduction on a hat loop (Computer Music 2016; Korff 2015; Douglas 2021); dynamics (*documented*, boom bap): a drum-bus processor on the drum group (Attack Magazine 2021); space (*documented*, boom bap): a hall on the clap (Attack Magazine 2021); space (*documented*, lo fi): a dark reverb with spring-like overtones on the drum machine (Douglas 2021).
+
+<!-- /treatments -->
+
 ## Sources
 
 - Ableton. *Learning Music*, [Tempo and genre](https://learningmusic.ableton.com/make-beats/tempo-and-genre.html),
@@ -204,3 +216,10 @@ synthesizers and a high portamento saw lead. `beats/g-funk`
   [UK drill](https://en.wikipedia.org/wiki/UK_drill), [Phonk](https://en.wikipedia.org/wiki/Phonk),
   [Trip hop](https://en.wikipedia.org/wiki/Trip_hop), [G-funk](https://en.wikipedia.org/wiki/G-funk),
   [Hip-hop production](https://en.wikipedia.org/wiki/Hip-hop_production).
+- Attack Magazine (2021). [90s Boom Bap Hip Hop (Beat Dissected)](https://www.attackmagazine.com/technique/beat-dissected/90s-boom-bap-hip-hop/).
+- Walden, J. (2024). [Cubase 13: Creating Lo-Fi Effects](https://www.soundonsound.com/techniques/cubase-13-creating-lo-fi-effects). *Sound On Sound*, Nov 2024.
+- White, P. (2022). [Modulation Effects: A Primer](https://www.soundonsound.com/sound-advice/modulation-effects). *Sound On Sound*, Oct 2022.
+- Douglas, A. (2021). [Dirtying Up A Mix With Lo-Fi Texture And Vibe](https://www.attackmagazine.com/technique/tutorials/dirtying-up-a-mix-with-lo-fi-texture-and-vibe/). *Attack Magazine*.
+- Senior, M. (2017). [The Mix Review (Future, 'Mask Off')](https://www.soundonsound.com/people/mix-review-0817). *Sound On Sound*, Aug 2017.
+- Computer Music (2016). [12 classic hip-hop production tricks that never get tired](https://www.musicradar.com/tuition/tech/12-classic-hip-hop-production-tricks-that-never-get-tired-645495). *MusicRadar*.
+- Korff, C. (2015). [Spotlight: Hardware Samplers](https://www.soundonsound.com/reviews/spotlight-hardware-samplers). *Sound On Sound*, Mar 2015.

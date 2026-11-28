@@ -51,7 +51,7 @@ def build_parser():
                'python studio.py start harbour --title "Harbour Lights" --tempo 96 --section verse:8 --section chorus:8 --part "piano harmony vcsl 0:0" --part "lead melody iowa_winds 0:73" --config ~/.music-skill/local-config.json')
     st.add_argument('folder',type=Path,help="the piece's folder: a new one, or one with its brief and words but no compose.py or song.json");st.add_argument('--title',required=True,help="the piece's title")
     st.add_argument('--section',action='append',required=True,metavar='ID:BARS',help='a section and its bars, in order (repeatable)')
-    st.add_argument('--part',action='append',required=True,metavar='"ID ROLE [INSTRUMENT]"',help='a part: its id, its role (melody, harmony, bass, drums, ...) and words that find its preset in the configured banks, as studio.py instruments takes them, or a sound as audition --sounds names one: surge:<id> (studio.py sounds), synth:<preset>, soundfont:<bank>:<bank number>:<program> (repeatable)')
+    st.add_argument('--part',action='append',required=True,metavar='"ID ROLE [INSTRUMENT]"',help='a part: its id, its role (melody, harmony, bass, drums, ...) and words that find its preset in the configured banks, as studio.py instruments takes them, or a sound as audition --sounds names one: surge:<id> (studio.py sounds), synth:<preset>, soundfont:<bank>:<bank number>:<program>; a drum machine: drum_synth, drum_synth:808 or drum_synth:909 (repeatable)')
     st.add_argument('--tempo',type=float,default=100,help='quarter-note BPM (default 100)');st.add_argument('--meter',default='4/4',help='beats/beat unit (default 4/4)')
     st.add_argument('--config',type=Path,help="the renderer configuration bootstrap.py wrote: needed to find the parts' presets (default: the file MUSIC_SKILL_CONFIG names)")
     cmd=command('validate','Check a project against the schema; print its size and any unknown field with the nearest known name','python studio.py validate song.json');project(cmd)
@@ -117,6 +117,17 @@ def build_parser():
     snd.add_argument('--id',help='one catalog patch in full: its measurement and what its mod wheel and macros move')
     snd.add_argument('--seed',type=int,help="the piece's seed (musiclib.blocks.seed(title)): which patch each band of the spread shows, so two pieces see different ones")
     snd.add_argument('--json',action='store_true',help='print the full JSON instead of one line a patch (--id always prints it)')
+    fxc=command('effects',"Search the processing catalog: every tool a part's processing can use (the skill's own mix fields and effects, Surge XT Effects' types, the 75 Airwindows algorithms), by role, style, kind and character, for a short list to choose from",
+                'python studio.py effects --role bass --style rock/punk --seed 412')
+    fxc.add_argument('--role',help="the part's role: melody, countermelody, accent, harmony, rhythm, texture, bass, drums or effect")
+    fxc.add_argument('--style',help="the project's style entry (rock/punk) or a family (rock): the tools its map documents for the role come first")
+    fxc.add_argument('--kind',help='correction, dynamics, colour, modulation, space, delay, lo-fi, noise, sound design or utility')
+    fxc.add_argument('--character',default='',help="comma-separated words the tool must have, its own or its measures' (warm, tape, wide, bright, long tail, ...; quote a list that holds a space)")
+    fxc.add_argument('--seed',type=int,help="the piece's seed (musiclib.blocks.seed(title)): which tools the short list shows, so two pieces see different ones")
+    fxc.add_argument('--limit',type=int,default=10,help='the most tools shown, before the closing "nothing" (default 10)')
+    fxc.add_argument('--all',action='store_true',help='every tool that fits, by kind, instead of a short list')
+    fxc.add_argument('--describe',metavar='ID',help='one tool in full (an id the list shows, a Surge XT type, or an Airwindows name): its fragment, controls (for a Surge XT effect; for the tools of the skill itself, where schema.md gives their fields), fallback, measures and sources; "airwindows" lists the 75 algorithms')
+    fxc.add_argument('--json',action='store_true',help='print the full JSON instead of one line a tool')
     ins=command('instruments','Find presets in the configured banks by words of their name, family or bank: the bank and program a part takes, the keys their samples cover, their velocity layers',
                 'python studio.py instruments violin --config ~/.music-skill/local-config.json')
     ins.add_argument('words',nargs='+',help='words of the preset name (violin), a General MIDI family (strings, brass, reed) or a bank (vsco), or a bank number and program (0:41); where no preset has them all, those that have the most are listed; a word that no preset has is refused, with the nearest word where one is near')
@@ -265,6 +276,14 @@ def main(args):
             print('Surge XT',*(files.one_line(str(x)) for x in (surge.get('version',''),'|',surge.get('license',''),'|',f'{count} patches' if count else 'no patch folder found','| host: pedalboard',host.get('version',''))))   # text a configuration holds
         else:
             print('Surge XT: not set up; synth parts written for it play their built-in fallbacks (references/setup.md)')
+        # Surge XT Effects (0.11) is optional too: without it a part's mix.surge_fx chain is left out, and the render says so.
+        from musiclib import surgefx
+        try:
+            surgefx.locate(c);fx=c['surge_fx']
+            print('Surge XT Effects',*(files.one_line(str(x)) for x in (fx.get('version',''),'|',fx.get('license',''),'|',f'{len(surgefx.table()["types"])} types','| host: pedalboard',(host or {}).get('version',''))))   # text a configuration holds
+        except surgefx.Unavailable as e:
+            why=files.one_line(str(e))
+            print(('' if why.startswith('Surge XT Effects') else 'Surge XT Effects: ')+why+'; parts with mix.surge_fx play without their chains (references/setup.md)')
         try:
             from PIL import __version__ as pillow
             import re
@@ -367,6 +386,10 @@ def main(args):
         if not (x and w.isdigit() and h.isdigit()):raise ValueError(f'--size {args.size!r}: WIDTHxHEIGHT in pixels, e.g. 1280x720')
         if args.command=='still':print(roll.still(args.render,args.at,args.output,int(w),int(h)));return
         print(roll.video(args.render,args.output,args.config,args.mp4,args.size_mb,args.fps,int(w),int(h)));return
+    if args.command=='effects':
+        from musiclib import effectscatalog   # the processing catalog (0.11), outside the synthesis closure
+        found=effectscatalog.describe(args.describe) if args.describe else effectscatalog.search(args.role,args.style,args.character.split(','),args.kind,args.seed,args.limit,args.all)
+        print(json.dumps(found,ensure_ascii=True,indent=1) if args.json else effectscatalog.summary(found));return
     if args.command=='sounds':
         from musiclib.sounds import describe
         from musiclib.shortlist import search   # sounds.search with --without (0.10), outside the synthesis closure

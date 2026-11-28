@@ -1704,5 +1704,168 @@ def define(S):
         from musiclib import surge
         flagged=sum(1 for e in surge.catalog().values() if 'no clear pitch' in e.get('flags',()));assert flagged==245,flagged
         return {'patches_without_a_clear_pitch':flagged}
-    found = {'review_counts_seconds_and_ninths_and_asks_about_the_exposed': clashes_by_distance_and_place, 'review_asks_about_a_kit_levelled_by_its_peak': peak_levelled_kit, 'review_sets_apart_runs_of_doubling_and_pitchless_patches': doubling_runs_and_pitchless_patches, 'review_flags_sustained_minor_ninth': review_vertical, 'review_vertical_counts_as_0_7_0_did': vertical_as_released, 'review_vertical_matches_0_7_0_at_its_edges_and_scale': vertical_edges_and_scale, 'review_names_embellishing_tones_parallels_and_low_intervals': review_smoothness, 'review_asks_about_loops_returns_arrivals_and_blocks': review_development, 'review_summary_keeps_every_question': review_summary, 'review_views_and_identifiers': review_views_and_identifiers, 'plan_read_against_score': plan_read_against_score, 'association_drawn_once': association_drawn_once, 'score_profile_matches_a_hand_counted_line': score_profile, 'the_code_review_of_0_7_stays_fixed': code_review_of_0_7, 'style_maps_set_reviews_limits_by_axis': style_limits, 'dance_styles_ask_about_loops_only_where_nothing_moves': dance_processes, 'brightness_prompts_follow_the_genre_and_the_low_passes': brightness_prompts, 'style_tempo_ranges_ask_outside_their_sources': tempo_ranges, 'review_flags_far_transposed_samples_and_missing_keys': transposed_samples, 'a_piano_part_on_another_piano_is_asked_about': piano_on_another_piano, 'review_asks_when_the_sound_and_the_notes_disagree': review_asks_when_the_sound_and_the_notes_disagree}
+    def unchanging_parts():
+        # 0.11 (after Astra's reviews of the design, d011a, and of the build, b011a): the views count each pitched part's
+        # bar rhythms and chords, over the piece and by section (a rest counting against a section's share); review asks
+        # of a rhythm or harmony part that plays a chorus as a verse of its own approach was (the same rhythm, chords of
+        # the same kind, about the same register and lengths), or one rhythm and shape through every section of its
+        # stretch, of two kinds or more.  Asked only where the style governing the form says the sections differ (the pop,
+        # J-pop and rock families); not of a part whose loop repetition asks about; a decision answers it.  Each case
+        # b011a found asked without cause is here, not asked, and those of b011c: a short section (under the view's four
+        # bars) that the part rests in or plays otherwise breaks a stretch said to keep one rhythm.
+        from musiclib.review import review as review_score, unchanging
+        q=example();t0=q['tracks'][2];ROOTS=(40,45,43,38,41,45,43,40,43,47,45,40,38,45,47,43)
+        def gtr(sections,tid='gtr',role='rhythm'):
+            # per section: bars, attack positions in the bar, the chord as semitones above its root, and optionally a
+            # transposition, a note length and the bars (counted from the section's first, 0) it rests in
+            t=copy.deepcopy(t0);t.update(id=tid,role=role,engine='soundfont');t.pop('drums',None);t.pop('range',None);t.pop('instrument',None)
+            notes=[];bar=0
+            for sec in sections:
+                bars,positions,chord=sec[:3];up=sec[3] if len(sec)>3 else 0;hold=sec[4] if len(sec)>4 else None;rests=sec[5] if len(sec)>5 else ()
+                for b in range(bars):
+                    if b in rests:continue
+                    root=ROOTS[(bar+b)%16]+up
+                    for k,on in enumerate(positions):
+                        length=hold or min(positions[k+1] if k+1<len(positions) else 4,4)-on
+                        notes+=[((bar+b)*4+on,root+x,min(length,4-on)) for x in chord]
+                bar+=bars
+            t['notes']=[{'id':f'{tid}_{i}','pitch':pc,'on':float(on),'duration':float(d)} for i,(on,pc,d) in enumerate(notes)]
+            t['performance']={'notes':{n['id']:{'velocity':80+(i%3)*6} for i,n in enumerate(t['notes'])}}
+            return t
+        def song(tracks,names=('verse','chorus'),style='rock/alternative',plan=None,decisions=(),bars=(8,8)):
+            p=copy.deepcopy(q);p['clock']={'bars':sum(bars),'meter':[4,4],'tempo':[[0,150]],'tail_seconds':2};p['tracks']=tracks
+            p['sections']=[{'id':n,'start_bar':sum(bars[:k]),'bars':b} for k,(n,b) in enumerate(zip(names,bars))];p.pop('harmony',None)
+            if style:p['style']=style
+            else:p.pop('style',None)
+            if plan:p['plan']=plan
+            else:p.pop('plan',None)
+            p['decisions']=list(decisions);return p
+        eighths,quarters,offbeats=(0,.5,1,1.5,2,2.5,3,3.5),(0,1,2,3),(.5,1.5,2.5,3.5)
+        power,open_chord,first_inv,dom7=(0,7,12),(0,7,16,19),(4,7,12),(0,4,7,10)
+        same=[(8,eighths,power),(8,eighths,power)]
+        asked=lambda r:[x for x in r['questions'] if x['id']=='unchanging:gtr']
+        n=[0]
+        def ask(p,expect,label):
+            n[0]+=1;r=review_score(p,work/f'unchanging_{n[0]}');got=bool(asked(r))
+            assert got==expect,(label,'asked' if got else 'not asked',[x['id'] for x in r['questions']])
+            return r
+        r=ask(song([gtr(same)]),True,'rock, verse and chorus alike')
+        acc=next(a for a in r['views']['accompaniment'] if a['part']=='gtr')
+        assert (acc['rhythms'],acc['rhythm_share'],acc['shape'],acc['kind'],acc['kinds'])==(1,1.0,'0-7-12','power',{'power':128}),acc
+        assert [(s['section'],s['rhythm'],s['rhythm_share'],s['kinds']) for s in acc['sections']]==[(x,'1 1.5 2 2.5 3 3.5 4 4.5',1.0,{'power':64}) for x in ('verse','chorus')],acc['sections']
+        assert asked(r)[0]['text'].startswith("gtr: one bar rhythm (1 1.5 2 2.5 3 3.5 4 4.5) and one chord shape (0-7-12) through verse, chorus (16 bars, 100% of each section's bars or more).") and 'Koozin 2011' in asked(r)[0]['text']
+        from musiclib.summary import review as told
+        assert 'gtr (rhythm): 16 bars, 1 bar rhythm, the commonest (1 1.5 2 2.5 3 3.5 4 4.5) in 100% of them; 128 chords, 1 shape, the commonest 0-7-12' in told(r,work/'unchanging_1')
+        three=song([gtr([(4,quarters,power),(6,eighths,power),(6,eighths,power)])],names=('intro','verse','chorus'),bars=(4,6,6))
+        assert asked(ask(three,True,'an intro of its own, then the chorus as the verse'))[0]['text'].startswith('gtr: chorus played as verse was: the same bar rhythm (1 1.5 2 2.5 3 3.5 4 4.5) in 100% of the bars of each and power chords in 100% of the chords of each.')
+        ask(song([gtr(same)],names=('a_melo','sabi')),True,'the J-pop names')
+        for sections,label in (([(8,eighths,power),(8,(0,1,1.5,2.5,3),power)],'another rhythm'),
+                               ([(8,eighths,open_chord),(8,eighths,power)],'open-string chords, then power chords'),
+                               ([(8,eighths,power),(8,eighths,power,0,None,(3,7))],'the chorus resting in two bars of eight'),
+                               ([(8,eighths,(0,)),(8,eighths,power)],'a single-note riff, then chords'),
+                               ([(8,eighths,first_inv),(8,eighths,dom7)],'inverted triads, then dominant sevenths'),
+                               ([(8,eighths,power),(8,eighths,power,12)],'the chorus an octave up'),
+                               ([(8,eighths,power,0,.25),(8,eighths,power,0,.5)],'short strokes, then held ones')):
+            ask(song([gtr(sections)]),False,label)
+        cycle=song([gtr([(4,quarters,power),(4,eighths,power),(4,offbeats,power),(4,quarters,power)])],names=('verse1','chorus1','verse2','chorus2'),bars=(4,4,4,4))
+        ask(cycle,False,'each chorus changes from its own verse (the second as the first verse was)')
+        ret=song([gtr([(4,eighths,power),(4,eighths,power,0,None,(0,1,2,3)),(4,eighths,power)])],names=('intro','interlude','outro'),bars=(4,4,4))
+        ask(ret,False,'a return after a whole section of rest')
+        halves,single=(0,2),(0,)
+        turn=song([gtr([(4,halves,single),(2,eighths,power),(4,halves,single)])],names=('Opening','Turnaround','Return'),bars=(4,2,4))
+        ask(turn,False,'a two-bar turnaround of power chords between single half notes')
+        brk=song([gtr([(4,eighths,power),(2,eighths,power,0,None,(0,1)),(4,eighths,power)])],names=('Opening','Break','Return'),bars=(4,2,4))
+        r=ask(brk,False,'a return after a two-bar section of rest')
+        assert next(a for a in r['views']['accompaniment'] if a['part']=='gtr')['absent']==['Break']
+        kept=song([gtr([(4,eighths,power),(2,eighths,power),(4,eighths,power)])],names=('Opening','Turn','Return'),bars=(4,2,4))
+        r=ask(kept,True,'a short section that keeps the figure is part of the stretch')
+        assert asked(r)[0]['text'].startswith("gtr: one bar rhythm (1 1.5 2 2.5 3 3.5 4 4.5) and one chord shape (0-7-12) through Opening, Turn, Return (10 bars,"),asked(r)[0]['text']
+        mono=song([gtr([(8,eighths,single),(8,eighths,single)])])
+        r=ask(mono,True,'one line of single notes through verse and chorus')
+        row=next(a for a in r['views']['accompaniment'] if a['part']=='gtr')
+        assert row['kinds']=={} and [s.get('kinds') for s in row['sections']]==[{},{}],row
+        assert unchanging(acc,.9)['how']=='throughout'   # the share second, as it was first written
+        for names in (('verse1','verse2'),('Verse I','Verse II')):
+            ask(song([gtr(same)],names=names),False,f'two verses named {names}')
+        assert unchanging({**acc,'role':'bass'}) is None and unchanging({**acc,'role':'melody'}) is None
+        ask(song([gtr(same)],style=None),False,'no style')
+        ask(song([gtr(same)],style=None,plan={'sections':[{'section':'chorus','differs':'the melody enters; the guitar stays'}]}),False,'a plan, no style')
+        ask(song([gtr(same)],style='orchestral/romantic'),False,'a style that does not say so')
+        r=ask(song([gtr(same)],decisions=['unchanging:gtr: the chorus lifts by the drums and the lead']),False,'answered')
+        assert [a['id'] for a in r['answered'] if a['id'].startswith('unchanging')]==['unchanging:gtr'],r['answered']
+        lp=gtr(same);notes=[(b*4+on,40+x,.5) for b in range(40) for on in eighths for x in power]   # every bar the same: a loop
+        lp['notes']=[{'id':f'gtr_{i}','pitch':pc,'on':float(on),'duration':float(d)} for i,(on,pc,d) in enumerate(notes)]
+        lp['performance']={'notes':{x['id']:{'velocity':80} for x in lp['notes']}}
+        r=ask(song([lp],bars=(20,20)),False,'a loop repetition asks about')
+        assert any(x['id'].startswith('repetition:') for x in r['questions'])
+        return {'asked':5,'not_asked':n[0]-5}
+    def treatment_view_and_question():
+        # 0.11, the second part (Astra's review d011b, point 8): the views give each part's processing by the catalog's tools
+        # and kinds, beside what the map of the style governing the mix documents for its role, once for each role; the
+        # question treatment:<part>+<kind>+<family> is asked of no family until a rule is calibrated (style-maps.json's
+        # treatment_part asks false).  Where a family asks: of a part lacking a kind its role's map calls usual, never of one
+        # that has a tool of it, a Surge XT part (its preset's own effects are not read), a part without notes, a piece not
+        # treated at all, or one without a style; a decision with the identifier answers it.
+        from musiclib.review import review as review_score
+        from musiclib import styles, surge as sg, views as score_views
+        from musiclib.summary import review as told
+        def song(style='electronic/house',decisions=(),**changes):
+            p=example();p['decisions']=list(decisions)
+            if style:p['style']=style
+            else:p.pop('style',None)
+            tr={t['id']:t for t in p['tracks']}
+            tr['lead']['mix']['eq']=[[2500,1.5]]   # one part treated beyond its level, pan and sends
+            for tid,mix in changes.items():
+                if tid=='surge_bass':
+                    b=tr['bass'];b['engine']='surge';b['surge']={'preset':next(iter(sg.presets()['presets']))}
+                    for k in ('program','bank','patch'):b.pop(k,None)
+                elif tid=='silent_bass':
+                    tr['bass']['notes']=[];tr['bass']['performance']={'notes':{},'cc':[]}
+                elif tid=='untreated':
+                    tr['lead']['mix']['eq']=[]
+                else:
+                    tr[tid]['mix'].update(mix)
+            return p
+        n=[0]
+        def asked(p,label):
+            n[0]+=1;r=review_score(p,work/f'treatment_{n[0]}')
+            return r,[x['id'] for x in r['questions'] if x['id'].startswith('treatment:')]
+        r,ids=asked(song(),'house, not asked by default');assert ids==[],ids
+        row=next(x for x in r['views']['treatment']['parts'] if x['part']=='bass')
+        assert r['views']['treatment']['style']=='electronic/house' and row['tools']==['mix.highpass','mix.lowpass','mix.reverb_send'],row
+        duck=next(d for d in row['documented'] if d['kind']=='dynamics')
+        assert duck['how']=='usual' and duck['has'] is False and duck['source']=='electronic:S1',duck
+        said=told(r,work/'treatment_1')
+        assert 'Processing by part' in said and 'bass (bass): highpass, lowpass, reverb_send [correction, space].' in said,said[:600]
+        assert "What the map of electronic/house documents, by role" in said and '  bass: dynamics: the bass ducked in time with the beat' in said
+        lead=next(x for x in r['views']['treatment']['parts'] if x['part']=='lead')
+        assert lead['tools'][0]=='mix.eq' and 'mix.delay_send' in lead['tools'] and lead['kinds'][:2]==['correction','space'],lead
+        # a tool changes a part's character by any of its kinds (Astra's review b011d: DrumSlam, Capacitor and PocketVerbs counted 0)
+        second=score_views.treatment(song(piano={'surge_fx':[{'type':'airwindows','algorithm':a} for a in ('DrumSlam','Capacitor','PocketVerbs')]}))
+        assert second['parts'][0]['character_tools']==3,second['parts'][0]
+        heavy=score_views.treatment(song(piano={'effects':[{'type':'chorus'},{'type':'phaser'},{'type':'bitcrush'}]}))
+        assert [x['part'] for x in heavy['parts'] if x['character_tools']>=3]==['piano'],heavy
+        assert any('three tools or more that change their character' in x and 'piano' in x for x in score_views.treatment_lines(heavy))
+        kit=song(drums={});kit['tracks'][3].update(engine='drum_synth',kit={'style':'808','gated_ms':250})
+        for k in ('program','bank','patch'):kit['tracks'][3].pop(k,None)
+        assert 'kit.gated_reverb' in score_views.treatment(kit)['parts'][3]['tools']
+        chain=score_views.treatment(song(bass={'surge_fx':[{'type':'airwindows','algorithm':'ToTape6'},{'type':'tape'}],'saturate':0}))
+        bass=next(x for x in chain['parts'] if x['part']=='bass');assert bass['tools'][-2:]==['airwindows.ToTape6','surge_fx.tape'] and 'mix.saturate' not in bass['tools'],bass
+        reg=styles.registry();check=reg['checks']['treatment_part'];saved=check['ask']
+        styles.limits.cache_clear() if hasattr(styles.limits,'cache_clear') else None
+        check['ask']=True
+        try:
+            r,ids=asked(song(),'asked where a family asks');assert ids==['treatment:bass+dynamics+electronic'],ids
+            text=next(x['text'] for x in r['questions'] if x['id']==ids[0])
+            assert text.startswith('bass: the map of electronic/house calls dynamics usual for bass parts (the bass ducked') and 'studio.py effects --role bass --style electronic/house --kind dynamics' in text,text
+            for p,label in ((song(bass={'duck':{'by':'drums','depth_db':6}}),'a duck is that kind'),(song(bass={'compressor':{'threshold_db':-20,'ratio':3,'attack_ms':10,'release_ms':120}}),'so is a compressor'),
+                            (song(surge_bass=1),'a Surge XT part'),(song(silent_bass=1),'a part without notes'),(song(untreated=1),'a piece not treated at all'),
+                            (song(style=None),'no style'),(song(style='orchestral/romantic'),'a style that calls nothing usual for the bass')):
+                assert asked(p,label)[1]==[],label
+            r,ids=asked(song(decisions=['treatment:bass+dynamics+electronic: the bass breathes on its own']),'answered')
+            assert ids==[] and [a['id'] for a in r['answered'] if a['id'].startswith('treatment')]==['treatment:bass+dynamics+electronic'],r['answered']
+        finally:
+            check['ask']=saved
+        return {'asked_where_enabled':1,'not_asked':n[0]-2}
+    found = {'review_counts_seconds_and_ninths_and_asks_about_the_exposed': clashes_by_distance_and_place, 'review_asks_about_a_kit_levelled_by_its_peak': peak_levelled_kit, 'review_sets_apart_runs_of_doubling_and_pitchless_patches': doubling_runs_and_pitchless_patches, 'review_flags_sustained_minor_ninth': review_vertical, 'review_vertical_counts_as_0_7_0_did': vertical_as_released, 'review_vertical_matches_0_7_0_at_its_edges_and_scale': vertical_edges_and_scale, 'review_names_embellishing_tones_parallels_and_low_intervals': review_smoothness, 'review_asks_about_loops_returns_arrivals_and_blocks': review_development, 'review_summary_keeps_every_question': review_summary, 'review_views_and_identifiers': review_views_and_identifiers, 'plan_read_against_score': plan_read_against_score, 'association_drawn_once': association_drawn_once, 'score_profile_matches_a_hand_counted_line': score_profile, 'the_code_review_of_0_7_stays_fixed': code_review_of_0_7, 'style_maps_set_reviews_limits_by_axis': style_limits, 'dance_styles_ask_about_loops_only_where_nothing_moves': dance_processes, 'a_rhythm_part_that_plays_the_chorus_as_the_verse_is_asked_about': unchanging_parts, 'a_parts_treatment_is_described_and_asked_only_where_calibrated': treatment_view_and_question, 'brightness_prompts_follow_the_genre_and_the_low_passes': brightness_prompts, 'style_tempo_ranges_ask_outside_their_sources': tempo_ranges, 'review_flags_far_transposed_samples_and_missing_keys': transposed_samples, 'a_piano_part_on_another_piano_is_asked_about': piano_on_another_piano, 'review_asks_when_the_sound_and_the_notes_disagree': review_asks_when_the_sound_and_the_notes_disagree}
     return found

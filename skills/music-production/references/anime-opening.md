@@ -65,7 +65,7 @@ In the opening Li presents as the archetype the prechorus closes on a half caden
   - **Down a minor third** (to VI): the bass climbs from 2 to 5, then III, which normally leads to vi, resolves to a major VI instead.
 
   The two are reciprocal: up and then down returns to the first key. A stepwise lift is the other common move (14 of Li's 72).
-- **Distorted rhythm guitars play power chords** (root and fifth, often with the octave). Distortion's harmonics and intermodulation give most chords a major quality: a distorted major triad sounds much like a power chord, while a minor third clashes with that implied major third and turns rough; that major quality coexists with the minor-mode melodies around it (Lilja 2015). Let the minor thirds and colour tones come from the bass line, piano, strings and lead. `review` still checks the written chord list against the foreground.
+- **The guitars' tone goes with their voicing.** Under distortion a rhythm guitar plays power chords (root and fifth, often with the octave): distortion's harmonics and intermodulation give most chords a major quality, a distorted major triad sounds much like a power chord, and a minor third clashes with that implied major third and turns rough, a major quality that coexists with the minor-mode melodies around it (Lilja 2015); with more distortion, listeners rated power chords and major triads clearly more pleasant than minor triads and richer chords (Herbst 2019). The family's progressions carry sevenths, tensions and slash chords ([style-map-jpop.md](style-map-jpop.md), Shared by the family): a guitar that plays them as written takes a clean or slightly broken-up tone (`mix.amp` `clean` or `edge`), and open strings left ringing against a moving shape add sevenths, ninths and elevenths from the hand's position (Koozin 2011, ¶11-12). Under `crunch` or `high_gain`, the minor thirds and colour tones come from the bass line, piano, strings, the lead or a second, cleaner guitar. `review` still checks the written chord list against the foreground.
 
 ## Melody for an instrumental lead
 
@@ -90,22 +90,26 @@ Write it as [climax-and-melody.md](climax-and-melody.md) describes (Writing a me
 - Most pop drumbeats keep a backbeat, the snare on 2 and 4; half-time and double-time are common alternatives (Open Music Theory, Drumbeats). Drum patterns usually change from section to section, for example from hi-hat in the verse to ride in the chorus (Dow 2010). An example plan: eighth-note hats in the verse, half-time or a new kick pattern for the build, sixteenth hats or ride for the chorus.
 - Syncopate moderately. Witek et al. (2014) found that drum breaks with medium syncopation made listeners most want to move and gave the most pleasure, more than either little or a lot of syncopation.
 - Keep the drums tight. Frühauf, Kopiez and Platz (2013) found that small timing deviations did not make a simple drum pattern groove better than the quantized version. `musiclib.expression` keeps drum deviation small for that reason.
-- A small fill at the end of a section leads into the next (Dow 2010).
+- **Change the pattern with the form.** In the Billboard pop airplay top ten of each year from 2012 to 2021, a song had 5.4 drum patterns and about 10 pattern changes on average, the changes falling at phrase and section junctures; 96% of the songs varied the number of layers, 77% the rhythm, 78% the instruments. A build adds layers or quickens the rhythm (a prechorus adding sixteenths on the hi-hat), a fall takes them away (15% of the songs with a prechorus had one that falls), and a bridge may go to half time or move from the hi-hat to the ride (Geary 2024).
+- A small fill at the end of a section leads into the next; no hi-hat during a tom fill, and no more limbs at once than a drummer has. Vary the ghost notes and the open hats between the halves of a phrase instead of repeating one every bar, and play alternate hi-hat strokes softer, as two hands do (Dow 2010).
+- **The four-on-the-floor of Japanese rock.** Since the 2000s many Japanese rock bands have played the kick on every quarter note, the snare on 2 and 4 and the hi-hat on the off-beats between the kicks, on a sixteenth-note grid; in Japanese rock it became a style of its own, fast (about 133 to 175 BPM in the songs named) and built on catchy riffs, and one song keeps a funky, syncopated verse and brings the four-on-the-floor in only for the chorus (imdkm 2019, music journalism). One of the grooves a J-pop band cue may take, not its rule.
 - **Place the stops.** Unison stops and hits (kime) change the texture sharply, and strong contrasts of texture mark section boundaries (McAdams, Goodchild and Soden 2022); Summach lists a held pause just before the chorus among the prechorus's devices. Inside a section, a stop also interrupts the groove the drums and bass are building, so place each where the form wants it.
 
 ## Arrangement
 
 | Part | Verse (A-melo) | Build (B-melo) | Chorus (sabi) |
 |---|---|---|---|
-| Drums | eighth-note groove | half-time or new kick pattern, rising toms or snare into the chorus | sixteenths or ride, crash on the downbeat |
-| Bass | roots in eighths, following the kick | longer notes or a climbing line | octaves, passing tones into chord changes |
-| Rhythm guitars | one guitar, muted or open chords | add the second guitar | two guitars panned left and right: power chords and an octave riff |
+| Drums | a groove of the section's own: eighth or sixteenth hats, or the four-on-the-floor | a build (more layers, sixteenths on the hats, rising toms or snare) or a fall | the fullest pattern: ride or open hats, a crash on the downbeat |
+| Bass | roots on the strong beats, with passing or approach notes into the chord changes | longer notes or a climbing line | octaves, passing tones into chord changes |
+| Rhythm guitars | one guitar, clean or slightly broken up: the chord left to ring note by note with its open strings and added tones, muted sixteenth cutting, or a riff | add the second guitar, or move the first to sustained or strummed chords | two guitars panned apart: strummed full chords, or barre or power chords under more drive; an octave line or a riff answering the lead |
 | Piano | the riff or the lead | chords in the upper middle | high-register sparkle, doubling the hook; a bright grand ([performance-and-mix.md](performance-and-mix.md), A bright pop piano) |
 | Strings | sustained pads | rising lines or an eighth-note ostinato | the melody an octave up, or long counter-lines |
 | Brass | — | swells | stabs on the accents |
 | Bells, mark tree | — | a mark tree into the chorus | glockenspiel on the hook, a cymbal swell into the last chorus |
 
 The table is an example plan. Build by addition from verse to chorus (McAdams, Goodchild and Soden 2022 describe such gradual addition), and hold layers back so the last chorus has somewhere to go (Senior 2024).
+
+The guitar and bass rows are ways of playing, not a rule. Open-string chords in the verse and barre or power chords in the chorus is one order, the reverse another (Koozin 2011, ¶15-16). A bass can step off its roots: to the chord's fifth and third, or to a chromatic approach note a semitone from the next root, which the ear accepts because the line is heading for that root (MusicRadar 2022, a practitioner lesson). A guitar part in one way of playing from start to end, or a bass on repeated roots throughout, is a choice for `decisions`, not a default.
 
 ## Performance
 
@@ -126,9 +130,9 @@ The table is an example plan. Build by addition from verse to chorus (McAdams, G
 
 | Role | Bank and preset |
 |---|---|
-| Drums | `rusty` (rock kit on GM keys) |
-| Bass | `bass_darkblack` 0:33 (five-string, four dynamics, ghost notes on low velocities), 1:33 staccato; `bass_pick` for a brighter pick sound |
-| Rhythm guitars | `fsbs_direct` through `mix.amp`, played by string (`crunch` or `high_gain`; `clean` or `edge` for chords left to ring): [rock-and-metal.md](rock-and-metal.md), Writing the guitar part. The amplified banks remain: `fsbs_dist1` and `fsbs_dist2` (distorted), `fsbs_clean` for arpeggios |
+| Drums | `rusty` (rock kit on GM keys), the skill's one acoustic rock kit: what sets one piece's drums apart is the pattern by section, the ghosts and accents, and the processing |
+| Bass | `bass_darkblack` 0:33 (five-string, fingers, four dynamics, ghost notes on low velocities), 1:33 staccato; `bass_pick` 0:0 for a picked attack and `bass_finger` 0:0, each with one velocity layer, so their dynamics come from the level and, through `mix.amp` `bass`, from the drive |
+| Rhythm guitars | Chosen with the voicing and the section, and by the piece's own idea (SKILL.md, step 2: a level its whole gave, in `association.gives`), the reason in `decisions`. `fsbs_direct` through `mix.amp`, played by string: `clean`, or `edge`, which breaks up when struck hard, for chords left to ring and colour chords; `crunch` for strummed or riffed chords; `high_gain` for palm-muted riffs. `fsbs_clean`, a recorded clean amplifier, for arpeggios; `guitar_shiny` 0:26, an archtop's magnetic pickup, for a rounder clean voice; `fsbs_dist1` and `fsbs_dist2`, recorded distortion. Two guitars may differ in bank or voice as well as in pan ([rock-and-metal.md](rock-and-metal.md), Writing the guitar part) |
 | Lead | `fsbs_direct` through `mix.amp` on `lead` with bends (joined with `performance.legato` and without `strings`, or played by string without legato), or `fsbs_dist2` with legato and bends; `vsco` Solo Violin 0:40; `vsco` Trumpet 0:56, Trumpet Vibrato 2:56 (samples about 4.7 s); `vcsl` Grand 0:0; `vsco` Flute 0:73 |
 | Strings, brass | `vsco` section strings, spiccato, Brass Section 0:61, Brass Stab 0:62 |
 | Synths | Surge XT patches for pads, plucks and leads, chosen for the part's job ([sound-selection.md](sound-selection.md)) |
@@ -145,6 +149,8 @@ Probe a preset before building a part on it ([soundbank-measurements.md](soundba
 | The lead sounds detached | a sampled lead re-attacking each note | `performance.legato`, longer notes, bends on guitar |
 | Dull | quiet cymbals, low-passed guitars or reverb returns, a lead without presence | `analyze` band shares and stem levels first |
 | The chorus does not lift | the verse is as dense and as high as the chorus | a chorus denser or higher than the verse (Summach 2012); the B-melo's devices (Summach 2011) |
+| Every band cue sounds alike | power chords from start to end; one bar rhythm in every section; one drum pattern throughout; the same tone on every guitar | the band by section (Arrangement), the patterns by section (Rhythm and drums), the tone with the voicing (Harmony), the guitars chosen by the piece's own idea (Instruments); `review` counts each rhythm and harmony part's bar rhythms and chord kinds by section, and asks `unchanging:<part>` where a chorus is played as the verse was |
+| The guitars sound thick or smeared | more drive than the voicing takes; doubled guitars each at full gain | `clean` or `edge` for colour chords; less gain on each doubled guitar than seems needed (Senior 2019) |
 
 ## Sources
 
@@ -167,3 +173,9 @@ Probe a preset before building a part on it ([soundbank-measurements.md](soundba
 - White, P. (2009). [Creating A Sense Of Depth In Your Mix](https://www.soundonsound.com/techniques/creating-sense-depth-your-mix). *Sound On Sound*, February 2009. Parts in front brighter and drier than those behind.
 - Ramage, M. (2023). The Royal Road Progression in Japanese Popular Music. *Music Theory Spectrum* 45(2), 238–256. https://doi.org/10.1093/mts/mtad008
 - [Royal road progression](https://en.wikipedia.org/wiki/Royal_road_progression). Wikipedia.
+- Geary, D. (2024). [Formal Functions of Drum Patterns in Post-Millennial Pop Songs, 2012–2021](https://mtosmt.org/issues/mto.24.30.2/mto.24.30.2.geary.html). *Music Theory Online* 30(2). doi:10.30535/mto.30.2.3
+- Herbst, J.-P. (2019). [Distortion and rock guitar harmony: the influence of distortion level and structural complexity on acoustic features and perceived pleasantness of guitar chords](https://pure.hud.ac.uk/en/publications/distortion-and-rock-guitar-harmony-the-influence-of-distortion-le/). *Music Perception* 36(4), 335–352. doi:10.1525/mp.2019.36.4.335
+- imdkm (2019). [リズムから考えるJ-POP史 第6回：Base Ball Bearから検証する、ロックにおける4つ打ちの原点](https://realsound.jp/2019/06/post-372154.html) (in Japanese). *Real Sound*, 9 June 2019. Music journalism, not peer-reviewed.
+- Koozin, T. (2011). [Guitar Voicing in Pop-Rock Music: A Performance-Based Analytical Approach](https://mtosmt.org/issues/mto.11.17.3/mto.11.17.3.koozin.php). *Music Theory Online* 17(3).
+- MusicRadar (2022). [How to write compelling basslines by working around root notes](https://musicradar.com/how-to/write-bassline-root-notes). 3 February 2022. A practitioner lesson.
+- Senior, M. (2019). [Q. How do I make my guitars sound more 'epic'?](https://www.soundonsound.com/sound-advice/q-how-do-make-guitars-sound-more-epic) *Sound On Sound*, May 2019.

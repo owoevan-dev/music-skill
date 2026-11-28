@@ -10,7 +10,7 @@ Contents: [Shared by the dance styles](#shared-by-the-dance-styles) · [House](#
 [Trance](#trance) · [Festival EDM](#festival-edm) · [Hard dance](#hard-dance) · [Drum and bass](#drum-and-bass) ·
 [UK garage](#uk-garage) · [Dubstep](#dubstep) · [Future bass](#future-bass) · [EDM trap](#edm-trap) ·
 [Electro](#electro) · [Eurobeat](#eurobeat) · [Synthwave](#synthwave) · [Chiptune](#chiptune) ·
-[Ambient](#ambient) · [IDM](#idm) · [Sources](#sources)
+[Ambient](#ambient) · [IDM](#idm) · [Treatments by role](#treatments-by-role) · [Sources](#sources)
 
 Source tags: WP is Wikipedia, read on 9 November 2026, by article; the articles' traits are described there with the
 sources they cite. The other sources are by author and year.
@@ -442,6 +442,20 @@ and timbre complex. `electronic/idm`
   `bitcrush`, `mix.gate`, filter sweeps and delays. No granular synthesis, time-stretching or freezing.
 - **Neighbours**: Techno and Ambient (the ambient-techno variant); Drum and bass.
 
+<!-- treatments, written from style-maps.json -->
+## Treatments by role
+
+What published sources document of this family's processing, by a part's role (`treatments` in style-maps.json; `studio.py effects --role <role> --style <entry>` lists the tools, these first). *Usual*: a convention two sources or more corroborate, one saying it is the rule or nearly; *often*: a source speaks of its frequency; *documented*: one session, one engineer's practice or a tutorial. Each says what it was applied to: an entry about one instrument says nothing of the role's others. An entry that holds for some entries of the family names them. Every one was checked against its page ([processing.md](processing.md#choosing-a-parts-treatment)).
+
+- **Melody.** Delay (*documented*, festival edm): a festival lead with a delay (feedback about 40 %, mix about 30 %) (Attack Magazine 2023); space (*documented*, festival edm): the festival lead in a long reverb (about 3.6 s) (Attack Magazine 2023); modulation (*documented*, festival edm): the festival lead with a little chorus-ensemble (about 20 %) (Attack Magazine 2023).
+- **Harmony.** Modulation (*documented*, synthwave): chorus on 1980s polysynth sounds: most of one synth's patches (the Elka Synthex); string synths with it built in (Wiffen 1999); space (*documented*): supersaw chords through a reverb at half its size; pitch-bent stabs in a little reverb (5 % wet) (Attack Magazine 2015a; Esen 2023).
+- **Texture.** Sound design (*documented*): granular processing: grains of about 10-100 ms, dense, their position modulated (Price 2005); delay (*documented*): an arpeggio through a delay, then a reverb; a kalimba through a tape delay (Douglas 2021); sound design (*documented*, idm): ring modulation, flanging and delay from a modified Casio (Autechre) (Holder 1997).
+- **Bass.** Dynamics (*usual*, festival edm, house): the bass ducked in time with the beat (sidechain): pumping is almost universal in French house and EDM, the bass among the parts most ducked; keyed by the kick or a steady pulse (Tingen 2022; Jackson 2016; Houghton 2008); dynamics (*often*, dubstep): the sub-bass ducked by the kick, quite popular in dance music (Jenkins 2010); dynamics (*documented*, trance): an off-beat bass pumping from the kick (Aisher 2015); colour (*often*): saturation or distortion on 808s and subs, common among the producers interviewed; the lowest band driven far less (a split near 123 Hz) (Jackson 2016; Attack Magazine 2017); colour (*documented*): a reese bass distorted or folded (drum and bass, techno) (Attack Magazine 2020; Attack Magazine 2014a).
+- **Drums.** Colour (*documented*): the kick saturated or taped (house, techno); the drum group through a saturator (drum and bass); tape as a finish (Attack Magazine 2014b; Attack Magazine; Attack Magazine 2015b; Attack Magazine 2012); lo-fi (*documented*): one open hat very slightly bitcrushed (house); a bitcrushed ride (drum and bass) (Attack Magazine 2014b; Attack Magazine 2012); dynamics (*documented*, techno): light drum-bus compression, tape to finish (Attack Magazine 2015b); space (*often*, synthwave): the gated-reverb snare, a common trick of 1980s dance music (Attack Magazine 2021; Computer Music / MusicRadar 2022); space (*documented*, drum and bass): the top layer of a three-layer snare in a subtle hall (Attack Magazine 2012); sound design (*documented*): a resonator with feedback giving a closed hi-hat a metallic ring (Godfrey 2011).
+- **Effect.** Modulation (*documented*): white noise through a resonant low-pass opening into the chorus: a sweep (Godfrey 2011).
+
+<!-- /treatments -->
+
 ## Sources
 
 - Ableton. *Learning Music*, [Tempo and genre](https://learningmusic.ableton.com/make-beats/tempo-and-genre.html),
@@ -495,3 +509,25 @@ and timbre complex. `electronic/idm`
   [Ambient music](https://en.wikipedia.org/wiki/Ambient_music),
   [Intelligent dance music](https://en.wikipedia.org/wiki/Intelligent_dance_music).
 - Zeiner-Henriksen, H. T. (2010): in [electronic.md](electronic.md).
+- Attack Magazine (2023). [Make Detuned Festival Leads With Ableton Drift](https://www.attackmagazine.com/technique/synth-secrets/detuned-festival-leads-with-ableton-drift/).
+- Wiffen, P. (1999). [Synth FX: Part 1](https://www.soundonsound.com/node/4924598). *Sound On Sound*, Mar 1999.
+- Attack Magazine (2015). [Sylenth Supersaw](https://www.attackmagazine.com/technique/synth-secrets/sylenth-supersaw/).
+- Esen, A. (2023). [Pitch-Bending Chord Stabs With Ableton's Drift](https://www.attackmagazine.com/technique/synth-secrets/pitch-bending-chord-stabs-with-ableton-drift/). *Attack Magazine*.
+- Price, S. (2005). [Granular Synthesis](https://www.soundonsound.com/techniques/granular-synthesis). *Sound On Sound*, Dec 2005.
+- Douglas, A. (2021). [Adding Atmosphere With Delay And Reverb](https://www.attackmagazine.com/technique/tutorials/adding-atmosphere-with-delay-and-reverb/). *Attack Magazine*.
+- Holder, C. (1997). [Autechre](https://www.soundonsound.com/people/autechre-techno-logical). *Sound On Sound*, Nov 1997.
+- Tingen, P. (2022). [Inside Track: David Guetta & Bebe Rexha 'I'm Good (Blue)'](https://www.soundonsound.com/techniques/inside-track-david-guetta-bebe-rexha-good-blue). *Sound On Sound*, Nov 2022.
+- Jenkins, P. (2010). [Dubstep Basics](https://www.soundonsound.com/techniques/dubstep-basics). *Sound On Sound*, Jul 2010.
+- Jackson, G. (2016). [Modern Approaches: Processing Bass](https://daily.redbullmusicacademy.com/2016/02/modern-approaches-processing-bass/). *Red Bull Music Academy* Daily, 3 Feb 2016.
+- Aisher, B. (2015). [Low-End Theory: Exploring Eight Common Bassline Styles](https://www.attackmagazine.com/technique/tutorials/low-end-theory-exploring-eight-common-bassline-styles/). *Attack Magazine*.
+- Houghton, M. (2008). [Side-chaining](https://www.soundonsound.com/techniques/side-chaining). *Sound On Sound*, Feb 2008.
+- Attack Magazine (2017). [808 Bass with Saturation](https://www.attackmagazine.com/technique/synth-secrets/808-bass-with-saturation/).
+- Attack Magazine (2020). [Techno Reese Bass with Massive X](https://www.attackmagazine.com/technique/synth-secrets/techno-reese-bass-with-massive-x/).
+- Attack Magazine (2014). [Reese Bass Redux](https://www.attackmagazine.com/technique/tutorials/reese-bass-redux/).
+- Attack Magazine (2014). [Beat Dissected (slug big-room-house; house layering)](https://www.attackmagazine.com/technique/beat-dissected/big-room-house/).
+- Attack Magazine. Beat Dissected: Punchy House (date uncertain). https://www.attackmagazine.com/technique/beat-dissected/punchy-house/
+- Attack Magazine (2015). [Grinding Analogue Techno](https://www.attackmagazine.com/technique/beat-dissected/grinding-analogue-techno/).
+- Attack Magazine (2012). [Drum Programming: Raw Drum & Bass](https://www.attackmagazine.com/technique/beat-dissected/raw-drum-bass/).
+- Attack Magazine (2021). [How To Get Big '80s Drums](https://www.attackmagazine.com/technique/tutorials/how-to-get-big-80s-drums/).
+- Computer Music / MusicRadar (2022). [How to get the 80s synth pop sound](https://www.musicradar.com/how-to/6-ways-to-recreate-the-sound-of-80s-synth-pop).
+- Godfrey, J. (2011). [Creative Sound Design For Music](https://www.soundonsound.com/techniques/creative-sound-design-music). *Sound On Sound*, Jul 2011.

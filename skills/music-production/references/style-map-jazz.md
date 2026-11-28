@@ -227,6 +227,19 @@ by the backing voices. `jazz/soul`
   live instruments rather than samples (WP Neo soul).
 - **Neighbours**: Funk; Blues; `pop/ballad`.
 
+<!-- treatments, written from style-maps.json -->
+## Treatments by role
+
+What published sources document of this family's processing, by a part's role (`treatments` in style-maps.json; `studio.py effects --role <role> --style <entry>` lists the tools, these first). *Usual*: a convention two sources or more corroborate, one saying it is the rule or nearly; *often*: a source speaks of its frequency; *documented*: one session, one engineer's practice or a tutorial. Each says what it was applied to: an entry about one instrument says nothing of the role's others. An entry that holds for some entries of the family names them. Every one was checked against its page ([processing.md](processing.md#choosing-a-parts-treatment)).
+
+- **Melody.** Little or no dynamics (*documented*): a quartet recorded with no compressor, its gain ridden by hand (Villez 1994); space (*documented*): a very small hall on the saxophone (Villez 1994).
+- **Harmony.** Dynamics (*documented*): modest compression on the piano (Robjohns 2003).
+- **Rhythm.** Dynamics (*documented*, funk): funk guitar compressed before its EQ (heavily on a funk lead) (White 1996).
+- **Bass.** Dynamics (*documented*): the DI bass compressed (one engineer usually finds it necessary) (Robjohns 2003); correction (*documented*, funk): funk bass round with little top, a slight lift near 5-6 kHz for fingerpicking (Ortiz and Ortiz 1993).
+- **Drums.** Dynamics (*documented*): a trio's kit: parallel compression and reverb, its stick noise tamed with multiband compression (Senior 2008).
+
+<!-- /treatments -->
+
 ## Sources
 
 - Christodoulou, C. (2020), quoting Danielsen, A. (2006, *Presence and Pleasure*, p. 164): in
@@ -246,3 +259,8 @@ by the backing voices. `jazz/soul`
   [Funk](https://en.wikipedia.org/wiki/Funk), [Soul music](https://en.wikipedia.org/wiki/Soul_music),
   [Neo soul](https://en.wikipedia.org/wiki/Neo_soul), [Afrobeat](https://en.wikipedia.org/wiki/Afrobeat); read 6 November: [Blues](https://en.wikipedia.org/wiki/Blues),
   [Twelve-bar blues](https://en.wikipedia.org/wiki/Twelve-bar_blues).
+- Villez, P. (1994). [Recording A Jazz Quartet On A Budget](https://www.soundonsound.com/techniques/recording-jazz-quartet-budget). *Sound On Sound*, Sep 1994.
+- Robjohns, H. (2003). [Recording A Jazz Band On Location: Part 1](https://www.soundonsound.com/techniques/recording-jazz-band-location-part-1). *Sound On Sound*, Jul 2003.
+- White, P. (1996). [Producing & Recording Electric Guitar Styles](https://www.soundonsound.com/node/4925459). *Sound On Sound*, November 1996.
+- Ortiz, J., Ortiz, P. (1993). [Making Classic Funk](https://www.muzines.co.uk/articles/funky-stuff/10715). *Sound On Sound*, September 1993.
+- Senior, M. (2008). [Mix Rescue: Jazz-Trio](https://www.soundonsound.com/techniques/mix-rescue-jazz-trio-audio-files). *Sound On Sound*, Apr 2008.

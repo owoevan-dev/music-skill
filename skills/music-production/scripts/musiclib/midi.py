@@ -3,7 +3,7 @@ from collections import Counter, defaultdict, deque
 from pathlib import Path
 import struct
 from . import files, variation
-from .model import Clock, TPQ, performed, cc_events, bend_curve, bend_events, legato_notes, wheel_events
+from .played import Clock, TPQ, performed, cc_events, bend_curve, bend_events, legato_notes, wheel_events
 
 def vlq(n):
     if not 0<=n<=0x0fffffff:raise ValueError('VLQ range')

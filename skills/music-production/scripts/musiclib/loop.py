@@ -30,7 +30,7 @@ from pathlib import Path
 import numpy as np
 
 from . import audio, files, measure
-from .model import TPQ, kit_patch, save_json, sounded
+from .played import TPQ, kit_patch, save_json, sounded
 
 BEFORE, AFTER = 5.0, 1.0
 NAMES = ('C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B')

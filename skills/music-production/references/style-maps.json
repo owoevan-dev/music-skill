@@ -1,5 +1,5 @@
 {
- "note": "The machine-readable side of the style maps (style-maps.md): the axes a style is described on, the limits review uses for each of its checks with where each comes from, and the map entries a project's `style` may name. An entry's checks override the defaults for the checks on the axes it governs. 'ours' marks a number this project set itself (on its early agent pieces), not a number from a source; per the project's rule a limit is never set on agent pieces again, only from the literature or measured on professional work. A family's or entry's `published_mix` is the published long-term spectrum measurement `analyze` sets the master beside (Pestana et al. 2013's slope over 100 Hz-10 kHz); an entry's replaces its family's, and `borrowed` or `why_none` says why one is lent or absent. An entry's `tempo_bpm` is the tempo range its source gives (its map's tempo cell); `review` asks about a piece whose main tempo lies outside it, a half- or double-time reading counting as inside.",
+ "note": "The machine-readable side of the style maps (style-maps.md): the axes a style is described on, the limits review uses for each of its checks with where each comes from, and the map entries a project's `style` may name. An entry's checks override the defaults for the checks on the axes it governs. 'ours' marks a number this project set itself (on its early agent pieces), not a number from a source; per the project's rule a limit is never set on agent pieces again, only from the literature or measured on professional work. A family's or entry's `published_mix` is the published long-term spectrum measurement `analyze` sets the master beside (Pestana et al. 2013's slope over 100 Hz-10 kHz); an entry's replaces its family's, and `borrowed` or `why_none` says why one is lent or absent. An entry's `tempo_bpm` is the tempo range its source gives (its map's tempo cell); `review` asks about a piece whose main tempo lies outside it, a half- or double-time reading counting as inside. A family's `treatments` (0.11) are, by a part's role, the kinds of treatment a published source documents: each with the processing catalog's tools that do it (references/processing-catalog.json), `how` (usual: a corroborated defining convention; often: a source speaks of its frequency; documented: a session or a tutorial), its context, its source (a key of research/effects-0.11's literature notes, cited in the family's map) and `styles` where it holds for some entries only; `none` where the source says the role takes little or none of the kind.",
  "axes": [
   "tempo",
   "harmony",
@@ -106,6 +106,15 @@
    "origin": "ours",
    "what": "chord parts struck and released as one block"
   },
+  "unchanging_part": {
+   "axis": "form",
+   "params": {
+    "share": 0.9
+   },
+   "ask": false,
+   "origin": "ours",
+   "what": "a rhythm or harmony part keeping one bar rhythm, and one chord shape where at least half its attacks are chords, over the share of its bars and chords in every section of 4 bars or more in which it attacks in 3 bars of 4, two such sections or more (views.accompaniment); asked where the entry governing the form says its sections differ in texture, or where the plan says a section differs from the one before"
+  },
   "pushes": {
    "axis": "rhythm",
    "params": {},
@@ -172,6 +181,15 @@
    "origin": "source",
    "source": "the tempo ranges the entries' sources give (their maps' tempo cells, `tempo_bpm`); reading half and double time as inside is ours",
    "what": "the piece's main tempo outside the range its style entry's source gives"
+  },
+  "treatment_part": {
+   "axis": "mix",
+   "params": {
+    "how": "usual"
+   },
+   "ask": false,
+   "origin": "ours",
+   "what": "a part whose role the map of the style governing the mix documents a kind of treatment for as usual (its `treatments`), while its mix holds no tool of that kind (views.treatment); asked of no family until a rule passes calibration on the 28 projects and paired cases (research/effects-0.11/calibration-treatment.md; Astra's review d011b, point 8): an entry may concern one instrument of the role, as an electric piano's tremolo does"
   }
  },
  "families": {
@@ -183,6 +201,124 @@
      "origin": "source",
      "source": "Tan, Lustig and Temperley 2019 measured pushes in rock melodies; none of the family's sources describes anticipatory pushes (style-map-orchestral.md)"
     }
+   },
+   "treatments": {
+    "harmony": [
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "sample mock-ups: every part sent to one shared reverb, the samplers' own reverb off, as a first approach",
+      "source": "scoring:S9",
+      "also": [
+       "scoring:S1"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [],
+      "how": "often",
+      "context": "other processing typically minimal: gentle control of loud peaks at most (1.5:1 on the bus on one record)",
+      "source": "scoring:S4",
+      "also": [
+       "scoring:S6"
+      ],
+      "none": true
+     },
+     {
+      "kind": "correction",
+      "tools": [
+       "mix.eq"
+      ],
+      "how": "documented",
+      "context": "EQ a last resort, in small moves; a cut near 900 Hz on boxy violins (recorded players)",
+      "source": "scoring:S4",
+      "also": [
+       "scoring:S10"
+      ]
+     },
+     {
+      "kind": "modulation",
+      "tools": [],
+      "how": "documented",
+      "context": "chorus made strings sound artificial and did little for woodwind (a subtle chorus worked on brass)",
+      "source": "scoring:S10",
+      "none": true
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "strings in a live room, reverb about 1.5-2.5 s (up to 4 s for a swimmy sound)",
+      "source": "scoring:S6",
+      "also": [
+       "scoring:S4"
+      ]
+     }
+    ],
+    "melody": [
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "sample mock-ups: every part sent to one shared reverb, the samplers' own reverb off, as a first approach",
+      "source": "scoring:S9",
+      "also": [
+       "scoring:S1"
+      ]
+     }
+    ],
+    "rhythm": [
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "more reverb on the rear sections (percussion, brass), less on the front",
+      "source": "scoring:S2",
+      "also": [
+       "scoring:S10"
+      ]
+     }
+    ],
+    "texture": [
+     {
+      "kind": "colour",
+      "tools": [
+       "mix.saturate",
+       "surge_fx.distortion"
+      ],
+      "how": "documented",
+      "context": "saturation and overdrive on single parts (an electric cello)",
+      "source": "scoring:S11",
+      "styles": [
+       "orchestral/cinematic"
+      ]
+     },
+     {
+      "kind": "sound design",
+      "tools": [
+       "surge_fx.resonator",
+       "surge_fx.nimbus"
+      ],
+      "how": "documented",
+      "context": "synths through resonators (Dune); granular plug-ins (another score)",
+      "source": "scoring:S12",
+      "also": [
+       "scoring:S11"
+      ],
+      "styles": [
+       "orchestral/cinematic"
+      ]
+     }
+    ]
    }
   },
   "horror": {
@@ -208,6 +344,21 @@
      "origin": "source",
      "source": "Tan, Lustig and Temperley 2019 measured pushes in rock melodies; none of the family's sources describes them (style-map-horror.md)"
     }
+   },
+   "treatments": {
+    "texture": [
+     {
+      "kind": "sound design",
+      "tools": [
+       "surge_fx.nimbus",
+       "surge_fx.distortion",
+       "surge_fx.reverb_2"
+      ],
+      "how": "documented",
+      "context": "recordings broken into granular pieces, distorted and stretched into large reverbs (The Callisto Protocol)",
+      "source": "scoring:S15"
+     }
+    ]
    }
   },
   "electronic": {
@@ -223,6 +374,271 @@
     "genre": "electronic",
     "slope": -0.746,
     "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged electronic"
+   },
+   "treatments": {
+    "drums": [
+     {
+      "kind": "colour",
+      "tools": [
+       "mix.saturate",
+       "surge_fx.tape",
+       "airwindows.ToTape6"
+      ],
+      "how": "documented",
+      "context": "the kick saturated or taped (house, techno); the drum group through a saturator (drum and bass); tape as a finish",
+      "source": "electronic:S9",
+      "also": [
+       "electronic:S9b",
+       "electronic:S10",
+       "electronic:S18"
+      ]
+     },
+     {
+      "kind": "lo-fi",
+      "tools": [
+       "effects.bitcrush"
+      ],
+      "how": "documented",
+      "context": "one open hat very slightly bitcrushed (house); a bitcrushed ride (drum and bass)",
+      "source": "electronic:S9",
+      "also": [
+       "electronic:S18"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "light drum-bus compression, tape to finish",
+      "source": "electronic:S10",
+      "styles": [
+       "electronic/techno"
+      ]
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "kit.gated_reverb"
+      ],
+      "how": "often",
+      "context": "the gated-reverb snare, a common trick of 1980s dance music",
+      "source": "electronic:S3",
+      "also": [
+       "electronic:S22"
+      ],
+      "styles": [
+       "electronic/synthwave"
+      ]
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "the top layer of a three-layer snare in a subtle hall",
+      "source": "electronic:S18",
+      "styles": [
+       "electronic/drum-and-bass"
+      ]
+     },
+     {
+      "kind": "sound design",
+      "tools": [
+       "surge_fx.resonator"
+      ],
+      "how": "documented",
+      "context": "a resonator with feedback giving a closed hi-hat a metallic ring",
+      "source": "electronic:S27"
+     }
+    ],
+    "bass": [
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.duck"
+      ],
+      "how": "usual",
+      "context": "the bass ducked in time with the beat (sidechain): pumping is almost universal in French house and EDM, the bass among the parts most ducked; keyed by the kick or a steady pulse",
+      "source": "electronic:S1",
+      "also": [
+       "electronic:S11",
+       "electronic:S8"
+      ],
+      "styles": [
+       "electronic/house",
+       "electronic/festival-edm"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.duck"
+      ],
+      "how": "often",
+      "context": "the sub-bass ducked by the kick, quite popular in dance music",
+      "source": "electronic:S5",
+      "styles": [
+       "electronic/dubstep"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.duck"
+      ],
+      "how": "documented",
+      "context": "an off-beat bass pumping from the kick",
+      "source": "electronic:S13",
+      "styles": [
+       "electronic/trance"
+      ]
+     },
+     {
+      "kind": "colour",
+      "tools": [
+       "mix.saturate",
+       "airwindows.BassDrive",
+       "surge_fx.distortion"
+      ],
+      "how": "often",
+      "context": "saturation or distortion on 808s and subs, common among the producers interviewed; the lowest band driven far less (a split near 123 Hz)",
+      "source": "electronic:S11",
+      "also": [
+       "electronic:S16"
+      ]
+     },
+     {
+      "kind": "colour",
+      "tools": [
+       "surge_fx.distortion",
+       "surge_fx.waveshaper",
+       "airwindows.Fracture"
+      ],
+      "how": "documented",
+      "context": "a reese bass distorted or folded (drum and bass, techno)",
+      "source": "electronic:S25",
+      "also": [
+       "electronic:S2"
+      ]
+     }
+    ],
+    "harmony": [
+     {
+      "kind": "modulation",
+      "tools": [
+       "surge_fx.chorus",
+       "effects.chorus"
+      ],
+      "how": "documented",
+      "context": "chorus on 1980s polysynth sounds: most of one synth's patches (the Elka Synthex); string synths with it built in",
+      "source": "electronic:S23",
+      "styles": [
+       "electronic/synthwave"
+      ]
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send",
+       "surge_fx.reverb_2"
+      ],
+      "how": "documented",
+      "context": "supersaw chords through a reverb at half its size; pitch-bent stabs in a little reverb (5 % wet)",
+      "source": "electronic:S12",
+      "also": [
+       "electronic:S26"
+      ]
+     }
+    ],
+    "melody": [
+     {
+      "kind": "delay",
+      "tools": [
+       "mix.delay",
+       "surge_fx.delay"
+      ],
+      "how": "documented",
+      "context": "a festival lead with a delay (feedback about 40 %, mix about 30 %)",
+      "source": "electronic:S20",
+      "styles": [
+       "electronic/festival-edm"
+      ]
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send",
+       "surge_fx.reverb_2"
+      ],
+      "how": "documented",
+      "context": "the festival lead in a long reverb (about 3.6 s)",
+      "source": "electronic:S20",
+      "styles": [
+       "electronic/festival-edm"
+      ]
+     },
+     {
+      "kind": "modulation",
+      "tools": [
+       "surge_fx.ensemble",
+       "surge_fx.chorus"
+      ],
+      "how": "documented",
+      "context": "the festival lead with a little chorus-ensemble (about 20 %)",
+      "source": "electronic:S20",
+      "styles": [
+       "electronic/festival-edm"
+      ]
+     }
+    ],
+    "texture": [
+     {
+      "kind": "sound design",
+      "tools": [
+       "surge_fx.nimbus"
+      ],
+      "how": "documented",
+      "context": "granular processing: grains of about 10-100 ms, dense, their position modulated",
+      "source": "electronic:S6"
+     },
+     {
+      "kind": "delay",
+      "tools": [
+       "mix.delay",
+       "surge_fx.delay"
+      ],
+      "how": "documented",
+      "context": "an arpeggio through a delay, then a reverb; a kalimba through a tape delay",
+      "source": "electronic:S24"
+     },
+     {
+      "kind": "sound design",
+      "tools": [
+       "surge_fx.ring_modulator",
+       "surge_fx.flanger"
+      ],
+      "how": "documented",
+      "context": "ring modulation, flanging and delay from a modified Casio (Autechre)",
+      "source": "electronic:S14",
+      "styles": [
+       "electronic/idm"
+      ]
+     }
+    ],
+    "effect": [
+     {
+      "kind": "modulation",
+      "tools": [
+       "mix.filter_sweep"
+      ],
+      "how": "documented",
+      "context": "white noise through a resonant low-pass opening into the chorus: a sweep",
+      "source": "electronic:S27"
+     }
+    ]
    }
   },
   "jpop": {
@@ -232,6 +648,13 @@
     "slope": -0.943,
     "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged pop",
     "borrowed": "no spectrum of J-pop read; the nearest published measurement"
+   },
+   "checks": {
+    "unchanging_part": {
+     "ask": true,
+     "origin": "source",
+     "source": "Summach 2012, in Open Music Theory (Hughes and Lavengood, Verse-Chorus Form): the chorus more intense than the verse, a fuller or busier texture; Koozin 2011, Music Theory Online 17(3), paragraphs 15-16: a rhythm guitar's voicing changes between verse and chorus, open-string chords in one and barre or power chords in the other"
+    }
    }
   },
   "pop": {
@@ -240,6 +663,184 @@
     "genre": "pop",
     "slope": -0.943,
     "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged pop"
+   },
+   "checks": {
+    "unchanging_part": {
+     "ask": true,
+     "origin": "source",
+     "source": "Summach 2012, in Open Music Theory (Hughes and Lavengood, Verse-Chorus Form): the chorus more intense than the verse, a fuller or busier texture; Koozin 2011, Music Theory Online 17(3), paragraphs 15-16: a rhythm guitar's voicing changes between verse and chorus, open-string chords in one and barre or power chords in the other"
+    }
+   },
+   "treatments": {
+    "harmony": [
+     {
+      "kind": "modulation",
+      "tools": [
+       "effects.tremolo",
+       "mix.auto_pan"
+      ],
+      "how": "usual",
+      "context": "an electric piano's tremolo, panning side to side in stereo: by far its most common stereo effect, almost synonymous with it",
+      "source": "pop:1",
+      "also": [
+       "pop:2",
+       "pop:3"
+      ]
+     },
+     {
+      "kind": "modulation",
+      "tools": [
+       "effects.phaser",
+       "surge_fx.phaser"
+      ],
+      "how": "often",
+      "context": "a phaser on the electric piano, widely used; often heard on slower songs and ballads from the later 1970s",
+      "source": "pop:2",
+      "also": [
+       "pop:3"
+      ]
+     },
+     {
+      "kind": "modulation",
+      "tools": [
+       "effects.chorus",
+       "surge_fx.chorus"
+      ],
+      "how": "often",
+      "context": "chorus on the electric piano, commonly applied, after the phaser had been",
+      "source": "pop:1",
+      "also": [
+       "pop:2",
+       "pop:3"
+      ]
+     },
+     {
+      "kind": "colour",
+      "tools": [
+       "surge_fx.exciter"
+      ],
+      "how": "documented",
+      "context": "an exciter to give a dull electric piano some top, with care",
+      "source": "pop:14"
+     },
+     {
+      "kind": "modulation",
+      "tools": [
+       "surge_fx.ensemble",
+       "effects.chorus"
+      ],
+      "how": "documented",
+      "context": "an ensemble chorus, which defined one string machine (the RS202)",
+      "source": "kinds:S21"
+     },
+     {
+      "kind": "modulation",
+      "tools": [
+       "effects.chorus",
+       "surge_fx.chorus"
+      ],
+      "how": "documented",
+      "context": "chorus on backdrop parts such as pads, kept shallow and slow so that they do not recede too far",
+      "source": "pop:4"
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "a hall on the piano",
+      "source": "pop:16",
+      "styles": [
+       "pop/ballad"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "the piano at 1.2:1 with a soft knee, 2-5 dB on chords, for sustain",
+      "source": "pop:16",
+      "styles": [
+       "pop/ballad"
+      ]
+     }
+    ],
+    "rhythm": [
+     {
+      "kind": "correction",
+      "tools": [
+       "mix.highpass",
+       "mix.eq"
+      ],
+      "how": "documented",
+      "context": "Nile Rodgers' guitar high-passed at 160 Hz and cut at 220 Hz to leave the bass room, its treble lifted (Chic, Le Freak)",
+      "source": "pop:11",
+      "styles": [
+       "pop/disco"
+      ]
+     }
+    ],
+    "drums": [
+     {
+      "kind": "space",
+      "tools": [
+       "kit.gated_reverb"
+      ],
+      "how": "documented",
+      "context": "gated reverb on the drums, a classic sound (Phil Collins, Peter Gabriel); Hugh Padgham's own route",
+      "source": "pop:5",
+      "also": [
+       "pop:6"
+      ]
+     },
+     {
+      "kind": "delay",
+      "tools": [
+       "mix.delay"
+      ],
+      "how": "documented",
+      "context": "a drum machine given a short digital delay instead of a reverb, which can muddy it (Hugh Padgham)",
+      "source": "pop:6"
+     },
+     {
+      "kind": "colour",
+      "tools": [
+       "surge_fx.exciter"
+      ],
+      "how": "documented",
+      "context": "a touch of excitement on close-miked drums and cymbals",
+      "source": "pop:14",
+      "also": [
+       "pop:15"
+      ]
+     }
+    ],
+    "bass": [
+     {
+      "kind": "colour",
+      "tools": [
+       "surge_fx.exciter"
+      ],
+      "how": "documented",
+      "context": "an enhancer adding the top that a miked bass lacks",
+      "source": "pop:15"
+     }
+    ],
+    "melody": [
+     {
+      "kind": "delay",
+      "tools": [
+       "mix.delay",
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "saxophone parts through a delay and a digital reverb (ABC)",
+      "source": "pop:7"
+     }
+    ]
    }
   },
   "rock": {
@@ -249,12 +850,412 @@
      "ask": false,
      "origin": "source",
      "source": "Herbst 2019 and Lilja 2015: distorted guitars play power chords, which move in parallel fifths; Wikipedia, Doom metal: guitars and bass on the same riff, \"the usual heavy metal compositional technique\" (read 9 November 2026)"
+    },
+    "unchanging_part": {
+     "ask": true,
+     "origin": "source",
+     "source": "Summach 2012, in Open Music Theory (Hughes and Lavengood, Verse-Chorus Form): the chorus more intense than the verse, a fuller or busier texture; Koozin 2011, Music Theory Online 17(3), paragraphs 15-16: a rhythm guitar's voicing changes between verse and chorus, open-string chords in one and barre or power chords in the other"
     }
    },
    "published_mix": {
     "genre": "rock",
     "slope": -0.979,
     "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged rock"
+   },
+   "treatments": {
+    "drums": [
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor",
+       "airwindows.Pressure4"
+      ],
+      "how": "documented",
+      "context": "the room microphones compressed (about 4:1, sometimes 2:1; hard in another mix); on a kit part, its compressor",
+      "source": "rock:S3",
+      "also": [
+       "rock:S4"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "parallel compression of the drums, blended back (6:1 at about 18 dB on the kick, snare and toms)",
+      "source": "rock:S6",
+      "also": [
+       "rock:S2"
+      ]
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "kit.gated_reverb"
+      ],
+      "how": "documented",
+      "context": "a room gated open by the snare (one song); gated reverb on the drums, a classic sound (Phil Collins, Peter Gabriel)",
+      "source": "rock:S2",
+      "also": [
+       "rock:S12"
+      ]
+     },
+     {
+      "kind": "colour",
+      "tools": [
+       "surge_fx.tape",
+       "airwindows.ToTape6",
+       "mix.saturate"
+      ],
+      "how": "documented",
+      "context": "the drums recorded to tape at 30 ips; tape on the snare and tom buses for body and warmth",
+      "source": "rock:S3",
+      "also": [
+       "rock:S6"
+      ]
+     },
+     {
+      "kind": "space",
+      "tools": [],
+      "how": "documented",
+      "context": "a dry record overall, at the band's wish (a little reverb added in the final mix; Green Day, Dookie)",
+      "source": "rock:S9",
+      "styles": [
+       "rock/punk"
+      ],
+      "none": true
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "a short plate on the snare (about 500-800 ms, 7-11 ms pre-delay) as a general guide; one or two reverbs in all",
+      "source": "rock:S5",
+      "styles": [
+       "rock/heavy-metal",
+       "rock/thrash",
+       "rock/power-metal",
+       "rock/extreme-metal",
+       "rock/doom",
+       "rock/metalcore",
+       "rock/nu-metal"
+      ]
+     }
+    ],
+    "rhythm": [
+     {
+      "kind": "space",
+      "tools": [],
+      "how": "documented",
+      "context": "a dry record overall, at the band's wish (a little reverb added in the final mix; Green Day, Dookie)",
+      "source": "rock:S9",
+      "styles": [
+       "rock/punk"
+      ],
+      "none": true
+     },
+     {
+      "kind": "space",
+      "tools": [],
+      "how": "documented",
+      "context": "electric guitars kept out of the reverb (one song); a whole mix kept very dry (another)",
+      "source": "rock:S2",
+      "also": [
+       "rock:S3"
+      ],
+      "none": true
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "an 1176-type compressor on the guitars (per track; on a submix in one song)",
+      "source": "rock:S4",
+      "also": [
+       "rock:S2"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [],
+      "how": "often",
+      "context": "distorted rhythm guitars left uncompressed by many producers: the distortion already restricts their range",
+      "source": "rock:S6",
+      "also": [
+       "rock:S5"
+      ],
+      "styles": [
+       "rock/heavy-metal",
+       "rock/thrash",
+       "rock/power-metal",
+       "rock/extreme-metal",
+       "rock/doom",
+       "rock/metalcore",
+       "rock/nu-metal"
+      ],
+      "none": true
+     },
+     {
+      "kind": "delay",
+      "tools": [
+       "mix.delay"
+      ],
+      "how": "documented",
+      "context": "filtered sixteenth-note delays and quarter and eighth echoes panned left and right",
+      "source": "rock:S4"
+     },
+     {
+      "kind": "modulation",
+      "tools": [
+       "effects.tremolo"
+      ],
+      "how": "documented",
+      "context": "a tremolo on one guitar track",
+      "source": "rock:S4"
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "surge_fx.spring_reverb"
+      ],
+      "how": "documented",
+      "context": "a spring reverb on the guitars, with heavy compression and a delay across two amps",
+      "source": "rock:S4"
+     },
+     {
+      "kind": "modulation",
+      "tools": [
+       "effects.flanger",
+       "surge_fx.flanger",
+       "effects.chorus"
+      ],
+      "how": "documented",
+      "context": "an Electric Mistress set nearer chorus than flange: a bright, glassy guitar (Andy Summers)",
+      "source": "rock:S11"
+     },
+     {
+      "kind": "colour",
+      "tools": [
+       "surge_fx.tape",
+       "airwindows.ToTape6"
+      ],
+      "how": "documented",
+      "context": "tape emulation at 30 ips on the guitars for warmth and cohesion",
+      "source": "rock:S6",
+      "styles": [
+       "rock/heavy-metal",
+       "rock/thrash",
+       "rock/power-metal",
+       "rock/extreme-metal",
+       "rock/doom",
+       "rock/metalcore",
+       "rock/nu-metal"
+      ]
+     },
+     {
+      "kind": "correction",
+      "tools": [
+       "mix.highpass",
+       "mix.eq",
+       "mix.lowpass"
+      ],
+      "how": "documented",
+      "context": "a high-pass by the tuning (65-105 Hz) and a cut near 250 Hz; on the bus a high-pass near 85 Hz and a low-pass near 7.5 kHz",
+      "source": "rock:S5",
+      "also": [
+       "rock:S6"
+      ],
+      "styles": [
+       "rock/heavy-metal",
+       "rock/thrash",
+       "rock/power-metal",
+       "rock/extreme-metal",
+       "rock/doom",
+       "rock/metalcore",
+       "rock/nu-metal"
+      ]
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send",
+       "surge_fx.reverb_1"
+      ],
+      "how": "often",
+      "context": "heavy reverb on a clean-ish, big guitar tone, typically (the source names no kind of reverb)",
+      "source": "rock:S16",
+      "styles": [
+       "rock/surf"
+      ]
+     },
+     {
+      "kind": "modulation",
+      "tools": [
+       "effects.tremolo"
+      ],
+      "how": "often",
+      "context": "tremolo, common on surf guitar",
+      "source": "rock:S16",
+      "styles": [
+       "rock/surf"
+      ]
+     },
+     {
+      "kind": "modulation",
+      "tools": [
+       "effects.tremolo"
+      ],
+      "how": "documented",
+      "context": "two amps' tremolos at different rates for one riff (Only Shallow)",
+      "source": "rock:S7",
+      "styles": [
+       "rock/shoegaze"
+      ]
+     },
+     {
+      "kind": "colour",
+      "tools": [
+       "mix.amp",
+       "airwindows.Drive"
+      ],
+      "how": "documented",
+      "context": "distortion from effects fed into a Marshall and from overdriven microphones",
+      "source": "rock:S7",
+      "styles": [
+       "rock/shoegaze"
+      ]
+     }
+    ],
+    "bass": [
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor",
+       "airwindows.Pressure4",
+       "airwindows.VariMu"
+      ],
+      "how": "often",
+      "context": "4:1 or more, commonplace in chart mixes; in metal two compressors in series, 8:1 or 10:1 often needed",
+      "source": "rock:S13",
+      "also": [
+       "rock:S5"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.duck"
+      ],
+      "how": "often",
+      "context": "the bass ducked on each kick, rarely by more than 2-3 dB: a well-known workhorse technique",
+      "source": "rock:S13"
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "a dbx 160A on the bass in Japanese rock (Soichiro Nakamura)",
+      "source": "rock:S15"
+     },
+     {
+      "kind": "colour",
+      "tools": [
+       "mix.amp",
+       "mix.saturate",
+       "airwindows.BassDrive"
+      ],
+      "how": "documented",
+      "context": "distortion in parallel, heavily EQed; in metal a distorted channel band-limited (about 250-400 Hz to 2-5 kHz)",
+      "source": "rock:S13",
+      "also": [
+       "rock:S4",
+       "rock:S5"
+      ]
+     },
+     {
+      "kind": "correction",
+      "tools": [
+       "mix.eq"
+      ],
+      "how": "often",
+      "context": "the 1 kHz area brought out for definition, frequently in rock and metal",
+      "source": "rock:S13"
+     },
+     {
+      "kind": "colour",
+      "tools": [
+       "mix.saturate",
+       "airwindows.Drive"
+      ],
+      "how": "documented",
+      "context": "a fuzz pedal on the bass (My Bloody Valentine, Only Shallow)",
+      "source": "rock:S7",
+      "styles": [
+       "rock/shoegaze"
+      ]
+     }
+    ],
+    "melody": [
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "guitar solos compressed about 6 dB",
+      "source": "rock:S6",
+      "styles": [
+       "rock/heavy-metal",
+       "rock/thrash",
+       "rock/power-metal",
+       "rock/extreme-metal",
+       "rock/doom",
+       "rock/metalcore",
+       "rock/nu-metal"
+      ]
+     }
+    ],
+    "harmony": [
+     {
+      "kind": "modulation",
+      "tools": [
+       "surge_fx.rotary_speaker"
+      ],
+      "how": "documented",
+      "context": "a Hammond organ through a Leslie, miked at its horn and its drum",
+      "source": "rock:S1",
+      "also": [
+       "rock:S8"
+      ]
+     },
+     {
+      "kind": "lo-fi",
+      "tools": [
+       "effects.bitcrush",
+       "airwindows.DeRez2"
+      ],
+      "how": "documented",
+      "context": "a hook keyboard through a lo-fi plug-in",
+      "source": "rock:S3"
+     },
+     {
+      "kind": "delay",
+      "tools": [
+       "mix.delay",
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "synths with an octave-up delay and a stone-room reverb",
+      "source": "rock:S4"
+     }
+    ]
    }
   },
   "beats": {
@@ -282,6 +1283,167 @@
     "genre": "hip-hop",
     "slope": -0.814,
     "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged hip-hop"
+   },
+   "treatments": {
+    "drums": [
+     {
+      "kind": "colour",
+      "tools": [
+       "surge_fx.tape",
+       "airwindows.ToTape6",
+       "mix.saturate"
+      ],
+      "how": "documented",
+      "context": "kicks and snares recorded hot to tape (Dr Dre, 2001); tape-style saturation on a lo-fi drum bus",
+      "source": "beats:6",
+      "also": [
+       "beats:5"
+      ]
+     },
+     {
+      "kind": "lo-fi",
+      "tools": [
+       "effects.bitcrush",
+       "airwindows.DeRez2",
+       "airwindows.BitGlitter"
+      ],
+      "how": "documented",
+      "context": "the SP-1200's 26.04 kHz and the MPC60's 12 bits emulated; a decimator on a snare, sample-rate reduction on a hat loop",
+      "source": "beats:6",
+      "also": [
+       "beats:7",
+       "beats:5"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "a drum-bus processor on the drum group",
+      "source": "beats:8",
+      "styles": [
+       "beats/boom-bap"
+      ]
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "a hall on the clap",
+      "source": "beats:8",
+      "styles": [
+       "beats/boom-bap"
+      ]
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send",
+       "surge_fx.spring_reverb"
+      ],
+      "how": "documented",
+      "context": "a dark reverb with spring-like overtones on the drum machine",
+      "source": "beats:5",
+      "styles": [
+       "beats/lo-fi"
+      ]
+     }
+    ],
+    "harmony": [
+     {
+      "kind": "correction",
+      "tools": [
+       "mix.highpass",
+       "mix.lowpass"
+      ],
+      "how": "documented",
+      "context": "the sample's low end rolled off and its top trimmed a little; a band-limited lo-fi channel beside it",
+      "source": "beats:8",
+      "also": [
+       "beats:4"
+      ]
+     },
+     {
+      "kind": "lo-fi",
+      "tools": [
+       "mix.wow_flutter"
+      ],
+      "how": "documented",
+      "context": "gentle wow and flutter, the slow pitch drift of worn tape",
+      "source": "beats:11",
+      "also": [
+       "beats:5"
+      ],
+      "styles": [
+       "beats/lo-fi"
+      ]
+     },
+     {
+      "kind": "modulation",
+      "tools": [
+       "effects.chorus",
+       "surge_fx.chorus"
+      ],
+      "how": "often",
+      "context": "chorus on Rhodes-style keys, particularly popular; on a glassy synth loop",
+      "source": "beats:11",
+      "also": [
+       "beats:5"
+      ],
+      "styles": [
+       "beats/lo-fi"
+      ]
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "a lo-fi reverb on the piano",
+      "source": "beats:4",
+      "styles": [
+       "beats/lo-fi"
+      ]
+     }
+    ],
+    "texture": [
+     {
+      "kind": "noise",
+      "tools": [
+       "airwindows.DustBunny",
+       "airwindows.TapeDust"
+      ],
+      "how": "documented",
+      "context": "a crackle or noise bed kept barely perceptible, pumped by the kick or gated between notes",
+      "source": "beats:5",
+      "also": [
+       "beats:4"
+      ],
+      "styles": [
+       "beats/lo-fi"
+      ]
+     }
+    ],
+    "bass": [
+     {
+      "kind": "colour",
+      "tools": [
+       "mix.saturate",
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "an 808 that a reviewer hears as heavily compressed and saturated, working as a bass note (Future, Mask Off)",
+      "source": "beats:14",
+      "styles": [
+       "beats/trap"
+      ]
+     }
+    ]
    }
   },
   "jazz": {
@@ -290,6 +1452,86 @@
     "genre": "jazz",
     "slope": -1.293,
     "source": "Pestana et al. 2013, Table 2: US and UK number-one singles 1950-2010 tagged jazz"
+   },
+   "treatments": {
+    "melody": [
+     {
+      "kind": "dynamics",
+      "tools": [],
+      "how": "documented",
+      "context": "a quartet recorded with no compressor, its gain ridden by hand",
+      "source": "beats:2",
+      "none": true
+     },
+     {
+      "kind": "space",
+      "tools": [
+       "mix.reverb_send"
+      ],
+      "how": "documented",
+      "context": "a very small hall on the saxophone",
+      "source": "beats:2"
+     }
+    ],
+    "bass": [
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "the DI bass compressed (one engineer usually finds it necessary)",
+      "source": "beats:3"
+     },
+     {
+      "kind": "correction",
+      "tools": [
+       "mix.eq"
+      ],
+      "how": "documented",
+      "context": "funk bass round with little top, a slight lift near 5-6 kHz for fingerpicking",
+      "source": "pop:13",
+      "styles": [
+       "jazz/funk"
+      ]
+     }
+    ],
+    "harmony": [
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "modest compression on the piano",
+      "source": "beats:3"
+     }
+    ],
+    "drums": [
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "a trio's kit: parallel compression and reverb, its stick noise tamed with multiband compression",
+      "source": "beats:20"
+     }
+    ],
+    "rhythm": [
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.compressor"
+      ],
+      "how": "documented",
+      "context": "funk guitar compressed before its EQ (heavily on a funk lead)",
+      "source": "pop:12",
+      "styles": [
+       "jazz/funk"
+      ]
+     }
+    ]
    }
   },
   "latin": {

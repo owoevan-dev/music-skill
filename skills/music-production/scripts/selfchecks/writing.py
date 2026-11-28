@@ -723,7 +723,15 @@ def define(S):
         text=(work/'forms_piece'/'compose.py').read_text(encoding='utf-8')
         assert "pad = song.part('pad', 'harmony', engine='surge', surge={'preset': 'factory/pads/bright'})" in text and \
                "lead = song.part('lead', 'melody', engine='synth', synth={'preset': 'warm_pad'})" in text,text
-        refused=((['pad harmony surge:factory/pads/brigt'],'the nearest: factory/pads/bright'),(['lead melody synth:warm_pda'],'the nearest: warm_pad'),
+        # a drum machine (0.11, the walkthrough of the second part: the electronic guides send drums to it), no configuration needed
+        r=start(work/'forms_machine','--title','M','--section','a:1','--part','beat drums drum_synth:909','--part','hats drums drum_synth')
+        assert r.returncode==0,r.stderr[-400:]
+        made=json.loads((work/'forms_machine'/'song.json').read_text(encoding='utf-8'));validate(made)
+        assert [(t['id'],t['engine'],t.get('kit'),t.get('drums'),[n['pitch'] for n in t['notes']]) for t in made['tracks']]==[
+            ('beat','drum_synth',{'style':'909'},True,[36]),('hats','drum_synth',None,True,[36])],made['tracks']
+        assert "beat = song.part('beat', 'drums', engine='drum_synth', kit={'style': '909'})" in (work/'forms_machine'/'compose.py').read_text(encoding='utf-8')
+        refused=((['beat drums drum_synth:707'],'a drum machine is drum_synth, drum_synth:808 or drum_synth:909'),
+                 (['pad harmony surge:factory/pads/brigt'],'the nearest: factory/pads/bright'),(['lead melody synth:warm_pda'],'the nearest: warm_pad'),
                  (['lead melody synth:nothing_like_it'],'No built-in synth preset'),(['x lead surge:juno_60_strings extra'],'is one word, with no space'),
                  (['v harmony soundfont:default:0:41'],'give --config'),(['v harmony viola'],'surge:<id>, synth:<preset>'),
                  (['p pad surge:juno_60_strings+glide=3'],'A Surge setting after a patch'))

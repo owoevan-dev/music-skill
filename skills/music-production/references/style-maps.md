@@ -87,6 +87,12 @@ literature distinguishes this way, no fixed number.
   `analyze` reports the master's slope beside it and asks about a master well below its top. Pop, rock, electronic,
   beats, jazz and folk have one, disco and soul their own; J-pop borrows pop's and says so; lo-fi, ambient and a
   game's places have none, with the reason ([performance-and-mix.md](performance-and-mix.md), Brightness and air).
+- **The mix's entry brings its documented treatments.** A family's `treatments` (0.11) are, by a part's role, the kinds of
+  processing a published source documents for its music, each with what it was applied to and how usual the source says
+  it is (usual, often or documented), every one checked against its page; the map's own section "Treatments by role"
+  lists them with their sources. `studio.py effects --style` ranks those tools first, and `review` sets each part's
+  processing beside them; nothing asks about a missing one ([processing.md](processing.md#choosing-a-parts-treatment)).
+  The electronic, pop, rock, beats, jazz, orchestral and horror families have them; the others none, for want of a source.
 - **Requests with no entry of their own** are combined the same way: a J-pop ballad or a J-rock band song
   ([style-map-jpop.md](style-map-jpop.md), Not entries), a game's town or dungeon in the game's style
   ([style-map-game.md](style-map-game.md), Shared by the family).

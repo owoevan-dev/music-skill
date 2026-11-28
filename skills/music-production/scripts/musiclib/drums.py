@@ -108,7 +108,7 @@ def gated_tail(velocity, note_id, ms, db):
 
 
 def validate(track):
-    from .model import number
+    from .played import number
     kit = track.get('kit', {})
     if (not isinstance(kit, dict) or set(kit) - {'style', 'tune', 'decay', 'gated_ms', 'gated_db'}
             or kit.get('style', '808') not in STYLES):
@@ -122,7 +122,7 @@ def validate(track):
 
 
 def render(project, track, path, clock=None):
-    from .model import Clock, performed
+    from .played import Clock, performed
     from . import audio
     clock = clock or Clock(project)
     kit = track.get('kit', {})

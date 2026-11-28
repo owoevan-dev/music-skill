@@ -53,7 +53,7 @@ import math
 import numpy as np
 
 from . import audio, midi, sf2
-from .model import TPQ, performed, tick_of
+from .played import TPQ, performed, tick_of
 
 RATE = audio.RATE
 FRETS = 24

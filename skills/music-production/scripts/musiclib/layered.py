@@ -60,7 +60,7 @@ import numpy as np
 
 from . import audio, files, sf2, variation
 from .midi import chunk, meta
-from .model import TPQ, bend_curve, bend_events, cc_events, curve_at, effective_tempo, legato_notes, performed, save_json, wheel_events
+from .played import TPQ, bend_curve, bend_events, cc_events, curve_at, effective_tempo, legato_notes, performed, save_json, wheel_events
 
 LAYER_BANK, LEGATO_BANK = 16, 32
 FRAME = 480    # 10 ms: the step of the gain curves

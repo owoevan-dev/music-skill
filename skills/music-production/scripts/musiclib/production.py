@@ -31,6 +31,7 @@ import numpy as np
 
 from .measure import fast_length
 from .synth import RATE, biquad, resample_down, seed
+from .vinyl import _band, vinyl  # noqa: F401  (moved there in 0.11; the noise engine's raw source)
 
 
 def _times(n):
@@ -42,7 +43,7 @@ def duck(stem, project, track, clock):
     source = next((t for t in project['tracks'] if t['id'] == spec['by']), None)
     if source is None:
         raise ValueError(f'{track["id"]}: duck.by names no part')
-    from .model import performed
+    from .played import performed
     keys = set(spec.get('keys') or [])   # (`null`, like none written, is every key: it stopped here with a traceback)
     hits = sorted({round(e['start_seconds'], 6) for e in performed(source, clock) if not keys or e['pitch'] in keys})
     n = len(stem)
@@ -59,21 +60,6 @@ def duck(stem, project, track, clock):
         if m > 0:
             gain[i0:i0 + m] = np.minimum(gain[i0:i0 + m], g[:m])
     return stem * gain[:, None], {'hits': len(hits), 'depth_db': spec.get('depth_db', 6)}
-
-
-def _band(x, lo, hi):
-    """x between `lo` and `hi` Hz, a zero-phase filter applied in the frequency domain.  The stem is zero-padded to a
-    fast FFT length (measure.fast_length): a stem's sample count often has a large prime factor, which made this
-    transform the slowest step of a part, and the padding also keeps the filter's decay from wrapping round."""
-    m = fast_length(len(x))
-    spec = np.fft.rfft(x, n=m, axis=0)
-    f = np.fft.rfftfreq(m, 1 / RATE)
-    h = np.ones_like(f)
-    if lo:
-        h *= (f / lo) ** 2 / (1 + (f / lo) ** 2)
-    if hi:
-        h /= 1 + (f / hi) ** 2
-    return np.fft.irfft(spec * h[:, None], n=m, axis=0)[:len(x)]
 
 
 def delay(stem, track, clock):
@@ -106,7 +92,7 @@ def delay(stem, track, clock):
 
 
 def filter_sweep(stem, track, clock):
-    from .model import curve_at
+    from .played import curve_at
     spec = track['mix']['filter_sweep']
     n = len(stem)
     hz = np.array([curve_at(spec['points'], clock.beat(x)) for x in _times(n)[::240]])
@@ -116,9 +102,37 @@ def filter_sweep(stem, track, clock):
     return out, {'from_hz': float(hz[0]), 'to_hz': float(hz[-1])}
 
 
+def _erf(v):
+    """The error function, by Abramowitz and Stegun's approximation 7.1.26 (its error under 1.5e-7): NumPy has none."""
+    a = np.abs(v)
+    t = 1 / (1 + 0.3275911 * a)
+    poly = ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t
+    return np.sign(v) * (1 - poly * np.exp(-a * a))
+
+
+# The curves `mix.saturate` may take as an object (0.11), each odd (no DC, odd harmonics only) and run on the number's path:
+# the stem at four times the rate times the drive's gain, through the curve, scaled so that a full-scale input comes out at
+# full scale, filtered and brought down.  Four rounded curves, from the softest knee to the firmest: at full drive a 1 kHz
+# sine's third harmonic lies 13.0 dB under the fundamental through `atan`, 11.3 through `alg`, 10.7 through `tanh` and 10.3
+# through `erf`.  Offered are those whose folding stays within 12 dB of the number's own on the selfcheck's 7 kHz sine at full
+# drive (tanh -70.4 dB, atan -67.7, alg -59.5, erf -79.1); exp (-52.9), cubic (-47.0), quintic (-49.6), sin (-49.8) and a
+# hard clip (-40.3) fold more at this rate and are left out: Surge's waveshaper has hard and folding shapes
+# (research/effects-0.11/saturate-curves.md, saturate_curves_check.py).
+CURVES = {
+    'tanh': np.tanh,
+    'atan': np.arctan,
+    'alg': lambda v: v / np.sqrt(1 + v * v),
+    'erf': _erf,
+}
+
+
 def saturate(stem, track):
-    drive = track['mix']['saturate']
+    spec_ = track['mix']['saturate']
+    # a number: tanh, as before 0.11, to the bit; an object: its curve (tanh by default) at its drive (0.5 by default)
+    drive, curve = (spec_, None) if not isinstance(spec_, dict) else (spec_.get('drive', .5), spec_.get('curve', 'tanh'))
     k = 1 + 9 * drive
+    shape = CURVES[curve] if curve else None
+    top = float(shape(np.array([k]))[0]) if shape is not None else None
     n = len(stem)
     m = fast_length(n)  # zero-padded to a fast FFT length, as in _band
     # One channel at a time: the four-times signal of a long stem is large (the result is the same either way).
@@ -126,12 +140,12 @@ def saturate(stem, track):
     for c in range(stem.shape[1]):
         spec = np.fft.rfft(stem[:, c:c + 1], n=m, axis=0)
         up = np.fft.irfft(np.pad(spec, ((0, 2 * m + 1 - len(spec)), (0, 0))), n=m * 4, axis=0) * 4
-        cols.append(resample_down(np.tanh(k * up) / math.tanh(k), 4)[:n])
+        cols.append(resample_down(np.tanh(k * up) / math.tanh(k) if shape is None else shape(k * up) / top, 4)[:n])
         del up, spec
     out = np.concatenate(cols, axis=1)
     # Equal loudness in, equal loudness out: saturation adds density, not level.
     p_in, p_out = float(np.mean(stem ** 2)), float(np.mean(out ** 2))
-    return out * (math.sqrt(p_in / p_out) if p_out > 0 else 1.0), {'drive': drive}
+    return out * (math.sqrt(p_in / p_out) if p_out > 0 else 1.0), ({'drive': drive} if curve is None else {'drive': drive, 'curve': curve})
 
 
 def gate(stem, track, clock):
@@ -201,33 +215,6 @@ def chorus(x, depth):
     return out * .9, {'depth': depth, 'sweeps_ms': [round(ms, 3) for _, _, ms in voices]}
 
 
-def vinyl(n, rng):
-    """`n` samples of a worn record's surface noise, stereo, peaking near 1 on the largest clicks."""
-    def convolve(x, kernel):
-        size = 1 << int(np.ceil(np.log2(len(x) + len(kernel))))
-        return np.fft.irfft(np.fft.rfft(x, size, axis=0) * np.fft.rfft(kernel, size)[:, None], size, axis=0)[:len(x)]
-
-    def scatter(rate, sizes):
-        count = rng.poisson(rate * n / RATE)
-        where, pan = rng.integers(0, n, count), rng.uniform(.15, .85, count)
-        size = sizes(count) * rng.choice((-1.0, 1.0), count)
-        out = np.zeros((n, 2))
-        np.add.at(out[:, 0], where, size * np.sqrt(1 - pan))
-        np.add.at(out[:, 1], where, size * np.sqrt(pan))
-        return out
-
-    k = np.arange(int(.004 * RATE)) / RATE
-    tick = np.sin(2 * np.pi * 3600 * k) * np.exp(-k / .00025)
-    pop = np.sin(2 * np.pi * 850 * k) * np.exp(-k / .0012)
-    crackle = scatter(14, lambda m: np.minimum(1.0, .03 + .05 * rng.pareto(1.5, m)))
-    pops = scatter(.35, lambda m: rng.uniform(.25, .7, m))
-    scratch = np.zeros((n, 2))
-    first = int(rng.integers(0, int(1.8 * RATE)))
-    scratch[first::int(1.8 * RATE)] = [.45, .35]
-    hiss = _band(rng.standard_normal((n, 2)), 2500, 9000) * .012
-    return convolve(crackle + scratch, tick) + convolve(pops, pop) + hiss
-
-
 def mono_below(x, hz):
     """The side channel through a zero-phase high-pass falling 48 dB per octave under `hz`, so the low end is mono
     and nothing above it moves in time."""
@@ -239,15 +226,30 @@ def mono_below(x, hz):
     return np.stack([mid + side, mid - side], axis=1)
 
 
+def saturating(mix):
+    """Whether a part's mix saturates: a number above 0, or an object whose drive (0.5 by default) is above 0.  A drive of
+    0 is none, in either form, as the number 0 was before 0.11."""
+    s = mix.get('saturate')
+    if s is None or isinstance(s, bool):
+        return False
+    return (s.get('drive', .5) if isinstance(s, dict) else s) > 0
+
+
+def wobbling(mix):
+    """Whether a mix (a part's or the project's) plays its tape wobble: an object, {} included, with the defaults schema.md
+    gives; any other value, false among them, plays none, as before 0.11 (Astra's reviews b011d and b011e)."""
+    return isinstance(mix.get('wow_flutter'), dict)
+
+
 def process(stem, project, track, clock):
     """The track's production tools in a fixed order: tape wobble, sweep, saturation, gate, delay, ducking."""
     mix, report = track['mix'], {}
     y = stem.astype(np.float64)
-    if mix.get('wow_flutter'):
+    if wobbling(mix):   # {} plays the defaults schema.md gives (it played nothing: Astra's review b011d)
         y, report['wow_flutter'] = wow_flutter(y, mix['wow_flutter'], track['id'])
     if mix.get('filter_sweep'):
         y, report['filter_sweep'] = filter_sweep(y, track, clock)
-    if mix.get('saturate'):
+    if saturating(mix):
         y, report['saturate'] = saturate(y, track)
     if mix.get('gate'):
         y, report['gate'] = gate(y, track, clock)
@@ -259,11 +261,12 @@ def process(stem, project, track, clock):
 
 
 def wanted(track):
-    return any(track['mix'].get(k) for k in ('wow_flutter', 'filter_sweep', 'saturate', 'gate', 'delay', 'duck'))
+    return (saturating(track['mix']) or wobbling(track['mix'])
+            or any(track['mix'].get(k) for k in ('filter_sweep', 'gate', 'delay', 'duck')))
 
 
 def validate_wow(spec, where):
-    from .model import number
+    from .played import number
     if not isinstance(spec, dict) or set(spec) - {'wow_cents', 'wow_hz', 'flutter_cents', 'flutter_hz'}:
         raise ValueError(f'{where}: wow_flutter takes wow_cents, wow_hz, flutter_cents and flutter_hz')
     number(spec.get('wow_cents', 8), 0, 50, 'wow cents');number(spec.get('wow_hz', .5), .1, 4, 'wow Hz')
@@ -271,10 +274,10 @@ def validate_wow(spec, where):
 
 
 def validate(project, track):
-    from .model import number
+    from .played import number
     mix = track['mix']
     ids = {t['id'] for t in project['tracks']}
-    if mix.get('wow_flutter'):
+    if mix.get('wow_flutter') or wobbling(mix):   # {} is checked too; false is none, as before
         validate_wow(mix['wow_flutter'], track['id'])
     if mix.get('duck'):
         d = mix['duck']
@@ -302,7 +305,16 @@ def validate(project, track):
             number(b, 0, 1e6, 'sweep beat');number(hz, 20, 20000, 'sweep Hz')
         number(f.get('resonance', 0), 0, 1, 'sweep resonance')
     if mix.get('saturate') is not None:
-        number(mix['saturate'], 0, 1, 'saturate drive')
+        sat = mix['saturate']
+        if isinstance(sat, dict):
+            # 0.11: {"drive", "curve"}; the number is tanh at that drive, as before
+            if set(sat) - {'drive', 'curve', 'comment'}:
+                raise ValueError(f'{track["id"]}: saturate as an object takes drive (0-1) and curve ({", ".join(CURVES)})')
+            number(sat.get('drive', .5), 0, 1, f'{track["id"]} saturate drive')
+            if sat.get('curve', 'tanh') not in CURVES:
+                raise ValueError(f'{track["id"]}: saturate curve is one of {", ".join(CURVES)}')
+        else:
+            number(sat, 0, 1, 'saturate drive')
     if mix.get('gate'):
         g = mix['gate']
         if not isinstance(g.get('pattern'), str) or not 1 <= len(g['pattern']) <= 64 or set(g['pattern']) - set('x.'):

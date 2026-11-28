@@ -1,0 +1,5265 @@
+{
+ "note": "The Surge XT Effects types the skill offers (mix.surge_fx), read off Surge XT Effects 1.3.4 for Windows with pedalboard 0.9.26 (research/effects-0.11/surgefx-params.md): for each, the plugin's type and the raw value that selects it, each parameter with its unit and limits or the values it takes and its default. A number is in the unit given. A default is the value the type sets when chosen, read back, except the distortion's drive (0 dB), feedback (0 %) and high cuts (their maximum), which the type leaves unset. The Airwindows type holds 75 algorithms by their Airwindows names, each knob by its position and the plugin's label, its default Airwindows' own. Every parameter is set on each render, a project's value or its default. `repeat` says how two renders of a setting compare (exact: to the bit; rounding: to float rounding); `varies_when` names the settings that render otherwise each time a part is processed anew (a receipt says a part used one). The ring modulator's Audio In carrier is left out: it wants a second signal. `shown_by_mode`: a control the plugin shows centred in some modes and not in others, given as the type's default mode shows it (Nimbus's density and texture, as its granular mode shows them), with each mode and whether it shows the control centred.",
+ "plugin_version": "1.3.4",
+ "types": {
+  "reverb_1": {
+   "surge": "Reverb 1",
+   "raw": 0.035714,
+   "params": {
+    "pre_delay": {
+     "plugin": "pre_delay_pre_delay",
+     "unit": "ms",
+     "min": 3.91,
+     "max": 32000.0,
+     "steps": 1000,
+     "default": 62.5
+    },
+    "reverb_room_shape": {
+     "plugin": "reverb_room_shape",
+     "values": [
+      "Type 1",
+      "Type 2",
+      "Type 3",
+      "Type 4"
+     ],
+     "default": "Type 1"
+    },
+    "reverb_size": {
+     "plugin": "reverb_size",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "reverb_decay_time": {
+     "plugin": "reverb_decay_time",
+     "unit": "s",
+     "min": 0.06,
+     "max": 64.0,
+     "steps": 686,
+     "default": 2.0
+    },
+    "reverb_hf_damping": {
+     "plugin": "reverb_hf_damping",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 20.0
+    },
+    "eq_low_cut": {
+     "plugin": "eq_low_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 110.0
+    },
+    "eq_peak_freq": {
+     "plugin": "eq_peak_freq",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 440.0
+    },
+    "eq_peak_gain": {
+     "plugin": "eq_peak_gain",
+     "unit": "dB",
+     "min": -48.0,
+     "max": 48.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "eq_high_cut": {
+     "plugin": "eq_high_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 25087.71
+    },
+    "output_width": {
+     "plugin": "output_width",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    }
+   },
+   "repeat": "exact"
+  },
+  "reverb_2": {
+   "surge": "Reverb 2",
+   "raw": 0.357143,
+   "params": {
+    "pre_delay": {
+     "plugin": "pre_delay_pre_delay",
+     "unit": "ms",
+     "min": 0.0,
+     "max": 2000.0,
+     "steps": 882,
+     "default": 62.5
+    },
+    "reverb_room_size": {
+     "plugin": "reverb_room_size",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "reverb_decay_time": {
+     "plugin": "reverb_decay_time",
+     "unit": "s",
+     "min": 0.0,
+     "max": 64.0,
+     "steps": 992,
+     "default": 1.68
+    },
+    "reverb_diffusion": {
+     "plugin": "reverb_diffusion",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    },
+    "reverb_buildup": {
+     "plugin": "reverb_buildup",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    },
+    "reverb_modulation": {
+     "plugin": "reverb_modulation",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "eq_lf_damping": {
+     "plugin": "eq_lf_damping",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 20.0
+    },
+    "eq_hf_damping": {
+     "plugin": "eq_hf_damping",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 20.0
+    },
+    "output_width": {
+     "plugin": "output_width",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 33.0
+    }
+   },
+   "repeat": "exact"
+  },
+  "spring_reverb": {
+   "surge": "Spring Reverb",
+   "raw": 0.928571,
+   "params": {
+    "reverb_size": {
+     "plugin": "reverb_size",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "reverb_decay": {
+     "plugin": "reverb_decay",
+     "unit": "s",
+     "min": 0.5,
+     "max": 4.5,
+     "steps": 667,
+     "default": 1.5
+    },
+    "reverb_reflections": {
+     "plugin": "reverb_reflections",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    },
+    "reverb_hf_damping": {
+     "plugin": "reverb_hf_damping",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "modulation_spin": {
+     "plugin": "modulation_spin",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "modulation_chaos": {
+     "plugin": "modulation_chaos",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "modulation_knock": {
+     "plugin": "modulation_knock",
+     "values": [
+      "Off",
+      "On"
+     ],
+     "default": "Off"
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    }
+   },
+   "varies_when": [
+    {
+     "param": "modulation_chaos",
+     "above": 0
+    },
+    {
+     "param": "modulation_knock",
+     "is": "On"
+    }
+   ],
+   "repeat": "exact"
+  },
+  "chorus": {
+   "surge": "Chorus",
+   "raw": 0.285714,
+   "params": {
+    "modulation_rate": {
+     "plugin": "modulation_rate",
+     "unit": "Hz",
+     "min": 0.008,
+     "max": 512.0,
+     "steps": 863,
+     "default": 0.25
+    },
+    "modulation_depth": {
+     "plugin": "modulation_depth",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 30.0
+    },
+    "delay_time": {
+     "plugin": "delay_time",
+     "unit": "ms",
+     "min": 0.0,
+     "max": 125.0,
+     "steps": 526,
+     "default": 15.6
+    },
+    "delay_feedback": {
+     "plugin": "delay_feedback",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "eq_low_cut": {
+     "plugin": "eq_low_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 55.0
+    },
+    "eq_high_cut": {
+     "plugin": "eq_high_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 3520.0
+    },
+    "output_width": {
+     "plugin": "output_width",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    }
+   },
+   "repeat": "exact"
+  },
+  "ensemble": {
+   "surge": "Ensemble",
+   "raw": 0.678571,
+   "params": {
+    "input_anti_alias_filter": {
+     "plugin": "input_anti_alias_filter",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 6000.0
+    },
+    "modulation_frequency_1": {
+     "plugin": "modulation_frequency_1",
+     "unit": "Hz",
+     "min": 0.01,
+     "max": 20.0,
+     "steps": 784,
+     "default": 0.18
+    },
+    "modulation_depth_1": {
+     "plugin": "modulation_depth_1",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    },
+    "modulation_frequency_2": {
+     "plugin": "modulation_frequency_2",
+     "unit": "Hz",
+     "min": 0.01,
+     "max": 20.0,
+     "steps": 784,
+     "default": 5.52
+    },
+    "modulation_depth_2": {
+     "plugin": "modulation_depth_2",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 60.0
+    },
+    "delay_type": {
+     "plugin": "delay_type",
+     "values": [
+      "Digital Delay",
+      "BBD 128 Stages",
+      "BBD 256 Stages",
+      "BBD 512 Stages",
+      "BBD 1024 Stages",
+      "BBD 2048 Stages",
+      "BBD 4096 Stages"
+     ],
+     "default": "BBD 256 Stages"
+    },
+    "delay_clock_rate": {
+     "plugin": "delay_clock_rate",
+     "unit": "kHz",
+     "min": 1.5,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 40.0
+    },
+    "delay_saturation": {
+     "plugin": "delay_saturation",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "delay_feedback": {
+     "plugin": "delay_feedback",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_reconstruction_filter": {
+     "plugin": "output_reconstruction_filter",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 6000.0
+    },
+    "output_width": {
+     "plugin": "output_width",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    }
+   },
+   "repeat": "exact"
+  },
+  "flanger": {
+   "surge": "Flanger",
+   "raw": 0.392857,
+   "params": {
+    "modulation_waveform": {
+     "plugin": "modulation_waveform",
+     "values": [
+      "Sine",
+      "Triangle",
+      "Sawtooth",
+      "Noise",
+      "Sample & Hold",
+      "Square"
+     ],
+     "default": "Sine"
+    },
+    "modulation_rate": {
+     "plugin": "modulation_rate",
+     "unit": "Hz",
+     "min": 0.008,
+     "max": 512.0,
+     "steps": 863,
+     "default": 0.25
+    },
+    "modulation_depth": {
+     "plugin": "modulation_depth",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    },
+    "combs_count": {
+     "plugin": "combs_count",
+     "unit": "Voices",
+     "min": 1.0,
+     "max": 4.0,
+     "steps": 301,
+     "default": 4.0
+    },
+    "combs_base_pitch": {
+     "plugin": "combs_base_pitch",
+     "unit": "semitones",
+     "min": 0.0,
+     "max": 127.0,
+     "steps": 128,
+     "default": 60.0
+    },
+    "combs_spacing": {
+     "plugin": "combs_spacing",
+     "unit": "semitones",
+     "min": 0.0,
+     "max": 12.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "feedback": {
+     "plugin": "feedback_feedback",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "feedback_hf_damping": {
+     "plugin": "feedback_hf_damping",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 10.0
+    },
+    "output_mode": {
+     "plugin": "output_mode",
+     "values": [
+      "Dry + Combs",
+      "Combs Only",
+      "Dry + Arp Combs",
+      "Arp Combs Only"
+     ],
+     "default": "Dry + Combs"
+    },
+    "output_width": {
+     "plugin": "output_width",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 80.0
+    }
+   },
+   "varies_when": [
+    {
+     "param": "modulation_waveform",
+     "in": [
+      "Noise",
+      "Sample & Hold"
+     ]
+    }
+   ],
+   "repeat": "exact"
+  },
+  "phaser": {
+   "surge": "Phaser",
+   "raw": 0.071429,
+   "params": {
+    "modulation_waveform": {
+     "plugin": "modulation_waveform",
+     "values": [
+      "Sine",
+      "Triangle",
+      "Saw",
+      "Noise",
+      "Sample & Hold",
+      "Square"
+     ],
+     "default": "Sine"
+    },
+    "modulation_rate": {
+     "plugin": "modulation_rate",
+     "unit": "Hz",
+     "min": 0.01,
+     "max": 512.0,
+     "steps": 662,
+     "default": 1.0
+    },
+    "modulation_depth": {
+     "plugin": "modulation_depth",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "modulation_stereo": {
+     "plugin": "modulation_stereo",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "stages_count": {
+     "plugin": "stages_count",
+     "unit": "stages",
+     "min": 1.0,
+     "max": 16.0,
+     "steps": 16,
+     "default": 4.0
+    },
+    "stages_spread": {
+     "plugin": "stages_spread",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "stages_center": {
+     "plugin": "stages_center",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "stages_sharpness": {
+     "plugin": "stages_sharpness",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "stages_feedback": {
+     "plugin": "stages_feedback",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "filter_tone": {
+     "plugin": "filter_tone",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_width": {
+     "plugin": "output_width",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    }
+   },
+   "varies_when": [
+    {
+     "param": "modulation_waveform",
+     "in": [
+      "Noise",
+      "Sample & Hold"
+     ]
+    }
+   ],
+   "repeat": "exact"
+  },
+  "rotary_speaker": {
+   "surge": "Rotary Speaker",
+   "raw": 0.107143,
+   "params": {
+    "speaker_horn_rate": {
+     "plugin": "speaker_horn_rate",
+     "unit": "Hz",
+     "min": 0.008,
+     "max": 512.0,
+     "steps": 863,
+     "default": 2.0
+    },
+    "speaker_rotor_rate": {
+     "plugin": "speaker_rotor_rate",
+     "unit": "%",
+     "min": 0.0,
+     "max": 200.0,
+     "steps": 1001,
+     "default": 70.0
+    },
+    "amp_model": {
+     "plugin": "amp_model",
+     "values": [
+      "Soft",
+      "Hard",
+      "Asymmetric",
+      "Sine",
+      "Digital",
+      "OJD",
+      "Full Wave",
+      "Fuzz Soft Clip"
+     ],
+     "default": "Soft"
+    },
+    "amp_drive": {
+     "plugin": "amp_drive",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "modulation_doppler": {
+     "plugin": "modulation_doppler",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 25.0
+    },
+    "modulation_tremolo": {
+     "plugin": "modulation_tremolo",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "output_width": {
+     "plugin": "output_width",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 1.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    }
+   },
+   "repeat": "exact"
+  },
+  "distortion": {
+   "surge": "Distortion",
+   "raw": 0.142857,
+   "params": {
+    "pre_eq_gain": {
+     "plugin": "pre_eq_gain",
+     "unit": "dB",
+     "min": -48.0,
+     "max": 48.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "pre_eq_frequency": {
+     "plugin": "pre_eq_frequency",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 440.0
+    },
+    "pre_eq_bandwidth": {
+     "plugin": "pre_eq_bandwidth",
+     "unit": "octaves",
+     "min": 0.0,
+     "max": 5.0,
+     "steps": 501,
+     "default": 2.0
+    },
+    "pre_eq_high_cut": {
+     "plugin": "pre_eq_high_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 25087.71
+    },
+    "distortion_model": {
+     "plugin": "distortion_model",
+     "values": [
+      "Soft",
+      "Hard",
+      "Asymmetric",
+      "Sine",
+      "Digital",
+      "OJD",
+      "Full Wave",
+      "Fuzz Soft Clip"
+     ],
+     "default": "Soft"
+    },
+    "distortion_drive": {
+     "plugin": "distortion_drive",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "distortion_feedback": {
+     "plugin": "distortion_feedback",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "post_eq_gain": {
+     "plugin": "post_eq_gain",
+     "unit": "dB",
+     "min": -48.0,
+     "max": 48.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "post_eq_frequency": {
+     "plugin": "post_eq_frequency",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 440.0
+    },
+    "post_eq_bandwidth": {
+     "plugin": "post_eq_bandwidth",
+     "unit": "octaves",
+     "min": 0.0,
+     "max": 5.0,
+     "steps": 501,
+     "default": 2.0
+    },
+    "post_eq_high_cut": {
+     "plugin": "post_eq_high_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 25087.71
+    },
+    "output_gain": {
+     "plugin": "output_gain",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    }
+   },
+   "repeat": "exact"
+  },
+  "waveshaper": {
+   "surge": "Waveshaper",
+   "raw": 0.857143,
+   "params": {
+    "pre_shaper_low_cut": {
+     "plugin": "pre_shaper_low_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 13.75
+    },
+    "pre_shaper_high_cut": {
+     "plugin": "pre_shaper_high_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 25087.71
+    },
+    "shaper_shape": {
+     "plugin": "shaper_shape",
+     "values": [
+      "Off",
+      "Soft",
+      "Hard",
+      "Asymmetric",
+      "Sine",
+      "Digital",
+      "Soft Harmonic 2",
+      "Soft Harmonic 3",
+      "Soft Harmonic 4",
+      "Soft Harmonic 5",
+      "Full Wave",
+      "Half Wave Positive",
+      "Half Wave Negative",
+      "Soft Rectifier",
+      "Single Fold",
+      "Double Fold",
+      "West Coast Fold",
+      "Additive 1+2",
+      "Additive 1+3",
+      "Additive 1+4",
+      "Additive 1+5",
+      "Additive 12345",
+      "Additive Saw 3",
+      "Additive Square 3",
+      "Fuzz",
+      "Fuzz Soft Clip",
+      "Heavy Fuzz",
+      "Fuzz Center",
+      "Fuzz Soft Edge",
+      "Sin+x",
+      "Sin 2x + x",
+      "Sin 3x + x",
+      "Sin 7x + x",
+      "Sin 10x + x",
+      "2 Cycle",
+      "7 Cycle",
+      "10 Cycle",
+      "2 Cycle Bound",
+      "7 Cycle Bound",
+      "10 Cycle Bound",
+      "Medium",
+      "OJD",
+      "Soft Single Fold"
+     ],
+     "default": "Off"
+    },
+    "shaper_bias": {
+     "plugin": "shaper_bias",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "shaper_drive": {
+     "plugin": "shaper_drive",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "post_shaper_low_cut": {
+     "plugin": "post_shaper_low_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 13.75
+    },
+    "post_shaper_high_cut": {
+     "plugin": "post_shaper_high_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 25087.71
+    },
+    "output_gain": {
+     "plugin": "output_gain",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    }
+   },
+   "repeat": "exact"
+  },
+  "exciter": {
+   "surge": "Exciter",
+   "raw": 0.642857,
+   "params": {
+    "exciter_drive": {
+     "plugin": "exciter_drive",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "exciter_tone": {
+     "plugin": "exciter_tone",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "shape_attack": {
+     "plugin": "shape_attack",
+     "unit": "ms",
+     "min": 5.0,
+     "max": 20.0,
+     "steps": 958,
+     "default": 10.0
+    },
+    "shape_release": {
+     "plugin": "shape_release",
+     "unit": "ms",
+     "min": 50.0,
+     "max": 200.0,
+     "steps": 1001,
+     "default": 100.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    }
+   },
+   "repeat": "exact"
+  },
+  "bonsai": {
+   "surge": "Bonsai",
+   "raw": 0.964286,
+   "params": {
+    "input_gain": {
+     "plugin": "input_gain",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "bass_boost_amount": {
+     "plugin": "bass_boost_amount",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "bass_boost_distort": {
+     "plugin": "bass_boost_distort",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 25.0
+    },
+    "saturation_bias_filter": {
+     "plugin": "saturation_bias_filter",
+     "values": [
+      "Tilt",
+      "Pull Mids"
+     ],
+     "default": "Tilt"
+    },
+    "saturation_type": {
+     "plugin": "saturation_type",
+     "values": [
+      "Gentle",
+      "Normal",
+      "Hard",
+      "Harsh"
+     ],
+     "default": "Gentle"
+    },
+    "saturation_amount": {
+     "plugin": "saturation_amount",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 25.0
+    },
+    "noise_sensitivity": {
+     "plugin": "noise_sensitivity",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 25.0
+    },
+    "noise_gain": {
+     "plugin": "noise_gain",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": -12.0
+    },
+    "output_dull": {
+     "plugin": "output_dull",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_gain": {
+     "plugin": "output_gain",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    }
+   },
+   "repeat": "exact"
+  },
+  "delay": {
+   "surge": "Delay",
+   "raw": 0.0,
+   "params": {
+    "input_channel": {
+     "plugin": "input_channel",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "delay_time_left": {
+     "plugin": "delay_time_left",
+     "unit": "ms",
+     "min": 3.91,
+     "max": 32000.0,
+     "steps": 1000,
+     "default": 250.0
+    },
+    "delay_time_right": {
+     "plugin": "delay_time_right",
+     "unit": "ms",
+     "min": 3.91,
+     "max": 32000.0,
+     "steps": 1000,
+     "default": 250.0
+    },
+    "feedback_eq_feedback": {
+     "plugin": "feedback_eq_feedback",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "feedback_eq_crossfeed": {
+     "plugin": "feedback_eq_crossfeed",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "feedback_eq_low_cut": {
+     "plugin": "feedback_eq_low_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 110.0
+    },
+    "feedback_eq_high_cut": {
+     "plugin": "feedback_eq_high_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 2489.02
+    },
+    "modulation_rate": {
+     "plugin": "modulation_rate",
+     "unit": "Hz",
+     "min": 0.01,
+     "max": 512.0,
+     "steps": 662,
+     "default": 0.25
+    },
+    "modulation_depth": {
+     "plugin": "modulation_depth",
+     "unit": "cents",
+     "min": 0.0,
+     "max": 200.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_width": {
+     "plugin": "output_width",
+     "unit": "dB",
+     "min": -24.0,
+     "max": 24.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    }
+   },
+   "repeat": "exact"
+  },
+  "nimbus": {
+   "surge": "Nimbus",
+   "raw": 0.75,
+   "params": {
+    "configuration_mode": {
+     "plugin": "configuration_mode",
+     "values": [
+      "Granularizer",
+      "Pitch Shifter",
+      "Looping Delay",
+      "Spectral Madness"
+     ],
+     "default": "Granularizer"
+    },
+    "configuration_quality": {
+     "plugin": "configuration_quality",
+     "values": [
+      "32k 16-bit Stereo",
+      "32k 16-bit Mono",
+      "16k 8-bit Stereo",
+      "16k 8-bit Mono"
+     ],
+     "default": "32k 16-bit Stereo"
+    },
+    "grain_position": {
+     "plugin": "grain_position",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "grain_size": {
+     "plugin": "grain_size",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 75.0
+    },
+    "grain_pitch": {
+     "plugin": "grain_pitch",
+     "unit": "semitones",
+     "min": -48.0,
+     "max": 48.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "grain_density": {
+     "plugin": "grain_density",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0,
+     "shown_by_mode": {
+      "Granularizer": true,
+      "Pitch Shifter": false,
+      "Looping Delay": false,
+      "Spectral Madness": true
+     }
+    },
+    "grain_texture": {
+     "plugin": "grain_texture",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0,
+     "shown_by_mode": {
+      "Granularizer": false,
+      "Pitch Shifter": true,
+      "Looping Delay": true,
+      "Spectral Madness": true
+     }
+    },
+    "grain_spread": {
+     "plugin": "grain_spread",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "playback_freeze": {
+     "plugin": "playback_freeze",
+     "values": [
+      "Off",
+      "On"
+     ],
+     "default": "Off"
+    },
+    "playback_feedback": {
+     "plugin": "playback_feedback",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_reverb": {
+     "plugin": "output_reverb",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    }
+   },
+   "repeat": "exact",
+   "preroll_s": 4.0
+  },
+  "frequency_shifter": {
+   "surge": "Frequency Shifter",
+   "raw": 0.214286,
+   "params": {
+    "shift_left": {
+     "plugin": "shift_left",
+     "unit": "Hz",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "shift_right": {
+     "plugin": "shift_right",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    },
+    "delay_time": {
+     "plugin": "delay_time",
+     "unit": "ms",
+     "min": 0.0,
+     "max": 32000.0,
+     "steps": 957,
+     "default": 0.0
+    },
+    "delay_feedback": {
+     "plugin": "delay_feedback",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    }
+   },
+   "repeat": "exact",
+   "preroll_s": 4.0
+  },
+  "ring_modulator": {
+   "surge": "Ring Modulator",
+   "raw": 0.428571,
+   "params": {
+    "carrier_shape": {
+     "plugin": "carrier_shape",
+     "values": [
+      "Wave 1 (TX 1)",
+      "Wave 2 (TX 2)",
+      "Wave 3 (TX 3)",
+      "Wave 4 (TX 4)",
+      "Wave 5 (TX 5)",
+      "Wave 6 (TX 6)",
+      "Wave 7 (TX 7)",
+      "Wave 8 (TX 8)",
+      "Wave 9",
+      "Wave 10",
+      "Wave 11",
+      "Wave 12",
+      "Wave 13",
+      "Wave 14",
+      "Wave 15",
+      "Wave 16",
+      "Wave 17",
+      "Wave 18",
+      "Wave 19",
+      "Wave 20",
+      "Wave 21",
+      "Wave 22",
+      "Wave 23",
+      "Wave 24",
+      "Wave 25",
+      "Wave 26",
+      "Wave 27",
+      "Wave 28"
+     ],
+     "default": "Wave 1 (TX 1)"
+    },
+    "carrier_frequency": {
+     "plugin": "carrier_frequency",
+     "unit": "Hz",
+     "min": 8.18,
+     "max": 12543.86,
+     "steps": 1001,
+     "default": 261.63
+    },
+    "carrier_unison_detune": {
+     "plugin": "carrier_unison_detune",
+     "unit": "cents",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 20.0
+    },
+    "carrier_unison_voices": {
+     "plugin": "carrier_unison_voices",
+     "values": [
+      "1 voice",
+      "2 voices",
+      "3 voices",
+      "4 voices",
+      "5 voices",
+      "6 voices",
+      "7 voices",
+      "8 voices",
+      "9 voices",
+      "10 voices",
+      "11 voices",
+      "12 voices",
+      "13 voices",
+      "14 voices",
+      "15 voices",
+      "16 voices"
+     ],
+     "default": "1 voice"
+    },
+    "diode_forward_bias": {
+     "plugin": "diode_forward_bias",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 30.0
+    },
+    "diode_linear_region": {
+     "plugin": "diode_linear_region",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 70.0
+    },
+    "eq_low_cut": {
+     "plugin": "eq_low_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 13.75
+    },
+    "eq_high_cut": {
+     "plugin": "eq_high_cut",
+     "unit": "Hz",
+     "min": 13.75,
+     "max": 25087.71,
+     "steps": 1001,
+     "default": 25087.71
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    }
+   },
+   "repeat": "exact",
+   "preroll_s": 4.0
+  },
+  "resonator": {
+   "surge": "Resonator",
+   "raw": 0.571429,
+   "params": {
+    "band_1_frequency_1": {
+     "plugin": "band_1_frequency_1",
+     "unit": "Hz",
+     "min": 60.0,
+     "max": 300.0,
+     "steps": 1001,
+     "default": 150.0
+    },
+    "band_1_resonance_1": {
+     "plugin": "band_1_resonance_1",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 75.0
+    },
+    "band_1_gain_1": {
+     "plugin": "band_1_gain_1",
+     "unit": "dB",
+     "min": -179.38,
+     "max": 0.0,
+     "steps": 1000,
+     "default": -6.0
+    },
+    "band_2_frequency_2": {
+     "plugin": "band_2_frequency_2",
+     "unit": "Hz",
+     "min": 300.0,
+     "max": 1500.0,
+     "steps": 1001,
+     "default": 700.0
+    },
+    "band_2_resonance_2": {
+     "plugin": "band_2_resonance_2",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 75.0
+    },
+    "band_2_gain_2": {
+     "plugin": "band_2_gain_2",
+     "unit": "dB",
+     "min": -179.38,
+     "max": 0.0,
+     "steps": 1000,
+     "default": -6.0
+    },
+    "band_3_frequency_3": {
+     "plugin": "band_3_frequency_3",
+     "unit": "Hz",
+     "min": 1500.0,
+     "max": 7500.0,
+     "steps": 1001,
+     "default": 3500.0
+    },
+    "band_3_resonance_3": {
+     "plugin": "band_3_resonance_3",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 75.0
+    },
+    "band_3_gain_3": {
+     "plugin": "band_3_gain_3",
+     "unit": "dB",
+     "min": -179.38,
+     "max": 0.0,
+     "steps": 1000,
+     "default": -6.0
+    },
+    "output_mode": {
+     "plugin": "output_mode",
+     "values": [
+      "Lowpass",
+      "Bandpass",
+      "Bandpass+Notch",
+      "Highpass"
+     ],
+     "default": "Bandpass"
+    },
+    "output_gain": {
+     "plugin": "output_gain",
+     "unit": "dB",
+     "min": -48.0,
+     "max": 48.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    }
+   },
+   "repeat": "exact",
+   "preroll_s": 4.0
+  },
+  "combulator": {
+   "surge": "Combulator",
+   "raw": 0.714286,
+   "params": {
+    "input_extra_noise": {
+     "plugin": "input_extra_noise",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "combs_center": {
+     "plugin": "combs_center",
+     "unit": "Hz",
+     "min": 0.5,
+     "max": 25087.71,
+     "steps": 987,
+     "default": 261.63
+    },
+    "combs_offset_2": {
+     "plugin": "combs_offset_2",
+     "unit": "semitones",
+     "min": -60.0,
+     "max": 60.0,
+     "steps": 1001,
+     "default": 0.25
+    },
+    "combs_offset_3": {
+     "plugin": "combs_offset_3",
+     "unit": "semitones",
+     "min": -60.0,
+     "max": 60.0,
+     "steps": 1001,
+     "default": -0.25
+    },
+    "combs_feedback": {
+     "plugin": "combs_feedback",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 75.0
+    },
+    "combs_tone": {
+     "plugin": "combs_tone",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "mix_comb_1": {
+     "plugin": "mix_comb_1",
+     "unit": "dB",
+     "min": -179.38,
+     "max": 0.0,
+     "steps": 1000,
+     "default": -6.0
+    },
+    "mix_comb_2": {
+     "plugin": "mix_comb_2",
+     "unit": "dB",
+     "min": -179.38,
+     "max": 0.0,
+     "steps": 1000,
+     "default": -6.0
+    },
+    "mix_comb_3": {
+     "plugin": "mix_comb_3",
+     "unit": "dB",
+     "min": -179.38,
+     "max": 0.0,
+     "steps": 1000,
+     "default": -6.0
+    },
+    "output_pan_2": {
+     "plugin": "output_pan_2",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 25.0
+    },
+    "output_pan_3": {
+     "plugin": "output_pan_3",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": -25.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    }
+   },
+   "varies_when": [
+    {
+     "param": "input_extra_noise",
+     "above": 0
+    }
+   ],
+   "repeat": "exact",
+   "preroll_s": 4.0
+  },
+  "tape": {
+   "surge": "Tape",
+   "raw": 0.785714,
+   "params": {
+    "hysteresis_drive": {
+     "plugin": "hysteresis_drive",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 85.0
+    },
+    "hysteresis_saturation": {
+     "plugin": "hysteresis_saturation",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "hysteresis_bias": {
+     "plugin": "hysteresis_bias",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 50.0
+    },
+    "hysteresis_tone": {
+     "plugin": "hysteresis_tone",
+     "unit": "%",
+     "min": -100.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "loss_speed": {
+     "plugin": "loss_speed",
+     "unit": "ips",
+     "min": 1.0,
+     "max": 50.0,
+     "steps": 1001,
+     "default": 30.0
+    },
+    "loss_gap": {
+     "plugin": "loss_gap",
+     "unit": "μm",
+     "min": 1.0,
+     "max": 50.0,
+     "steps": 1001,
+     "default": 1.0
+    },
+    "loss_spacing": {
+     "plugin": "loss_spacing",
+     "unit": "μm",
+     "min": 0.1,
+     "max": 20.0,
+     "steps": 1001,
+     "default": 0.1
+    },
+    "loss_thickness": {
+     "plugin": "loss_thickness",
+     "unit": "μm",
+     "min": 0.1,
+     "max": 50.0,
+     "steps": 1001,
+     "default": 0.1
+    },
+    "degrade_depth": {
+     "plugin": "degrade_depth",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "degrade_amount": {
+     "plugin": "degrade_amount",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "degrade_variance": {
+     "plugin": "degrade_variance",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 0.0
+    },
+    "output_mix": {
+     "plugin": "output_mix",
+     "unit": "%",
+     "min": 0.0,
+     "max": 100.0,
+     "steps": 1001,
+     "default": 100.0
+    }
+   },
+   "varies_when": [
+    {
+     "param": "degrade_depth",
+     "above": 0
+    }
+   ],
+   "repeat": "rounding",
+   "preroll_s": 4.0
+  },
+  "airwindows": {
+   "surge": "Airwindows",
+   "raw": 0.464286,
+   "repeat": "exact",
+   "preroll_s": 4.0,
+   "algorithms": {
+    "ADClip7": {
+     "id": 0,
+     "raw": 0.0,
+     "surge_name": "AD Clip",
+     "group": "Clipping",
+     "params": {
+      "boost": {
+       "index": 0,
+       "plugin": "AD Clip Boost",
+       "unit": "dB",
+       "min": 0.0,
+       "max": 18.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "soften": {
+       "index": 1,
+       "plugin": "AD Clip Soften",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "enhance": {
+       "index": 2,
+       "plugin": "AD Clip Enhance",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "mode": {
+       "index": 3,
+       "plugin": "AD Clip Mode",
+       "values": [
+        "Normal",
+        "Gain Matched",
+        "Clipped Only"
+       ],
+       "default": "Normal"
+      }
+     }
+    },
+    "BlockParty": {
+     "id": 1,
+     "raw": 0.013158,
+     "surge_name": "Block Party",
+     "group": "Dynamics",
+     "params": {
+      "pound": {
+       "index": 0,
+       "plugin": "Block Party Pound",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 1,
+       "plugin": "Block Party Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "ButterComp2": {
+     "id": 2,
+     "raw": 0.026316,
+     "surge_name": "Butter Comp",
+     "group": "Dynamics",
+     "params": {
+      "compress": {
+       "index": 0,
+       "plugin": "Butter Comp Compress",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "output": {
+       "index": 1,
+       "plugin": "Butter Comp Output",
+       "unit": "dB",
+       "min": -53.98,
+       "max": 6.0,
+       "steps": 989,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 2,
+       "plugin": "Butter Comp Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Compresaturator": {
+     "id": 3,
+     "raw": 0.039474,
+     "surge_name": "Compresaturator",
+     "group": "Dynamics",
+     "params": {
+      "drive": {
+       "index": 0,
+       "plugin": "Compresaturator Drive",
+       "unit": "dB",
+       "min": -12.0,
+       "max": 12.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "clamp": {
+       "index": 1,
+       "plugin": "Compresaturator Clamp",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "expand": {
+       "index": 2,
+       "plugin": "Compresaturator Expand",
+       "unit": "samples",
+       "min": 0.0,
+       "max": 5000.0,
+       "steps": 829,
+       "default": 625.0
+      },
+      "output": {
+       "index": 3,
+       "plugin": "Compresaturator Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 4,
+       "plugin": "Compresaturator Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Logical4": {
+     "id": 4,
+     "raw": 0.052632,
+     "surge_name": "Logical",
+     "group": "Dynamics",
+     "params": {
+      "threshold": {
+       "index": 0,
+       "plugin": "Logical Threshold",
+       "unit": "dB",
+       "min": -20.0,
+       "max": 20.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "ratio": {
+       "index": 1,
+       "plugin": "Logical Ratio",
+       "unit": "ratio",
+       "min": 1.0,
+       "max": 16.0,
+       "steps": 834,
+       "default": 1.6
+      },
+      "attack": {
+       "index": 2,
+       "plugin": "Logical Attack",
+       "unit": "ms",
+       "min": 1.0,
+       "max": 100.0,
+       "steps": 976,
+       "default": 4.65
+      },
+      "makeup_gain": {
+       "index": 3,
+       "plugin": "Logical Makeup Gain",
+       "unit": "dB",
+       "min": -20.0,
+       "max": 20.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 4,
+       "plugin": "Logical Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Mojo": {
+     "id": 5,
+     "raw": 0.065789,
+     "surge_name": "Mojo",
+     "group": "Saturation And More",
+     "params": {
+      "input_gain": {
+       "index": 0,
+       "plugin": "Mojo Input Gain",
+       "unit": "dB",
+       "min": -12.0,
+       "max": 12.0,
+       "steps": 1001,
+       "default": 0.0
+      }
+     }
+    },
+    "OneCornerClip": {
+     "id": 6,
+     "raw": 0.078947,
+     "surge_name": "One Corner Clip",
+     "group": "Clipping",
+     "params": {
+      "input": {
+       "index": 0,
+       "plugin": "One Corner Clip Input",
+       "unit": "dB",
+       "min": -12.0,
+       "max": 24.0,
+       "steps": 1001,
+       "default": -0.01
+      },
+      "plus_threshold": {
+       "index": 1,
+       "plugin": "One Corner Clip + Threshold",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": -0.3
+      },
+      "minus_threshold": {
+       "index": 2,
+       "plugin": "One Corner Clip - Threshold",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": -0.3
+      },
+      "voicing": {
+       "index": 3,
+       "plugin": "One Corner Clip Voicing",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 61.8
+      },
+      "mix": {
+       "index": 4,
+       "plugin": "One Corner Clip Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Point": {
+     "id": 7,
+     "raw": 0.092105,
+     "surge_name": "Point",
+     "group": "Dynamics",
+     "params": {
+      "input_gain": {
+       "index": 0,
+       "plugin": "Point Input Gain",
+       "unit": "dB",
+       "min": -12.0,
+       "max": 12.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "transient_shape": {
+       "index": 1,
+       "plugin": "Point Transient Shape",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "reaction_speed": {
+       "index": 2,
+       "plugin": "Point Reaction Speed",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "Pop": {
+     "id": 8,
+     "raw": 0.105263,
+     "surge_name": "Pop",
+     "group": "Dynamics",
+     "params": {
+      "amount": {
+       "index": 0,
+       "plugin": "Pop Amount",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 30.0
+      },
+      "output": {
+       "index": 1,
+       "plugin": "Pop Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 2,
+       "plugin": "Pop Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Pressure4": {
+     "id": 9,
+     "raw": 0.118421,
+     "surge_name": "Pressure",
+     "group": "Dynamics",
+     "params": {
+      "amount": {
+       "index": 0,
+       "plugin": "Pressure Amount",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "reaction_speed": {
+       "index": 1,
+       "plugin": "Pressure Reaction Speed",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 20.0
+      },
+      "mewiness": {
+       "index": 2,
+       "plugin": "Pressure Mewiness",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "output": {
+       "index": 3,
+       "plugin": "Pressure Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      }
+     }
+    },
+    "Pyewacket": {
+     "id": 10,
+     "raw": 0.131579,
+     "surge_name": "Pye Wacket",
+     "group": "Dynamics",
+     "params": {
+      "input_gain": {
+       "index": 0,
+       "plugin": "Pye Wacket Input Gain",
+       "unit": "dB",
+       "min": -12.0,
+       "max": 12.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "release": {
+       "index": 1,
+       "plugin": "Pye Wacket Release",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "output_gain": {
+       "index": 2,
+       "plugin": "Pye Wacket Output Gain",
+       "unit": "dB",
+       "min": -12.0,
+       "max": 12.0,
+       "steps": 1001,
+       "default": 0.0
+      }
+     }
+    },
+    "Surge": {
+     "id": 11,
+     "raw": 0.144737,
+     "surge_name": "Surge",
+     "group": "Dynamics",
+     "params": {
+      "amount": {
+       "index": 0,
+       "plugin": "Surge Amount",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 1,
+       "plugin": "Surge Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "VariMu": {
+     "id": 12,
+     "raw": 0.157895,
+     "surge_name": "Vari-Mu",
+     "group": "Dynamics",
+     "params": {
+      "amount": {
+       "index": 0,
+       "plugin": "Vari-Mu Amount",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "speed": {
+       "index": 1,
+       "plugin": "Vari-Mu Speed",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "Vari-Mu Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Vari-Mu Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "BitGlitter": {
+     "id": 13,
+     "raw": 0.171053,
+     "surge_name": "Bit Glitter",
+     "group": "Lo-Fi",
+     "params": {
+      "input_gain": {
+       "index": 0,
+       "plugin": "Bit Glitter Input Gain",
+       "unit": "dB",
+       "min": -18.0,
+       "max": 18.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "glitter": {
+       "index": 1,
+       "plugin": "Bit Glitter Glitter",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "makeup_gain": {
+       "index": 2,
+       "plugin": "Bit Glitter Makeup Gain",
+       "unit": "dB",
+       "min": -18.0,
+       "max": 18.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Bit Glitter Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "CrunchyGrooveWear": {
+     "id": 14,
+     "raw": 0.184211,
+     "surge_name": "Crunchy Groove Wear",
+     "group": "Lo-Fi",
+     "params": {
+      "amount": {
+       "index": 0,
+       "plugin": "Crunchy Groove Wear Amount",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 6.4
+      },
+      "mix": {
+       "index": 1,
+       "plugin": "Crunchy Groove Wear Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "DeRez2": {
+     "id": 15,
+     "raw": 0.197368,
+     "surge_name": "DeRez",
+     "group": "Lo-Fi",
+     "params": {
+      "sample_rate": {
+       "index": 0,
+       "plugin": "DeRez Sample Rate",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "resolution": {
+       "index": 1,
+       "plugin": "DeRez Resolution",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "hardness": {
+       "index": 2,
+       "plugin": "DeRez Hardness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "DeRez Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Deckwrecka": {
+     "id": 16,
+     "raw": 0.210526,
+     "surge_name": "Deck Wrecka",
+     "group": "Lo-Fi",
+     "params": {
+      "amount": {
+       "index": 0,
+       "plugin": "Deck Wrecka Amount",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      }
+     }
+    },
+    "DustBunny": {
+     "id": 17,
+     "raw": 0.223684,
+     "surge_name": "Dust Bunny",
+     "group": "Noise",
+     "params": {
+      "amount": {
+       "index": 0,
+       "plugin": "Dust Bunny Amount",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      }
+     }
+    },
+    "GrooveWear": {
+     "id": 18,
+     "raw": 0.236842,
+     "surge_name": "Groove Wear",
+     "group": "Lo-Fi",
+     "params": {
+      "amount": {
+       "index": 0,
+       "plugin": "Groove Wear Amount",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 6.4
+      },
+      "mix": {
+       "index": 1,
+       "plugin": "Groove Wear Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Noise": {
+     "id": 19,
+     "raw": 0.25,
+     "surge_name": "Noise",
+     "group": "Noise",
+     "params": {
+      "high_cut": {
+       "index": 0,
+       "plugin": "Noise High Cut",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "low_cut": {
+       "index": 1,
+       "plugin": "Noise Low Cut",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "low_cut_shape": {
+       "index": 2,
+       "plugin": "Noise Low Cut Shape",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "decay": {
+       "index": 3,
+       "plugin": "Noise Decay",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "distance": {
+       "index": 4,
+       "plugin": "Noise Distance",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 5,
+       "plugin": "Noise Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "VoiceOfTheStarship": {
+     "id": 20,
+     "raw": 0.263158,
+     "surge_name": "Voice Of The Starship",
+     "group": "Noise",
+     "params": {
+      "filter": {
+       "index": 0,
+       "plugin": "Voice Of The Starship Filter",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "algorithm": {
+       "index": 1,
+       "plugin": "Voice Of The Starship Algorithm",
+       "values": [
+        "Type 1",
+        "Type 2",
+        "Type 3",
+        "Type 4",
+        "Type 5",
+        "Type 6",
+        "Type 7",
+        "Type 8",
+        "Type 9",
+        "Type 10",
+        "Type 11",
+        "Type 12",
+        "Type 13",
+        "Type 14",
+        "Type 15",
+        "Type 16"
+       ],
+       "default": "Type 1"
+      }
+     }
+    },
+    "BrightAmbience2": {
+     "id": 21,
+     "raw": 0.276316,
+     "surge_name": "Bright Ambience",
+     "group": "Ambience",
+     "params": {
+      "start": {
+       "index": 0,
+       "plugin": "Bright Ambience Start",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 20.0
+      },
+      "length": {
+       "index": 1,
+       "plugin": "Bright Ambience Length",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 20.0
+      },
+      "feedback": {
+       "index": 2,
+       "plugin": "Bright Ambience Feedback",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Bright Ambience Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "Hombre": {
+     "id": 22,
+     "raw": 0.289474,
+     "surge_name": "Hombre",
+     "group": "Filter",
+     "params": {
+      "voicing": {
+       "index": 0,
+       "plugin": "Hombre Voicing",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 42.1
+      },
+      "mix": {
+       "index": 1,
+       "plugin": "Hombre Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "Melt": {
+     "id": 23,
+     "raw": 0.302632,
+     "surge_name": "Melt",
+     "group": "Ambience",
+     "params": {
+      "depth": {
+       "index": 0,
+       "plugin": "Melt Depth",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 25.0
+      },
+      "range": {
+       "index": 1,
+       "plugin": "Melt Range",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 75.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "Melt Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Melt Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "PocketVerbs": {
+     "id": 24,
+     "raw": 0.315789,
+     "surge_name": "Pocket Verbs",
+     "group": "Ambience",
+     "params": {
+      "type": {
+       "index": 0,
+       "plugin": "Pocket Verbs Type",
+       "values": [
+        "Chamber",
+        "Spring",
+        "Tiled",
+        "Room",
+        "Stretch",
+        "Zarathustra"
+       ],
+       "default": "Chamber"
+      },
+      "size": {
+       "index": 1,
+       "plugin": "Pocket Verbs Size",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "gate": {
+       "index": 2,
+       "plugin": "Pocket Verbs Gate",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Pocket Verbs Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "StarChild": {
+     "id": 25,
+     "raw": 0.328947,
+     "surge_name": "Star Child",
+     "group": "Ambience",
+     "params": {
+      "sustain": {
+       "index": 0,
+       "plugin": "Star Child Sustain",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "grain": {
+       "index": 1,
+       "plugin": "Star Child Grain",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 70.0
+      },
+      "mix": {
+       "index": 2,
+       "plugin": "Star Child Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 20.0
+      }
+     }
+    },
+    "Apicolypse": {
+     "id": 26,
+     "raw": 0.342105,
+     "surge_name": "Apicolypse",
+     "group": "Saturation And More",
+     "params": {
+      "hardness": {
+       "index": 0,
+       "plugin": "Apicolypse Hardness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 70.0
+      },
+      "personality": {
+       "index": 1,
+       "plugin": "Apicolypse Personality",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 33.3
+      },
+      "drive": {
+       "index": 2,
+       "plugin": "Apicolypse Drive",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 33.3
+      },
+      "output": {
+       "index": 3,
+       "plugin": "Apicolypse Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      }
+     }
+    },
+    "BassDrive": {
+     "id": 27,
+     "raw": 0.355263,
+     "surge_name": "Bass Drive",
+     "group": "Saturation And More",
+     "params": {
+      "presence": {
+       "index": 0,
+       "plugin": "Bass Drive Presence",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "high": {
+       "index": 1,
+       "plugin": "Bass Drive High",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "mid": {
+       "index": 2,
+       "plugin": "Bass Drive Mid",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "low": {
+       "index": 3,
+       "plugin": "Bass Drive Low",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "drive": {
+       "index": 4,
+       "plugin": "Bass Drive Drive",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "Cojones": {
+     "id": 28,
+     "raw": 0.368421,
+     "surge_name": "Cojones",
+     "group": "Saturation And More",
+     "params": {
+      "breathy": {
+       "index": 0,
+       "plugin": "Cojones Breathy",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "cojones": {
+       "index": 1,
+       "plugin": "Cojones Cojones",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "body": {
+       "index": 2,
+       "plugin": "Cojones Body",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "output": {
+       "index": 3,
+       "plugin": "Cojones Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 4,
+       "plugin": "Cojones Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Density": {
+     "id": 29,
+     "raw": 0.381579,
+     "surge_name": "Density",
+     "group": "Saturation And More",
+     "params": {
+      "density": {
+       "index": 0,
+       "plugin": "Density Density",
+       "unit": "x",
+       "min": -1.0,
+       "max": 4.0,
+       "steps": 501,
+       "default": 0.0
+      },
+      "highpass": {
+       "index": 1,
+       "plugin": "Density Highpass",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "Density Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Density Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Drive": {
+     "id": 30,
+     "raw": 0.394737,
+     "surge_name": "Drive",
+     "group": "Saturation And More",
+     "params": {
+      "drive": {
+       "index": 0,
+       "plugin": "Drive Drive",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "highpass": {
+       "index": 1,
+       "plugin": "Drive Highpass",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "Drive Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Drive Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Focus": {
+     "id": 31,
+     "raw": 0.407895,
+     "surge_name": "Focus",
+     "group": "Saturation And More",
+     "params": {
+      "boost": {
+       "index": 0,
+       "plugin": "Focus Boost",
+       "unit": "dB",
+       "min": 0.0,
+       "max": 12.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "focus": {
+       "index": 1,
+       "plugin": "Focus Focus",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "mode": {
+       "index": 2,
+       "plugin": "Focus Mode",
+       "values": [
+        "Density",
+        "Drive",
+        "Spiral",
+        "Mojo",
+        "Dyno"
+       ],
+       "default": "Density"
+      },
+      "boost_output": {
+       "index": 3,
+       "plugin": "Focus Boost Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 4,
+       "plugin": "Focus Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Fracture": {
+     "id": 32,
+     "raw": 0.421053,
+     "surge_name": "Fracture",
+     "group": "Saturation And More",
+     "params": {
+      "drive": {
+       "index": 0,
+       "plugin": "Fracture Drive",
+       "unit": "dB",
+       "min": -47.96,
+       "max": 12.0,
+       "steps": 987,
+       "default": 0.0
+      },
+      "fracture": {
+       "index": 1,
+       "plugin": "Fracture Fracture",
+       "unit": "x",
+       "min": 1.0,
+       "max": 4.0,
+       "steps": 4,
+       "default": 1.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "Fracture Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Fracture Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 1.0,
+       "steps": 101,
+       "default": 1.0
+      }
+     }
+    },
+    "HardVacuum": {
+     "id": 33,
+     "raw": 0.434211,
+     "surge_name": "Hard Vacuum",
+     "group": "Saturation And More",
+     "params": {
+      "drive": {
+       "index": 0,
+       "plugin": "Hard Vacuum Drive",
+       "unit": "dB",
+       "min": -53.98,
+       "max": 6.02,
+       "steps": 991,
+       "default": -53.98
+      },
+      "warmth": {
+       "index": 1,
+       "plugin": "Hard Vacuum Warmth",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "aura": {
+       "index": 2,
+       "plugin": "Hard Vacuum Aura",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "output": {
+       "index": 3,
+       "plugin": "Hard Vacuum Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 4,
+       "plugin": "Hard Vacuum Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Loud": {
+     "id": 34,
+     "raw": 0.447368,
+     "surge_name": "Loud",
+     "group": "Saturation And More",
+     "params": {
+      "boost": {
+       "index": 0,
+       "plugin": "Loud Boost",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "output": {
+       "index": 1,
+       "plugin": "Loud Output",
+       "unit": "dB",
+       "min": 0.0,
+       "max": 1.0,
+       "steps": 101,
+       "default": 1.0
+      },
+      "mix": {
+       "index": 2,
+       "plugin": "Loud Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "NCSeventeen": {
+     "id": 35,
+     "raw": 0.460526,
+     "surge_name": "NC-17",
+     "group": "Saturation And More",
+     "params": {
+      "louder": {
+       "index": 0,
+       "plugin": "NC-17 Louder",
+       "unit": "dB",
+       "min": 0.0,
+       "max": 24.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "output": {
+       "index": 1,
+       "plugin": "NC-17 Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      }
+     }
+    },
+    "Spiral2": {
+     "id": 36,
+     "raw": 0.473684,
+     "surge_name": "Spiral",
+     "group": "Saturation And More",
+     "params": {
+      "input": {
+       "index": 0,
+       "plugin": "Spiral Input",
+       "unit": "dB",
+       "min": -53.98,
+       "max": 6.0,
+       "steps": 989,
+       "default": 0.0
+      },
+      "highpass": {
+       "index": 1,
+       "plugin": "Spiral Highpass",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "presence": {
+       "index": 2,
+       "plugin": "Spiral Presence",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "output": {
+       "index": 3,
+       "plugin": "Spiral Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 4,
+       "plugin": "Spiral Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "UnBox": {
+     "id": 37,
+     "raw": 0.486842,
+     "surge_name": "Unbox",
+     "group": "Saturation And More",
+     "params": {
+      "input": {
+       "index": 0,
+       "plugin": "Unbox Input",
+       "unit": "dB",
+       "min": -53.98,
+       "max": 6.0,
+       "steps": 989,
+       "default": 0.0
+      },
+      "amount": {
+       "index": 1,
+       "plugin": "Unbox Amount",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "Unbox Output",
+       "unit": "dB",
+       "min": -53.98,
+       "max": 6.0,
+       "steps": 989,
+       "default": 0.0
+      }
+     }
+    },
+    "DeBess": {
+     "id": 38,
+     "raw": 0.5,
+     "surge_name": "De-Bess",
+     "group": "Filter",
+     "params": {
+      "intensity": {
+       "index": 0,
+       "plugin": "De-Bess Intensity",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "sharpness": {
+       "index": 1,
+       "plugin": "De-Bess Sharpness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "depth": {
+       "index": 2,
+       "plugin": "De-Bess Depth",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "filter": {
+       "index": 3,
+       "plugin": "De-Bess Filter",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "monitor": {
+       "index": 4,
+       "plugin": "De-Bess Monitor",
+       "values": [
+        "Normal",
+        "Esses Only"
+       ],
+       "default": "Normal"
+      }
+     }
+    },
+    "SingleEndedTriode": {
+     "id": 40,
+     "raw": 0.526316,
+     "surge_name": "Single-Ended Triode",
+     "group": "Saturation And More",
+     "params": {
+      "drive": {
+       "index": 0,
+       "plugin": "Single-Ended Triode Drive",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "class_ab": {
+       "index": 1,
+       "plugin": "Single-Ended Triode Class AB",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "class_b": {
+       "index": 2,
+       "plugin": "Single-Ended Triode Class B",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Single-Ended Triode Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "IronOxide5": {
+     "id": 41,
+     "raw": 0.539474,
+     "surge_name": "Iron Oxide",
+     "group": "Tape",
+     "params": {
+      "input_gain": {
+       "index": 0,
+       "plugin": "Iron Oxide Input Gain",
+       "unit": "dB",
+       "min": -18.0,
+       "max": 18.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "tape_high": {
+       "index": 1,
+       "plugin": "Iron Oxide Tape High",
+       "unit": "ips",
+       "min": 1.5,
+       "max": 150.0,
+       "steps": 809,
+       "default": 16.31
+      },
+      "tape_low": {
+       "index": 2,
+       "plugin": "Iron Oxide Tape Low",
+       "unit": "ips",
+       "min": 1.5,
+       "max": 150.0,
+       "steps": 809,
+       "default": 16.31
+      },
+      "flutter": {
+       "index": 3,
+       "plugin": "Iron Oxide Flutter",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "noise": {
+       "index": 4,
+       "plugin": "Iron Oxide Noise",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "output_gain": {
+       "index": 5,
+       "plugin": "Iron Oxide Output Gain",
+       "unit": "dB",
+       "min": -18.0,
+       "max": 18.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 6,
+       "plugin": "Iron Oxide Mix",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "ToTape6": {
+     "id": 42,
+     "raw": 0.552632,
+     "surge_name": "To Tape",
+     "group": "Tape",
+     "params": {
+      "input_gain": {
+       "index": 0,
+       "plugin": "To Tape Input Gain",
+       "unit": "dB",
+       "min": -12.0,
+       "max": 12.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "soften": {
+       "index": 1,
+       "plugin": "To Tape Soften",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "head_bump": {
+       "index": 2,
+       "plugin": "To Tape Head Bump",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "flutter": {
+       "index": 3,
+       "plugin": "To Tape Flutter",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "output_gain": {
+       "index": 4,
+       "plugin": "To Tape Output Gain",
+       "unit": "dB",
+       "min": -12.0,
+       "max": 12.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 5,
+       "plugin": "To Tape Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Air": {
+     "id": 43,
+     "raw": 0.565789,
+     "surge_name": "Air",
+     "group": "Filter",
+     "params": {
+      "22_khz": {
+       "index": 0,
+       "plugin": "Air 22 kHz",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "15_khz": {
+       "index": 1,
+       "plugin": "Air 15 kHz",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "11_khz": {
+       "index": 2,
+       "plugin": "Air 11 kHz",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "resonance": {
+       "index": 3,
+       "plugin": "Air Resonance",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "output": {
+       "index": 4,
+       "plugin": "Air Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 5,
+       "plugin": "Air Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "BussColors4": {
+     "id": 44,
+     "raw": 0.578947,
+     "surge_name": "Buss Colors",
+     "group": "Saturation And More",
+     "params": {
+      "color": {
+       "index": 0,
+       "plugin": "Buss Colors Color",
+       "values": [
+        "Dark",
+        "Rock",
+        "Lush",
+        "Vibe",
+        "Holo",
+        "Punch",
+        "Steel",
+        "Tube"
+       ],
+       "default": "Dark"
+      },
+      "input_gain": {
+       "index": 1,
+       "plugin": "Buss Colors Input Gain",
+       "unit": "dB",
+       "min": -18.0,
+       "max": 18.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "makeup_gain": {
+       "index": 2,
+       "plugin": "Buss Colors Makeup Gain",
+       "unit": "dB",
+       "min": -18.0,
+       "max": 18.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Buss Colors Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "DrumSlam": {
+     "id": 45,
+     "raw": 0.592105,
+     "surge_name": "Drum Slam",
+     "group": "Dynamics",
+     "params": {
+      "drive": {
+       "index": 0,
+       "plugin": "Drum Slam Drive",
+       "unit": "dB",
+       "min": 0.0,
+       "max": 12.0,
+       "steps": 904,
+       "default": 0.0
+      },
+      "output": {
+       "index": 1,
+       "plugin": "Drum Slam Output",
+       "unit": "dB",
+       "min": -60.0,
+       "max": 0.0,
+       "steps": 991,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 2,
+       "plugin": "Drum Slam Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Capacitor": {
+     "id": 46,
+     "raw": 0.605263,
+     "surge_name": "Capacitor",
+     "group": "Filter",
+     "params": {
+      "lowpass": {
+       "index": 0,
+       "plugin": "Capacitor Lowpass",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "highpass": {
+       "index": 1,
+       "plugin": "Capacitor Highpass",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 2,
+       "plugin": "Capacitor Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Slew": {
+     "id": 47,
+     "raw": 0.618421,
+     "surge_name": "Slew 1",
+     "group": "Clipping",
+     "params": {
+      "clamping": {
+       "index": 0,
+       "plugin": "Slew 1 Clamping",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      }
+     }
+    },
+    "Slew2": {
+     "id": 48,
+     "raw": 0.631579,
+     "surge_name": "Slew 2",
+     "group": "Clipping",
+     "params": {
+      "clamping": {
+       "index": 0,
+       "plugin": "Slew 2 Clamping",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      }
+     }
+    },
+    "Galactic": {
+     "id": 49,
+     "raw": 0.644737,
+     "surge_name": "Galactic",
+     "group": "Ambience",
+     "params": {
+      "replace": {
+       "index": 0,
+       "plugin": "Galactic Replace",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "brightness": {
+       "index": 1,
+       "plugin": "Galactic Brightness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "modulation": {
+       "index": 2,
+       "plugin": "Galactic Modulation",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "size": {
+       "index": 3,
+       "plugin": "Galactic Size",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "mix": {
+       "index": 4,
+       "plugin": "Galactic Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Infinity": {
+     "id": 50,
+     "raw": 0.657895,
+     "surge_name": "Infinity",
+     "group": "Ambience",
+     "params": {
+      "filter": {
+       "index": 0,
+       "plugin": "Infinity Filter",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "damping": {
+       "index": 1,
+       "plugin": "Infinity Damping",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "size": {
+       "index": 2,
+       "plugin": "Infinity Size",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Infinity Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "clear_reverb": {
+       "index": 4,
+       "plugin": "Infinity Clear Reverb",
+       "values": [
+        "Off",
+        "On"
+       ],
+       "default": "Off"
+      }
+     }
+    },
+    "MatrixVerb": {
+     "id": 51,
+     "raw": 0.671053,
+     "surge_name": "MatrixVerb",
+     "group": "Ambience",
+     "params": {
+      "filter": {
+       "index": 0,
+       "plugin": "MatrixVerb Filter",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "damping": {
+       "index": 1,
+       "plugin": "MatrixVerb Damping",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "speed": {
+       "index": 2,
+       "plugin": "MatrixVerb Speed",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "modulation": {
+       "index": 3,
+       "plugin": "MatrixVerb Modulation",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "size": {
+       "index": 4,
+       "plugin": "MatrixVerb Size",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "flavor": {
+       "index": 5,
+       "plugin": "MatrixVerb Flavor",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "mix": {
+       "index": 6,
+       "plugin": "MatrixVerb Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Verbity": {
+     "id": 52,
+     "raw": 0.684211,
+     "surge_name": "Verbity",
+     "group": "Ambience",
+     "params": {
+      "size": {
+       "index": 0,
+       "plugin": "Verbity Size",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 25.0
+      },
+      "decay": {
+       "index": 1,
+       "plugin": "Verbity Decay",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "brightness": {
+       "index": 2,
+       "plugin": "Verbity Brightness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 25.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Verbity Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 25.0
+      }
+     }
+    },
+    "TripleSpread": {
+     "id": 53,
+     "raw": 0.697368,
+     "surge_name": "Triple Spread",
+     "group": "Stereo",
+     "params": {
+      "spread": {
+       "index": 0,
+       "plugin": "Triple Spread Spread",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "tighten": {
+       "index": 1,
+       "plugin": "Triple Spread Tighten",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "mix": {
+       "index": 2,
+       "plugin": "Triple Spread Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "Chamber": {
+     "id": 54,
+     "raw": 0.710526,
+     "surge_name": "Chamber",
+     "group": "Ambience",
+     "params": {
+      "bigness": {
+       "index": 0,
+       "plugin": "Chamber Bigness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 35.0
+      },
+      "longness": {
+       "index": 1,
+       "plugin": "Chamber Longness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 35.0
+      },
+      "liteness": {
+       "index": 2,
+       "plugin": "Chamber Liteness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 35.0
+      },
+      "darkness": {
+       "index": 3,
+       "plugin": "Chamber Darkness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 35.0
+      },
+      "wetness": {
+       "index": 4,
+       "plugin": "Chamber Wetness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 35.0
+      }
+     }
+    },
+    "Mackity": {
+     "id": 55,
+     "raw": 0.723684,
+     "surge_name": "Mackity",
+     "group": "Saturation And More",
+     "params": {
+      "in_trim": {
+       "index": 0,
+       "plugin": "Mackity In Trim",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "out_pad": {
+       "index": 1,
+       "plugin": "Mackity Out Pad",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "MackEQ": {
+     "id": 56,
+     "raw": 0.736842,
+     "surge_name": "MackEQ",
+     "group": "Filter",
+     "params": {
+      "trim": {
+       "index": 0,
+       "plugin": "MackEQ Trim",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "hi": {
+       "index": 1,
+       "plugin": "MackEQ Hi",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "lo": {
+       "index": 2,
+       "plugin": "MackEQ Lo",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "gain": {
+       "index": 3,
+       "plugin": "MackEQ Gain",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "mix": {
+       "index": 4,
+       "plugin": "MackEQ Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "Cabs": {
+     "id": 58,
+     "raw": 0.763158,
+     "surge_name": "Cabs",
+     "group": "Filter",
+     "params": {
+      "type": {
+       "index": 0,
+       "plugin": "Cabs Type",
+       "values": [
+        "Stack",
+        "Vintage",
+        "Boutique",
+        "Large",
+        "Small",
+        "Bass Amp"
+       ],
+       "default": "Stack"
+      },
+      "tone": {
+       "index": 1,
+       "plugin": "Cabs Tone",
+       "unit": "number",
+       "min": 0.0,
+       "max": 1.0,
+       "steps": 101,
+       "default": 0.66
+      },
+      "room": {
+       "index": 2,
+       "plugin": "Cabs Room",
+       "unit": "number",
+       "min": 0.0,
+       "max": 1.0,
+       "steps": 101,
+       "default": 0.33
+      },
+      "size": {
+       "index": 3,
+       "plugin": "Cabs Size",
+       "unit": "number",
+       "min": 0.0,
+       "max": 1.0,
+       "steps": 101,
+       "default": 0.66
+      },
+      "off_axis": {
+       "index": 4,
+       "plugin": "Cabs Off-Axis",
+       "unit": "number",
+       "min": 0.0,
+       "max": 1.0,
+       "steps": 101,
+       "default": 0.33
+      },
+      "output": {
+       "index": 5,
+       "plugin": "Cabs Output",
+       "unit": "number",
+       "min": 0.0,
+       "max": 1.0,
+       "steps": 101,
+       "default": 0.5
+      }
+     }
+    },
+    "ChromeOxide": {
+     "id": 59,
+     "raw": 0.776316,
+     "surge_name": "Chrome Oxide",
+     "group": "Tape",
+     "params": {
+      "intensity": {
+       "index": 0,
+       "plugin": "Chrome Oxide Intensity",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "bias": {
+       "index": 1,
+       "plugin": "Chrome Oxide Bias",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "DubSub": {
+     "id": 60,
+     "raw": 0.789474,
+     "surge_name": "Dub Sub",
+     "group": "Filter",
+     "params": {
+      "treble_grind": {
+       "index": 0,
+       "plugin": "Dub Sub Treble Grind",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 75.0
+      },
+      "grind_output": {
+       "index": 1,
+       "plugin": "Dub Sub Grind Output",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "crossover": {
+       "index": 2,
+       "plugin": "Dub Sub Crossover",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "bass_drive": {
+       "index": 3,
+       "plugin": "Dub Sub Bass Drive",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "bass_voicing": {
+       "index": 4,
+       "plugin": "Dub Sub Bass Voicing",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "bass_output": {
+       "index": 5,
+       "plugin": "Dub Sub Bass Output",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "sub_drive": {
+       "index": 6,
+       "plugin": "Dub Sub Sub Drive",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 25.0
+      },
+      "sub_voicing": {
+       "index": 7,
+       "plugin": "Dub Sub Sub Voicing",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 25.0
+      },
+      "sub_output": {
+       "index": 8,
+       "plugin": "Dub Sub Sub Output",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "mix": {
+       "index": 9,
+       "plugin": "Dub Sub Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "DubCenter": {
+     "id": 61,
+     "raw": 0.802632,
+     "surge_name": "Dub Center",
+     "group": "Filter",
+     "params": {
+      "treble_grind": {
+       "index": 0,
+       "plugin": "Dub Center Treble Grind",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 75.0
+      },
+      "grind_output": {
+       "index": 1,
+       "plugin": "Dub Center Grind Output",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "crossover": {
+       "index": 2,
+       "plugin": "Dub Center Crossover",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "bass_drive": {
+       "index": 3,
+       "plugin": "Dub Center Bass Drive",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "bass_voicing": {
+       "index": 4,
+       "plugin": "Dub Center Bass Voicing",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "bass_output": {
+       "index": 5,
+       "plugin": "Dub Center Bass Output",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "sub_drive": {
+       "index": 6,
+       "plugin": "Dub Center Sub Drive",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 25.0
+      },
+      "sub_voicing": {
+       "index": 7,
+       "plugin": "Dub Center Sub Voicing",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 25.0
+      },
+      "sub_output": {
+       "index": 8,
+       "plugin": "Dub Center Sub Output",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "mix": {
+       "index": 9,
+       "plugin": "Dub Center Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "FireAmp": {
+     "id": 62,
+     "raw": 0.815789,
+     "surge_name": "Fire Amp",
+     "group": "Saturation And More",
+     "params": {
+      "gain": {
+       "index": 0,
+       "plugin": "Fire Amp Gain",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "tone": {
+       "index": 1,
+       "plugin": "Fire Amp Tone",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "Fire Amp Output",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "mix": {
+       "index": 3,
+       "plugin": "Fire Amp Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "GlitchShifter": {
+     "id": 63,
+     "raw": 0.828947,
+     "surge_name": "Glitch Shifter",
+     "group": "Pitch",
+     "params": {
+      "pitch": {
+       "index": 0,
+       "plugin": "Glitch Shifter Pitch",
+       "unit": "semitones",
+       "min": -12.0,
+       "max": 12.0,
+       "steps": 25,
+       "default": 0.0
+      },
+      "trim": {
+       "index": 1,
+       "plugin": "Glitch Shifter Trim",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "tighten": {
+       "index": 2,
+       "plugin": "Glitch Shifter Tighten",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "feedback": {
+       "index": 3,
+       "plugin": "Glitch Shifter Feedback",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 4,
+       "plugin": "Glitch Shifter Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "NonlinearSpace": {
+     "id": 64,
+     "raw": 0.842105,
+     "surge_name": "Nonlinear Space",
+     "group": "Ambience",
+     "params": {
+      "sample_rate": {
+       "index": 0,
+       "plugin": "Nonlinear Space Sample Rate",
+       "unit": "k",
+       "min": 16.0,
+       "max": 96.0,
+       "steps": 7,
+       "default": 48.0
+      },
+      "liveness": {
+       "index": 1,
+       "plugin": "Nonlinear Space Liveness",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "treble": {
+       "index": 2,
+       "plugin": "Nonlinear Space Treble",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "bass": {
+       "index": 3,
+       "plugin": "Nonlinear Space Bass",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "nonlinear": {
+       "index": 4,
+       "plugin": "Nonlinear Space Nonlinear",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 5,
+       "plugin": "Nonlinear Space Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "Pafnuty": {
+     "id": 65,
+     "raw": 0.855263,
+     "surge_name": "Pafnuty",
+     "group": "Filter",
+     "params": {
+      "second": {
+       "index": 0,
+       "plugin": "Pafnuty Second",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "third": {
+       "index": 1,
+       "plugin": "Pafnuty Third",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "fourth": {
+       "index": 2,
+       "plugin": "Pafnuty Fourth",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "fifth": {
+       "index": 3,
+       "plugin": "Pafnuty Fifth",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "sixth": {
+       "index": 4,
+       "plugin": "Pafnuty Sixth",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "seventh": {
+       "index": 5,
+       "plugin": "Pafnuty Seventh",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "eighth": {
+       "index": 6,
+       "plugin": "Pafnuty Eighth",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "ninth": {
+       "index": 7,
+       "plugin": "Pafnuty Ninth",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "tenth": {
+       "index": 8,
+       "plugin": "Pafnuty Tenth",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "eleventh": {
+       "index": 9,
+       "plugin": "Pafnuty Eleventh",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 0.0
+      },
+      "mix": {
+       "index": 10,
+       "plugin": "Pafnuty Mix",
+       "unit": "%",
+       "min": -100.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "PowerSag": {
+     "id": 66,
+     "raw": 0.868421,
+     "surge_name": "Power Sag",
+     "group": "Saturation And More",
+     "params": {
+      "depth": {
+       "index": 0,
+       "plugin": "Power Sag Depth",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "speed": {
+       "index": 1,
+       "plugin": "Power Sag Speed",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 25.0
+      }
+     }
+    },
+    "TapeDust": {
+     "id": 67,
+     "raw": 0.881579,
+     "surge_name": "Tape Dust",
+     "group": "Noise",
+     "params": {
+      "amount": {
+       "index": 0,
+       "plugin": "Tape Dust Amount",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "mix": {
+       "index": 1,
+       "plugin": "Tape Dust Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "ToVinyl4": {
+     "id": 68,
+     "raw": 0.894737,
+     "surge_name": "To Vinyl",
+     "group": "Lo-Fi",
+     "params": {
+      "mid_highpass": {
+       "index": 0,
+       "plugin": "To Vinyl Mid Highpass",
+       "unit": "Hz",
+       "min": 10.0,
+       "max": 300.0,
+       "steps": 992,
+       "default": 21.95
+      },
+      "side_highpass": {
+       "index": 1,
+       "plugin": "To Vinyl Side Highpass",
+       "unit": "Hz",
+       "min": 10.0,
+       "max": 300.0,
+       "steps": 992,
+       "default": 43.92
+      },
+      "hf_limiter": {
+       "index": 2,
+       "plugin": "To Vinyl HF Limiter",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 33.0
+      },
+      "groove_wear": {
+       "index": 3,
+       "plugin": "To Vinyl Groove Wear",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      }
+     }
+    },
+    "YLowpass": {
+     "id": 69,
+     "raw": 0.907895,
+     "surge_name": "YLowpass",
+     "group": "Filter",
+     "params": {
+      "gain": {
+       "index": 0,
+       "plugin": "YLowpass Gain",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "cutoff": {
+       "index": 1,
+       "plugin": "YLowpass Cutoff",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "resonance": {
+       "index": 2,
+       "plugin": "YLowpass Resonance",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "edge": {
+       "index": 3,
+       "plugin": "YLowpass Edge",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "output": {
+       "index": 4,
+       "plugin": "YLowpass Output",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "mix": {
+       "index": 5,
+       "plugin": "YLowpass Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "YBandpass": {
+     "id": 70,
+     "raw": 0.921053,
+     "surge_name": "YBandpass",
+     "group": "Filter",
+     "params": {
+      "gain": {
+       "index": 0,
+       "plugin": "YBandpass Gain",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "cutoff": {
+       "index": 1,
+       "plugin": "YBandpass Cutoff",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "resonance": {
+       "index": 2,
+       "plugin": "YBandpass Resonance",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "edge": {
+       "index": 3,
+       "plugin": "YBandpass Edge",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "output": {
+       "index": 4,
+       "plugin": "YBandpass Output",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "mix": {
+       "index": 5,
+       "plugin": "YBandpass Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "YHighpass": {
+     "id": 71,
+     "raw": 0.934211,
+     "surge_name": "YHighpass",
+     "group": "Filter",
+     "params": {
+      "gain": {
+       "index": 0,
+       "plugin": "YHighpass Gain",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "cutoff": {
+       "index": 1,
+       "plugin": "YHighpass Cutoff",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "resonance": {
+       "index": 2,
+       "plugin": "YHighpass Resonance",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "edge": {
+       "index": 3,
+       "plugin": "YHighpass Edge",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "output": {
+       "index": 4,
+       "plugin": "YHighpass Output",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "mix": {
+       "index": 5,
+       "plugin": "YHighpass Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "YNotch": {
+     "id": 72,
+     "raw": 0.947368,
+     "surge_name": "YNotch",
+     "group": "Filter",
+     "params": {
+      "gain": {
+       "index": 0,
+       "plugin": "YNotch Gain",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "cutoff": {
+       "index": 1,
+       "plugin": "YNotch Cutoff",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "resonance": {
+       "index": 2,
+       "plugin": "YNotch Resonance",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "edge": {
+       "index": 3,
+       "plugin": "YNotch Edge",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "output": {
+       "index": 4,
+       "plugin": "YNotch Output",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "mix": {
+       "index": 5,
+       "plugin": "YNotch Mix",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      }
+     }
+    },
+    "ZLowpass2": {
+     "id": 73,
+     "raw": 0.960526,
+     "surge_name": "ZLowpass",
+     "group": "Filter",
+     "params": {
+      "input": {
+       "index": 0,
+       "plugin": "ZLowpass Input",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "cutoff": {
+       "index": 1,
+       "plugin": "ZLowpass Cutoff",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "ZLowpass Output",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "poles": {
+       "index": 3,
+       "plugin": "ZLowpass Poles",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "ZBandpass2": {
+     "id": 74,
+     "raw": 0.973684,
+     "surge_name": "ZBandpass",
+     "group": "Filter",
+     "params": {
+      "input": {
+       "index": 0,
+       "plugin": "ZBandpass Input",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "cutoff": {
+       "index": 1,
+       "plugin": "ZBandpass Cutoff",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "ZBandpass Output",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "poles": {
+       "index": 3,
+       "plugin": "ZBandpass Poles",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "ZHighpass2": {
+     "id": 75,
+     "raw": 0.986842,
+     "surge_name": "ZHighpass",
+     "group": "Filter",
+     "params": {
+      "input": {
+       "index": 0,
+       "plugin": "ZHighpass Input",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "cutoff": {
+       "index": 1,
+       "plugin": "ZHighpass Cutoff",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "ZHighpass Output",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "poles": {
+       "index": 3,
+       "plugin": "ZHighpass Poles",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    },
+    "ZNotch2": {
+     "id": 76,
+     "raw": 1.0,
+     "surge_name": "ZNotch",
+     "group": "Filter",
+     "params": {
+      "input": {
+       "index": 0,
+       "plugin": "ZNotch Input",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 10.0
+      },
+      "cutoff": {
+       "index": 1,
+       "plugin": "ZNotch Cutoff",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      },
+      "output": {
+       "index": 2,
+       "plugin": "ZNotch Output",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 100.0
+      },
+      "poles": {
+       "index": 3,
+       "plugin": "ZNotch Poles",
+       "unit": "%",
+       "min": 0.0,
+       "max": 100.0,
+       "steps": 1001,
+       "default": 50.0
+      }
+     }
+    }
+   }
+  }
+ }
+}

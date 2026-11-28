@@ -32,7 +32,8 @@ def behind_script(project):
 
 # A part's sound written as `studio.py audition --sounds` writes one (0.10): any sound a part can play, beside the words
 # that find a SoundFont preset.  Three runs of 0.9.1's gallery wrote their Surge and synth parts into compose.py by hand.
-FORMS = ('surge:', 'synth:', 'soundfont:')
+FORMS = ('surge:', 'synth:', 'soundfont:', 'drum_synth')
+KITS = ('808', '909')   # a drum machine's kits (schema.md: kit.style)
 
 
 def sound_form(ident, instrument):
@@ -47,6 +48,14 @@ def sound_form(ident, instrument):
     if not instrument or not instrument.startswith(FORMS):
         return None
     kind = instrument.split(':', 1)[0]
+    if kind != 'drum_synth' and kind.startswith('drum_synth'):   # drum_synth808 and the like
+        return 'unknown', f'part {ident}: {instrument!r}: a drum machine is drum_synth, drum_synth:808 or drum_synth:909'
+    if kind == 'drum_synth':
+        # a drum machine (0.11: the walkthrough of the second part found no way to name one, which the electronic guides use)
+        style = instrument.partition(':')[2]
+        if len(instrument.split()) > 1 or (style and style not in KITS) or (not style and instrument != 'drum_synth'):
+            return 'unknown', f'part {ident}: {instrument!r}: a drum machine is drum_synth, drum_synth:808 or drum_synth:909'
+        return 'drum_synth', ({'kit': {'style': style}} if style else {})
     if len(instrument.split()) > 1:
         return 'unknown', f'part {ident}: {instrument!r}: a sound named as {kind}: is one word, with no space'
     from .audition import parse_sound
@@ -77,6 +86,8 @@ def probe_pitch(engine, fields):
     """Where a Surge or synth part's placeholder note goes: the pitch the catalog's probe note is written at (C2 for basses,
     C5 for leads, plucks and brass, C4 otherwise, as scripts/surge_catalog.py plays its probe), else middle C.  Written
     there, a patch with a `transpose` plays it where the renderer moves its notes, as every note of the part."""
+    if engine == 'drum_synth':
+        return 36   # the kick
     if engine != 'surge':
         return 60
     from . import surge
@@ -171,15 +182,16 @@ def script(title, sections, parts, tempo, meter, config):
               "# song.harmony(1, 1, 'Cmaj7')",
               '']
     for ident, role, instrument, _, _, _ in parts:
-        if isinstance(instrument, tuple):   # a Surge or synth part: its engine and the fields that name its sound
+        if isinstance(instrument, tuple):   # a Surge, synth or drum machine part: its engine and the fields that name its sound
             engine, fields = instrument
-            lines.append(f'{ident} = song.part({q(ident)}, {q(role)}, engine={q(engine)}, {engine}={fields[engine]!r})')
+            lines.append(f'{ident} = song.part({q(ident)}, {q(role)}, engine={q(engine)}' + ''.join(f', {k}={v!r}' for k, v in fields.items()) + ')')
             continue
         lines.append(f'{ident} = song.part({q(ident)}, {q(role)}' + (f', {q(instrument)})' if instrument else
                                                                        ")  # the default bank's program 0; name a preset: song.part(id, role, '<bank> <bank number>:<program>') or words (studio.py instruments)"))
     lines += ['',
               "# A synthesizer part: song.part('pad', 'harmony', engine='surge', surge={'preset': 'juno_60_strings'}), or engine='synth',",
-              "# synth={'preset': 'warm_pad'} (studio.py sounds finds a Surge patch; references/synth-presets.json lists the built-in ones).",
+              "# synth={'preset': 'warm_pad'} (studio.py sounds finds a Surge patch; references/synth-presets.json lists the built-in ones);",
+              "# a drum machine: song.part('drums', 'drums', engine='drum_synth', kit={'style': '909'}) (schema.md: kit).",
               '# The notes: part.note(bar, beat, pitch, beats, velocity=80) and part.chord(bar, beat, [pitches], beats, velocity=80).',
               '# One placeholder note a part (a drum part\'s kick, 36, else the middle of its keys, at a velocity its preset sounds), so',
               '# that the project renders as it stands: replace them.  What else a part and a note take: the docstrings of musiclib/builder.py.']
@@ -225,7 +237,7 @@ def start(folder, title, sections, parts, tempo=100.0, meter='4/4', config=None)
     placed, length = [], min(1, probe.beats_per_bar)   # a quarter note, or a bar of 1/8 or 3/16 whole
     for ident, role, instrument in parts:
         form = forms[ident]
-        if form is not None and form[0] in ('surge', 'synth'):
+        if form is not None and form[0] in ('surge', 'synth', 'drum_synth'):
             engine, fields = form
             part = probe.part(ident, role, engine=engine, **fields)
             pitch = probe_pitch(engine, fields)

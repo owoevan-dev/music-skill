@@ -546,10 +546,10 @@ def premix_production(p, x=None):
     length (its phases come from the name 'premix'), so loop layers put through it add up to the mix put through it:
     the layers skipped it, and kept the stereo lows mono_below_hz takes out (found by GPT Pro's seventh review of
     0.4.0).  Without `x`, whether the mix has any."""
-    if x is None:
-        return bool(p['mix'].get('wow_flutter') or p['mix'].get('mono_below_hz'))
     from . import production
-    if p['mix'].get('wow_flutter'):
+    if x is None:
+        return bool(production.wobbling(p['mix']) or p['mix'].get('mono_below_hz'))
+    if production.wobbling(p['mix']):   # {} plays the defaults, as on a part (Astra's review b011e)
         x, _ = production.wow_flutter(x, p['mix']['wow_flutter'], 'premix')
     if p['mix'].get('mono_below_hz'):
         x = production.mono_below(x, p['mix']['mono_below_hz'])

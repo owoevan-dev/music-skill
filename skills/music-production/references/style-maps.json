@@ -464,10 +464,36 @@
       "context": "the bass ducked in time with the beat (sidechain): pumping is almost universal in French house and EDM, the bass among the parts most ducked; keyed by the kick or a steady pulse",
       "source": "electronic:S1",
       "also": [
-       "electronic:S5",
        "electronic:S11",
-       "electronic:S13",
        "electronic:S8"
+      ],
+      "styles": [
+       "electronic/house",
+       "electronic/festival-edm"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.duck"
+      ],
+      "how": "often",
+      "context": "the sub-bass ducked by the kick, quite popular in dance music",
+      "source": "electronic:S5",
+      "styles": [
+       "electronic/dubstep"
+      ]
+     },
+     {
+      "kind": "dynamics",
+      "tools": [
+       "mix.duck"
+      ],
+      "how": "documented",
+      "context": "an off-beat bass pumping from the kick",
+      "source": "electronic:S13",
+      "styles": [
+       "electronic/trance"
       ]
      },
      {
@@ -654,7 +680,7 @@
        "mix.auto_pan"
       ],
       "how": "usual",
-      "context": "an electric piano with tremolo, by far its most common effect (in stereo, panning side to side)",
+      "context": "an electric piano's tremolo, panning side to side in stereo: by far its most common stereo effect, almost synonymous with it",
       "source": "pop:1",
       "also": [
        "pop:2",
@@ -1058,11 +1084,10 @@
       "kind": "space",
       "tools": [
        "mix.reverb_send",
-       "surge_fx.spring_reverb",
        "surge_fx.reverb_1"
       ],
       "how": "often",
-      "context": "heavy reverb on a clean-ish, big guitar tone, typically",
+      "context": "heavy reverb on a clean-ish, big guitar tone, typically (the source names no kind of reverb)",
       "source": "rock:S16",
       "styles": [
        "rock/surf"
@@ -1127,7 +1152,7 @@
        "mix.duck"
       ],
       "how": "often",
-      "context": "the bass ducked 2-3 dB on each kick, a well-known workhorse technique",
+      "context": "the bass ducked on each kick, rarely by more than 2-3 dB: a well-known workhorse technique",
       "source": "rock:S13"
      },
      {
@@ -1412,7 +1437,7 @@
        "mix.compressor"
       ],
       "how": "documented",
-      "context": "an 808 heavily compressed and saturated, working as a bass note (Future, Mask Off)",
+      "context": "an 808 that a reviewer hears as heavily compressed and saturated, working as a bass note (Future, Mask Off)",
       "source": "beats:14",
       "styles": [
        "beats/trap"

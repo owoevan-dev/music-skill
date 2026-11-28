@@ -31,9 +31,10 @@ python <skill>/scripts/studio.py effects --describe ToTape6
 - **A short list, then one in full.** Each row gives the tool's id, its kinds (correction, dynamics, colour, modulation, space,
   delay, lo-fi, noise, sound design, utility), where it goes (`mix.compressor`, `mix.surge_fx`, ...), what it needs (Surge XT
   Effects or nothing), a sentence on what it does and why it fits. `--character` keeps the tools with those words (warm, tape,
-  wide, bright, long tail: the catalog's own and those its measures give). `--describe <id>` gives a fragment that validates, the
-  tool's controls with their units, limits and defaults, a tool of the skill's own to fall back on where Surge XT Effects is
-  missing, what to watch, its measures at its defaults and its sources.
+  wide, bright, long tail: the catalog's own and those its measures give). `--describe <id>` gives a fragment that validates, what to
+  watch and the sources; for a Surge XT effect also its controls with their units, limits and defaults, its measures at its
+  defaults and, where the skill has one, a tool of its own to fall back on where Surge XT Effects is missing; for the skill's
+  own tools, where their fields and limits are (schema.md).
 - **The style's documented treatments come first.** The map of the project's style (`treatments` in
   [style-maps.json](style-maps.json)) records, by a part's role, the kinds of treatment a published source documents, with how
   usual the source says it is: `usual` (a convention two sources or more corroborate, one of them saying it is the rule or nearly:
@@ -179,7 +180,7 @@ What to watch, by type (the defaults and behaviour measured here, on Surge XT Ef
 | `ring_modulator` | the part multiplied by an inner oscillator: sum and difference tones, bell-like or robotic; a low carrier rate is a tremolo | `Audio In` is not offered; default `output_mix` 100 % |
 | `resonator` | three tuned resonant filters: peaks or vowel-like formants on a part | default `output_mix` 100 % |
 | `combulator` | three comb filters tuned to pitches: noise or drums ringing at chosen notes | its `input_extra_noise` above 0 renders otherwise each time |
-| `tape` | hysteresis saturation, tape speed and head losses, a degrade section | its renders agree only to within −120 dBFS, and its `degrade_depth` above 0 renders otherwise each time (below) |
+| `tape` | hysteresis saturation, tape speed and head losses, a degrade section | its renders agree only to within −120 dBFS (another effect after it can enlarge that), and its `degrade_depth` above 0 renders otherwise each time (below) |
 
 Measured here on part one's thirteen types: every setting at the ends of every parameter, and three random settings each, render
 the same twice; at a mix of 0 % every type with a mix but the flanger, whose mix is its combs' level, gives back the dry signal
@@ -221,13 +222,16 @@ marks each (`repeat` and `varies_when` in [surge-fx.json](surge-fx.json)):
 - **By design, new each time** (`varies_when`): Tape with `degrade_depth` above 0, the combulator with `input_extra_noise` above
   0, the spring reverb with `modulation_chaos` above 0 or `modulation_knock` on, the flanger and phaser with the Noise or Sample &
   Hold waveform. Measured: Tape's degrade made two renders differ throughout, 1.5 dB under the output at 50 %.
-- **To within rounding**: Tape at `degrade_depth` 0. After 4 s of silence processed first (every effect of the second part gets
-  that pre-roll; part one's thirteen keep the host's four blocks, so their modulation stands where it stood), its renders agree
-  to −147 to −150 dBFS, on a busy machine too: below 24-bit resolution, not to the bit.
+- **To within rounding**: Tape at `degrade_depth` 0, last in its chain. After 4 s of silence processed first (every effect of
+  the second part gets that pre-roll; part one's thirteen keep the host's four blocks, so their modulation stands where it
+  stood), its renders agree to −147 to −150 dBFS, on a busy machine too: below 24-bit resolution, not to the bit. With another
+  effect after it, the chain counts as varying (`tape (before another effect)`): what follows can enlarge that difference (with
+  DustBunny after it, two renders came out 15 dB under the signal apart).
 - **One take of the part.** A chain that is not exact runs once for the part's audio into it: its output is kept in the part's
   cache entry, and the headphone version and later renders take it again until that audio or the chain changes (a pan or a
   level after the chain changes neither). So a varying part sounds the same in the master and the headphone version, and from
-  render to render, until it is changed, as a frozen track in a DAW keeps its file.
+  render to render, until it is changed, as a frozen track in a DAW keeps its file. A part's stem in the cache is used again only
+  beside the take it was made from; a take is kept only once its part is made, so a chain that failed keeps nothing.
 
 ## What the render says
 
@@ -241,7 +245,8 @@ marks each (`repeat` and `varies_when` in [surge-fx.json](surge-fx.json)):
   returns the part to the level it entered the chain at, as an engineer aims for about the same level out of each plug-in as
   goes in, louder being heard as better (Houghton 2013), measured as the part's level is (`level_mode`: its active RMS by
   default, which follows loudness rather than sample peaks as Houghton 2026 advises, or its peak where the part asks for
-  that), so that `level_dbfs` stays the part's level.
+  that), so that the chain itself leaves the part's level as it found it (the compressor and the tools before it still
+  change it).
 - **The summary** prints the parts that played without their chains and why, the chains set to vary, and any chain that moved
   its part's level 12 dB or more: such a chain usually has a gain, a drive or a mix at an extreme (with the distortion's
   leftover settings, noise bursts came out 38 dB lower). A chain that leaves a part silent stops the render with the part named.

@@ -96,7 +96,8 @@ def live_ranges(param, steps=STEPS):
 
 def raw_for(name, ranges, label, want):
     """The raw value for `want`: a name, at the middle of the range showing it; a number in a unit, at the range whose text
-    is nearest.  A text that holds over several steps (a stepped parameter) is set at the middle of its range, off the
+    is nearest; an end of the control (the lowest or highest value it reads) at the end itself.  A text that holds over
+    several steps (a stepped parameter) is set at the middle of its range, off the
     edges where the plugin may round to the neighbour; one read at a single step (a continuous parameter) where it was
     read, or, where the value asked lies between it and its neighbour, on the straight line between the two, so that the
     plugin shows the value asked (0.6 Hz, not the 0.597 Hz read at the nearest step)."""
@@ -113,6 +114,15 @@ def raw_for(name, ranges, label, want):
     value = want['value']
     k = min(range(len(points)), key=lambda i: abs(points[i][2] - value))
     start, end, got = points[k]
+    values = [p[2] for p in points]
+    if (got == min(values) and value <= got) or (got == max(values) and value >= got):
+        # an end of the control: the value its text names is the end itself (a mix of 0 %, an output at its lowest), not the
+        # middle of the text's range, which still processed (Fracture's mix showed 0.00 % from raw 0 to 0.005: Astra's
+        # review b011d)
+        if start == 0.0:
+            return 0.0
+        if end == 1.0:
+            return 1.0
     if end - start > one:
         return (start + end) / 2
     for j in (k - 1, k + 1):

@@ -235,11 +235,17 @@ def saturating(mix):
     return (s.get('drive', .5) if isinstance(s, dict) else s) > 0
 
 
+def wobbling(mix):
+    """Whether a mix (a part's or the project's) plays its tape wobble: an object, {} included, with the defaults schema.md
+    gives; any other value, false among them, plays none, as before 0.11 (Astra's reviews b011d and b011e)."""
+    return isinstance(mix.get('wow_flutter'), dict)
+
+
 def process(stem, project, track, clock):
     """The track's production tools in a fixed order: tape wobble, sweep, saturation, gate, delay, ducking."""
     mix, report = track['mix'], {}
     y = stem.astype(np.float64)
-    if mix.get('wow_flutter'):
+    if wobbling(mix):   # {} plays the defaults schema.md gives (it played nothing: Astra's review b011d)
         y, report['wow_flutter'] = wow_flutter(y, mix['wow_flutter'], track['id'])
     if mix.get('filter_sweep'):
         y, report['filter_sweep'] = filter_sweep(y, track, clock)
@@ -255,7 +261,8 @@ def process(stem, project, track, clock):
 
 
 def wanted(track):
-    return saturating(track['mix']) or any(track['mix'].get(k) for k in ('wow_flutter', 'filter_sweep', 'gate', 'delay', 'duck'))
+    return (saturating(track['mix']) or wobbling(track['mix'])
+            or any(track['mix'].get(k) for k in ('filter_sweep', 'gate', 'delay', 'duck')))
 
 
 def validate_wow(spec, where):
@@ -270,7 +277,7 @@ def validate(project, track):
     from .played import number
     mix = track['mix']
     ids = {t['id'] for t in project['tracks']}
-    if mix.get('wow_flutter'):
+    if mix.get('wow_flutter') or wobbling(mix):   # {} is checked too; false is none, as before
         validate_wow(mix['wow_flutter'], track['id'])
     if mix.get('duck'):
         d = mix['duck']

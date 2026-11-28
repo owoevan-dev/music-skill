@@ -1,5 +1,5 @@
 {
- "note": "The Surge XT Effects types the skill offers (mix.surge_fx), read off Surge XT Effects 1.3.4 for Windows with pedalboard 0.9.26 (research/effects-0.11/surgefx-params.md): for each, the plugin's type and the raw value that selects it, each parameter with its unit and limits or the values it takes and its default. A number is in the unit given. A default is the value the type sets when chosen, read back, except the distortion's drive (0 dB), feedback (0 %) and high cuts (their maximum), which the type leaves unset. The Airwindows type holds 75 algorithms by their Airwindows names, each knob by its position and the plugin's label, its default Airwindows' own. Every parameter is set on each render, a project's value or its default. `repeat` says how two renders of a setting compare (exact: to the bit; rounding: to float rounding); `varies_when` names the settings that render otherwise each time a part is processed anew (a receipt says a part used one). The ring modulator's Audio In carrier is left out: it wants a second signal. `shown_by_mode`: a control the plugin shows centred in some modes and not in others, given as the type's default mode shows it (Nimbus's density and texture, as its granular mode shows them).",
+ "note": "The Surge XT Effects types the skill offers (mix.surge_fx), read off Surge XT Effects 1.3.4 for Windows with pedalboard 0.9.26 (research/effects-0.11/surgefx-params.md): for each, the plugin's type and the raw value that selects it, each parameter with its unit and limits or the values it takes and its default. A number is in the unit given. A default is the value the type sets when chosen, read back, except the distortion's drive (0 dB), feedback (0 %) and high cuts (their maximum), which the type leaves unset. The Airwindows type holds 75 algorithms by their Airwindows names, each knob by its position and the plugin's label, its default Airwindows' own. Every parameter is set on each render, a project's value or its default. `repeat` says how two renders of a setting compare (exact: to the bit; rounding: to float rounding); `varies_when` names the settings that render otherwise each time a part is processed anew (a receipt says a part used one). The ring modulator's Audio In carrier is left out: it wants a second signal. `shown_by_mode`: a control the plugin shows centred in some modes and not in others, given as the type's default mode shows it (Nimbus's density and texture, as its granular mode shows them), with each mode and whether it shows the control centred.",
  "plugin_version": "1.3.4",
  "types": {
   "reverb_1": {
@@ -1272,7 +1272,12 @@
      "max": 100.0,
      "steps": 1001,
      "default": 0.0,
-     "shown_by_mode": true
+     "shown_by_mode": {
+      "Granularizer": true,
+      "Pitch Shifter": false,
+      "Looping Delay": false,
+      "Spectral Madness": true
+     }
     },
     "grain_texture": {
      "plugin": "grain_texture",
@@ -1281,7 +1286,12 @@
      "max": 100.0,
      "steps": 1001,
      "default": 50.0,
-     "shown_by_mode": true
+     "shown_by_mode": {
+      "Granularizer": false,
+      "Pitch Shifter": true,
+      "Looping Delay": true,
+      "Spectral Madness": true
+     }
     },
     "grain_spread": {
      "plugin": "grain_spread",

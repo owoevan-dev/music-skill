@@ -1840,6 +1840,9 @@ def define(S):
         assert "What the map of electronic/house documents, by role" in said and '  bass: dynamics: the bass ducked in time with the beat' in said
         lead=next(x for x in r['views']['treatment']['parts'] if x['part']=='lead')
         assert lead['tools'][0]=='mix.eq' and 'mix.delay_send' in lead['tools'] and lead['kinds'][:2]==['correction','space'],lead
+        # a tool changes a part's character by any of its kinds (Astra's review b011d: DrumSlam, Capacitor and PocketVerbs counted 0)
+        second=score_views.treatment(song(piano={'surge_fx':[{'type':'airwindows','algorithm':a} for a in ('DrumSlam','Capacitor','PocketVerbs')]}))
+        assert second['parts'][0]['character_tools']==3,second['parts'][0]
         heavy=score_views.treatment(song(piano={'effects':[{'type':'chorus'},{'type':'phaser'},{'type':'bitcrush'}]}))
         assert [x['part'] for x in heavy['parts'] if x['character_tools']>=3]==['piano'],heavy
         assert any('three tools or more that change their character' in x and 'piano' in x for x in score_views.treatment_lines(heavy))

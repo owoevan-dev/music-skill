@@ -188,7 +188,7 @@ What published sources document of this family's processing, by a part's role (`
 
 - **Harmony.** Correction (*documented*): the sample's low end rolled off and its top trimmed a little; a band-limited lo-fi channel beside it (Attack Magazine 2021; Walden 2024); lo-fi (*documented*, lo fi): gentle wow and flutter, the slow pitch drift of worn tape (White 2022; Douglas 2021); modulation (*often*, lo fi): chorus on Rhodes-style keys, particularly popular; on a glassy synth loop (White 2022; Douglas 2021); space (*documented*, lo fi): a lo-fi reverb on the piano (Walden 2024).
 - **Texture.** Noise (*documented*, lo fi): a crackle or noise bed kept barely perceptible, pumped by the kick or gated between notes (Douglas 2021; Walden 2024).
-- **Bass.** Colour (*documented*, trap): an 808 heavily compressed and saturated, working as a bass note (Future, Mask Off) (Senior 2017).
+- **Bass.** Colour (*documented*, trap): an 808 that a reviewer hears as heavily compressed and saturated, working as a bass note (Future, Mask Off) (Senior 2017).
 - **Drums.** Colour (*documented*): kicks and snares recorded hot to tape (Dr Dre, 2001); tape-style saturation on a lo-fi drum bus (Computer Music 2016; Douglas 2021); lo-fi (*documented*): the SP-1200's 26.04 kHz and the MPC60's 12 bits emulated; a decimator on a snare, sample-rate reduction on a hat loop (Computer Music 2016; Korff 2015; Douglas 2021); dynamics (*documented*, boom bap): a drum-bus processor on the drum group (Attack Magazine 2021); space (*documented*, boom bap): a hall on the clap (Attack Magazine 2021); space (*documented*, lo fi): a dark reverb with spring-like overtones on the drum machine (Douglas 2021).
 
 <!-- /treatments -->

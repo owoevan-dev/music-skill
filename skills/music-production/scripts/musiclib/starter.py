@@ -48,6 +48,8 @@ def sound_form(ident, instrument):
     if not instrument or not instrument.startswith(FORMS):
         return None
     kind = instrument.split(':', 1)[0]
+    if kind != 'drum_synth' and kind.startswith('drum_synth'):   # drum_synth808 and the like
+        return 'unknown', f'part {ident}: {instrument!r}: a drum machine is drum_synth, drum_synth:808 or drum_synth:909'
     if kind == 'drum_synth':
         # a drum machine (0.11: the walkthrough of the second part found no way to name one, which the electronic guides use)
         style = instrument.partition(':')[2]

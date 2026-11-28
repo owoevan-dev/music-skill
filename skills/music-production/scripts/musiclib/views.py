@@ -314,9 +314,10 @@ def treatment(p):
         kinds = effectscatalog.kinds_of(ids)
         documented = effectscatalog.treatments(entry, t.get('role'))[0] if entry and t.get('role') else []
         rows.append({'part': t['id'], 'role': t.get('role'), 'tools': ids, 'kinds': kinds,
-                     'character_tools': sum(1 for i in ids if effectscatalog.tools()[i]['kinds'][0] in effectscatalog.CHARACTER),
+                     'character_tools': sum(1 for i in ids if set(effectscatalog.tools()[i]['kinds']) & set(effectscatalog.CHARACTER)),
                      **({'preset_effects': True} if t.get('engine') == 'surge' else {}),
                      'documented': [{'kind': d['kind'], 'how': d['how'], 'context': d.get('context'), 'source': d['source'],
+                                     **({'also': list(d['also'])} if d.get('also') else {}),
                                      **({'none': True} if d.get('none') else {}), 'has': d['kind'] in kinds} for d in documented]})
     return {'style': entry, 'parts': rows}
 
@@ -417,7 +418,7 @@ def treatment_lines(t):
     for r in t['parts']:
         if r['documented'] and r['role'] not in said:
             roles.append(r['role'])
-            said[r['role']] = '; '.join(f'{"little or no " if d.get("none") else ""}{d["kind"]}: {one_line(str(d.get("context") or ""))} ({d["how"]}, {d["source"]})'
+            said[r['role']] = '; '.join(f'{"little or no " if d.get("none") else ""}{d["kind"]}: {one_line(str(d.get("context") or ""))} ({d["how"]}, {", ".join([d["source"]] + d.get("also", []))})'
                                         for d in r['documented'])
     if said:
         lines.append(f'What the map of {style} documents, by role (a kind, on what, how usual its source says it is; studio.py effects '

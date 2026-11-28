@@ -115,7 +115,10 @@ def search(role=None, style=None, character=(), kind=None, seed=None, limit=LIMI
     if limit < 1:
         raise ValueError('--limit is at least 1')
     found, read = treatments(style, role)
-    fitting = [e for e in cat['tools'] if _fits(e, role, kind, wanted)]
+    # a tool the style's map names for the role is kept though its own roles leave the role out (jazz's piano compressor
+    # was left out: Astra's review b011d); the other filters hold for it
+    named_ids = {i for t in found if not t.get('none') for i in t.get('tools', ())}
+    fitting = [e for e in cat['tools'] if _fits(e, role, kind, wanted) or (e['id'] in named_ids and _fits(e, None, kind, wanted))]
     order = {k: i for i, k in enumerate(cat['kinds'])}
     fitting.sort(key=lambda e: (order[e['kinds'][0]], e['id']))
     rng = np.random.default_rng(seed) if seed is not None else None
@@ -124,7 +127,7 @@ def search(role=None, style=None, character=(), kind=None, seed=None, limit=LIMI
     for t in found:
         if t.get('none'):
             continue   # a source that says the role takes little or none of a kind ranks nothing up: it is said on `nothing`
-        said = f'{t["how"]}{", " + t["context"] if t.get("context") else ""}; {t["source"]}'
+        said = f'{t["how"]}{", " + t["context"] if t.get("context") else ""}; {", ".join([t["source"]] + list(t.get("also", ())))}'
         for tid in t.get('tools', ()):
             named.setdefault(tid, f'the map of {read} documents it for {parts(role)} ({said})')
         of_kind.setdefault(t['kind'], f'the map of {read} documents {t["kind"]} for {parts(role)} ({said})')
@@ -139,7 +142,7 @@ def search(role=None, style=None, character=(), kind=None, seed=None, limit=LIMI
             return of_kind[e['kinds'][0]]
         bits = [f'{e["kinds"][0]}']
         if role:
-            bits.append(f'for {parts(role)}' if role in e['roles'] else f'for {parts(ROLE_AS[role])}, as {role} is read')
+            bits.append(f'for {parts(role)}' if role in e['roles'] else f'for {parts(ROLE_AS.get(role, role))}, as {role} is read')
         if wanted:
             bits.append(', '.join(wanted))
         return ', '.join(bits)
@@ -152,16 +155,17 @@ def search(role=None, style=None, character=(), kind=None, seed=None, limit=LIMI
             room = limit - len(rows)
             if room <= 0:
                 break
-            rows += [_row(e, why(e)) for e in spread(group, room, rng)]
+            rows += [_row(e, why(e)) for e in spread(group, room, rng, kind)]
     unranked = ('' if found or not style else "; give --role to rank them by the style's map" if not role
                 else f'; the map of {read} documents no treatment for {role} parts, so none is ranked by it')
     note = (f'{len(fitting)} of {len(cat["tools"])} tools fit' + (f'; {len(rows)} shown' if not everything else '') + unranked
-            + '. --describe <id> gives one in full: its fragment, controls, fallback and sources.')
+            + ". --describe <id> gives one in full: its fragment, its controls (a Surge XT effect's; the skill's own tools "
+              'name where schema.md gives their fields), fallback and sources.')
     nothing = dict(NOTHING)
     little = [t for t in found if t.get('none')]
     if little:
         nothing['why'] += (f'; the map of {read} documents little or none of ' + '; '.join(
-            f'{t["kind"]} for {parts(role)} ({t["how"]}, {t["context"]}; {t["source"]})' for t in little))
+            f'{t["kind"]} for {parts(role)} ({t["how"]}, {t["context"]}; {", ".join([t["source"]] + list(t.get("also", ())))})' for t in little))
     return {'count': len(fitting), 'rows': rows + [nothing], 'treatments': found, 'style': read, 'note': note}
 
 
@@ -173,35 +177,39 @@ def family(e):
     return 'own' if not e.get('needs') else 'surge_fx' if e['id'].startswith('surge_fx.') else 'airwindows'
 
 
-def spread(group, room, rng):
+def spread(group, room, rng, kind=None):
     """`room` entries of `group`, taken kind by kind in turn (each tool by its first kind), so that every kind that fits is
     shown before any is shown twice; within a kind the families (the skill's own, Surge's types, Airwindows) take turns
-    equally, whatever their numbers (75 of the 114 tools are Airwindows algorithms).  The seed orders the kinds and picks
-    the family and the tool; without one, the kinds go in the catalog's order, the skill's own tools first, the middle tool
-    of each list.  The picks are shown in a seeded order, so the first rows differ from piece to piece too."""
+    in turn, whatever their numbers (75 of the 115 tools are Airwindows algorithms), a family with nothing left passed over.
+    The seed orders the kinds, the families' turn in each kind and the tool; without one, the kinds go in the catalog's
+    order, the skill's own tools first, the middle tool of each list.  The picks are shown in a seeded order, so the first
+    rows differ from piece to piece too."""
     if len(group) <= room:
         picks = list(group)
     else:
         kinds = []
         pools = {}
         for e in group:
-            k = e['kinds'][0]
+            k = kind or e['kinds'][0]   # the kind asked, which every tool here has; else each tool's first
             if k not in pools:
                 kinds.append(k)
                 pools[k] = {f: [] for f in FAMILIES}
             pools[k][family(e)].append(e)
         if rng is not None:
             kinds = [kinds[i] for i in rng.permutation(len(kinds))]
-        picks, turn = [], {k: 0 for k in kinds}
+        turns = {k: ([FAMILIES[i] for i in rng.permutation(len(FAMILIES))] if rng is not None else list(FAMILIES)) for k in kinds}
+        picks, at = [], {k: 0 for k in kinds}
         while len(picks) < room:
             for k in kinds:
                 if len(picks) >= room:
                     break
-                have = [f for f in FAMILIES if pools[k][f]]
-                if not have:
+                for step in range(len(FAMILIES)):   # the next family in this kind's turn that has a tool left
+                    f = turns[k][(at[k] + step) % len(FAMILIES)]
+                    if pools[k][f]:
+                        break
+                else:
                     continue
-                f = have[int(rng.integers(len(have)))] if rng is not None else have[turn[k] % len(have)]
-                turn[k] += 1
+                at[k] = (at[k] + step + 1) % len(FAMILIES)
                 pool = pools[k][f]
                 picks.append(pool.pop(int(rng.integers(len(pool))) if rng is not None else len(pool) // 2))
     if rng is not None:
@@ -210,8 +218,9 @@ def spread(group, room, rng):
 
 
 def describe(tid):
-    """One tool in full: the catalog's entry, its controls (a Surge XT effect's from references/surge-fx.json), and its
-    sources cited.  `airwindows` alone lists the 75 algorithms by group."""
+    """One tool in full: the catalog's entry, its controls (a Surge XT effect's or algorithm's from references/surge-fx.json;
+    null for the skill's own tools, whose `fields` names where schema.md gives them), and its sources cited.  `airwindows`
+    alone lists the 75 algorithms by group."""
     from . import surgefx
     table = surgefx.table()['types']
     if tid == 'airwindows':
@@ -222,6 +231,8 @@ def describe(tid):
         return {'id': 'airwindows', 'algorithms': sum(len(v) for v in groups.values()), 'groups': groups,
                 'note': 'Each is {"type": "airwindows", "algorithm": "<the part after airwindows.>", "params": {...}} in mix.surge_fx; '
                         '--describe airwindows.<Name> gives its controls.'}
+    if tid == 'nothing':
+        return {**NOTHING, 'why': 'a part left as it is: its level, pan and sends only; write why in decisions', 'sources': []}
     by_id = tools()
     if tid not in by_id and f'surge_fx.{tid}' in by_id:
         tid = f'surge_fx.{tid}'
@@ -244,6 +255,9 @@ def describe(tid):
     elif tid.startswith('airwindows.'):
         spec = table['airwindows']['algorithms'][tid.split('.', 1)[1]]
         e['controls'] = _controls(spec['params'])
+    else:   # every description has the key (Astra's review b011e: reading it as the guide says raised KeyError)
+        e['controls'] = None
+        e['fields'] = "references/schema.md (a track's " + ('kit' if tid.startswith('kit.') else 'mix') + ')'
     sources = catalog()['sources']
     e['sources'] = [{'key': k, **sources[k]} for k in e['sources']]
     return e
@@ -255,9 +269,11 @@ def part_tools(track):
     part moves as a swing), each of its effects and its Surge XT Effects chain.  A Surge XT part's preset carries effects
     of its own, which are not read here (`preset_effects`)."""
     mix, out = track.get('mix') or {}, []
-    for field in ('eq', 'compressor', 'noise_gate', 'amp', 'delay', 'duck', 'filter_sweep', 'gate', 'wow_flutter'):
+    for field in ('eq', 'compressor', 'noise_gate', 'amp', 'delay', 'duck', 'filter_sweep', 'gate'):
         if mix.get(field) is not None and mix.get(field) != []:
             out.append(f'mix.{field}')
+    if isinstance(mix.get('wow_flutter'), dict):   # an object plays, {} included (production.wobbling)
+        out.append('mix.wow_flutter')
     for field in ('highpass', 'lowpass'):
         if field in mix:
             out.append(f'mix.{field}')
@@ -316,6 +332,8 @@ def summary(found):
 
 
 def describe_lines(e):
+    if e['id'] == 'nothing':
+        return f'nothing: {e["summary"]} Why: {e["why"]}.'
     if e['id'] == 'airwindows':
         lines = [f'{e["algorithms"]} Airwindows algorithms in Surge XT Effects, by group:']
         for g, rows in e['groups'].items():
@@ -338,6 +356,11 @@ def describe_lines(e):
                         if e.get('varies_when') else '') + '.')
     if not e.get('needs'):
         lines.append("Its fields and their limits: references/schema.md (a track's mix" + (', kit' if e['id'].startswith('kit.') else '') + ').')
+    if e.get('measured'):
+        m = e['measured']
+        lines.append(f'Measured at its defaults: level {m["level_db"]:+g} dB, brightness x{m["brightness_ratio"]:g}, width {m["width_db"]:g} dB, '
+                     f'harmonics {m["harmonics_db"]:g} dB, other partials {m["inharmonic_db"]:g} dB, noise {m["noise_dbfs"]:g} dBFS, tail {m["tail_s"]:g} s '
+                     '(the catalog\'s note says on what).')
     lines.append(f'Watch: {e["watch"]}')
     if e.get('prefer'):
         lines.append(f'Rather: {e["prefer"]}')

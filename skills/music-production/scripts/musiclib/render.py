@@ -147,7 +147,7 @@ def part_memory(t,clock,frames,font,surge_plays=False):
         made=SYNTH_COPIES*copy+SYNTH_PER_HELD_SECOND*min(song,held+line)
     else:made=ENGINE_COPIES.get(engine,ENGINE_COPIES['noise'])*copy
     mix=t['mix']
-    tools=[TOOL_COPIES[k] for k in TOOL_COPIES if (production.saturating(mix) if k=='saturate' else mix.get(k))]+[STAGE_COPIES]*(mix.get('depth_m') is not None)
+    tools=[TOOL_COPIES[k] for k in TOOL_COPIES if (production.saturating(mix) if k=='saturate' else production.wobbling(mix) if k=='wow_flutter' else mix.get(k))]+[STAGE_COPIES]*(mix.get('depth_m') is not None)
     tools+=[CHORUS_COPIES]*any(e.get('type')=='chorus' for e in mix.get('effects',[]))
     tools+=[AUTOMATION_COPIES]*any(v for _,v in mix.get('automation',[]))
     tools+=[MOVE_COPIES]*bool(mix.get('move'))
@@ -663,6 +663,14 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
             kept=read_json(frozen_receipt);reused=False
             usable=kept.get('key')==stem_key and isinstance(kept.get('processing'),dict) and {'reference_level_dbfs','gain_db','filter_chain'}<=set(kept['processing']) and frozen.is_file()
             if usable and (fault:=audio.take_fault(frozen,frames)):rejected['stem'],usable=fault,False  # exactly the render's frames (1.4)
+            fx_was=kept.get('processing',{}).get('surge_fx') if usable else None
+            if isinstance(fx_was,dict) and fx_was.get('repeat') not in (None,'exact'):
+                # A stem whose chain is not exact is used only beside the take it was made from, so that the headphone version
+                # plays that take too: a failed edit had replaced the take and kept the stem (Astra's review b011d)
+                # (checked as the chain's own run would take it again: key, length, samples and report; a damaged take had
+                # left the headphone version on a new one: Astra's review b011e)
+                if not fx_was.get('take_key') or not surgefx.take_is_kept(folder,fx_was['take_key'],frames,t):
+                    rejected['stem'],usable='its chain is not exact, and the take it was made from is not kept beside it',False
             if usable:
                 # Copied under a name of its own and checked before it takes the stem's name: a copy that fails or
                 # does not match leaves no stem, half or otherwise, and the part is processed again.

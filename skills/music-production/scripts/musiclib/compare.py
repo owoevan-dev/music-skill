@@ -117,16 +117,18 @@ def _leaves(x, y, path):
 
 def _diff(x, y, skip=()):
     """{field: [before, after]} for each field that differs.  A field holding objects or lists is named down to the places
-    that changed in it, `surge_fx[1].params.output_mix` [20, 40], up to 8 of them (beyond, the field's two values
-    shortened): two chains alike in their first 57 characters were shown as the same shortened text (Astra's review d011b)."""
+    that changed in it, `surge_fx[1].params.output_mix` [20, 40], the first eight of them and how many more: two chains
+    alike in their first 57 characters were shown as the same shortened text (Astra's reviews d011b and b011d)."""
     out = {}
     for k in sorted((set(x) | set(y)) - set(skip)):
         if x.get(k) == y.get(k):
             continue
         both = isinstance(x.get(k), (dict, list)) and isinstance(y.get(k), (dict, list))
         places = _leaves(x.get(k), y.get(k), k) if both else []
-        if places and len(places) <= 8:
-            out.update({path: [_short(a), _short(b)] for path, a, b in places})
+        if places:
+            out.update({path: [_short(a), _short(b)] for path, a, b in places[:8]})
+            if len(places) > 8:   # (beyond eight, two long values alike in their first characters read the same shortened)
+                out[f'{k}: {len(places) - 8} more places'] = ['...', '...']
         else:
             out[k] = [_short(x.get(k)), _short(y.get(k))]
     return out

@@ -1148,6 +1148,19 @@ def define(S):
         text=json.dumps(cat,ensure_ascii=False)
         import re
         assert not re.search(r'\b[A-Za-z]:[\\/]|/(?:home|Users)/',text),'a local path in the catalog'   # (written so that the source names none)
+        from musiclib import production
+        assert production.wanted({'mix':{'wow_flutter':{}}}) and by_id['mix.wow_flutter']['fragment']['mix']['wow_flutter']   # {} plays its defaults (b011d)
+        # ... on a part and on the whole mix, as the explicit defaults do (Astra's review b011e: the mix's {} played nothing);
+        # another value that is not an object, false among them, plays none and raises nothing, as before 0.11
+        from musiclib import mixbus
+        x=(np.random.default_rng(3).standard_normal((24000,2))*.1).astype(np.float32)
+        defaults={'wow_cents':8,'wow_hz':.5,'flutter_cents':2,'flutter_hz':8}
+        on_part=lambda w:production.process(x,None,{'id':'p','mix':{'wow_flutter':w}},None)[0]
+        assert np.array_equal(on_part({}),on_part(defaults)) and not np.array_equal(on_part({}),x)
+        production.validate({'tracks':[{'id':'p'}]},{'id':'p','mix':{'wow_flutter':False}})
+        assert np.array_equal(on_part(False),x) and not production.wanted({'mix':{'wow_flutter':False}})
+        on_bus=lambda w:mixbus.premix_production({'mix':{'wow_flutter':w}},x.astype(np.float64))
+        assert mixbus.premix_production({'mix':{'wow_flutter':{}}}) and np.array_equal(on_bus({}),on_bus(defaults)) and not np.allclose(on_bus({}),x)
         return {'tools':len(by_id),'surge_fx':sum(i.startswith('surge_fx.') for i in by_id),'airwindows':sum(i.startswith('airwindows.') for i in by_id),'sources':len(cat['sources'])}
     def the_report_check_reads_what_the_plugin_shows():
         # 0.11, the second part (Astra's review d011b, point 2): the host's report is accepted only as the chain asked.  The
@@ -1173,18 +1186,26 @@ def define(S):
         refused([{**good[0],'shown':{k:('0.00 dB' if k in '012' else '0.00 %') for k in good[0]['shown']}}],'shows plus_threshold')
         refused(good*2,'reported another chain')
         spec=surgefx.table()['types']['nimbus']['params']
-        nimbus=lambda **p:{'id':'n','mix':{'surge_fx':[{'type':'nimbus','params':{'configuration_mode':'Pitch Shifter',**p}}]}}
-        def report(**shown):
-            out={q['plugin']:(str(q['default']) if 'values' in q else f'{q["default"]:.2f} {q["unit"]}') for q in spec.values()}
-            out['configuration_mode']='Pitch Shifter';out.update(shown)
+        nimbus=lambda mode,**p:{'id':'n','mix':{'surge_fx':[{'type':'nimbus','params':{'configuration_mode':mode,**p}}]}}
+        def report(mode,**shown):
+            def default(q):   # a default as the mode shows it (centred or not)
+                v=q['default']
+                if isinstance(q.get('shown_by_mode'),dict) and q['shown_by_mode'][mode]!=(q['min']<0):v=(v+100)/2 if q['min']<0 else 2*v-100
+                return f'{v:.2f} {q["unit"]}'
+            out={q['plugin']:(str(q['default']) if 'values' in q else default(q)) for q in spec.values()}
+            out['configuration_mode']=mode;out.update(shown)
             return [{'type':'Nimbus','shown':out}]
-        assert spec['grain_density'].get('shown_by_mode') and spec['grain_texture'].get('shown_by_mode')
-        surgefx.check_report(nimbus(grain_density=0.03,grain_texture=93.75),report(grain_density='50.02 %',grain_texture='87.50 %'))   # the other formatting
-        surgefx.check_report(nimbus(grain_density=-40,grain_texture=50),report(grain_density='-40.00 %',grain_texture='50.00 %'))      # the same one
-        try:surgefx.check_report(nimbus(grain_texture=93.75),report(grain_texture='20.00 %'))
-        except surgefx.Failed as e:assert 'grain_texture' in str(e),str(e)
-        else:raise AssertionError('a texture neither way was accepted')
-        return {'refused':6,'nimbus_read_both_ways':True}
+        assert spec['grain_density']['shown_by_mode']=={'Granularizer':True,'Pitch Shifter':False,'Looping Delay':False,'Spectral Madness':True}
+        # each read as the mode the report shows formats it, and in that formatting alone (Astra's review b011d: density 50 passed for 0)
+        surgefx.check_report(nimbus('Pitch Shifter',grain_density=0.03,grain_texture=93.75),report('Pitch Shifter',grain_density='50.02 %',grain_texture='87.50 %'))
+        surgefx.check_report(nimbus('Granularizer',grain_density=-40,grain_texture=50),report('Granularizer',grain_density='-40.00 %',grain_texture='50.00 %'))
+        surgefx.check_report(nimbus('Spectral Madness',grain_density=-40,grain_texture=50),report('Spectral Madness',grain_density='-40.00 %',grain_texture='0.00 %'))
+        for mode,asked,shown in (('Granularizer',{'grain_density':0},{'grain_density':'50.00 %'}),('Pitch Shifter',{'grain_density':-40},{'grain_density':'-40.00 %'}),
+                                 ('Pitch Shifter',{'grain_texture':93.75},{'grain_texture':'20.00 %'})):
+            try:surgefx.check_report(nimbus(mode,**asked),report(mode,**shown))
+            except surgefx.Failed as e:assert next(iter(asked)) in str(e),str(e)
+            else:raise AssertionError(f'{mode}: {shown} accepted for {asked}')
+        return {'refused':9,'nimbus_read_by_its_mode':True}
     def effects_search_fits_spreads_and_names_what_it_does_not_know():
         # studio.py effects (0.11): a search keeps only the tools that fit (role, kind, character words), shows the skill's own
         # tools beside the plugin's whatever their numbers, takes each kind before any twice, lets the seed choose the
@@ -1237,6 +1258,25 @@ def define(S):
         assert code==0 and len(lines)==6 and lines[0].startswith(f'{fx.search("drums")["count"]} of {len(fx.catalog()["tools"])} tools fit') and lines[-1].lstrip().startswith('nothing'),out
         code,out,_=run('--role','drums','--limit','4','--seed','9','--json');assert code==0 and [r['id'] for r in json.loads(out)['rows']]==[x.split(' ',3)[2] for x in lines[1:]],out[:300]
         code,_,err=run('--kind','spacey');assert code==2 and "did you mean 'space'?" in err and err.count('\n')==1,err
+        # Astra's review b011d: a tool the map names for the role stays though its own roles leave the role out (jazz's piano
+        # compressor), its row naming every source; within a kind the families take turns (three rows of one kind, three families)
+        jazz=fx.search('harmony',style='jazz/swing',kind='dynamics',everything=True)
+        row=next((r for r in jazz['rows'] if r['id']=='mix.compressor'),None)
+        assert row and 'jazz/swing documents it for harmony parts' in row['why'] and 'beats:3' in row['why'],jazz['rows'][:3]
+        rock=next(r for r in fx.search('bass',style='rock/heavy-metal',everything=True)['rows'] if r['id']=='mix.compressor')
+        assert 'rock:S13, rock:S5' in rock['why'],rock['why']
+        for s in range(12):
+            three=fx.search('melody',kind='colour',seed=s,limit=3)['rows'][:-1]
+            assert len({fx.family(fx.tools()[r['id']]) for r in three})==3,(s,[r['id'] for r in three])
+        assert fx.describe('nothing')['id']=='nothing' and fx.summary(fx.describe('nothing')).startswith('nothing: ')
+        assert 'Measured at its defaults: level' in fx.summary(fx.describe('ToTape6'))
+        # every description has `controls`, as outputs.md says (Astra's review b011e: the skill's own tools had no key)
+        for i in fx.tools():
+            d=fx.describe(i)
+            if i.startswith(('surge_fx.','airwindows.')):assert isinstance(d['controls'],dict) and d['controls'],i
+            else:assert d['controls'] is None and d['fields'].startswith('references/schema.md'),(i,d.get('controls'),d.get('fields'))
+        guide=(Path(__file__).resolve().parents[2]/'references'/'outputs.md').read_text(encoding='utf-8')
+        assert "`null` for the skill's own tools, whose `fields` names where schema.md gives them" in guide
         return {'bass_rows':[r['id'] for r in bass['rows']],'seeded_first':[x[0] for x in seeded]}
     found = {'bus_assignment_and_validation': bus_settings, 'church_space_decays_as_specified_and_dynamics_validate': spaces_and_dynamics, 'k_weighting_matches_bs1770': k_weighting, 'loudness_measures_gate_and_compare': loudness_measures, 'true_peak_limiter_holds_the_ceiling': true_peak_limiter, 'tonal_balance_reads_noise_and_compares_with_a_reference': tonal_reference, 'a_bell_facing_back_sounds_darker_and_further': facing, 'production_delay_duck_gate_and_mono_low_end': production_tools, 'part_saturation_keeps_loudness_and_adds_harmonics': part_saturation, 'tape_wow_flutter_and_vinyl_noise': worn_media, 'chorus_reads_its_moving_delay_between_samples': chorus_effect, 'stage_depth_moves_reflections_and_hall': stage_depth, 'range_control_lifts_soft_passages_only': range_master, 'analysis_groups_octave_doublings_and_suggests_cuts': melody_group_and_balance, 'automation_applies_per_sample_with_held_ends': automation_applies_per_sample_with_held_ends}
     found['a_part_moves_by_one_gain_for_each_channel'] = a_part_moves_by_one_gain_for_each_channel
@@ -2221,9 +2261,42 @@ def define(S):
                 assert f'Played anew through Surge XT Effects set to vary (part of a change there is the effect\'s own): {vt["id"]} (tape (degrade_depth)).' in summary.compare(fresh,work/'compare_fx.json')
                 deeper=copy.deepcopy(vq);deeper['tracks'][0]['mix']['surge_fx'][0]['params']['degrade_depth']=60
                 assert comparing.project_changes(vq,deeper)['tracks'][vt['id']]['mix']=={'surge_fx[0].params.degrade_depth':[40,60]}
+                # Astra's review b011d: an edit whose chain fails after the host ran (there, a fully wet echo left the part silent)
+                # kept its take over the one the cached stem was made from, and the project put back played two takes. Now the
+                # failed run keeps no take: put back, the stem comes from the cache with its own take, and the headphone version
+                # plays that take too; a take that is not the stem's (another key) has the part made again, both versions alike.
+                before=render(work/'surge_fx_varies.json',work/'render_fx_revert_0',config,work/'cache_fx_revert');b0=receipt('render_fx_revert_0')
+                failing=copy.deepcopy(vq);failing['tracks'][0]['mix']['surge_fx'][0]['params']['degrade_depth']=41;save_json(work/'surge_fx_failing.json',failing)
+                real_finish=surgefx._finish
+                def silent_finish(x,y,shown,track,dst,how,reused):
+                    if track['mix']['surge_fx'][0]['params'].get('degrade_depth')==41:raise ValueError(f'{track["id"]}: its mix.surge_fx chain leaves it silent (a check)')
+                    return real_finish(x,y,shown,track,dst,how,reused)
+                surgefx._finish=silent_finish
+                try:render(work/'surge_fx_failing.json',work/'render_fx_revert_fail',config,work/'cache_fx_revert')
+                except ValueError as e:assert 'leaves it silent' in str(e),str(e)
+                else:raise AssertionError('the failing edit rendered')
+                finally:surgefx._finish=real_finish
+                back=render(work/'surge_fx_varies.json',work/'render_fx_revert_1',config,work/'cache_fx_revert');b1=receipt('render_fx_revert_1')
+                assert b1['stem_reused'] and back['master']['sha256']==before['master']['sha256'],b1.get('cache_rejected')
+                assert np.array_equal(centre('render_fx_revert_1'),stem_of('render_fx_revert_1')) and np.array_equal(centre('render_fx_revert_1'),centre('render_fx_revert_0'))
+                kept_json=work/'cache_fx_revert'/b0['cache_key']/f'{surgefx.TAKE}.json';tk=json.loads(kept_json.read_text(encoding='utf-8'));tk['key']='0'*64
+                kept_json.write_text(json.dumps(tk),encoding='utf-8')
+                render(work/'surge_fx_varies.json',work/'render_fx_revert_2',config,work/'cache_fx_revert');b2=receipt('render_fx_revert_2')
+                assert not b2['stem_reused'] and 'take it was made from' in b2.get('cache_rejected',{}).get('stem',''),(b2['stem_reused'],b2.get('cache_rejected'))
+                assert np.array_equal(centre('render_fx_revert_2'),stem_of('render_fx_revert_2'))   # one take for both versions again
+                # a take whose samples changed under the stem's own key is not one the chain would use again: the stem is made
+                # again with the take, both versions alike (Astra's review b011e: the headphone version had taken a new one)
+                sound=work/'cache_fx_revert'/b2['cache_key']/f'{surgefx.TAKE}.f32';damaged=bytearray(sound.read_bytes());damaged[1001]^=1;sound.write_bytes(bytes(damaged))
+                render(work/'surge_fx_varies.json',work/'render_fx_revert_3',config,work/'cache_fx_revert');b3=receipt('render_fx_revert_3')
+                assert not b3['stem_reused'] and 'take it was made from' in b3.get('cache_rejected',{}).get('stem',''),(b3['stem_reused'],b3.get('cache_rejected'))
+                assert np.array_equal(centre('render_fx_revert_3'),stem_of('render_fx_revert_3'))
+                # Tape before another effect varies: what follows can enlarge Tape's difference (Tape then DustBunny: Astra's review b011d)
+                tdb={'id':'x','mix':{'surge_fx':[{'type':'tape'},{'type':'airwindows','algorithm':'DustBunny','params':{'amount':30}}]}}
+                assert surgefx.repeat(tdb)=='varies' and surgefx.varies(tdb)==['tape (before another effect)'] and surgefx.repeat({'id':'x','mix':{'surge_fx':tdb['mix']['surge_fx'][::-1]}})=='rounding'
                 out['with_the_plugin']=('applied, level kept, made the same twice and kept; a failed run kept nothing and is as without the field; '
                                         'a headphone version whose chain did otherwise is said, either way; a varying chain is one take for both '
-                                        'versions and later renders, made again where its kept samples changed; compare names it and the control')
+                                        'versions and later renders, made again where its kept samples changed; a failed edit keeps no take, and a '
+                                        'stem is used only beside its own; compare names it and the control')
             return out
         def effects_table_matches_the_plugin():
             # The table against the plugin (0.11, the second part; design section 6): every Surge XT Effects type and every
@@ -2249,7 +2322,14 @@ def define(S):
                 done=surgefx.apply(here/'in.wav',here/f'out{k:03d}.wav',track,cfg,here/'stems',here/'logs')   # check_report runs inside
                 assert [c['type'] for c in done['chain']]==[c['type'] for c in chain] and all(c.get('algorithm')==e.get('algorithm') for c,e in zip(done['chain'],chain)),done['chain']
                 runs+=1
-            return {'effects':len(effects),'runs':runs}
+            # an end of a control is the end itself (Astra's review b011d: Fracture's mix of 0 % was set at raw 0.003 and still
+            # processed, 49 dB under the dry signal): at 0 it gives the part back as the exciter at a mix of 0 does, sample for sample
+            dry={}
+            for name,chain in (('exciter',[{'type':'exciter','params':{'output_mix':0}}]),('fracture',[{'type':'airwindows','algorithm':'Fracture','params':{'mix':0}}])):
+                surgefx.apply(here/'in.wav',here/f'dry_{name}.wav',{'id':f'dry{name}','mix':{'level_mode':'active_rms','surge_fx':chain}},cfg,here/'stems',here/'logs')
+                dry[name]=audio.read_wav(here/f'dry_{name}.wav')[0]
+            assert np.array_equal(dry['exciter'],dry['fracture']),float(np.max(np.abs(dry['exciter']-dry['fracture'])))
+            return {'effects':len(effects),'runs':runs,'an_end_is_the_end':True}
         found.update({'analysis_names_the_lead_the_span_and_the_peak': analysis_names_the_lead_the_span_and_the_peak, 'bus_chain_render_and_delivery_checks': bus_render, 'a_chorus_pass_never_shares_another_parts_log': chorus_pass_logs, 'effects_apply_in_the_order_listed': effects_in_listed_order, 'the_mix_fields_of_0_11_render_as_their_filters': mix_fields_of_0_11_render, 'a_surge_fx_chain_applies_or_is_named_left_out': surge_fx_chain, 'every_surge_effect_and_algorithm_reads_back_as_the_table_says': effects_table_matches_the_plugin, 'analysis_reports_sections_stems_and_lead': analysis, 'mix_rules_2_render_limiter_saturation_and_clarity': rules_2_render, 'wide_dynamics_master_keeps_the_mix_range': wide_render, 'stage_depth_and_range_control_render': stage_and_range, 'long_automation_renders': long_automation_renders})
         found['a_moving_part_renders_and_the_others_stay'] = a_moving_part_renders_and_the_others_stay
         found['a_part_through_an_amplifier_renders_and_the_others_stay'] = a_part_through_an_amplifier_renders_and_the_others_stay

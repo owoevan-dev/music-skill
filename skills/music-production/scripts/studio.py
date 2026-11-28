@@ -126,7 +126,7 @@ def build_parser():
     fxc.add_argument('--seed',type=int,help="the piece's seed (musiclib.blocks.seed(title)): which tools the short list shows, so two pieces see different ones")
     fxc.add_argument('--limit',type=int,default=10,help='the most tools shown, before the closing "nothing" (default 10)')
     fxc.add_argument('--all',action='store_true',help='every tool that fits, by kind, instead of a short list')
-    fxc.add_argument('--describe',metavar='ID',help='one tool in full (an id the list shows, a Surge XT type, or an Airwindows name): its fragment, controls, fallback, measures and sources; "airwindows" lists the 75 algorithms')
+    fxc.add_argument('--describe',metavar='ID',help='one tool in full (an id the list shows, a Surge XT type, or an Airwindows name): its fragment, controls (for a Surge XT effect; for the tools of the skill itself, where schema.md gives their fields), fallback, measures and sources; "airwindows" lists the 75 algorithms')
     fxc.add_argument('--json',action='store_true',help='print the full JSON instead of one line a tool')
     ins=command('instruments','Find presets in the configured banks by words of their name, family or bank: the bank and program a part takes, the keys their samples cover, their velocity layers',
                 'python studio.py instruments violin --config ~/.music-skill/local-config.json')

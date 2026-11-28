@@ -16,8 +16,8 @@ that their modulation stands where it did at the first note.  The host's report 
 the algorithm, every control and the value it shows): a report that does otherwise is a failed run, never a receipt.  A chain
 runs after the part's noise gate, EQ,
 effects and compressor, before its width and static pan (render.process_stem); after it the host removes any DC offset
-(a first-order high-pass at 5 Hz), and the part is brought back to the level it entered the chain at, so that its
-`level_dbfs` stays its level (the receipt says by how much the chain had changed it).  Where Surge XT Effects is not installed
+(a first-order high-pass at 5 Hz), and the part is brought back to the level it entered the chain at, so that the chain
+itself leaves the part's level as it found it (the receipt says by how much the chain had changed it).  Where Surge XT Effects is not installed
 or its files do not match their hashes, the part plays without its chain, and the stem's receipt, the render's report and its
 printed summary say so; this is apart from a Surge instrument part's own fallback preset.  Nothing here runs GPL code: the
 host is a separate program that exchanges files.
@@ -156,26 +156,33 @@ def check_report(track, report):
             value = _shown_value(shown[key], p['unit'])
             span = p['max'] - p['min']
             step = span / max(p.get('steps', 1001) - 1, 1) + .006   # one step of the control, and the display's rounding
+            target = float(asked)
+            if isinstance(p.get('shown_by_mode'), dict):
+                # a control the plugin shows centred in some modes and not in others, the setting the same (Nimbus's density
+                # and texture): what the chain's mode shows for the setting asked; the table gives the control as the type's
+                # default mode shows it, and for each mode whether it is shown centred (Astra's review b011d)
+                mode = next((str(shown.get(q['plugin'])) for q in params.values()
+                             if 'values' in q and str(shown.get(q['plugin'])) in p['shown_by_mode']), None)
+                if mode is not None and p['shown_by_mode'][mode] != (p['min'] < 0):
+                    target = (target + 100) / 2 if p['min'] < 0 else 2 * target - 100
             if value is None:
                 ok = False
-            elif p['min'] > 0 and float(asked) > 0 and p['unit'] in ('Hz', 'kHz', 'ms', 's', 'ips', 'μm', 'x', 'samples'):
-                ok = abs(value / float(asked) - 1) <= .03 or abs(value - float(asked)) <= step   # a scale of ratios: within 3 %
+            elif p['min'] > 0 and target > 0 and p['unit'] in ('Hz', 'kHz', 'ms', 's', 'ips', 'μm', 'x', 'samples'):
+                ok = abs(value / target - 1) <= .03 or abs(value - target) <= step   # a scale of ratios: within 3 %
             else:
-                ok = abs(value - float(asked)) <= max(.02 * span, step)
-            if not ok and value is not None and p.get('shown_by_mode'):
-                # shown centred in this mode and not in the type's default one, or the other way: the same setting read the other
-                # way (Nimbus's density and texture by its mode; the table gives them as its granular mode shows them)
-                other = (float(asked) + 100) / 2 if p['min'] < 0 else 2 * float(asked) - 100
-                ok = abs(value - other) <= max(.04 * span, 2 * step)
+                ok = abs(value - target) <= max(.02 * span, step)
             if not ok:
                 raise Failed(f'Surge XT Effects shows {name} of {fx.get("algorithm") or fx["type"]} as {shown[key]!r}, not {asked} {p["unit"]}')
 
 
 def varies(track):
     """The effects of a part's chain set to render otherwise each time the part is processed anew (the table's
-    `varies_when`), each named with the controls that make it: e.g. 'tape (degrade_depth)'."""
+    `varies_when`), each named with the controls that make it: e.g. 'tape (degrade_depth)'; and an effect whose runs agree
+    only to rounding (Tape) with another effect after it, which can enlarge that difference ('tape (before another effect)':
+    Tape then DustBunny came out 15 dB under the signal apart, Astra's review b011d)."""
     out = []
-    for fx in track['mix'].get('surge_fx') or ():
+    chain = list(track['mix'].get('surge_fx') or ())
+    for place, fx in enumerate(chain):
         spec = table()['types'][fx['type']]
         if fx['type'] == 'airwindows':
             spec, label = spec['algorithms'][fx['algorithm']], f"airwindows {fx['algorithm']}"
@@ -187,6 +194,8 @@ def varies(track):
             if (('above' in rule and isinstance(value, (int, float)) and not isinstance(value, bool) and value > rule['above'])
                     or ('is' in rule and value == rule['is']) or ('in' in rule and value in rule['in'])):
                 hits.append(rule['param'])
+        if not hits and spec.get('repeat') == 'rounding' and place < len(chain) - 1:
+            hits.append('before another effect')
         if hits:
             out.append(f"{label} ({', '.join(hits)})")
     return out
@@ -233,7 +242,8 @@ def identity(track, cfg):
 
 def repeat(track):
     """How two runs of a part's chain on the same audio compare: 'varies' where an effect is set to vary (varies), else
-    'rounding' where an effect's runs differ only below -120 dBFS (the table's repeat: Tape), else 'exact'."""
+    'rounding' where an effect's runs differ only below -120 dBFS (the table's repeat: Tape) and nothing follows it, else
+    'exact'."""
     if varies(track):
         return 'varies'
     kinds = {table()['types'][fx['type']].get('repeat', 'exact') for fx in track['mix'].get('surge_fx') or ()}
@@ -276,6 +286,12 @@ def _kept_take(folder, key, frames, track):
     return np.frombuffer(data, dtype='<f4').reshape(-1, 2).copy(), got['report']
 
 
+def take_is_kept(folder, key, frames, track):
+    """Whether the take kept under `key` in the cache entry `folder` is one this chain's run would use again: a cached stem
+    whose chain is not exact is used only beside it (render.make_stem)."""
+    return _kept_take(folder, key, frames, track) is not None
+
+
 def _keep_take(folder, key, y, shown, tid):
     """Keep the host's output and report under `key` in the cache entry `folder` (each written whole, the samples first):
     a failure costs only the reuse."""
@@ -297,7 +313,8 @@ def apply(src, dst, track, cfg, stems, logs, keep=None):
     each parameter (an Airwindows algorithm's knobs by the table's names), by how much the chain changed the part's level
     before it was restored, how two runs of it compare (`repeat`: exact, rounding or varies), and the effects set to vary
     (`varies`) where any is.  Where the chain is not exact and `keep` names the part's cache entry, its output is kept there
-    under the part's audio into it and the chain (_take_key) and taken again while both are the same (`take_reused`).
+    under the part's audio into it and the chain (_take_key) and taken again while both are the same (`take_reused`;
+    `take_key`, which the render checks before it uses the part's stem from the cache again).
     Raises Unavailable when the plugin cannot run here (Failed when it was found and its run failed), ValueError when the
     chain leaves the part silent."""
     import numpy as np
@@ -312,7 +329,7 @@ def apply(src, dst, track, cfg, stems, logs, keep=None):
     if key is not None:
         found = _kept_take(keep, key, len(x), track)
         if found is not None:
-            return _finish(x, *found, track, dst, how, reused=True)
+            return {**_finish(x, *found, track, dst, how, reused=True), 'take_key': key}
     raw_in, raw_out = stems / f'.{tid}.surge_fx_in.f32', stems / f'.{tid}.surge_fx_out.f32'
     job, report = stems / f'.{tid}.surge_fx_job.json', stems / f'.{tid}.surge_fx_report.json'
     try:
@@ -330,15 +347,19 @@ def apply(src, dst, track, cfg, stems, logs, keep=None):
         if len(y) != len(x) or not np.isfinite(y).all() or len(shown) != len(track['mix']['surge_fx']):
             raise Failed('Surge XT Effects returned audio of another length, non-finite samples or another chain')
         check_report(track, shown)
-        if key is not None:
-            _keep_take(keep, key, y, shown, tid)
     finally:
         for p in (raw_in, raw_out, job, report):
             try:
                 p.unlink()
             except OSError:
                 pass
-    return _finish(x, y, shown, track, dst, how, reused=None if key is None else False)
+    result = _finish(x, y, shown, track, dst, how, reused=None if key is None else False)
+    if key is not None:
+        # kept only now that the part is made: a chain that left it silent replaced the take a stem in the cache was made
+        # from, and the headphone version then played another (Astra's review b011d)
+        _keep_take(keep, key, y, shown, tid)
+        result['take_key'] = key
+    return result
 
 
 def _finish(x, y, shown, track, dst, how, reused):

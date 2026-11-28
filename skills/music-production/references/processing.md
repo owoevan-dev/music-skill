@@ -46,7 +46,9 @@ python <skill>/scripts/studio.py effects --describe ToTape6
 - **Spread, not the same few.** Among the tools that fit, the piece's seed picks, kind by kind, the skill's own tools, Surge's
   types and the Airwindows algorithms in turn, so two pieces asking the same question see different tools; the last row is
   always `nothing`. Leaving a part as it is is a choice like any other: write why in `decisions`.
-- **One of a kind to start.** A compressor, a colour, a space: one each is the usual start, and a part with three tools or more
+- **One of a kind to start.** A compressor, a colour, a space: one each is the usual start, unless the style's map documents
+  more for the role and its instrument (in metal, two compressors in series on the bass, 8:1 or 10:1: Senior 2012; Mynett 2009;
+  the skill's compressor, then an Airwindows compressor in `mix.surge_fx`, which runs after it). A part with three tools or more
   that change its character is named by the review, to check that each still earns its place. Stacked saturation builds up the
   low mids (Rogers 2021).
 - **The review's description** sets each part's tools and their kinds beside what its style's map documents for its role. It
@@ -275,12 +277,14 @@ marks each (`repeat` and `varies_when` in [surge-fx.json](surge-fx.json)):
 - Ma, Z., De Man, B., Pestana, P. D. L., Black, D. A. A. and Reiss, J. D. (2015). Intelligent Multitrack Dynamic Range Compression. *Journal of the Audio Engineering Society* 63(6), 412–426. [doi:10.17743/jaes.2015.0053](https://doi.org/10.17743/jaes.2015.0053).
 - Moorefield, V. (2005). [*The Producer as Composer: Shaping the Sounds of Popular Music*](https://mitpress.mit.edu/9780262514057/the-producer-as-composer/). MIT Press (its publisher's description).
 - Mutable Instruments. [Clouds user manual](https://pichenette.readthedocs.io/en/latest/modules/clouds/manual/) (a mirror; the module was discontinued in 2017).
+- Mynett, M. (2009). [Mixing Metal](https://www.soundonsound.com/techniques/mixing-metal). *Sound On Sound*, December 2009.
 - Mynett, M. (2018). [Q. Are EQ cuts more effective on electric guitar than EQ boosts?](https://www.soundonsound.com/sound-advice/q-are-eq-cuts-more-effective-electric-guitar-eq-boosts) *Sound On Sound*, June 2018.
 - Robjohns, H. (2003). [Recording A Jazz Band On Location: Part 1](https://www.soundonsound.com/techniques/recording-jazz-band-location-part-1). *Sound On Sound*, July 2003.
 - Rogers, N. (2021). [Saturation Strategies](https://www.soundonsound.com/techniques/saturation-strategies). *Sound On Sound*, May 2021.
 - Rogers, N. (2022). [Drum Compression](https://www.soundonsound.com/techniques/drum-compression). *Sound On Sound*, August 2022.
 - Sasso, L. (2012). [Shift Yourself](https://www.soundonsound.com/techniques/shift-yourself). *Sound On Sound*, November 2012.
 - Senior, M. (2009). [Compression Made Easy](https://www.soundonsound.com/techniques/compression-made-easy). *Sound On Sound*, September 2009.
+- Senior, M. (2012). [Mixing Bass](https://www.soundonsound.com/techniques/mixing-bass). *Sound On Sound*, September 2012.
 - Senior, M. (2015). [Richard King: How To Record Acoustic Ensembles](https://www.soundonsound.com/people/richard-king-how-record-acoustic-ensembles). *Sound On Sound*, September 2015.
 - Senior, M. (2019). [Q. How do I make guitars sound more 'epic'?](https://www.soundonsound.com/sound-advice/q-how-do-make-guitars-sound-more-epic) *Sound On Sound*, May 2019.
 - Smith, J. O. III. [DC Blocker](https://ccrma.stanford.edu/~jos/filters/DC_Blocker.html). *Introduction to Digital Filters with Audio Applications*, CCRMA, Stanford University.

@@ -7,7 +7,7 @@ of each trait is in [orchestration.md](orchestration.md), [baroque.md](baroque.m
 
 Contents: [Baroque](#baroque) · [Classical era](#classical-era) · [Romantic](#romantic) ·
 [Impressionist](#impressionist) · [Post-tonal](#post-tonal) · [Neoclassical](#neoclassical) ·
-[Minimalist](#minimalist) · [Cinematic orchestral](#cinematic-orchestral) · [Sources](#sources)
+[Minimalist](#minimalist) · [Cinematic orchestral](#cinematic-orchestral) · [Treatments by role](#treatments-by-role) · [Sources](#sources)
 
 The periods as Open Music Theory gives them: Baroque about 1600-1750, Classical 1750-1820, Romantic 1800-1910,
 post-tonal from 1900 (OMT, Other Aspects of Notation). Source tags: UM is *Understanding Music: Past and Present*
@@ -182,6 +182,18 @@ love themes, cadences that carry sentiment or wonder. `orchestral/cinematic`
   (chromatically modulating cadences); the Western (subtonic half cadences).
 - **Neighbours**: Romantic (its language); horror and suspense (its dissonance and clusters).
 
+<!-- treatments, written from style-maps.json -->
+## Treatments by role
+
+What published sources document of this family's processing, by a part's role (`treatments` in style-maps.json; `studio.py effects --role <role> --style <entry>` lists the tools, these first). *Usual*: a convention two sources or more corroborate, one saying it is the rule or nearly; *often*: a source speaks of its frequency; *documented*: one session, one engineer's practice or a tutorial. Each says what it was applied to: an entry about one instrument says nothing of the role's others. An entry that holds for some entries of the family names them. Every one was checked against its page ([processing.md](processing.md#choosing-a-parts-treatment)).
+
+- **Melody.** Space (*documented*): sample mock-ups: every part sent to one shared reverb, the samplers' own reverb off, as a first approach (Inglis 2001; Senior 2012).
+- **Harmony.** Space (*documented*): sample mock-ups: every part sent to one shared reverb, the samplers' own reverb off, as a first approach (Inglis 2001; Senior 2012); little or no dynamics (*often*): other processing typically minimal: gentle control of loud peaks at most (1.5:1 on the bus on one record) (Senior 2015; Robjohns 1999); correction (*documented*): EQ a last resort, in small moves; a cut near 900 Hz on boxy violins (recorded players) (Senior 2015; Rowcroft 2000); little or no modulation (*documented*): chorus made strings sound artificial and did little for woodwind (a subtle chorus worked on brass) (Rowcroft 2000); space (*documented*): strings in a live room, reverb about 1.5-2.5 s (up to 4 s for a swimmy sound) (Robjohns 1999; Senior 2015).
+- **Rhythm.** Space (*documented*): more reverb on the rear sections (percussion, brass), less on the front (Meehan 1999; Rowcroft 2000).
+- **Texture.** Colour (*documented*, cinematic): saturation and overdrive on single parts (an electric cello) (D'Silva 2025); sound design (*documented*, cinematic): synths through resonators (Dune); granular plug-ins (another score) (Inglis 2024; D'Silva 2025).
+
+<!-- /treatments -->
+
 ## Sources
 
 - Clark, N. A., Heflin, T., Kluball, J. and Kramer, E. (2016). [*Understanding Music: Past and Present*](https://ung.edu/UNIVERSITY-PRESS/_uploads/files/Understanding_Music-Past_and_Present.pdf).
@@ -197,3 +209,11 @@ love themes, cadences that carry sentiment or wonder. `orchestral/cinematic`
   *Music Theory Online* 19(4).
 - Tan, I., Lustig, E. and Temperley, D. (2019), in [development-and-groove.md](development-and-groove.md): pushes in rock
   melodies.
+- Inglis, S. (2001). [Mixing Programmed & Real Instruments Successfully](https://www.soundonsound.com/techniques/mixing-programmed-real-instruments-successfully). *Sound On Sound*, September 2001.
+- Senior, M. (2012). [Q. How should I treat my sample library orchestral parts?](https://www.soundonsound.com/sound-advice/q-how-should-treat-my-sample-library-orchestral-parts). *Sound On Sound*.
+- Senior, M. (2015). [Richard King: How To Record Acoustic Ensembles](https://www.soundonsound.com/people/richard-king-how-record-acoustic-ensembles). *Sound On Sound*, September 2015.
+- Robjohns, H. (1999). [Recording Strings](https://www.soundonsound.com/techniques/recording-strings). *Sound On Sound*, April 1999.
+- Rowcroft, J. (2000). [Creating Orchestral Arrangements On A Budget](https://www.soundonsound.com/techniques/creating-orchestral-arrangements-budget). *Sound On Sound*, April 2000.
+- Meehan, P. (1999). [Creating Orchestral Music With Sampled Instruments](https://www.soundonsound.com/techniques/creating-orchestral-music-sampled-instruments). *Sound On Sound*, March 1999.
+- D'Silva, S. (2025). [Evgueni Sacha Galperine](https://www.soundonsound.com/techniques/evgueni-sacha-galperine). *Sound On Sound*, May 2025.
+- Inglis, S. (2024). [Dune: Hans Zimmer & Friends](https://www.soundonsound.com/techniques/dune-hans-zimmer-friends). *Sound On Sound*, April 2024.

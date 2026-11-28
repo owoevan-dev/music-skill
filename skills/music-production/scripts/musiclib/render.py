@@ -9,7 +9,10 @@ finds the part in the cache, and no render reads a file another is replacing.
 A part's cache entry also keeps its last processed stem.  When nothing the processing reads has changed, the render
 copies that stem instead of processing the part again, as a frozen track in a DAW plays its rendered file instead of
 computing its devices again (Ableton Live Reference Manual, Computer Audio Resources and Strategies).  The copy is
-what is checked against the receipt.  Every render still mixes and masters all the parts.
+what is checked against the receipt.  Every render still mixes and masters all the parts.  Where a part's Surge XT Effects
+chain does not render the same to the sample each time it runs (surgefx.repeat), the entry keeps that chain's output too,
+under the part's audio into it and the chain, so that the speaker stem, the headphone version and a later render that
+processes the part again for another reason (a pan) play one take (surgefx.apply).
 
 A draft (`draft=True`) is the same audio, stems, buses and returns as a full render, for revising: it leaves out what
 only delivery needs, master.flac, the MP3's decoded-loudness check and a game loop's Ogg copies and layers, as REAPER's
@@ -673,12 +676,13 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
                         with contextlib.suppress(OSError):os.unlink(copy)
             if reused:done,stem_sha=kept['processing'],kept['sha256']
             else:
-                done=process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=t['id'] in quiet,expected_fx=expected_fx);stem_sha=file_hash(stem)
+                done=process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=t['id'] in quiet,expected_fx=expected_fx,fx_take=folder);stem_sha=file_hash(stem)
                 if (done.get('surge_fx') or {}).get('cached',True):keep_stem(folder,stem,{'key':stem_key,'sha256':stem_sha,'track':t['id'],'processing':done})
             phones=None
             if ears.wanted(p):
                 unplaced=output/'headphones'/'centre'
-                phones=process_stem(p,ears.unplaced(t),clock,cfg,unplaced,raw,unplaced/'stems'/(t['id']+'.wav'),frames,quiet=t['id'] in quiet,expected_fx=expected_fx)
+                # (a chain that is not exact plays the take the speaker stem's kept in the entry: one take of the part)
+                phones=process_stem(p,ears.unplaced(t),clock,cfg,unplaced,raw,unplaced/'stems'/(t['id']+'.wav'),frames,quiet=t['id'] in quiet,expected_fx=expected_fx,fx_take=folder)
             expressive=read_json(folder/'layered.json') if (folder/'layered.json').is_file() else None
             heard=read_json(folder/'surge.json') if t['engine']=='surge' and (folder/'surge.json').is_file() else None
             by_string=read_json(folder/'strung.json') if t.get('strings') and (folder/'strung.json').is_file() else None
@@ -687,7 +691,7 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
                 with contextlib.suppress(OSError):
                     files.register_tree(folder,keep=entry_keep)
                     files.drop_journal(folder)
-        receipt_data={'track':t['id'],'soundfont':font_name,'cache_key':key,'cache_hit':cached,'stem_reused':reused,'raw_sha256':raw_sha,'stem_sha256':stem_sha,'reference_level_dbfs':done['reference_level_dbfs'],'gain_db':done['gain_db'],'processed_stem':str(stem.relative_to(output)),'filter_chain':done['filter_chain'],'same_pitch_retrigger_trims':retrigger_trims(t,clock)}
+        receipt_data={'track':t['id'],'soundfont':font_name,'cache_key':key,'cache_hit':cached,'stem_key':stem_key,'stem_reused':reused,'raw_sha256':raw_sha,'stem_sha256':stem_sha,'reference_level_dbfs':done['reference_level_dbfs'],'gain_db':done['gain_db'],'processed_stem':str(stem.relative_to(output)),'filter_chain':done['filter_chain'],'same_pitch_retrigger_trims':retrigger_trims(t,clock)}
         if not held:receipt_data['unlocked_cache']=True  # made in the render's own folder: nothing cached (C04)
         if rejected:receipt_data['cache_rejected']=rejected  # a cached take or stem found unfit and made again (1.4)
         if expressive:receipt_data['expressive']=expressive
@@ -704,6 +708,9 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
         # that failed there alone), the receipt and the report say so (Astra's review b011a).
         if phones and (phones.get('surge_fx') or {}).get('state')!=(done.get('surge_fx') or {}).get('state'):
             receipt_data['surge_fx_headphones']=phones['surge_fx']
+        elif phones and (phones.get('surge_fx') or {}).get('take_reused') is False:
+            # a chain that is not exact, run again for the headphone version (the speaker stem's take could not be kept or read)
+            receipt_data['surge_fx_headphones_own_take']=True
         # Each part's own seconds (they overlap: parts run `jobs` at a time); synthesis includes the cache lookup.
         receipt_data['seconds']={'waiting':round(waited,3),'synthesis':round(synthesized-began-waited,3),'processing':round(time.monotonic()-synthesized,3)}
         return receipt_data,font_name,font
@@ -850,6 +857,11 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
             hp=r.get('surge_fx_headphones')
             if hp and hp.get('state')=='applied':report['surge_fx']['applied'][r['track']+' (headphone version)']=hp.get('level_change_db')
             elif hp:report['surge_fx']['bypassed'][r['track']+' (headphone version)']=hp.get('reason')
+        # the chains set to vary, each played once and kept with its part (0.11; Astra's review d011b)
+        varying={k:v['varies'] for k,v in chains.items() if v.get('varies')}
+        if varying:report['surge_fx']['varies']=varying
+        own=[r['track'] for r in receipts if r.get('surge_fx_headphones_own_take')]
+        if own:report['surge_fx']['headphones_own_take']=own
     top,last=peak_frames(data)
     # What holds a wide master's gain, named: one held chord set it for a whole piece and only a search of the master showed it (0.9.1).
     report['master']={**report['master'],'highest_sample':highest_sample(top,clock)}
@@ -869,12 +881,13 @@ def _render(project_file,output,config_file,cache,resume,jobs,draft,claim,quiet,
         raise ValueError('Delivery checks failed ('+', '.join(failed)+'); '+''.join(advice[k]+'; ' for k in failed if k in advice)+f'see {output/"report.json"}')
     return report
 
-def process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=False,expected_fx=None):
+def process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=False,expected_fx=None,fx_take=None):
     """The part's raw synthesis to its processed stem: the gain to its level, filters, EQ, effects, compressor, width,
     pan or stage position and automation, then the production tools.  Returns what the receipt records of it.  With
     `quiet`, a part that barely sounds, or not at all, keeps its own level rather than stopping the render.
     `expected_fx`: what the stem's key said of its Surge XT Effects chain (`applied`, `bypassed`); a chain that does
-    otherwise here is recorded with `cached` false, so the stem is not kept under that key."""
+    otherwise here is recorded with `cached` false, so the stem is not kept under that key.  `fx_take`: the part's cache
+    entry, where a chain that is not exact keeps its output for the headphone version and later renders (surgefx.apply)."""
     amped=None
     if t['mix'].get('amp'):
         # The part's amplifier (musiclib/amp.py), on its dry synthesis before anything else: what leaves it is levelled
@@ -882,7 +895,7 @@ def process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=False,expected_fx=No
         from . import amp
         x,_=audio.read_wav(raw);y,amp_facts=amp.apply(x,t,audio.soundfont_for(cfg,t)[1] if t['engine']=='soundfont' else None);del x
         amped=output/'stems'/f'.{t["id"]}.amp.wav';audio.write_wav(amped,y);del y;raw=amped
-    try:return _process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet,amp_facts if amped else None,expected_fx)
+    try:return _process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet,amp_facts if amped else None,expected_fx,fx_take)
     except BaseException as e:
         # What failed may still hold the amplifier's file open in a frame of its traceback (a memory map of it, read
         # for its level): Windows then refuses to remove the file.  The frames' variables are let go first.
@@ -899,7 +912,7 @@ def process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet=False,expected_fx=No
         if amped is not None:
             with contextlib.suppress(OSError):amped.unlink()
 
-def _process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet,amp_facts,expected_fx=None):
+def _process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet,amp_facts,expected_fx=None,fx_take=None):
     try:
         ref=audio.reference_level(raw,t['mix'].get('level_mode','active_rms')) if t['notes'] else 0
     except ValueError as e:
@@ -994,7 +1007,7 @@ def _process_stem(p,t,clock,cfg,output,raw,stem,frames,quiet,amp_facts,expected_
                 src,run,k=out,[],k+1
             if f is None:break
             if f[0]=='surge_fx':
-                try:surge_fx={'state':'applied',**surgefx.apply(src,src,t,cfg,output/'stems',output/'logs')}
+                try:surge_fx={'state':'applied',**surgefx.apply(src,src,t,cfg,output/'stems',output/'logs',keep=fx_take)}
                 except surgefx.Unavailable as e:   # (Failed is one: it found the plugin, and the run failed)
                     surge_fx={'state':'bypassed','reason':str(e),**({'cached':False} if isinstance(e,surgefx.Failed) else {})}
                     if src!=raw:src.unlink()

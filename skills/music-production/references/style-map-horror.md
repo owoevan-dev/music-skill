@@ -122,6 +122,15 @@ nostalgic music against violence. `horror/corrupted-innocence`
 - **Neighbours**: Drone dread under it; the Romantic or Baroque entry (`orchestral/romantic`, `orchestral/baroque`)
   for the hymn's harmony.
 
+<!-- treatments, written from style-maps.json -->
+## Treatments by role
+
+What published sources document of this family's processing, by a part's role (`treatments` in style-maps.json; `studio.py effects --role <role> --style <entry>` lists the tools, these first). *Usual*: a convention two sources or more corroborate, one saying it is the rule or nearly; *often*: a source speaks of its frequency; *documented*: one session, one engineer's practice or a tutorial. Each says what it was applied to: an entry about one instrument says nothing of the role's others. An entry that holds for some entries of the family names them. Every one was checked against its page ([processing.md](processing.md#choosing-a-parts-treatment)).
+
+- **Texture.** Sound design (*documented*): recordings broken into granular pieces, distorted and stretched into large reverbs (The Callisto Protocol) (GMF 2023).
+
+<!-- /treatments -->
+
 ## Sources
 
 - Ireland, D. (2023). [What makes a film score frightening? Expert explains the techniques that build tension and make us jump](https://theconversation.com/what-makes-a-film-score-frightening-expert-explains-the-techniques-that-build-tension-and-make-us-jump-216121).
@@ -136,3 +145,4 @@ nostalgic music against violence. `horror/corrupted-innocence`
 - Trevor, C., Arnal, L. H. and Frühholz, S. (2020); Blumstein, D. T., Davitian, R. and Kaye, P. D. (2010); Huron, D.
   (2006): in [film-score.md](film-score.md). The first two were read in their abstracts.
 - Tan, I., Lustig, E. and Temperley, D. (2019), in [development-and-groove.md](development-and-groove.md).
+- GMF (2023). [The Callisto Protocol: we want to hear bones crunching, blood splattering](https://gamemusic.net/the-callisto-protocol-we-want-to-hear-bones-crunching-blood-splattering/). *gamemusic.net*, 9 January 2023.

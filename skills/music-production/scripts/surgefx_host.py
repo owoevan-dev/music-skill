@@ -24,6 +24,19 @@ No parameter is tempo-synced (pedalboard gives a plugin no tempo), and every tim
 first-order high-pass at 5 Hz (pedalboard's own, -3 dB at 5 Hz, -0.12 dB at 30 Hz) removes the DC offset an asymmetric
 shaper leaves.
 
+Airwindows.  Surge XT Effects names an Airwindows algorithm's knobs, and shows them in the algorithm's own units, only on an
+instance that is running when the algorithm is chosen; through pedalboard it does not apply the algorithm's defaults.  So an
+Airwindows effect is chosen on a running instance (its type, then its algorithm, each by raw value with silent blocks
+processed), and that instance processes the part.  Its knobs are taken by position from pedalboard's ordered list of the
+plugin's parameters, not its dictionary, where two knobs whose labels differ only in punctuation share one Python name; each
+knob's label is checked against the job's before it is set, and the job sets every knob (the skill's table gives Airwindows'
+own defaults).
+
+Before the part, an effect whose job asks for a pre-roll (`preroll_s`: the types 0.11's second part adds and Airwindows)
+processes that much silence after its controls are set: Surge smooths a knob's change over time, and Tape's start differs per
+process until it has processed about two seconds of audio (research/effects-0.11/surgefx-params.md); part one's types keep
+4 blocks, so that their modulation stands where it did at the first note.
+
 The licence text is in ../LICENSES/GPL-3.0-or-later.txt.
 
 Usage: python surgefx_host.py <job.json>
@@ -37,6 +50,8 @@ CONVERT = {('s', 'ms'): 1000.0, ('ms', 's'): 0.001, ('kHz', 'Hz'): 1000.0, ('Hz'
 NUM = re.compile(r'^\s*(-?\d+(?:\.\d+)?)\s*([^\d\s(][^(]*)?(?:\(.*\))?\s*$')
 RATIO = re.compile(r'^\s*1\s*:\s*(\d+(?:\.\d+)?)\s*$')
 WARM_BLOCKS, BLOCK = 4, 512
+WARM_SECONDS = 4.0
+UNIT_NAMES = {'': 'number', ': 1': 'ratio'}   # a value shown without a unit, and Airwindows' ratios ("4.75 : 1"), as the table names them
 STEPS = 1000
 DC_HZ = 5.0
 
@@ -52,7 +67,7 @@ def reading(text, label, unit):
         return None
     shown = (m.group(2) or '').strip() or (label or '').strip()
     value = float(m.group(1))
-    if shown == unit:
+    if shown == unit or UNIT_NAMES.get(shown) == unit:
         return value
     if (shown, unit) in CONVERT:
         return value * CONVERT[(shown, unit)]
@@ -106,6 +121,48 @@ def raw_for(name, ranges, label, want):
     return start
 
 
+def warm(unit, rate, silence, seconds):
+    """Silence through `unit` for `seconds` (at least WARM_BLOCKS blocks), so that what it smooths or settles has settled."""
+    for _ in range(max(WARM_BLOCKS, int(seconds * rate / BLOCK))):
+        unit.process(silence, rate, reset=False)
+
+
+def knob_list(unit):
+    """The plugin's parameters in their order, but its type, its Airwindows algorithm and its bypass: knob i of an
+    Airwindows algorithm is the i-th."""
+    return [c for c in unit._parameters if c.name not in ('Type FX', 'FX Type', 'Bypass')]
+
+
+def airwindows(job, fx, rate, silence, x, pedalboard, np):
+    """One Airwindows algorithm on the part: chosen on a running instance, every knob set by position, warmed, applied."""
+    unit = pedalboard.load_plugin(job['plugin'])
+    unit.parameters['fx_type'].raw_value = float(fx['type_raw'])
+    for _ in range(WARM_BLOCKS):
+        unit.process(silence, rate, reset=False)
+    unit.parameters['type_fx'].raw_value = float(fx['algorithm_raw'])
+    for _ in range(WARM_BLOCKS):
+        unit.process(silence, rate, reset=False)
+    got = str(unit.parameters['type_fx'].string_value)
+    if got != fx['algorithm']:
+        raise SystemExit(f'Surge XT Effects took the Airwindows algorithm {got!r} for {fx["algorithm"]!r}')
+    listed = knob_list(unit)
+    active = [c for c in listed if c.name.strip() not in ('-', '- -', '')]
+    if len(active) != len(fx['knobs']):
+        raise SystemExit(f'{fx["algorithm"]}: the plugin shows {len(active)} knobs, the job {len(fx["knobs"])}')
+    chosen = []
+    for knob in fx['knobs']:
+        i = knob['index']
+        if not 0 <= i < len(listed) or listed[i].name != knob['plugin']:
+            found = listed[i].name if 0 <= i < len(listed) else None
+            raise SystemExit(f'{fx["algorithm"]}: knob {i} is {found!r}, not {knob["plugin"]!r}')
+        chosen.append((knob, listed[i], raw_for(knob['plugin'], live_ranges(listed[i]), listed[i].label, knob['want'])))
+    for knob, c, raw in chosen:
+        c.raw_value = raw
+    warm(unit, rate, silence, float(fx.get('preroll_s', WARM_SECONDS)))
+    shown = {str(knob['index']): str(c.string_value) for knob, c, _ in chosen}
+    return unit.process(x.astype(np.float32), rate, reset=False), {'type': fx['type'], 'algorithm': fx['algorithm'], 'shown': shown}
+
+
 def main(job_file):
     job = json.loads(Path(job_file).read_text(encoding='utf-8'))
     sys.path.insert(0, job['pylib'])
@@ -116,6 +173,10 @@ def main(job_file):
     silence = np.zeros((2, BLOCK), np.float32)
     report = []
     for fx in job['chain']:
+        if fx['type'] == 'Airwindows':
+            x, done = airwindows(job, fx, rate, silence, x, pedalboard, np)
+            report.append(done)
+            continue
         first = pedalboard.load_plugin(job['plugin'])
         first.parameters['fx_type'].raw_value = float(fx['type_raw'])
         for _ in range(WARM_BLOCKS):
@@ -132,8 +193,7 @@ def main(job_file):
         chosen = {name: raw_for(name, live_ranges(params[name]), params[name].label, want) for name, want in fx['params'].items()}
         for name, raw in chosen.items():
             params[name].raw_value = raw
-        for _ in range(WARM_BLOCKS):
-            unit.process(silence, rate, reset=False)
+        warm(unit, rate, silence, float(fx.get('preroll_s', 0)))
         shown = {name: str(params[name].string_value) for name in fx['params']}
         x = unit.process(x.astype(np.float32), rate, reset=False)
         report.append({'type': fx['type'], 'shown': shown})

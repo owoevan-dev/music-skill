@@ -319,12 +319,12 @@ def define(S):
         return {'read':list(forms),'written':'UTF-8 without a mark'}
     def every_command_has_help_and_an_example():
         # 0.8 step 2.4 (design-0.8.md; the Command Line Interface Guidelines: lead with examples, describe every flag):
-        # each of studio.py's 21 commands has a one-line description and an example, every option and argument a help
+        # each of studio.py's 22 commands has a one-line description and an example, every option and argument a help
         # text, the usual order's examples come before the list of commands, and every example parses as written.
         import argparse,shlex,subprocess,sys
         import studio
         parser=studio.build_parser();sub=next(a for a in parser._actions if isinstance(a,argparse._SubParsersAction))
-        assert len(sub.choices)==21,sorted(sub.choices)   # 17, instruments (2.6), start (2.5), still and video (4)
+        assert len(sub.choices)==22,sorted(sub.choices)   # 17, instruments (2.6), start (2.5), still and video (4), effects (0.11)
         helped={c.dest:c.help for c in sub._choices_actions}
         for name,cmd in sub.choices.items():
             assert helped.get(name) and 'Example:\n  python studio.py '+name in cmd.description,(name,cmd.description)
@@ -450,8 +450,9 @@ def define(S):
         # 0.11's mix fields (research/design-0.11.md, after Astra's review d011a): an EQ band as an object (a peak or a
         # shelf with its gain, a notch without one) beside the [Hz, dB] pairs; the compressor's knee, make-up, mix and
         # detector; a noise gate; tremolo and flanger with limits of their own; a chain of Surge XT Effects, each type and
-        # parameter from references/surge-fx.json.  Each is accepted at its limits and refused past them with the part and
-        # the field named, and validation writes nothing into the project, accepted or refused.
+        # parameter from references/surge-fx.json, each Airwindows algorithm by its name (the second part of 0.11).  Each is
+        # accepted at its limits and refused past them with the part and the field named, and validation writes nothing into
+        # the project, accepted or refused.
         from musiclib import surgefx
         said=[]
         def mixed(**mix):
@@ -496,24 +497,33 @@ def define(S):
         accepted(mixed(saturate=.3));accepted(mixed(saturate={}));accepted(mixed(saturate={'drive':1,'curve':'erf'}))
         refused(mixed(saturate={'drive':1.2}),'saturate drive');refused(mixed(saturate={'curve':'hard'}),'saturate curve is one of tanh, atan, alg, erf')
         refused(mixed(saturate={'drive':.5,'shape':'tanh'}),'saturate as an object takes drive')
-        # Surge XT Effects: every type with its defaults, each parameter at its limits or each of its values, at most four
+        # Surge XT Effects: every type with its defaults, each parameter at its limits or each of its values, at most four;
+        # each Airwindows algorithm likewise, by its name (0.11's second part: 19 types and 75 algorithms)
         types=surgefx.table()['types']
         for name,spec in types.items():
-            accepted(mixed(surge_fx=[{'type':name}]))
-            low={k:(p['values'][0] if 'values' in p else p['min']) for k,p in spec['params'].items()}
-            high={k:(p['values'][-1] if 'values' in p else p['max']) for k,p in spec['params'].items()}
-            accepted(mixed(surge_fx=[{'type':name,'params':low},{'type':name,'params':high}]))
+            for alg,aspec in (spec['algorithms'].items() if name=='airwindows' else [(None,spec)]):
+                one={'type':name,**({'algorithm':alg} if alg else {})}
+                accepted(mixed(surge_fx=[one]))
+                low={k:(p['values'][0] if 'values' in p else p['min']) for k,p in aspec['params'].items()}
+                high={k:(p['values'][-1] if 'values' in p else p['max']) for k,p in aspec['params'].items()}
+                accepted(mixed(surge_fx=[{**one,'params':low},{**one,'params':high}]))
         accepted(mixed(surge_fx=[{'type':'distortion'},{'type':'chorus'},{'type':'delay'},{'type':'reverb_2','comment':'room'}]))
+        accepted(mixed(surge_fx=[{'type':'airwindows','algorithm':'ToTape6','params':{'input_gain':3,'mix':60}},{'type':'tape','params':{'degrade_depth':20}}]))
         refused(mixed(surge_fx=[{'type':'chorus'}]*5),'5 effects in mix.surge_fx','at most 4')
         refused(mixed(surge_fx=[]),'mix.surge_fx is a list of one to 4')
         refused(mixed(surge_fx={'type':'chorus'}),'mix.surge_fx is a list')
-        refused(mixed(surge_fx=[{'type':'tape'}]),'surge_fx[0]: type is one of')
+        refused(mixed(surge_fx=[{'type':'vocoder'}]),'surge_fx[0]: type is one of')   # needs a second signal: not offered
         refused(mixed(surge_fx=[{'type':'chorus','params':{'rate':1}}]),"chorus has no parameter 'rate'")
         refused(mixed(surge_fx=[{'type':'chorus','params':{'output_mix':101}}]),'surge_fx[0] output_mix (%)')
         refused(mixed(surge_fx=[{'type':'reverb_1'},{'type':'flanger','params':{'output_mode':'Dry'}}]),'surge_fx[1]','output_mode is one of')
         refused(mixed(surge_fx=[{'type':'delay','params':[250]}]),'params is an object')
-        for left in ('modulation_chaos','modulation_knock'):   # held where they do not render the same twice
-            refused(mixed(surge_fx=[{'type':'spring_reverb','params':{left:0}}]),f'has no parameter {left!r}')
+        refused(mixed(surge_fx=[{'type':'ring_modulator','params':{'carrier_shape':'Audio In'}}]),'carrier_shape is one of')   # a second signal
+        refused(mixed(surge_fx=[{'type':'airwindows'}]),'algorithm is the Airwindows name of one of the 75 algorithms','studio.py effects --describe airwindows')
+        refused(mixed(surge_fx=[{'type':'airwindows','algorithm':'ToTape5'}]),'algorithm is the Airwindows name')
+        refused(mixed(surge_fx=[{'type':'tape','algorithm':'ToTape6'}]),'only the airwindows type takes an algorithm')
+        refused(mixed(surge_fx=[{'type':'airwindows','algorithm':'ToTape6','params':{'drive':1}}]),"ToTape6 has no parameter 'drive'")
+        refused(mixed(surge_fx=[{'type':'airwindows','algorithm':'OneCornerClip','params':{'plus_threshold':1}}]),'plus_threshold (dB)')
+        refused(mixed(surge_fx=[{'type':'airwindows','algorithm':'Fracture','params':{'mix':1.5}}]),'mix (%)')   # its mix runs 0 to 1, as the plugin shows it
         # an unknown field of an effect, a band or a gate is reported with the name it was probably meant to be (strict
         # projects stop on it), never taken as a setting
         q=mixed(surge_fx=[{'type':'chorus','prams':{'output_mix':30}}],eq=[{'type':'peak','hz':1000,'db':1,'gain':2}],noise_gate={'treshold_db':-40})

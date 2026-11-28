@@ -1117,9 +1117,133 @@ def define(S):
         else:raise AssertionError('a level was measured')
         assert audio.reference_level(work/'faint.wav','peak')<-88
         return {'peak':3.6e-5}
+    def processing_catalog_matches_the_table():
+        # The processing catalog (0.11, references/processing-catalog.json): one entry for each of the table's Surge XT
+        # Effects types and Airwindows algorithms and for each of the skill's own tools; every fragment validates in a
+        # project, on a part of a role the entry serves; every fallback is a tool of the skill's own, every source cited is in
+        # the catalog's list, every effect measured; the repeat and varies_when are the table's.
+        from musiclib import effectscatalog, surgefx
+        cat=effectscatalog.catalog();by_id=effectscatalog.tools();table=surgefx.table()['types']
+        assert len(by_id)==len(cat['tools'])
+        assert {i.split('.',1)[1] for i in by_id if i.startswith('surge_fx.')}=={k for k in table if k!='airwindows'}
+        assert {i.split('.',1)[1] for i in by_id if i.startswith('airwindows.')}==set(table['airwindows']['algorithms'])
+        part_of={'drums':'drums','bass':'bass','melody':'lead','countermelody':'lead','accent':'lead','harmony':'piano','rhythm':'piano','texture':'piano','effect':'fx'}
+        for e in cat['tools']:
+            assert e['kinds'] and set(e['kinds'])<=set(cat['kinds']) and e['roles'] and set(e['roles'])<=set(cat['roles']),e['id']
+            assert all(k in cat['sources'] for k in e['sources']) and e['summary'] and e['watch'],e['id']
+            q=example();t=next(x for x in q['tracks'] if x['id']==part_of[e['roles'][0]])
+            if 'kit' in e['fragment']:
+                t=next(x for x in q['tracks'] if x['id']=='drums');t['engine']='drum_synth'
+                for k in ('program','bank','patch'):t.pop(k,None)
+                t['kit']=copy.deepcopy(e['fragment']['kit'])
+            else:
+                t['mix'].update(copy.deepcopy(e['fragment']['mix']))
+            validate(q)
+            if e.get('needs'):
+                assert e['where']=='mix.surge_fx' and e['needs']=='Surge XT Effects' and set(e['measured'])=={'level_db','brightness_ratio','width_db','harmonics_db','inharmonic_db','noise_dbfs','tail_s'},e['id']
+                assert e.get('fallback') is None or not by_id[e['fallback']].get('needs'),e['id']
+                spec=table[e['id'].split('.',1)[1]] if e['id'].startswith('surge_fx.') else table['airwindows']
+                assert e['repeat']==spec.get('repeat','exact') and e['controls']==len((spec if e['id'].startswith('surge_fx.') else spec['algorithms'][e['id'].split('.',1)[1]])['params']),e['id']
+                assert bool(e.get('varies_when'))==bool(spec.get('varies_when')) or e['id'].startswith('airwindows.'),e['id']
+        text=json.dumps(cat,ensure_ascii=False)
+        import re
+        assert not re.search(r'\b[A-Za-z]:[\\/]|/(?:home|Users)/',text),'a local path in the catalog'   # (written so that the source names none)
+        return {'tools':len(by_id),'surge_fx':sum(i.startswith('surge_fx.') for i in by_id),'airwindows':sum(i.startswith('airwindows.') for i in by_id),'sources':len(cat['sources'])}
+    def the_report_check_reads_what_the_plugin_shows():
+        # 0.11, the second part (Astra's review d011b, point 2): the host's report is accepted only as the chain asked.  The
+        # plugin's texts are read in the table's units (a ratio "1 : 6.12" or "6.12 : 1", ms beside s, kHz beside Hz); a right
+        # report passes; another type, another algorithm, two thresholds swapped, a control missing or every control read back
+        # as zero is refused; Nimbus's density and texture, shown centred or not by its mode (check_report_random.py found it),
+        # are read both ways, and a value neither way is still refused.
+        from musiclib import surgefx
+        sv=surgefx._shown_value
+        assert sv('1 : 6.12','ratio')==6.12 and sv('6.12 : 1','ratio')==6.12 and sv('250.00 ms','s')==.25 and sv('1.50 s','ms')==1500
+        assert sv('2.40 kHz','Hz')==2400 and sv('Off','%') is None and sv('-6.00 dB','%') is None and sv('61.80 %','%')==61.8
+        one={'id':'x','mix':{'surge_fx':[{'type':'airwindows','algorithm':'OneCornerClip','params':{'plus_threshold':-6,'minus_threshold':-18}}]}}
+        good=[{'type':'Airwindows','algorithm':'One Corner Clip','shown':{'0':'0.00 dB','1':'-6.00 dB','2':'-18.00 dB','3':'61.80 %','4':'100.00 %'}}]
+        surgefx.check_report(one,good)
+        def refused(report,words):
+            try:surgefx.check_report(one,report)
+            except surgefx.Failed as e:assert words in str(e),(words,str(e));return
+            raise AssertionError(f'accepted: {words}')
+        refused([{**good[0],'type':'Chorus'}],'ran another effect than OneCornerClip')
+        refused([{**good[0],'algorithm':'AD Clip'}],'ran another effect than OneCornerClip')
+        refused([{**good[0],'shown':{**good[0]['shown'],'1':'-18.00 dB','2':'-6.00 dB'}}],"shows plus_threshold of OneCornerClip as '-18.00 dB'")
+        refused([{**good[0],'shown':{k:v for k,v in good[0]['shown'].items() if k!='3'}}],'did not report voicing')
+        refused([{**good[0],'shown':{k:('0.00 dB' if k in '012' else '0.00 %') for k in good[0]['shown']}}],'shows plus_threshold')
+        refused(good*2,'reported another chain')
+        spec=surgefx.table()['types']['nimbus']['params']
+        nimbus=lambda **p:{'id':'n','mix':{'surge_fx':[{'type':'nimbus','params':{'configuration_mode':'Pitch Shifter',**p}}]}}
+        def report(**shown):
+            out={q['plugin']:(str(q['default']) if 'values' in q else f'{q["default"]:.2f} {q["unit"]}') for q in spec.values()}
+            out['configuration_mode']='Pitch Shifter';out.update(shown)
+            return [{'type':'Nimbus','shown':out}]
+        assert spec['grain_density'].get('shown_by_mode') and spec['grain_texture'].get('shown_by_mode')
+        surgefx.check_report(nimbus(grain_density=0.03,grain_texture=93.75),report(grain_density='50.02 %',grain_texture='87.50 %'))   # the other formatting
+        surgefx.check_report(nimbus(grain_density=-40,grain_texture=50),report(grain_density='-40.00 %',grain_texture='50.00 %'))      # the same one
+        try:surgefx.check_report(nimbus(grain_texture=93.75),report(grain_texture='20.00 %'))
+        except surgefx.Failed as e:assert 'grain_texture' in str(e),str(e)
+        else:raise AssertionError('a texture neither way was accepted')
+        return {'refused':6,'nimbus_read_both_ways':True}
+    def effects_search_fits_spreads_and_names_what_it_does_not_know():
+        # studio.py effects (0.11): a search keeps only the tools that fit (role, kind, character words), shows the skill's own
+        # tools beside the plugin's whatever their numbers, takes each kind before any twice, lets the seed choose the
+        # rows and their order (without one the same rows each time), always ends with `nothing`, ranks first what the
+        # style's map documents for the role, and refuses a word it does not know with the nearest; --describe gives a
+        # Surge XT effect's controls as the table has them.
+        import subprocess,sys
+        from musiclib import effectscatalog as fx, styles, surgefx
+        bass=fx.search('bass',limit=10);assert bass['rows'][-1]['id']=='nothing' and len(bass['rows'])==11
+        assert all('bass' in fx.tools()[r['id']]['roles'] for r in bass['rows'][:-1]),bass['rows']
+        fams={fx.family(fx.tools()[r['id']]) for r in bass['rows'][:-1]};assert fams=={'own','surge_fx','airwindows'},fams
+        kinds=[fx.tools()[r['id']]['kinds'][0] for r in bass['rows'][:-1]]
+        fitting={e['kinds'][0] for e in fx.catalog()['tools'] if 'bass' in e['roles']}
+        assert set(kinds)==fitting or len(set(kinds))==10,kinds   # every kind that fits, before any twice
+        assert fx.search('bass',limit=10)==bass   # without a seed: the same each time
+        seeded=[[r['id'] for r in fx.search('bass',seed=s,limit=10)['rows']] for s in (1,2,3)]
+        assert seeded[0]==[r['id'] for r in fx.search('bass',seed=1,limit=10)['rows']] and len({tuple(x) for x in seeded})==3,seeded
+        assert len({x[0] for x in seeded})>1 or len({tuple(x[:3]) for x in seeded})>1,seeded   # the first rows differ too
+        tape=fx.search('harmony',character=['tape'],everything=True)
+        assert tape['count']==len(tape['rows'])-1>=3 and all('tape' in fx.words(fx.tools()[r['id']]) for r in tape['rows'][:-1]),tape
+        assert all('space' in fx.tools()[r['id']]['kinds'] for r in fx.search('melody',kind='space',everything=True)['rows'][:-1])
+        assert fx.search('countermelody',limit=3)['count']==fx.search('melody',limit=3)['count']   # read as melody
+        for args,said in (({'role':'bas'},"did you mean 'bass'?"),({'kind':'spacey'},"did you mean 'space'?"),({'character':['warmm']},"did you mean 'warm'?"),
+                          ({'style':'rock/punkk'},"did you mean 'rock/punk'?")):
+            try:fx.search(**args)
+            except ValueError as e:assert said in str(e),(args,str(e))
+            else:raise AssertionError(args)
+        try:fx.describe('Tape6')
+        except ValueError as e:assert 'airwindows.ToTape6' in str(e) and len(str(e))<400,str(e)
+        else:raise AssertionError('Tape6')
+        d=fx.describe('ToTape6');table=surgefx.table()['types']['airwindows']['algorithms']['ToTape6']['params']
+        assert d['id']=='airwindows.ToTape6' and list(d['controls'])==list(table) and all(d['controls'][n]['default']==p['default'] for n,p in table.items())
+        assert fx.describe('tape')['id']=='surge_fx.tape' and 'degrade_depth above 0' in fx.describe('tape')['varies_when']
+        assert fx.describe('airwindows')['algorithms']==75 and 'Its fields' in fx.summary(fx.describe('mix.compressor'))
+        # a style whose map documents a treatment for the role: its tools first, then its kind, each row saying so
+        reg=styles.registry();fam=reg['families']['rock'];saved=fam.get('treatments')
+        fam['treatments']={'bass':[{'kind':'dynamics','tools':['mix.compressor'],'how':'usual','context':'a check','source':'kinds:S5'}]}
+        try:
+            ranked=fx.search('bass',style='rock/punk',seed=5,limit=6)
+            assert ranked['rows'][0]['id']=='mix.compressor' and 'rock/punk' in ranked['rows'][0]['why'] and 'kinds:S5' in ranked['rows'][0]['why'],ranked['rows'][:2]
+            assert all(fx.tools()[r['id']]['kinds'][0]=='dynamics' for r in ranked['rows'][1:5]),ranked['rows']
+        finally:
+            if saved is None:fam.pop('treatments',None)
+            else:fam['treatments']=saved
+        # the command: one line a tool, --json the rows, an unknown word an error on one line with exit code 2
+        def run(*a):
+            r=subprocess.run([sys.executable,str(SCRIPTS.joinpath('studio.py')),'effects',*a],capture_output=True,text=True,encoding='utf-8',errors='replace')
+            return r.returncode,r.stdout,r.stderr
+        code,out,_=run('--role','drums','--limit','4','--seed','9');lines=out.strip().splitlines()
+        assert code==0 and len(lines)==6 and lines[0].startswith(f'{fx.search("drums")["count"]} of {len(fx.catalog()["tools"])} tools fit') and lines[-1].lstrip().startswith('nothing'),out
+        code,out,_=run('--role','drums','--limit','4','--seed','9','--json');assert code==0 and [r['id'] for r in json.loads(out)['rows']]==[x.split(' ',3)[2] for x in lines[1:]],out[:300]
+        code,_,err=run('--kind','spacey');assert code==2 and "did you mean 'space'?" in err and err.count('\n')==1,err
+        return {'bass_rows':[r['id'] for r in bass['rows']],'seeded_first':[x[0] for x in seeded]}
     found = {'bus_assignment_and_validation': bus_settings, 'church_space_decays_as_specified_and_dynamics_validate': spaces_and_dynamics, 'k_weighting_matches_bs1770': k_weighting, 'loudness_measures_gate_and_compare': loudness_measures, 'true_peak_limiter_holds_the_ceiling': true_peak_limiter, 'tonal_balance_reads_noise_and_compares_with_a_reference': tonal_reference, 'a_bell_facing_back_sounds_darker_and_further': facing, 'production_delay_duck_gate_and_mono_low_end': production_tools, 'part_saturation_keeps_loudness_and_adds_harmonics': part_saturation, 'tape_wow_flutter_and_vinyl_noise': worn_media, 'chorus_reads_its_moving_delay_between_samples': chorus_effect, 'stage_depth_moves_reflections_and_hall': stage_depth, 'range_control_lifts_soft_passages_only': range_master, 'analysis_groups_octave_doublings_and_suggests_cuts': melody_group_and_balance, 'automation_applies_per_sample_with_held_ends': automation_applies_per_sample_with_held_ends}
     found['a_part_moves_by_one_gain_for_each_channel'] = a_part_moves_by_one_gain_for_each_channel
     found['a_stem_too_faint_to_measure_is_silent'] = a_stem_too_faint_to_measure_is_silent
+    found['processing_catalog_matches_the_table'] = processing_catalog_matches_the_table
+    found['the_report_check_reads_what_the_plugin_shows'] = the_report_check_reads_what_the_plugin_shows
+    found['effects_search_fits_spreads_and_names_what_it_does_not_know'] = effects_search_fits_spreads_and_names_what_it_does_not_know
     def top_end_parts():
         # 0.9 step 4.  analyze said how far the master's top lies from its line and, against a genre's published
         # slope, to "look there first": at the cymbals, the low-passes, the patches.  It now says which parts carry
@@ -2063,10 +2187,70 @@ def define(S):
                 assert rs['surge_fx']['state']=='bypassed' and rs['surge_fx']['cached'] is False and rs['surge_fx_headphones']['state']=='applied',rs
                 assert hs['surge_fx']=={'applied':{t['id']+' (headphone version)':rs['surge_fx_headphones']['level_change_db']},'bypassed':{t['id']:rs['surge_fx']['reason']}},hs['surge_fx']
                 assert f'applied in the headphone version alone (the mix played those parts without them): {t["id"]} (headphone version).' in summary.render(hs,work/'render_fx_speaker_failed')
+                # An exact chain keeps no take of its own; one set to vary plays once for the part's audio into it: its take is
+                # kept in the part's cache entry, the headphone version plays it too, and so do later renders while that audio
+                # and the chain are the same (a pan changes neither); a take whose samples are not those kept is made again;
+                # compare names a part that played its chain anew, and a chain's changed control with both values (d011b).
+                from musiclib import compare as comparing
+                assert fx['repeat']=='exact' and 'take_reused' not in fx and not (fxc/ra['cache_key']/f'{surgefx.TAKE}.f32').exists(),fx
+                vq=copy.deepcopy(hq);vt=vq['tracks'][0]
+                for k in ('depth_m','facing','move','around','automation'):vt['mix'].pop(k,None)
+                vt['mix'].update(pan=0,width=1,surge_fx=[{'type':'tape','params':{'degrade_depth':40}}]);save_json(work/'surge_fx_varies.json',vq)
+                v1=render(work/'surge_fx_varies.json',work/'render_fx_varies',config,work/'cache_fx_varies');r1=receipt('render_fx_varies')
+                assert r1['surge_fx']['repeat']=='varies' and r1['surge_fx']['varies']==['tape (degrade_depth)'] and r1['surge_fx']['take_reused'] is False,r1['surge_fx']
+                assert not {'surge_fx_headphones','surge_fx_headphones_own_take'}&set(r1) and v1['surge_fx']['varies']=={vt['id']:['tape (degrade_depth)']},(r1,v1['surge_fx'])
+                assert 'Surge XT Effects set to vary, played once and kept with the part' in summary.render(v1,work/'render_fx_varies')
+                centre=lambda name:audio.read_wav(work/name/'headphones'/'centre'/'stems'/f'{vt["id"]}.wav')[0]
+                assert np.array_equal(stem_of('render_fx_varies'),centre('render_fx_varies'))   # centred, the two versions are one take
+                v2=render(work/'surge_fx_varies.json',work/'render_fx_varies_again',config,work/'cache_fx_varies');r2=receipt('render_fx_varies_again')
+                assert r2['stem_reused'] and v2['master']['sha256']==v1['master']['sha256'] and np.array_equal(centre('render_fx_varies_again'),centre('render_fx_varies'))
+                panned=copy.deepcopy(vq);panned['tracks'][0]['mix']['pan']=.4;save_json(work/'surge_fx_varies_panned.json',panned)
+                render(work/'surge_fx_varies_panned.json',work/'render_fx_varies_panned',config,work/'cache_fx_varies');r3=receipt('render_fx_varies_panned')
+                assert not r3['stem_reused'] and r3['surge_fx']['take_reused'] is True and np.array_equal(centre('render_fx_varies_panned'),centre('render_fx_varies')),r3['surge_fx']
+                kept_take=comparing.compare(work/'render_fx_varies',work/'render_fx_varies_panned')
+                assert kept_take['processing']=={'effects_played_anew':[],'same_inputs_other_audio':[]} and kept_take['project_changes']['tracks'][vt['id']]['mix']=={'pan':[0,.4]},kept_take
+                take=work/'cache_fx_varies'/r1['cache_key']/f'{surgefx.TAKE}.f32';data=bytearray(take.read_bytes());data[4096]^=1;take.write_bytes(bytes(data))
+                panned['tracks'][0]['mix']['pan']=.2;save_json(work/'surge_fx_varies_panned2.json',panned)
+                render(work/'surge_fx_varies_panned2.json',work/'render_fx_varies_panned2',config,work/'cache_fx_varies');r5=receipt('render_fx_varies_panned2')
+                assert r5['surge_fx']['take_reused'] is False and r5['stem_sha256']!=r3['stem_sha256'],r5['surge_fx']   # made again, not the altered samples
+                render(work/'surge_fx_varies.json',work/'render_fx_varies_fresh',config,work/'cache_fx_varies_fresh');r4=receipt('render_fx_varies_fresh')
+                assert r4['surge_fx']['take_reused'] is False and r4['stem_key']==r1['stem_key'],r4['surge_fx']
+                fresh=comparing.compare(work/'render_fx_varies',work/'render_fx_varies_fresh')
+                other=[vt['id']] if r4['stem_sha256']!=r1['stem_sha256'] else []   # (a take that varies is all but never the same)
+                assert fresh['processing']=={'effects_played_anew':[f'{vt["id"]} (tape (degrade_depth))'],'same_inputs_other_audio':other},fresh['processing']
+                assert f'Played anew through Surge XT Effects set to vary (part of a change there is the effect\'s own): {vt["id"]} (tape (degrade_depth)).' in summary.compare(fresh,work/'compare_fx.json')
+                deeper=copy.deepcopy(vq);deeper['tracks'][0]['mix']['surge_fx'][0]['params']['degrade_depth']=60
+                assert comparing.project_changes(vq,deeper)['tracks'][vt['id']]['mix']=={'surge_fx[0].params.degrade_depth':[40,60]}
                 out['with_the_plugin']=('applied, level kept, made the same twice and kept; a failed run kept nothing and is as without the field; '
-                                        'a headphone version whose chain did otherwise is said, either way')
+                                        'a headphone version whose chain did otherwise is said, either way; a varying chain is one take for both '
+                                        'versions and later renders, made again where its kept samples changed; compare names it and the control')
             return out
-        found.update({'analysis_names_the_lead_the_span_and_the_peak': analysis_names_the_lead_the_span_and_the_peak, 'bus_chain_render_and_delivery_checks': bus_render, 'a_chorus_pass_never_shares_another_parts_log': chorus_pass_logs, 'effects_apply_in_the_order_listed': effects_in_listed_order, 'the_mix_fields_of_0_11_render_as_their_filters': mix_fields_of_0_11_render, 'a_surge_fx_chain_applies_or_is_named_left_out': surge_fx_chain, 'analysis_reports_sections_stems_and_lead': analysis, 'mix_rules_2_render_limiter_saturation_and_clarity': rules_2_render, 'wide_dynamics_master_keeps_the_mix_range': wide_render, 'stage_depth_and_range_control_render': stage_and_range, 'long_automation_renders': long_automation_renders})
+        def effects_table_matches_the_plugin():
+            # The table against the plugin (0.11, the second part; design section 6): every Surge XT Effects type and every
+            # Airwindows algorithm is set at its defaults on a short tone, four to a chain, and the host's report of each is
+            # accepted (surgefx.check_report: the type, the algorithm and every control the table names, each value the plugin
+            # shows within its tolerance of the default asked); a plugin that took another algorithm or read a knob otherwise
+            # fails here.  Optional where Surge XT Effects is, required where CI installed it.
+            import os
+            from musiclib import surgefx
+            cfg=audio.load_config(config);has=bool(cfg.get('surge_fx') and cfg.get('pedalboard'))
+            assert has or not os.environ.get('MUSIC_SKILL_REQUIRE_SURGE'),'the configuration names no Surge XT Effects, and MUSIC_SKILL_REQUIRE_SURGE asks for it'
+            if not has:return {'skipped':'Surge XT Effects is not configured'}
+            types=surgefx.table()['types']
+            effects=[{'type':k} for k in types if k!='airwindows']+[{'type':'airwindows','algorithm':a} for a in types['airwindows']['algorithms']]
+            here=work/'effects_table';(here/'stems').mkdir(parents=True);(here/'logs').mkdir()
+            t=np.arange(int(audio.RATE*.5))/audio.RATE
+            tone=(np.sin(2*np.pi*220*t)*.3*np.exp(-3*t)).astype(np.float32)
+            audio.write_wav(here/'in.wav',np.stack([tone,tone],axis=1))
+            runs=0
+            for k in range(0,len(effects),4):
+                chain=effects[k:k+4];track={'id':f'fx{k:03d}','mix':{'level_mode':'active_rms','surge_fx':chain}}
+                surgefx.validate(track)
+                done=surgefx.apply(here/'in.wav',here/f'out{k:03d}.wav',track,cfg,here/'stems',here/'logs')   # check_report runs inside
+                assert [c['type'] for c in done['chain']]==[c['type'] for c in chain] and all(c.get('algorithm')==e.get('algorithm') for c,e in zip(done['chain'],chain)),done['chain']
+                runs+=1
+            return {'effects':len(effects),'runs':runs}
+        found.update({'analysis_names_the_lead_the_span_and_the_peak': analysis_names_the_lead_the_span_and_the_peak, 'bus_chain_render_and_delivery_checks': bus_render, 'a_chorus_pass_never_shares_another_parts_log': chorus_pass_logs, 'effects_apply_in_the_order_listed': effects_in_listed_order, 'the_mix_fields_of_0_11_render_as_their_filters': mix_fields_of_0_11_render, 'a_surge_fx_chain_applies_or_is_named_left_out': surge_fx_chain, 'every_surge_effect_and_algorithm_reads_back_as_the_table_says': effects_table_matches_the_plugin, 'analysis_reports_sections_stems_and_lead': analysis, 'mix_rules_2_render_limiter_saturation_and_clarity': rules_2_render, 'wide_dynamics_master_keeps_the_mix_range': wide_render, 'stage_depth_and_range_control_render': stage_and_range, 'long_automation_renders': long_automation_renders})
         found['a_moving_part_renders_and_the_others_stay'] = a_moving_part_renders_and_the_others_stay
         found['a_part_through_an_amplifier_renders_and_the_others_stay'] = a_part_through_an_amplifier_renders_and_the_others_stay
         found['a_part_played_by_string_renders_string_by_string'] = a_part_played_by_string_renders_string_by_string

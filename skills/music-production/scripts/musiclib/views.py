@@ -296,13 +296,38 @@ def accompaniment(p, clock=None, min_bars=4, presence=.75):
     return out
 
 
+def treatment(p):
+    """Each part's processing (0.11, the second part): the catalog's tools its mix and kit use and their kinds
+    (effectscatalog.part_tools), beside what the map of the style governing the mix documents for its role (style-maps.json
+    `treatments`: each entry's kind, how usual its source says it is, its context and source, `none` where the source says
+    the role takes little or none of it, and whether the part has a tool of that kind).  A Surge XT part's preset may carry
+    effects of its own (`preset_effects`), which are not read.  A description: what a style documents is no rule for every
+    part (an entry may concern one instrument of the role, as an electric piano's tremolo does), and nothing here asks."""
+    from . import effectscatalog, styles
+    try:
+        entry = styles.governing(styles.parse(p.get('style')), 'mix')
+    except ValueError:
+        entry = None   # (validation refuses a style that is not an entry; a view never stops a review)
+    rows = []
+    for t in p['tracks']:
+        ids = effectscatalog.part_tools(t)
+        kinds = effectscatalog.kinds_of(ids)
+        documented = effectscatalog.treatments(entry, t.get('role'))[0] if entry and t.get('role') else []
+        rows.append({'part': t['id'], 'role': t.get('role'), 'tools': ids, 'kinds': kinds,
+                     'character_tools': sum(1 for i in ids if effectscatalog.tools()[i]['kinds'][0] in effectscatalog.CHARACTER),
+                     **({'preset_effects': True} if t.get('engine') == 'surge' else {}),
+                     'documented': [{'kind': d['kind'], 'how': d['how'], 'context': d.get('context'), 'source': d['source'],
+                                     **({'none': True} if d.get('none') else {}), 'has': d['kind'] in kinds} for d in documented]})
+    return {'style': entry, 'parts': rows}
+
+
 def views(p):
-    """The four views of a project."""
+    """The five views of a project."""
     clock = Clock(p)
     rows = parts_by_section(p, clock)
     return {'parts_by_section': rows, 'part_sets': len(set(part_sets(rows))),
             'harmony_pace': harmony_pace(p, clock), 'melody_rhythm': melody_rhythm(p, clock),
-            'accompaniment': accompaniment(p, clock)}
+            'accompaniment': accompaniment(p, clock), 'treatment': treatment(p)}
 
 
 ROLE_ORDER = ('melody', 'countermelody', 'accent', 'harmony', 'rhythm', 'texture', 'bass', 'drums')
@@ -372,4 +397,35 @@ def describe(v):
                      f'position of the bar passes before the next attack) and {m["pushes_pct"]:g}% push a downbeat or half-bar. '
                      f'Longest stretch without a rest of half a beat: {run["seconds"]:g} s, bars {run["from_bar"]}-{run["to_bar"]}. '
                      f'Rests by section: {rests}. {m["bar_rhythms"]} different bar rhythms.')
+    lines += treatment_lines(v.get('treatment'))
     return '\n'.join(lines)
+
+
+def treatment_lines(t):
+    """The treatment view as short lines: each part's tools by kind, and what its style's map documents for its role."""
+    if not t or not t['parts']:
+        return []
+    style = one_line(str(t['style'])) if t['style'] else None
+    lines = ["Processing by part (the processing catalog's tools, and their kinds):"]
+    for r in t['parts']:
+        used = ', '.join(i.split('.', 1)[1] for i in r['tools']) or 'nothing beyond its level and pan'
+        lines.append(f'  {one_line(r["part"])} ({one_line(str(r["role"]))}): {used}' + (f' [{", ".join(r["kinds"])}]' if r['kinds'] else '')
+                     + (" and its Surge preset's own effects" if r.get('preset_effects') else '') + '.')
+    # what the style's map documents, once for each role the piece has: an entry may concern one instrument of the role
+    # (its context says which), so it is set beside the parts, not on each of them
+    said, roles = {}, []
+    for r in t['parts']:
+        if r['documented'] and r['role'] not in said:
+            roles.append(r['role'])
+            said[r['role']] = '; '.join(f'{"little or no " if d.get("none") else ""}{d["kind"]}: {one_line(str(d.get("context") or ""))} ({d["how"]}, {d["source"]})'
+                                        for d in r['documented'])
+    if said:
+        lines.append(f'What the map of {style} documents, by role (a kind, on what, how usual its source says it is; studio.py effects '
+                     f'--role ROLE --style {style} lists the tools, these first):')
+        lines += [f'  {one_line(str(role))}: {said[role]}.' for role in roles]
+    heavy = [r['part'] for r in t['parts'] if r['character_tools'] >= 3]
+    if heavy:
+        lines.append(f'Parts with three tools or more that change their character (colour, modulation, lo-fi, noise, sound design): '
+                     f'{", ".join(one_line(x) for x in heavy)}. Each such tool on a part is heard against the others; check that '
+                     'each still earns its place.')
+    return lines

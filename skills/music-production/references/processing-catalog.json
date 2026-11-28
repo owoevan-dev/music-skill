@@ -1,0 +1,5724 @@
+{
+ "note": "The tools a part's processing can use (0.11): the skill's own mix fields and effects, Surge XT Effects' types and the Airwindows algorithms inside it, one entry each, read by studio.py effects (musiclib/effectscatalog.py). The words (kinds, summary, character, roles) are written in this project from the sources each entry names; an Airwindows algorithm's summary paraphrases its author's own descriptions. The controls, limits and defaults are references/surge-fx.json's. A fragment is a starting point to adapt: the table's defaults for a Surge XT effect, a setting of this project's own for the skill's tools, none taken from a preset. `measured` is each effect at its defaults after 4 s of silence (research/effects-0.11/surgefx_measure.py), on a decaying A minor chord peaking at -12 dBFS and the 6 s after it (level_db, the change of level; brightness_ratio, of the spectral centroid; width_db, side under mid from a mono input, floored at -60; tail_s, until the output falls 60 dB under the chord's level, at most 6 s), a 1 kHz sine at -12 dBFS (harmonics_db and inharmonic_db, the energy at the sine's harmonics and elsewhere against the sine's), and silence (noise_dbfs). `measured_words` follow from those by the rules in `word_rules`: they describe the defaults on those signals, not every setting. `repeat`: exact (the same samples each render), rounding (Tape: within -120 dBFS), or exact unless a `varies_when` rule holds, when the effect renders otherwise each time the part is processed anew (the cache keeps one take). `fallback`: a tool of the skill's own that does a related job where Surge XT Effects is not installed (the part itself then plays without its chain, and the render says so).",
+ "kinds": [
+  "correction",
+  "dynamics",
+  "colour",
+  "modulation",
+  "space",
+  "delay",
+  "lo-fi",
+  "noise",
+  "sound design",
+  "utility"
+ ],
+ "roles": [
+  "melody",
+  "countermelody",
+  "accent",
+  "harmony",
+  "rhythm",
+  "texture",
+  "bass",
+  "drums",
+  "effect"
+ ],
+ "word_rules": [
+  {
+   "word": "brightens",
+   "measure": "brightness_ratio",
+   "rule": ">=",
+   "limit": 1.2
+  },
+  {
+   "word": "darkens",
+   "measure": "brightness_ratio",
+   "rule": "<=",
+   "limit": 0.83
+  },
+  {
+   "word": "widens",
+   "measure": "width_db",
+   "rule": ">=",
+   "limit": -12.0
+  },
+  {
+   "word": "long tail",
+   "measure": "tail_s",
+   "rule": ">=",
+   "limit": 1.0
+  },
+  {
+   "word": "short tail",
+   "measure": "tail_s",
+   "rule": "between",
+   "limit": [
+    0.2,
+    1.0
+   ]
+  },
+  {
+   "word": "adds harmonics",
+   "measure": "harmonics_db",
+   "rule": ">=",
+   "limit": -40.0
+  },
+  {
+   "word": "inharmonic",
+   "measure": "inharmonic_db",
+   "rule": ">=",
+   "limit": -30.0
+  },
+  {
+   "word": "adds noise",
+   "measure": "noise_dbfs",
+   "rule": ">=",
+   "limit": -90.0
+  }
+ ],
+ "sources": {
+  "airwindopedia": {
+   "cite": "Chris Johnson (Airwindows): Airwindopedia and the plugins' one-line descriptions (what.txt), in the airwindows repository, MIT licence, commit 3db867bb543d",
+   "url": "https://github.com/airwindows/airwindows"
+  },
+  "beats:5": {
+   "cite": "Douglas, A. (2021). Dirtying Up A Mix With Lo-Fi Texture And Vibe. Attack Magazine.",
+   "url": "https://www.attackmagazine.com/technique/tutorials/dirtying-up-a-mix-with-lo-fi-texture-and-vibe/"
+  },
+  "beats:6": {
+   "cite": "Computer Music (2016). 12 classic hip-hop production tricks that never get tired. MusicRadar.",
+   "url": "https://www.musicradar.com/tuition/tech/12-classic-hip-hop-production-tricks-that-never-get-tired-645495"
+  },
+  "beats:7": {
+   "cite": "Korff, C. (2015). Spotlight: Hardware Samplers. Sound On Sound, Mar 2015.",
+   "url": "https://www.soundonsound.com/reviews/spotlight-hardware-samplers"
+  },
+  "beats.md": {
+   "cite": "The skill's guide references/beats.md and the sources it gives",
+   "url": null
+  },
+  "electronic:S6": {
+   "cite": "Price, S. (2005). Granular Synthesis. Sound On Sound, Dec 2005.",
+   "url": "https://www.soundonsound.com/techniques/granular-synthesis"
+  },
+  "electronic:S8": {
+   "cite": "Houghton, M. (2008). Side-chaining. Sound On Sound, Feb 2008.",
+   "url": "https://www.soundonsound.com/techniques/side-chaining"
+  },
+  "electronic:S17": {
+   "cite": "Attack Magazine (2015). Character & Crunch: Replicating The Sound Of Vintage Samplers, p. 2.",
+   "url": "https://www.attackmagazine.com/technique/character-crunch-replicating-the-sound-of-vintage-samplers/2/"
+  },
+  "electronic:S24": {
+   "cite": "Douglas, A. (2021). Adding Atmosphere With Delay And Reverb. Attack Magazine.",
+   "url": "https://www.attackmagazine.com/technique/tutorials/adding-atmosphere-with-delay-and-reverb/"
+  },
+  "electronic:S27": {
+   "cite": "Godfrey, J. (2011). Creative Sound Design For Music. Sound On Sound, Jul 2011.",
+   "url": "https://www.soundonsound.com/techniques/creative-sound-design-music"
+  },
+  "electronic.md": {
+   "cite": "The skill's guide references/electronic.md and the sources it gives",
+   "url": null
+  },
+  "kinds:S1": {
+   "cite": "Haas, W. (2008). The SOS Guide To Mix Compression. Sound On Sound, May 2008.",
+   "url": "https://www.soundonsound.com/techniques/sos-guide-mix-compression"
+  },
+  "kinds:S3": {
+   "cite": "Robjohns, H. (2013). Parallel Compression. Sound On Sound, February 2013.",
+   "url": "https://www.soundonsound.com/techniques/parallel-compression"
+  },
+  "kinds:S4": {
+   "cite": "Senior, M. (2017). Compression: Fashion The Drum Sound You Want. Sound On Sound, February 2017.",
+   "url": "https://www.soundonsound.com/techniques/compression-fashion-drum-sound-you-want"
+  },
+  "kinds:S5": {
+   "cite": "Robjohns, H. (1999). How & When To Use Mix Compression. Sound On Sound, June 1999.",
+   "url": "https://www.soundonsound.com/techniques/how-when-use-mix-compression"
+  },
+  "kinds:S6": {
+   "cite": "Rogers, N. (2021). Saturation Strategies. Sound On Sound, May 2021.",
+   "url": "https://www.soundonsound.com/techniques/saturation-strategies"
+  },
+  "kinds:S7": {
+   "cite": "White, P. (2012). UAD Ampex ATR102 (review). Sound On Sound, January 2012.",
+   "url": "https://www.soundonsound.com/reviews/uad-ampex-atr102"
+  },
+  "kinds:S8": {
+   "cite": "Freke, O. (2023). New Harmonics: The Art Of Audio Fermentation. Sound On Sound, July 2023.",
+   "url": "https://www.soundonsound.com/techniques/new-harmonics"
+  },
+  "kinds:S9": {
+   "cite": "White, P. (2003). Maximising The Loudness Of Your Masters. Sound On Sound, March 2003.",
+   "url": "https://www.soundonsound.com/techniques/maximising-loudness-your-masters"
+  },
+  "kinds:S10": {
+   "cite": "Houghton, M. (2015). Q. What's the best way to clip my drums? Sound On Sound, July 2015.",
+   "url": "https://www.soundonsound.com/sound-advice/q-whats-best-way-clip-my-drums"
+  },
+  "kinds:S11": {
+   "cite": "White, P. (2006). Choosing The Right Reverb. Sound On Sound, March 2006.",
+   "url": "https://www.soundonsound.com/techniques/choosing-right-reverb"
+  },
+  "kinds:S12": {
+   "cite": "Robjohns, H. (1997). Reverb From First Principles. Sound On Sound, March 1997.",
+   "url": "https://www.soundonsound.com/techniques/reverb-first-principles"
+  },
+  "kinds:S13": {
+   "cite": "White, P. (2001). Understanding & Emulating Vintage Effects. Sound On Sound, January 2001.",
+   "url": "https://www.soundonsound.com/techniques/understanding-emulating-vintage-effects"
+  },
+  "kinds:S17": {
+   "cite": "White, P. (2020). Eventide ShimmerVerb (review). Sound On Sound, October 2020.",
+   "url": "https://www.soundonsound.com/reviews/eventide-shimmerverb"
+  },
+  "kinds:S18": {
+   "cite": "White, P., Inglis, S., Walker, M., Bigwood, R. (2003). Using Your Plug-in Delay Effects. Sound On Sound, July 2003.",
+   "url": "https://www.soundonsound.com/techniques/using-your-plugin-delay-effects"
+  },
+  "kinds:S20": {
+   "cite": "White, P. (2022). Modulation Effects: A Primer. Sound On Sound, October 2022.",
+   "url": "https://www.soundonsound.com/sound-advice/modulation-effects"
+  },
+  "kinds:S21": {
+   "cite": "Reid, G. (2002). Roland RS202 & Multivox MX202 (Retrozone). Sound On Sound, July 2002.",
+   "url": "https://www.soundonsound.com/reviews/roland-rs202-multivox-mx202-retrozone"
+  },
+  "kinds:S23": {
+   "cite": "Robjohns, H. (2021). How Phasers Work. Sound On Sound, August 2021.",
+   "url": "https://www.soundonsound.com/sound-advice/how-phasers-work"
+  },
+  "kinds:S24": {
+   "cite": "Reid, G. (2004). Synthesizing The Rest Of The Hammond Organ: Part 1 (Synth Secrets). Sound On Sound, February 2004.",
+   "url": "https://www.soundonsound.com/techniques/synthesizing-rest-hammond-organ-part-1"
+  },
+  "kinds:S27": {
+   "cite": "Reid, G. (1999). Of Responses & Resonance (Synth Secrets). Sound On Sound, October 1999.",
+   "url": "https://www.soundonsound.com/techniques/responses-resonance"
+  },
+  "kinds:S28": {
+   "cite": "Reid, G. (2001). Formant Synthesis (Synth Secrets). Sound On Sound, March 2001.",
+   "url": "https://www.soundonsound.com/techniques/formant-synthesis"
+  },
+  "kinds:S29": {
+   "cite": "White, P. (2013). Q. What exactly is comb filtering? Sound On Sound, June 2013.",
+   "url": "https://www.soundonsound.com/sound-advice/q-what-exactly-comb-filtering"
+  },
+  "kinds:S30": {
+   "cite": "Smith, J. O. III (2010). Karplus-Strong Algorithms. Physical Audio Signal Processing, W3K Publishing.",
+   "url": "https://ccrma.stanford.edu/~jos/pasp/Karplus_Strong_Algorithms.html"
+  },
+  "kinds:S31": {
+   "cite": "Mutable Instruments. Clouds user manual (module discontinued 2017). Mirror:",
+   "url": "https://pichenette.readthedocs.io/en/latest/modules/clouds/manual/"
+  },
+  "kinds:S32": {
+   "cite": "Sound On Sound. Ring Modulator (glossary).",
+   "url": "https://www.soundonsound.com/glossary/ring-modulator"
+  },
+  "kinds:S33": {
+   "cite": "Sasso, L. (2012). Shift Yourself. Sound On Sound, November 2012.",
+   "url": "https://www.soundonsound.com/techniques/shift-yourself"
+  },
+  "kinds:S34": {
+   "cite": "Senior, M. (2020). How And When To Use Multiband Compression. Sound On Sound, August 2020.",
+   "url": "https://www.soundonsound.com/techniques/how-and-when-use-multiband-compression"
+  },
+  "kinds:S35": {
+   "cite": "Houghton, M. (2015). Q. Can Haas delays be mono-compatible? Sound On Sound, August 2015.",
+   "url": "https://www.soundonsound.com/sound-advice/q-can-haas-delays-be-mono-compatible"
+  },
+  "performance-and-mix.md": {
+   "cite": "The skill's guide references/performance-and-mix.md and the sources it gives",
+   "url": null
+  },
+  "pop:1": {
+   "cite": "Sasso, L. (2016). Rhodes Hog. Sound On Sound, January 2016.",
+   "url": "https://www.soundonsound.com/techniques/rhodes-hog"
+  },
+  "pop:2": {
+   "cite": "Hastings, T. (1989). Born Again: Rhodes MK80 Piano. Sound On Sound, October 1989.",
+   "url": "https://www.muzines.co.uk/articles/born-again/5676"
+  },
+  "pop:3": {
+   "cite": "The Rhodes Super Site, Effects (an enthusiast site; named examples only).",
+   "url": "https://www.fenderrhodes.com/history/effects.html"
+  },
+  "pop:4": {
+   "cite": "White, P. (1998). Where To Use Processors & Why, Part 4. Sound On Sound, January 1998.",
+   "url": "https://www.soundonsound.com/techniques/where-use-processors-why-part-4"
+  },
+  "pop:5": {
+   "cite": "Howell, S. (2005). Q. How do I set up a gated reverb? Sound On Sound, March 2005.",
+   "url": "https://www.soundonsound.com/sound-advice/q-how-do-set-gated-reverb"
+  },
+  "pop:6": {
+   "cite": "Buskin, R. (1992). Production Masterclass With Hugh Padgham. Recording Musician, October 1992.",
+   "url": "https://www.muzines.co.uk/articles/production-masterclass-with-hugh-padgham/2948"
+  },
+  "pop:9": {
+   "cite": "Magnus, N. (1994). Creating Analogue Sounds On Digital Synths, Part 2. Sound On Sound, February 1994.",
+   "url": "https://www.soundonsound.com/techniques/creating-analogue-sounds-digital-synths-part-2"
+  },
+  "pop:14": {
+   "cite": "White, P. (1985). Getting Excited. Home & Studio Recording, May 1985.",
+   "url": "https://www.muzines.co.uk/articles/getting-excited/6381"
+  },
+  "pop:15": {
+   "cite": "White, P. (1995). How Enhancers Work. Sound On Sound, February 1995.",
+   "url": "https://www.soundonsound.com/techniques/how-enhancers-work"
+  },
+  "processing.md": {
+   "cite": "The skill's guide references/processing.md and the sources it gives",
+   "url": null
+  },
+  "rock:S3": {
+   "cite": "Tingen, P. (2008). Secrets Of The Mix Engineers: Neal Avron. Sound On Sound, January 2008.",
+   "url": "https://www.soundonsound.com/techniques/secrets-mix-engineers-neal-avron"
+  },
+  "rock:S4": {
+   "cite": "Tingen, P. (2013). Secrets Of The Mix Engineers: Mike Crossey. Sound On Sound, December 2013.",
+   "url": "https://www.soundonsound.com/techniques/secrets-mix-engineers-mike-crossey"
+  },
+  "rock:S8": {
+   "cite": "White, P., Robjohns, H. (2008). Q: How do you record a Leslie speaker? Sound On Sound, April 2008.",
+   "url": "https://www.soundonsound.com/sound-advice/q-how-do-you-record-leslie-speaker"
+  },
+  "rock:S16": {
+   "cite": "Hoey, G. (2007). Surf Guitar Basics. Premier Guitar, 14 May 2007.",
+   "url": "https://www.premierguitar.com/surf-guitar-basics"
+  },
+  "rock-and-metal.md": {
+   "cite": "The skill's guide references/rock-and-metal.md and the sources it gives",
+   "url": null
+  },
+  "scoring:S12": {
+   "cite": "Inglis, S. (2024). Dune: Hans Zimmer & Friends. Sound On Sound, April 2024.",
+   "url": "https://www.soundonsound.com/techniques/dune-hans-zimmer-friends"
+  },
+  "surge-source": {
+   "cite": "Surge XT 1.3.4: the source of its effects and their parameters (GPL-3.0-or-later), read as text, and the plugin itself read through pedalboard (research/effects-0.11/surgefx-params.md)",
+   "url": "https://github.com/surge-synthesizer/surge/tree/release_xt_1.3.4"
+  }
+ },
+ "tools": [
+  {
+   "id": "mix.eq",
+   "kinds": [
+    "correction"
+   ],
+   "summary": "EQ bands: peaks, low and high shelves and notches, to cut what masks and lift what defines.",
+   "character": [
+    "corrective"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "rhythm",
+    "bass",
+    "drums",
+    "texture"
+   ],
+   "where": "mix.eq",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "eq": [
+      {
+       "type": "peak",
+       "hz": 300,
+       "db": -2,
+       "q": 1
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "watch": "Cut before boosting where the move is narrow, and judge the part in the mix, not alone.",
+   "sources": [
+    "processing.md"
+   ]
+  },
+  {
+   "id": "mix.compressor",
+   "kinds": [
+    "dynamics"
+   ],
+   "summary": "FFmpeg's compressor: ratio, attack, release, knee, make-up, parallel mix, peak or RMS detection.",
+   "character": [
+    "controlled",
+    "glue"
+   ],
+   "roles": [
+    "bass",
+    "drums",
+    "rhythm",
+    "melody"
+   ],
+   "where": "mix.compressor",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "compressor": {
+      "threshold_db": -24,
+      "ratio": 2.5,
+      "attack_ms": 20,
+      "release_ms": 100
+     }
+    }
+   },
+   "repeat": "exact",
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "processing.md",
+    "kinds:S1",
+    "kinds:S4",
+    "kinds:S5"
+   ]
+  },
+  {
+   "id": "mix.noise_gate",
+   "kinds": [
+    "correction",
+    "dynamics"
+   ],
+   "summary": "A noise gate first among the part's processors: silences it below a threshold.",
+   "character": [
+    "clean",
+    "tight"
+   ],
+   "roles": [
+    "drums",
+    "rhythm"
+   ],
+   "where": "mix.noise_gate",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "noise_gate": {}
+    }
+   },
+   "repeat": "exact",
+   "watch": "Cut before boosting where the move is narrow, and judge the part in the mix, not alone.",
+   "sources": [
+    "processing.md"
+   ]
+  },
+  {
+   "id": "mix.saturate",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "Saturation at four times the rate with the level kept: tanh, atan, alg or erf curves.",
+   "character": [
+    "warm",
+    "saturated"
+   ],
+   "roles": [
+    "bass",
+    "drums",
+    "harmony"
+   ],
+   "where": "mix.saturate",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "saturate": {
+      "drive": 0.3,
+      "curve": "tanh"
+     }
+    }
+   },
+   "repeat": "exact",
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "processing.md",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "mix.amp",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A guitar amplifier and loudspeaker on the whole part, voices clean to high gain, and a bass voice.",
+   "character": [
+    "amp",
+    "driven"
+   ],
+   "roles": [
+    "rhythm",
+    "melody",
+    "bass"
+   ],
+   "where": "mix.amp",
+   "needs": null,
+   "engines": [
+    "soundfont"
+   ],
+   "fragment": {
+    "mix": {
+     "amp": {
+      "voice": "crunch",
+      "drive": 0.5
+     }
+    }
+   },
+   "repeat": "exact",
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level. Made for a bank recorded from a pickup (fsbs_direct) or the three measured bass banks; on another, write input_db once the receipt's amp.input_peak is known.",
+   "sources": [
+    "rock-and-metal.md",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "mix.delay",
+   "kinds": [
+    "delay"
+   ],
+   "summary": "Echoes on the beat, each landing on the tempo map to the sample, ping-pong and filters.",
+   "character": [
+    "echo",
+    "in time"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "texture"
+   ],
+   "where": "mix.delay",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "delay": {
+      "beats": 0.75,
+      "feedback": 0.3,
+      "send_db": -14
+     }
+    }
+   },
+   "repeat": "exact",
+   "watch": "Filtering the repeats' highs darkens them and pushes them back.",
+   "sources": [
+    "electronic.md",
+    "kinds:S18"
+   ]
+  },
+  {
+   "id": "mix.duck",
+   "kinds": [
+    "dynamics"
+   ],
+   "summary": "The part pulled down on another part's notes, as a sidechain compressor keyed by the kick.",
+   "character": [
+    "pumping"
+   ],
+   "roles": [
+    "bass",
+    "harmony",
+    "texture"
+   ],
+   "where": "mix.duck",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "duck": {
+      "by": "drums",
+      "depth_db": 6
+     }
+    }
+   },
+   "repeat": "exact",
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps. It follows another part's notes: name that part in `by`.",
+   "sources": [
+    "electronic.md",
+    "electronic:S8",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "mix.filter_sweep",
+   "kinds": [
+    "modulation",
+    "sound design"
+   ],
+   "summary": "A low- or high-pass filter moved along points in beats.",
+   "character": [
+    "sweeping"
+   ],
+   "roles": [
+    "texture",
+    "harmony"
+   ],
+   "where": "mix.filter_sweep",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "filter_sweep": {
+      "type": "lowpass",
+      "points": [
+       [
+        0,
+        400
+       ],
+       [
+        8,
+        8000
+       ]
+      ]
+     }
+    }
+   },
+   "repeat": "exact",
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "sources": [
+    "electronic.md"
+   ]
+  },
+  {
+   "id": "mix.gate",
+   "kinds": [
+    "dynamics",
+    "modulation"
+   ],
+   "summary": "A rhythmic gate by pattern on the beat grid.",
+   "character": [
+    "chopped",
+    "rhythmic"
+   ],
+   "roles": [
+    "harmony",
+    "texture"
+   ],
+   "where": "mix.gate",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "gate": {
+      "pattern": "x.x.xx.x",
+      "step_beats": 0.25,
+      "depth_db": 60
+     }
+    }
+   },
+   "repeat": "exact",
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "electronic.md",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "mix.wow_flutter",
+   "kinds": [
+    "lo-fi",
+    "modulation"
+   ],
+   "summary": "Tape speed variation: slow wow and fast flutter, no net drift in time.",
+   "character": [
+    "wobbly",
+    "worn"
+   ],
+   "roles": [
+    "harmony",
+    "melody"
+   ],
+   "where": "mix.wow_flutter",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "wow_flutter": {}
+    }
+   },
+   "repeat": "exact",
+   "watch": "Check that the part still speaks in the mix.",
+   "sources": [
+    "beats.md",
+    "beats:5"
+   ]
+  },
+  {
+   "id": "effects.chorus",
+   "kinds": [
+    "modulation"
+   ],
+   "summary": "The skill's own chorus: two voices whose delays sweep, light and simple.",
+   "character": [
+    "wide",
+    "light"
+   ],
+   "roles": [
+    "harmony",
+    "rhythm"
+   ],
+   "where": "mix.effects",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "effects": [
+      {
+       "type": "chorus",
+       "depth": 0.5
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "sources": [
+    "processing.md"
+   ]
+  },
+  {
+   "id": "effects.phaser",
+   "kinds": [
+    "modulation"
+   ],
+   "summary": "FFmpeg's phaser.",
+   "character": [
+    "movement"
+   ],
+   "roles": [
+    "harmony",
+    "rhythm"
+   ],
+   "where": "mix.effects",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "effects": [
+      {
+       "type": "phaser",
+       "rate_hz": 0.5,
+       "depth": 0.5
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "sources": [
+    "processing.md"
+   ]
+  },
+  {
+   "id": "effects.bitcrush",
+   "kinds": [
+    "lo-fi"
+   ],
+   "summary": "FFmpeg's bit and rate reducer, with a mix.",
+   "character": [
+    "gritty",
+    "digital"
+   ],
+   "roles": [
+    "drums",
+    "harmony"
+   ],
+   "where": "mix.effects",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "effects": [
+      {
+       "type": "bitcrush",
+       "bits": 8,
+       "downsample": 4,
+       "mix": 0.5
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "watch": "Check that the part still speaks in the mix.",
+   "sources": [
+    "beats.md",
+    "beats:6"
+   ]
+  },
+  {
+   "id": "effects.tremolo",
+   "kinds": [
+    "modulation"
+   ],
+   "summary": "FFmpeg's tremolo: level modulation.",
+   "character": [
+    "pulsing"
+   ],
+   "roles": [
+    "harmony",
+    "rhythm"
+   ],
+   "where": "mix.effects",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "effects": [
+      {
+       "type": "tremolo",
+       "rate_hz": 5,
+       "depth": 0.5
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "sources": [
+    "processing.md",
+    "kinds:S20",
+    "pop:1"
+   ]
+  },
+  {
+   "id": "effects.flanger",
+   "kinds": [
+    "modulation"
+   ],
+   "summary": "FFmpeg's flanger.",
+   "character": [
+    "jet"
+   ],
+   "roles": [
+    "rhythm",
+    "texture"
+   ],
+   "where": "mix.effects",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "effects": [
+      {
+       "type": "flanger"
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "sources": [
+    "processing.md"
+   ]
+  },
+  {
+   "id": "mix.highpass",
+   "kinds": [
+    "correction"
+   ],
+   "summary": "A two-pole high-pass on the part (12 dB per octave), 30 Hz by default: clears what lies under the part's lowest notes.",
+   "character": [
+    "clean",
+    "tight"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "rhythm",
+    "texture",
+    "drums",
+    "bass"
+   ],
+   "where": "mix.highpass",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "highpass": 80
+    }
+   },
+   "repeat": "exact",
+   "watch": "Cut before boosting where the move is narrow, and judge the part in the mix, not alone.",
+   "sources": [
+    "processing.md"
+   ]
+  },
+  {
+   "id": "mix.lowpass",
+   "kinds": [
+    "correction"
+   ],
+   "summary": "A two-pole low-pass on the part, 18 kHz by default: takes the edge off a bright sample or sets a part back.",
+   "character": [
+    "darker",
+    "soft"
+   ],
+   "roles": [
+    "harmony",
+    "texture",
+    "rhythm"
+   ],
+   "where": "mix.lowpass",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "lowpass": 12000
+    }
+   },
+   "repeat": "exact",
+   "watch": "Cut before boosting where the move is narrow, and judge the part in the mix, not alone.",
+   "sources": [
+    "processing.md"
+   ]
+  },
+  {
+   "id": "mix.reverb_send",
+   "kinds": [
+    "space"
+   ],
+   "summary": "A send to the mix's reverb (on the bus chain, to its room, plate, hall or church): the space the parts share.",
+   "character": [
+    "shared space"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "rhythm",
+    "texture",
+    "drums",
+    "countermelody",
+    "accent"
+   ],
+   "where": "mix.reverb_db",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "reverb_db": -18
+    }
+   },
+   "repeat": "exact",
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail. Shared by the parts that send to it; the bus chain has four spaces, the room chain one.",
+   "sources": [
+    "processing.md",
+    "kinds:S11"
+   ]
+  },
+  {
+   "id": "mix.delay_send",
+   "kinds": [
+    "delay"
+   ],
+   "summary": "A send to the mix's simple delay, delay_quarters long at the opening tempo.",
+   "character": [
+    "echo"
+   ],
+   "roles": [
+    "melody",
+    "countermelody",
+    "accent"
+   ],
+   "where": "mix.delay_db",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "delay_db": -18,
+     "delay_quarters": 0.75
+    }
+   },
+   "repeat": "exact",
+   "watch": "Filtering the repeats' highs darkens them and pushes them back.",
+   "sources": [
+    "processing.md",
+    "kinds:S18"
+   ]
+  },
+  {
+   "id": "mix.auto_pan",
+   "kinds": [
+    "modulation"
+   ],
+   "summary": "The part swung to and fro across the stereo image over a period of beats: an auto-pan (mix.move as a swing).",
+   "character": [
+    "moving",
+    "auto-pan"
+   ],
+   "roles": [
+    "harmony",
+    "rhythm",
+    "texture"
+   ],
+   "where": "mix.move",
+   "needs": null,
+   "fragment": {
+    "mix": {
+     "move": {
+      "type": "swing",
+      "beats": 2,
+      "width": 0.4
+     }
+    }
+   },
+   "repeat": "exact",
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid. A moving part is folded to one channel first, so it takes no width or depth_m; in a loop it must stand at the loop's end where it stood at its start.",
+   "sources": [
+    "performance-and-mix.md",
+    "pop:1"
+   ]
+  },
+  {
+   "id": "kit.gated_reverb",
+   "kinds": [
+    "space"
+   ],
+   "summary": "The 1980s gated reverb behind a drum machine's snares and claps: a dense room held, then cut.",
+   "character": [
+    "gated",
+    "80s"
+   ],
+   "roles": [
+    "drums"
+   ],
+   "where": "kit.gated_ms (a drum_synth part)",
+   "needs": null,
+   "engines": [
+    "drum_synth"
+   ],
+   "fragment": {
+    "kit": {
+     "style": "808",
+     "gated_ms": 250
+    }
+   },
+   "repeat": "exact",
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail. Only on a drum_synth part, on its snares and claps.",
+   "sources": [
+    "processing.md",
+    "pop:5",
+    "pop:6"
+   ]
+  },
+  {
+   "id": "surge_fx.reverb_1",
+   "kinds": [
+    "space"
+   ],
+   "summary": "Surge's first reverb: a room shape and size, decay, damping and an EQ on the tail.",
+   "character": [
+    "room",
+    "adjustable"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "drums"
+   ],
+   "name": "Reverb 1",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 11,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "reverb_1",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 1.01,
+    "brightness_ratio": 1.065,
+    "width_db": -6.6,
+    "harmonics_db": -57.0,
+    "inharmonic_db": -19.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 1.75
+   },
+   "measured_words": [
+    "widens",
+    "long tail",
+    "inharmonic"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "surge-source",
+    "kinds:S11",
+    "kinds:S12"
+   ]
+  },
+  {
+   "id": "surge_fx.reverb_2",
+   "kinds": [
+    "space"
+   ],
+   "summary": "Surge's second reverb: diffuse, modulated tails, for long and lush spaces.",
+   "character": [
+    "lush",
+    "diffuse",
+    "long"
+   ],
+   "roles": [
+    "harmony",
+    "texture",
+    "melody"
+   ],
+   "name": "Reverb 2",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 10,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "reverb_2",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -3.35,
+    "brightness_ratio": 1.024,
+    "width_db": -15.3,
+    "harmonics_db": -78.5,
+    "inharmonic_db": -42.6,
+    "noise_dbfs": -200.0,
+    "tail_s": 1.75
+   },
+   "measured_words": [
+    "long tail"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "surge-source",
+    "kinds:S11"
+   ]
+  },
+  {
+   "id": "surge_fx.spring_reverb",
+   "kinds": [
+    "space"
+   ],
+   "summary": "A spring reverb, the metallic tank of guitar amplifiers and organs; its knock shakes the tank and its chaos moves it at random (both vary each time the part is processed anew).",
+   "character": [
+    "metallic",
+    "boingy",
+    "vintage"
+   ],
+   "roles": [
+    "rhythm",
+    "melody"
+   ],
+   "name": "Spring Reverb",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 8,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "spring_reverb",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "varies_when": [
+    "modulation_chaos above 0",
+    "modulation_knock On"
+   ],
+   "measured": {
+    "level_db": -5.19,
+    "brightness_ratio": 0.973,
+    "width_db": -60.0,
+    "harmonics_db": -41.0,
+    "inharmonic_db": -46.7,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.78
+   },
+   "measured_words": [
+    "short tail"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail. Its chaos above 0 and its knock on render otherwise each time the part is processed anew.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "surge-source",
+    "kinds:S11",
+    "kinds:S13",
+    "rock:S16",
+    "rock:S4"
+   ]
+  },
+  {
+   "id": "surge_fx.chorus",
+   "kinds": [
+    "modulation"
+   ],
+   "summary": "Surge's chorus: delayed, modulated copies for width and shimmer.",
+   "character": [
+    "wide",
+    "shimmer"
+   ],
+   "roles": [
+    "rhythm",
+    "harmony",
+    "texture"
+   ],
+   "name": "Chorus",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 8,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "chorus",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.chorus",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 3.17,
+    "brightness_ratio": 0.791,
+    "width_db": -18.9,
+    "harmonics_db": -103.2,
+    "inharmonic_db": -49.0,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.05
+   },
+   "measured_words": [
+    "darkens"
+   ],
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "prefer": "effects.chorus is the skill's own, lighter and without the plugin.",
+   "sources": [
+    "surge-source",
+    "kinds:S20",
+    "pop:4",
+    "pop:2"
+   ]
+  },
+  {
+   "id": "surge_fx.ensemble",
+   "kinds": [
+    "modulation"
+   ],
+   "summary": "A string-machine ensemble: several modulated delay lines for lush pads and strings.",
+   "character": [
+    "lush",
+    "ensemble"
+   ],
+   "roles": [
+    "harmony",
+    "texture"
+   ],
+   "name": "Ensemble",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 12,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "ensemble",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.chorus",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.07,
+    "brightness_ratio": 0.91,
+    "width_db": -5.3,
+    "harmonics_db": -43.6,
+    "inharmonic_db": -18.0,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "widens",
+    "inharmonic"
+   ],
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "sources": [
+    "surge-source",
+    "kinds:S21",
+    "pop:9"
+   ]
+  },
+  {
+   "id": "surge_fx.flanger",
+   "kinds": [
+    "modulation"
+   ],
+   "summary": "A comb-filter flanger with feedback, voices and pitch: jet sweeps and metallic rings.",
+   "character": [
+    "jet",
+    "metallic"
+   ],
+   "roles": [
+    "rhythm",
+    "texture",
+    "drums"
+   ],
+   "name": "Flanger",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 11,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "flanger",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.flanger",
+   "repeat": "exact",
+   "varies_when": [
+    "modulation_waveform Noise or Sample & Hold"
+   ],
+   "measured": {
+    "level_db": -1.16,
+    "brightness_ratio": 0.976,
+    "width_db": -10.8,
+    "harmonics_db": -49.1,
+    "inharmonic_db": -66.6,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "widens"
+   ],
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid. Its noise and sample-and-hold waveforms render otherwise each time the part is processed anew.",
+   "prefer": "effects.flanger is FFmpeg's, without the plugin.",
+   "sources": [
+    "surge-source",
+    "kinds:S20"
+   ]
+  },
+  {
+   "id": "surge_fx.phaser",
+   "kinds": [
+    "modulation"
+   ],
+   "summary": "A multi-stage phaser: swept notches, from slight movement to deep sweeps.",
+   "character": [
+    "swirling",
+    "movement"
+   ],
+   "roles": [
+    "harmony",
+    "rhythm"
+   ],
+   "name": "Phaser",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 12,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "phaser",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.phaser",
+   "repeat": "exact",
+   "varies_when": [
+    "modulation_waveform Noise or Sample & Hold"
+   ],
+   "measured": {
+    "level_db": -2.54,
+    "brightness_ratio": 1.002,
+    "width_db": -60.0,
+    "harmonics_db": -142.6,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid. Its noise and sample-and-hold waveforms render otherwise each time the part is processed anew.",
+   "prefer": "effects.phaser is FFmpeg's, without the plugin.",
+   "sources": [
+    "surge-source",
+    "kinds:S23",
+    "pop:2",
+    "pop:3"
+   ]
+  },
+  {
+   "id": "surge_fx.rotary_speaker",
+   "kinds": [
+    "modulation"
+   ],
+   "summary": "A rotary speaker: horn and drum rotors, Doppler and tremolo, with an amplifier model.",
+   "character": [
+    "rotating",
+    "organ"
+   ],
+   "roles": [
+    "harmony",
+    "melody"
+   ],
+   "name": "Rotary Speaker",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 8,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "rotary_speaker",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.tremolo",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -2.04,
+    "brightness_ratio": 1.046,
+    "width_db": -8.1,
+    "harmonics_db": -43.1,
+    "inharmonic_db": -33.0,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "widens"
+   ],
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "sources": [
+    "surge-source",
+    "kinds:S24",
+    "rock:S8"
+   ]
+  },
+  {
+   "id": "surge_fx.distortion",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "Surge's distortion: EQ before and after, a choice of models, feedback.",
+   "character": [
+    "distorted",
+    "shaped"
+   ],
+   "roles": [
+    "rhythm",
+    "melody",
+    "bass"
+   ],
+   "name": "Distortion",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 12,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "distortion",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.03,
+    "brightness_ratio": 0.956,
+    "width_db": -60.0,
+    "harmonics_db": -45.8,
+    "inharmonic_db": -125.6,
+    "noise_dbfs": -160.1,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level. Its drive at the lowest with both high cuts at 440 Hz took 38 dB from noise bursts (research/effects-0.11): the chain is brought back to the part's level, and the render names a chain that moved it 12 dB or more.",
+   "sources": [
+    "surge-source",
+    "kinds:S8",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "surge_fx.waveshaper",
+   "kinds": [
+    "colour",
+    "sound design"
+   ],
+   "summary": "A waveshaper with many curves and folds, bias, and filters around it.",
+   "character": [
+    "folded",
+    "shaped"
+   ],
+   "roles": [
+    "bass",
+    "melody",
+    "texture"
+   ],
+   "name": "Waveshaper",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 9,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "waveshaper",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -6.02,
+    "brightness_ratio": 1.002,
+    "width_db": -60.0,
+    "harmonics_db": -136.2,
+    "inharmonic_db": -130.8,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "surge-source",
+    "kinds:S8",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "surge_fx.exciter",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "An exciter: adds upper harmonics for brightness without raising that band's level.",
+   "character": [
+    "bright",
+    "present"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "drums"
+   ],
+   "name": "Exciter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "exciter",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.001,
+    "width_db": -60.0,
+    "harmonics_db": -60.2,
+    "inharmonic_db": -73.5,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "surge-source",
+    "kinds:S8",
+    "pop:14",
+    "pop:15",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "surge_fx.bonsai",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A saturation with a bass boost and controls of its own for noise and dullness.",
+   "character": [
+    "saturated",
+    "warm"
+   ],
+   "roles": [
+    "bass",
+    "drums",
+    "harmony"
+   ],
+   "name": "Bonsai",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 11,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "bonsai",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -1.94,
+    "brightness_ratio": 1.362,
+    "width_db": -60.0,
+    "harmonics_db": -44.4,
+    "inharmonic_db": -34.5,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.02
+   },
+   "measured_words": [
+    "brightens"
+   ],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "surge-source",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "surge_fx.delay",
+   "kinds": [
+    "delay"
+   ],
+   "summary": "Surge's stereo delay: left and right times, feedback, crossfeed, filters and modulation in the repeats.",
+   "character": [
+    "echo",
+    "filtered repeats"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "texture"
+   ],
+   "name": "Delay",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 11,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "delay",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.delay",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -2.87,
+    "brightness_ratio": 1.114,
+    "width_db": -60.0,
+    "harmonics_db": -61.0,
+    "inharmonic_db": -45.2,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.75
+   },
+   "measured_words": [
+    "short tail"
+   ],
+   "watch": "Filtering the repeats' highs darkens them and pushes them back.",
+   "prefer": "mix.delay lands each echo on the tempo map to the sample; this delay keeps time by its own clock (the host gives the plugin no tempo), for its filtered and modulated repeats.",
+   "sources": [
+    "surge-source",
+    "kinds:S18"
+   ]
+  },
+  {
+   "id": "surge_fx.nimbus",
+   "kinds": [
+    "sound design",
+    "space"
+   ],
+   "summary": "A granular processor after Mutable Instruments' Clouds: grains, looping delay and spectral modes, freeze, its own reverb, lo-fi quality settings.",
+   "character": [
+    "granular",
+    "cloud",
+    "frozen"
+   ],
+   "roles": [
+    "texture",
+    "harmony"
+   ],
+   "name": "Nimbus",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 12,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "nimbus",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -6.02,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -151.4,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it. Its freeze holds the grains it has: a sound of its own, with the quality settings' lo-fi. Its density and texture are written as its granular mode shows them (density -100 to 100 %, texture 0 to 100 %); its other modes show them otherwise, the setting the same.",
+   "sources": [
+    "surge-source",
+    "kinds:S31",
+    "electronic:S6"
+   ]
+  },
+  {
+   "id": "surge_fx.frequency_shifter",
+   "kinds": [
+    "sound design",
+    "modulation"
+   ],
+   "summary": "Shifts every frequency by a fixed number of hertz (not a pitch shift): inharmonic, metallic sounds; small shifts and a fed-back delay give phaser-like or spiralling motion.",
+   "character": [
+    "inharmonic",
+    "metallic",
+    "spiralling"
+   ],
+   "roles": [
+    "texture",
+    "drums",
+    "melody"
+   ],
+   "name": "Frequency Shifter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "frequency_shifter",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 0.959,
+    "width_db": -60.0,
+    "harmonics_db": -140.0,
+    "inharmonic_db": -128.5,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "sources": [
+    "surge-source",
+    "kinds:S33"
+   ]
+  },
+  {
+   "id": "surge_fx.ring_modulator",
+   "kinds": [
+    "sound design"
+   ],
+   "summary": "Multiplies the part by an internal oscillator: sum and difference tones, bell-like or robotic; at a low carrier rate, a tremolo.",
+   "character": [
+    "metallic",
+    "bell-like",
+    "robotic"
+   ],
+   "roles": [
+    "texture",
+    "melody",
+    "bass"
+   ],
+   "name": "Ring Modulator",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 9,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "ring_modulator",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.34,
+    "brightness_ratio": 1.162,
+    "width_db": -60.0,
+    "harmonics_db": 44.2,
+    "inharmonic_db": 91.1,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.06
+   },
+   "measured_words": [
+    "adds harmonics",
+    "inharmonic"
+   ],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it. Its carrier offers no Audio In here: the second signal it would need is not taken.",
+   "sources": [
+    "surge-source",
+    "kinds:S32",
+    "kinds:S33"
+   ]
+  },
+  {
+   "id": "surge_fx.resonator",
+   "kinds": [
+    "sound design",
+    "colour"
+   ],
+   "summary": "Three tuned resonant filters: imposes resonant peaks or vowel-like formants on a part.",
+   "character": [
+    "resonant",
+    "vocal",
+    "tuned"
+   ],
+   "roles": [
+    "texture",
+    "drums",
+    "harmony"
+   ],
+   "name": "Resonator",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 12,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "resonator",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -9.26,
+    "brightness_ratio": 0.886,
+    "width_db": -60.0,
+    "harmonics_db": -37.3,
+    "inharmonic_db": -70.8,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.02
+   },
+   "measured_words": [
+    "adds harmonics"
+   ],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "sources": [
+    "surge-source",
+    "kinds:S27",
+    "kinds:S28",
+    "scoring:S12"
+   ]
+  },
+  {
+   "id": "surge_fx.combulator",
+   "kinds": [
+    "sound design"
+   ],
+   "summary": "Three comb filters tuned to pitches: makes noise or drums ring at chosen notes; its extra noise varies each time the part is processed anew.",
+   "character": [
+    "ringing",
+    "tuned",
+    "metallic"
+   ],
+   "roles": [
+    "drums",
+    "texture"
+   ],
+   "name": "Combulator",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 12,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "combulator",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "varies_when": [
+    "input_extra_noise above 0"
+   ],
+   "measured": {
+    "level_db": -0.52,
+    "brightness_ratio": 0.739,
+    "width_db": -26.8,
+    "harmonics_db": -61.2,
+    "inharmonic_db": -126.3,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.09
+   },
+   "measured_words": [
+    "darkens"
+   ],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it. With input_extra_noise above 0 it renders otherwise each time the part is processed anew.",
+   "sources": [
+    "surge-source",
+    "kinds:S29",
+    "kinds:S30",
+    "electronic:S27"
+   ]
+  },
+  {
+   "id": "surge_fx.tape",
+   "kinds": [
+    "colour",
+    "lo-fi"
+   ],
+   "summary": "Surge's tape model: hysteresis saturation, tape-speed and head losses, and a degrade section (varies each time the part is processed anew when its depth is above 0).",
+   "character": [
+    "tape",
+    "warm",
+    "worn"
+   ],
+   "roles": [
+    "drums",
+    "bass",
+    "harmony"
+   ],
+   "name": "Tape",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 12,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "tape",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "rounding",
+   "varies_when": [
+    "degrade_depth above 0"
+   ],
+   "measured": {
+    "level_db": -1.15,
+    "brightness_ratio": 0.972,
+    "width_db": -60.0,
+    "harmonics_db": -51.0,
+    "inharmonic_db": -127.3,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level. With degrade_depth above 0 it renders otherwise each time the part is processed anew: the cache keeps one take with the part.",
+   "sources": [
+    "surge-source",
+    "kinds:S6",
+    "kinds:S7"
+   ]
+  },
+  {
+   "id": "airwindows.BrightAmbience2",
+   "kinds": [
+    "space"
+   ],
+   "summary": "A short, bright ambience with slapback-like early echoes: presence and air without a long tail.",
+   "character": [
+    "bright",
+    "short",
+    "slapback"
+   ],
+   "roles": [
+    "melody",
+    "rhythm",
+    "drums"
+   ],
+   "name": "Bright Ambience",
+   "group": "Ambience",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "BrightAmbience2",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -2.43,
+    "brightness_ratio": 0.932,
+    "width_db": -14.4,
+    "harmonics_db": -147.8,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.03
+   },
+   "measured_words": [],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.Chamber",
+   "kinds": [
+    "space"
+   ],
+   "summary": "A feed-forward reverb whose delays follow the golden ratio: a dense, even chamber.",
+   "character": [
+    "dense",
+    "even",
+    "chamber"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "drums"
+   ],
+   "name": "Chamber",
+   "group": "Ambience",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Chamber",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 2.14,
+    "brightness_ratio": 1.085,
+    "width_db": -60.0,
+    "harmonics_db": -63.9,
+    "inharmonic_db": -28.2,
+    "noise_dbfs": -200.0,
+    "tail_s": 3.34
+   },
+   "measured_words": [
+    "long tail",
+    "inharmonic"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.Galactic",
+   "kinds": [
+    "space"
+   ],
+   "summary": "A very large reverb made for pads and spacious ambient music: long, wide, modulated tails.",
+   "character": [
+    "huge",
+    "wide",
+    "long",
+    "modulated"
+   ],
+   "roles": [
+    "harmony",
+    "texture"
+   ],
+   "name": "Galactic",
+   "group": "Ambience",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Galactic",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -6.42,
+    "brightness_ratio": 0.753,
+    "width_db": 0.6,
+    "harmonics_db": -61.0,
+    "inharmonic_db": -23.8,
+    "noise_dbfs": -200.0,
+    "tail_s": 5.99
+   },
+   "measured_words": [
+    "darkens",
+    "widens",
+    "long tail",
+    "inharmonic"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "airwindopedia",
+    "electronic:S24"
+   ]
+  },
+  {
+   "id": "airwindows.Infinity",
+   "kinds": [
+    "space",
+    "sound design"
+   ],
+   "summary": "A reverb that sustains and layers sound indefinitely: a frozen wash under a part.",
+   "character": [
+    "endless",
+    "wash",
+    "drone"
+   ],
+   "roles": [
+    "texture",
+    "harmony"
+   ],
+   "name": "Infinity",
+   "group": "Ambience",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Infinity",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -5.51,
+    "brightness_ratio": 0.941,
+    "width_db": -60.0,
+    "harmonics_db": -82.8,
+    "inharmonic_db": -36.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 5.99
+   },
+   "measured_words": [
+    "long tail"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail. Its sound sustains without end: it suits a held texture, and runs into the piece's tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S17"
+   ]
+  },
+  {
+   "id": "airwindows.MatrixVerb",
+   "kinds": [
+    "space"
+   ],
+   "summary": "A widely adjustable, colourful reverb for deep, flexible spaces.",
+   "character": [
+    "colourful",
+    "deep",
+    "adjustable"
+   ],
+   "roles": [
+    "harmony",
+    "texture",
+    "melody"
+   ],
+   "name": "MatrixVerb",
+   "group": "Ambience",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 7,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "MatrixVerb",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 4.81,
+    "brightness_ratio": 1.087,
+    "width_db": -12.9,
+    "harmonics_db": -52.7,
+    "inharmonic_db": -19.0,
+    "noise_dbfs": -200.0,
+    "tail_s": 5.99
+   },
+   "measured_words": [
+    "long tail",
+    "inharmonic"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.Melt",
+   "kinds": [
+    "modulation",
+    "space"
+   ],
+   "summary": "A wobbling, chorus-like diffuse smear.",
+   "character": [
+    "wobbly",
+    "diffuse",
+    "smeared"
+   ],
+   "roles": [
+    "harmony",
+    "texture"
+   ],
+   "name": "Melt",
+   "group": "Ambience",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Melt",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.chorus",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 4.59,
+    "brightness_ratio": 0.586,
+    "width_db": -60.0,
+    "harmonics_db": -57.6,
+    "inharmonic_db": -24.1,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.2
+   },
+   "measured_words": [
+    "darkens",
+    "short tail",
+    "inharmonic"
+   ],
+   "watch": "Wide modulation can lose level in mono: the analysis reports the mix's side against its mid.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.NonlinearSpace",
+   "kinds": [
+    "space"
+   ],
+   "summary": "A flexible reverb with controls for the space and the character of its decay.",
+   "character": [
+    "flexible",
+    "reverb"
+   ],
+   "roles": [
+    "harmony",
+    "melody",
+    "drums"
+   ],
+   "name": "Nonlinear Space",
+   "group": "Ambience",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 6,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "NonlinearSpace",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -4.28,
+    "brightness_ratio": 0.983,
+    "width_db": -6.3,
+    "harmonics_db": -38.2,
+    "inharmonic_db": -39.5,
+    "noise_dbfs": -156.6,
+    "tail_s": 1.88
+   },
+   "measured_words": [
+    "widens",
+    "long tail",
+    "adds harmonics"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.PocketVerbs",
+   "kinds": [
+    "space",
+    "sound design"
+   ],
+   "summary": "Special-effect reverbs in one: chamber, spring, tiled room, room and others.",
+   "character": [
+    "characterful",
+    "special effect"
+   ],
+   "roles": [
+    "drums",
+    "rhythm",
+    "melody"
+   ],
+   "name": "Pocket Verbs",
+   "group": "Ambience",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "PocketVerbs",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -2.43,
+    "brightness_ratio": 0.973,
+    "width_db": -60.0,
+    "harmonics_db": -31.3,
+    "inharmonic_db": -36.5,
+    "noise_dbfs": -200.0,
+    "tail_s": 3.47
+   },
+   "measured_words": [
+    "long tail",
+    "adds harmonics"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.StarChild",
+   "kinds": [
+    "space",
+    "sound design"
+   ],
+   "summary": "A strange digital ambience and echo.",
+   "character": [
+    "digital",
+    "strange",
+    "echo"
+   ],
+   "roles": [
+    "texture"
+   ],
+   "name": "Star Child",
+   "group": "Ambience",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 3,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "StarChild",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -1.83,
+    "brightness_ratio": 1.751,
+    "width_db": -19.7,
+    "harmonics_db": -50.8,
+    "inharmonic_db": -42.6,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.39
+   },
+   "measured_words": [
+    "brightens",
+    "short tail"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.Verbity",
+   "kinds": [
+    "space"
+   ],
+   "summary": "A dual-mono reverb with a feed-forward design.",
+   "character": [
+    "clear",
+    "reverb"
+   ],
+   "roles": [
+    "harmony",
+    "melody"
+   ],
+   "name": "Verbity",
+   "group": "Ambience",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Verbity",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.reverb_send",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 2.01,
+    "brightness_ratio": 0.949,
+    "width_db": -60.0,
+    "harmonics_db": -79.1,
+    "inharmonic_db": -44.1,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.68
+   },
+   "measured_words": [
+    "short tail"
+   ],
+   "watch": "A long tail runs into the notes after it; the piece needs clock.tail_seconds for the last tail.",
+   "prefer": "The mix's reverb send (reverb_db; on the bus chain its space) is the space every part shares; a reverb in a part's chain is a character of that part, on top of it.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.ADClip7",
+   "kinds": [
+    "dynamics",
+    "colour"
+   ],
+   "summary": "Airwindows' loudness maximiser and peak control: clips peaks to raise the level, with a mode to hear only what it removes.",
+   "character": [
+    "loud",
+    "clipped peaks"
+   ],
+   "roles": [
+    "drums",
+    "bass"
+   ],
+   "name": "AD Clip",
+   "group": "Clipping",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "ADClip7",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -154.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "prefer": "The master's limiter already holds the mix's peaks; a clipper on a part is for its character, not to make the master louder.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S9",
+    "kinds:S10",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.OneCornerClip",
+   "kinds": [
+    "dynamics",
+    "colour"
+   ],
+   "summary": "A full-bandwidth clipper with separate thresholds for the positive and the negative half of the wave.",
+   "character": [
+    "clipped",
+    "asymmetric"
+   ],
+   "roles": [
+    "drums",
+    "bass"
+   ],
+   "name": "One Corner Clip",
+   "group": "Clipping",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "OneCornerClip",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -151.3,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "prefer": "The master's limiter already holds the mix's peaks; a clipper on a part is for its character, not to make the master louder.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S10",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.Slew",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A slew clipper: limits how fast the wave may move, darkening the treble in its own way.",
+   "character": [
+    "dark",
+    "soft treble"
+   ],
+   "roles": [
+    "drums",
+    "harmony"
+   ],
+   "name": "Slew 1",
+   "group": "Clipping",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 1,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Slew",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -154.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Slew2",
+   "kinds": [
+    "correction"
+   ],
+   "summary": "Controls the extreme highs, like a de-esser or an acceleration limiter.",
+   "character": [
+    "tamed highs"
+   ],
+   "roles": [
+    "drums",
+    "melody"
+   ],
+   "name": "Slew 2",
+   "group": "Clipping",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 1,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Slew2",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.eq",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -154.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Cut before boosting where the move is narrow, and judge the part in the mix, not alone.",
+   "sources": [
+    "airwindopedia",
+    "processing.md"
+   ]
+  },
+  {
+   "id": "airwindows.BlockParty",
+   "kinds": [
+    "dynamics",
+    "colour"
+   ],
+   "summary": "A moderately saturated, analogue-style limiter.",
+   "character": [
+    "dense",
+    "saturated",
+    "limited"
+   ],
+   "roles": [
+    "drums",
+    "bass"
+   ],
+   "name": "Block Party",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "BlockParty",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.11,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -150.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.ButterComp2",
+   "kinds": [
+    "dynamics"
+   ],
+   "summary": "A smooth, gentle compressor with output and mix controls.",
+   "character": [
+    "smooth",
+    "gentle"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "bass",
+    "drums"
+   ],
+   "name": "Butter Comp",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 3,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "ButterComp2",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -152.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.Compresaturator",
+   "kinds": [
+    "dynamics",
+    "colour"
+   ],
+   "summary": "Moves between compressing and soft clipping.",
+   "character": [
+    "dense",
+    "saturated"
+   ],
+   "roles": [
+    "drums",
+    "bass"
+   ],
+   "name": "Compresaturator",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Compresaturator",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.02,
+    "brightness_ratio": 1.001,
+    "width_db": -60.0,
+    "harmonics_db": -51.7,
+    "inharmonic_db": -130.2,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.DrumSlam",
+   "kinds": [
+    "dynamics",
+    "colour"
+   ],
+   "summary": "A heavy-processing tape model for drums: dense, slammed hits.",
+   "character": [
+    "slammed",
+    "dense"
+   ],
+   "roles": [
+    "drums"
+   ],
+   "name": "Drum Slam",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 3,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "DrumSlam",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.03,
+    "brightness_ratio": 1.029,
+    "width_db": -60.0,
+    "harmonics_db": -27.2,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [
+    "adds harmonics"
+   ],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "rock:S3",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.Logical4",
+   "kinds": [
+    "dynamics"
+   ],
+   "summary": "A classic two-bus compressor: glue at low ratios.",
+   "character": [
+    "glue",
+    "controlled"
+   ],
+   "roles": [
+    "drums",
+    "harmony"
+   ],
+   "name": "Logical",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Logical4",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.06,
+    "brightness_ratio": 1.002,
+    "width_db": -60.0,
+    "harmonics_db": -63.4,
+    "inharmonic_db": -98.4,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.Point",
+   "kinds": [
+    "dynamics"
+   ],
+   "summary": "A transient designer: sharpens or softens attacks.",
+   "character": [
+    "punchy",
+    "transient"
+   ],
+   "roles": [
+    "drums",
+    "rhythm"
+   ],
+   "name": "Point",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 3,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Point",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -86.7,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S4",
+    "kinds:S1"
+   ]
+  },
+  {
+   "id": "airwindows.Pop",
+   "kinds": [
+    "dynamics",
+    "colour"
+   ],
+   "summary": "A deliberately exaggerated over-compressor.",
+   "character": [
+    "squashed",
+    "pumping"
+   ],
+   "roles": [
+    "drums"
+   ],
+   "name": "Pop",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 3,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Pop",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 7.57,
+    "brightness_ratio": 1.078,
+    "width_db": -60.0,
+    "harmonics_db": -24.6,
+    "inharmonic_db": -130.8,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.04
+   },
+   "measured_words": [
+    "adds harmonics"
+   ],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.Pressure4",
+   "kinds": [
+    "dynamics"
+   ],
+   "summary": "A compressor between vari-mu smoothness and a peak-keeping, 'New York' parallel character.",
+   "character": [
+    "warm",
+    "punchy"
+   ],
+   "roles": [
+    "bass",
+    "drums",
+    "melody",
+    "harmony"
+   ],
+   "name": "Pressure",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Pressure4",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.01,
+    "brightness_ratio": 1.001,
+    "width_db": -60.0,
+    "harmonics_db": -51.7,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S1",
+    "kinds:S3",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.Pyewacket",
+   "kinds": [
+    "dynamics"
+   ],
+   "summary": "An old-school compressor that keeps transients sharp: energy without added fatness.",
+   "character": [
+    "clean",
+    "energetic"
+   ],
+   "roles": [
+    "drums",
+    "rhythm"
+   ],
+   "name": "Pye Wacket",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 3,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Pyewacket",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.95,
+    "brightness_ratio": 1.052,
+    "width_db": -60.0,
+    "harmonics_db": -43.6,
+    "inharmonic_db": -54.7,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.Surge",
+   "kinds": [
+    "dynamics"
+   ],
+   "summary": "A compressor that accentuates beats and pulses.",
+   "character": [
+    "pulsing",
+    "accented"
+   ],
+   "roles": [
+    "drums",
+    "rhythm"
+   ],
+   "name": "Surge",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Surge",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -154.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.VariMu",
+   "kinds": [
+    "dynamics"
+   ],
+   "summary": "A more organic variation on Pressure: vari-mu compression.",
+   "character": [
+    "warm",
+    "organic"
+   ],
+   "roles": [
+    "bass",
+    "harmony",
+    "melody"
+   ],
+   "name": "Vari-Mu",
+   "group": "Dynamics",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "VariMu",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.compressor",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -150.0,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "The chain is brought back to the level the part entered it at, so judge its shape, not its loudness: a fast attack softens the hits, a release too fast pumps.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S1",
+    "kinds:S4"
+   ]
+  },
+  {
+   "id": "airwindows.Air",
+   "kinds": [
+    "correction",
+    "colour"
+   ],
+   "summary": "A bright \"air\" EQ unlike others; its author made it for 44.1 kHz, and the skill renders at 48 kHz.",
+   "character": [
+    "bright",
+    "airy"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "drums"
+   ],
+   "name": "Air",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 6,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Air",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.eq",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -152.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Cut before boosting where the move is narrow, and judge the part in the mix, not alone.",
+   "prefer": "Its author made it for 44.1 kHz; the skill renders at 48 kHz, so a high shelf in mix.eq may be the surer lift.",
+   "sources": [
+    "airwindopedia",
+    "processing.md"
+   ]
+  },
+  {
+   "id": "airwindows.Cabs",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A guitar speaker-cabinet simulator: cabinet types with room, size and off-axis controls.",
+   "character": [
+    "cabinet"
+   ],
+   "roles": [
+    "rhythm",
+    "melody"
+   ],
+   "name": "Cabs",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 6,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Cabs",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.amp",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -12.93,
+    "brightness_ratio": 1.539,
+    "width_db": -60.0,
+    "harmonics_db": -57.1,
+    "inharmonic_db": -73.4,
+    "noise_dbfs": -121.0,
+    "tail_s": 5.99
+   },
+   "measured_words": [
+    "brightens",
+    "long tail"
+   ],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Capacitor",
+   "kinds": [
+    "correction",
+    "colour"
+   ],
+   "summary": "A low-pass and high-pass filter of its own design, with a dry/wet.",
+   "character": [
+    "filtered"
+   ],
+   "roles": [
+    "harmony",
+    "texture",
+    "drums"
+   ],
+   "name": "Capacitor",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 3,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Capacitor",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.lowpass",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -151.5,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Cut before boosting where the move is narrow, and judge the part in the mix, not alone.",
+   "prefer": "For a plain filter, mix.highpass, mix.lowpass, mix.eq or a moving mix.filter_sweep do it without the plugin; this one is for its texture.",
+   "sources": [
+    "airwindopedia",
+    "processing.md"
+   ]
+  },
+  {
+   "id": "airwindows.DeBess",
+   "kinds": [
+    "correction"
+   ],
+   "summary": "A de-esser that leaves what is not sibilant alone: tames harsh highs on bright parts.",
+   "character": [
+    "tamed highs"
+   ],
+   "roles": [
+    "drums",
+    "melody",
+    "harmony"
+   ],
+   "name": "De-Bess",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "DeBess",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.eq",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -154.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Cut before boosting where the move is narrow, and judge the part in the mix, not alone.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S34",
+    "processing.md"
+   ]
+  },
+  {
+   "id": "airwindows.DubCenter",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "DubSub with its bass reinforcement purely mono.",
+   "character": [
+    "sub",
+    "mono"
+   ],
+   "roles": [
+    "bass"
+   ],
+   "name": "Dub Center",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 10,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "DubCenter",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -5.19,
+    "brightness_ratio": 0.862,
+    "width_db": -60.0,
+    "harmonics_db": -91.2,
+    "inharmonic_db": -37.0,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.25
+   },
+   "measured_words": [
+    "short tail"
+   ],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.DubSub",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A full bass-reinforcement processor: adds and shapes sub harmonics.",
+   "character": [
+    "sub",
+    "heavy"
+   ],
+   "roles": [
+    "bass",
+    "drums"
+   ],
+   "name": "Dub Sub",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 10,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "DubSub",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -5.17,
+    "brightness_ratio": 0.883,
+    "width_db": -50.4,
+    "harmonics_db": -91.6,
+    "inharmonic_db": -61.0,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.25
+   },
+   "measured_words": [
+    "short tail"
+   ],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Hombre",
+   "kinds": [
+    "sound design",
+    "space"
+   ],
+   "summary": "Atmosphere and texture from very short delays.",
+   "character": [
+    "texture",
+    "short delays"
+   ],
+   "roles": [
+    "texture",
+    "harmony"
+   ],
+   "name": "Hombre",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Hombre",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -2.62,
+    "brightness_ratio": 0.945,
+    "width_db": -60.0,
+    "harmonics_db": -151.4,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.MackEQ",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "The Mackie-style distortion with treble and bass controls.",
+   "character": [
+    "gritty",
+    "console"
+   ],
+   "roles": [
+    "drums",
+    "bass",
+    "rhythm"
+   ],
+   "name": "MackEQ",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "MackEQ",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 8.37,
+    "brightness_ratio": 0.824,
+    "width_db": -60.0,
+    "harmonics_db": -45.5,
+    "inharmonic_db": -113.4,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "darkens"
+   ],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Pafnuty",
+   "kinds": [
+    "colour",
+    "sound design"
+   ],
+   "summary": "A Chebyshev waveshaper that adds the harmonics chosen (the 2nd to the 11th).",
+   "character": [
+    "harmonics"
+   ],
+   "roles": [
+    "bass",
+    "melody"
+   ],
+   "name": "Pafnuty",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 11,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Pafnuty",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -153.8,
+    "inharmonic_db": -130.8,
+    "noise_dbfs": -150.7,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.YBandpass",
+   "kinds": [
+    "sound design"
+   ],
+   "summary": "A band-pass filter whose texture goes from soft and smooth to nasty and edgy.",
+   "character": [
+    "filtered",
+    "edgy"
+   ],
+   "roles": [
+    "texture",
+    "melody"
+   ],
+   "name": "YBandpass",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 6,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "YBandpass",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -9.94,
+    "brightness_ratio": 1.384,
+    "width_db": -60.0,
+    "harmonics_db": -144.3,
+    "inharmonic_db": -130.8,
+    "noise_dbfs": -164.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "brightens"
+   ],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "prefer": "For a plain filter, mix.highpass, mix.lowpass, mix.eq or a moving mix.filter_sweep do it without the plugin; this one is for its texture.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.YHighpass",
+   "kinds": [
+    "sound design",
+    "correction"
+   ],
+   "summary": "A high-pass filter whose texture goes from soft and smooth to nasty and edgy.",
+   "character": [
+    "filtered",
+    "edgy"
+   ],
+   "roles": [
+    "texture",
+    "harmony"
+   ],
+   "name": "YHighpass",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 6,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "YHighpass",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.highpass",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -19.32,
+    "brightness_ratio": 2.761,
+    "width_db": -60.0,
+    "harmonics_db": -135.4,
+    "inharmonic_db": -130.8,
+    "noise_dbfs": -158.5,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "brightens"
+   ],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "prefer": "For a plain filter, mix.highpass, mix.lowpass, mix.eq or a moving mix.filter_sweep do it without the plugin; this one is for its texture.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.YLowpass",
+   "kinds": [
+    "sound design",
+    "correction"
+   ],
+   "summary": "A low-pass filter whose texture goes from soft and smooth to nasty and edgy.",
+   "character": [
+    "filtered",
+    "edgy"
+   ],
+   "roles": [
+    "texture",
+    "bass"
+   ],
+   "name": "YLowpass",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 6,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "YLowpass",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.lowpass",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.05,
+    "brightness_ratio": 0.729,
+    "width_db": -60.0,
+    "harmonics_db": -159.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -151.8,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "darkens"
+   ],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "prefer": "For a plain filter, mix.highpass, mix.lowpass, mix.eq or a moving mix.filter_sweep do it without the plugin; this one is for its texture.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.YNotch",
+   "kinds": [
+    "sound design"
+   ],
+   "summary": "A notch filter whose texture goes from soft and smooth to nasty and edgy.",
+   "character": [
+    "filtered"
+   ],
+   "roles": [
+    "texture"
+   ],
+   "name": "YNotch",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 6,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "YNotch",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -3.02,
+    "brightness_ratio": 0.64,
+    "width_db": -60.0,
+    "harmonics_db": -150.8,
+    "inharmonic_db": -130.8,
+    "noise_dbfs": -151.5,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "darkens"
+   ],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "prefer": "For a plain filter, mix.highpass, mix.lowpass, mix.eq or a moving mix.filter_sweep do it without the plugin; this one is for its texture.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.ZBandpass2",
+   "kinds": [
+    "sound design"
+   ],
+   "summary": "A band-pass after the E-mu e6400 Ultra's Z-plane filter, its controls smoothed.",
+   "character": [
+    "filtered",
+    "vintage sampler"
+   ],
+   "roles": [
+    "texture",
+    "melody"
+   ],
+   "name": "ZBandpass",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "ZBandpass2",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": 5.67,
+    "brightness_ratio": 0.896,
+    "width_db": -60.0,
+    "harmonics_db": -122.9,
+    "inharmonic_db": -130.8,
+    "noise_dbfs": -156.7,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "prefer": "For a plain filter, mix.highpass, mix.lowpass, mix.eq or a moving mix.filter_sweep do it without the plugin; this one is for its texture.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.ZHighpass2",
+   "kinds": [
+    "sound design"
+   ],
+   "summary": "A high-pass after the E-mu e6400 Ultra's Z-plane filter, its controls smoothed.",
+   "character": [
+    "filtered",
+    "vintage sampler"
+   ],
+   "roles": [
+    "texture",
+    "harmony"
+   ],
+   "name": "ZHighpass",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "ZHighpass2",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.highpass",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.79,
+    "brightness_ratio": 1.358,
+    "width_db": -60.0,
+    "harmonics_db": -134.4,
+    "inharmonic_db": -130.8,
+    "noise_dbfs": -154.2,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "brightens"
+   ],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "prefer": "For a plain filter, mix.highpass, mix.lowpass, mix.eq or a moving mix.filter_sweep do it without the plugin; this one is for its texture.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.ZLowpass2",
+   "kinds": [
+    "sound design"
+   ],
+   "summary": "A low-pass after the E-mu e6400 Ultra's Z-plane filter, its controls smoothed.",
+   "character": [
+    "filtered",
+    "vintage sampler"
+   ],
+   "roles": [
+    "texture",
+    "bass"
+   ],
+   "name": "ZLowpass",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "ZLowpass2",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.lowpass",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 9.8,
+    "brightness_ratio": 0.73,
+    "width_db": -60.0,
+    "harmonics_db": -114.1,
+    "inharmonic_db": -130.5,
+    "noise_dbfs": -156.3,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "darkens"
+   ],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "prefer": "For a plain filter, mix.highpass, mix.lowpass, mix.eq or a moving mix.filter_sweep do it without the plugin; this one is for its texture.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.ZNotch2",
+   "kinds": [
+    "sound design",
+    "modulation"
+   ],
+   "summary": "A phaser-like notch after the E-mu e6400 Ultra's Z-plane filter, its controls smoothed.",
+   "character": [
+    "filtered",
+    "phased"
+   ],
+   "roles": [
+    "texture"
+   ],
+   "name": "ZNotch",
+   "group": "Filter",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "ZNotch2",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.phaser",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 3.08,
+    "brightness_ratio": 1.107,
+    "width_db": -60.0,
+    "harmonics_db": -146.1,
+    "inharmonic_db": -129.7,
+    "noise_dbfs": -151.4,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.BitGlitter",
+   "kinds": [
+    "lo-fi"
+   ],
+   "summary": "An old-sampler-style digital lo-fi: reduced bits and rate, with glitches.",
+   "character": [
+    "gritty",
+    "digital",
+    "sampler"
+   ],
+   "roles": [
+    "drums",
+    "harmony"
+   ],
+   "name": "Bit Glitter",
+   "group": "Lo-Fi",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "BitGlitter",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.bitcrush",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.86,
+    "brightness_ratio": 2.279,
+    "width_db": -60.0,
+    "harmonics_db": -34.3,
+    "inharmonic_db": -21.4,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [
+    "brightens",
+    "adds harmonics",
+    "inharmonic"
+   ],
+   "watch": "Check that the part still speaks in the mix.",
+   "sources": [
+    "airwindopedia",
+    "beats:6",
+    "beats:7"
+   ]
+  },
+  {
+   "id": "airwindows.CrunchyGrooveWear",
+   "kinds": [
+    "lo-fi",
+    "colour"
+   ],
+   "summary": "GrooveWear with more edge and distortion.",
+   "character": [
+    "worn",
+    "crunchy"
+   ],
+   "roles": [
+    "drums",
+    "harmony"
+   ],
+   "name": "Crunchy Groove Wear",
+   "group": "Lo-Fi",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "CrunchyGrooveWear",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.bitcrush",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.02,
+    "brightness_ratio": 0.966,
+    "width_db": -60.0,
+    "harmonics_db": -152.3,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Check that the part still speaks in the mix.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.DeRez2",
+   "kinds": [
+    "lo-fi"
+   ],
+   "summary": "Retro digital-hardware tones: authentic-sounding bit and sample-rate reduction.",
+   "character": [
+    "gritty",
+    "retro digital"
+   ],
+   "roles": [
+    "drums",
+    "harmony",
+    "melody"
+   ],
+   "name": "DeRez",
+   "group": "Lo-Fi",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "DeRez2",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.bitcrush",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.686,
+    "width_db": -60.0,
+    "harmonics_db": -47.8,
+    "inharmonic_db": -28.2,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [
+    "brightens",
+    "inharmonic"
+   ],
+   "watch": "Check that the part still speaks in the mix.",
+   "sources": [
+    "airwindopedia",
+    "beats:6",
+    "electronic:S17"
+   ]
+  },
+  {
+   "id": "airwindows.Deckwrecka",
+   "kinds": [
+    "lo-fi",
+    "colour"
+   ],
+   "summary": "Fattens and dirties up beats.",
+   "character": [
+    "fat",
+    "dirty"
+   ],
+   "roles": [
+    "drums"
+   ],
+   "name": "Deck Wrecka",
+   "group": "Lo-Fi",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 1,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Deckwrecka",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.bitcrush",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -154.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Check that the part still speaks in the mix.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.GrooveWear",
+   "kinds": [
+    "lo-fi"
+   ],
+   "summary": "Scrubs highs off mechanically, as a worn stylus does.",
+   "character": [
+    "worn",
+    "vinyl"
+   ],
+   "roles": [
+    "harmony",
+    "drums"
+   ],
+   "name": "Groove Wear",
+   "group": "Lo-Fi",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "GrooveWear",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.wow_flutter",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.01,
+    "brightness_ratio": 0.977,
+    "width_db": -60.0,
+    "harmonics_db": -151.1,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Check that the part still speaks in the mix.",
+   "sources": [
+    "airwindopedia",
+    "beats:5"
+   ]
+  },
+  {
+   "id": "airwindows.ToVinyl4",
+   "kinds": [
+    "lo-fi",
+    "colour"
+   ],
+   "summary": "A vinyl-mastering simulator: the colours of cutting to vinyl.",
+   "character": [
+    "vinyl"
+   ],
+   "roles": [
+    "harmony",
+    "drums",
+    "bass"
+   ],
+   "name": "To Vinyl",
+   "group": "Lo-Fi",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "ToVinyl4",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.126,
+    "width_db": -60.0,
+    "harmonics_db": -109.6,
+    "inharmonic_db": -99.5,
+    "noise_dbfs": -154.7,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "Check that the part still speaks in the mix.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.DustBunny",
+   "kinds": [
+    "lo-fi",
+    "noise"
+   ],
+   "summary": "Unpredictable distorted crackle, like dust under a turntable needle.",
+   "character": [
+    "crackle",
+    "vinyl"
+   ],
+   "roles": [
+    "harmony",
+    "drums"
+   ],
+   "name": "Dust Bunny",
+   "group": "Noise",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 1,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "DustBunny",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.bitcrush",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.089,
+    "width_db": -60.0,
+    "harmonics_db": -22.1,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [
+    "adds harmonics"
+   ],
+   "watch": "Check that the part still speaks in the mix.",
+   "sources": [
+    "airwindopedia",
+    "beats:5"
+   ]
+  },
+  {
+   "id": "airwindows.Noise",
+   "kinds": [
+    "noise",
+    "sound design"
+   ],
+   "summary": "A deep noise oscillator used to reinforce a sound: a noise layer shaped by the part.",
+   "character": [
+    "noise"
+   ],
+   "roles": [
+    "drums",
+    "texture"
+   ],
+   "name": "Noise",
+   "group": "Noise",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 6,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Noise",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.64,
+    "brightness_ratio": 0.312,
+    "width_db": -0.2,
+    "harmonics_db": -13.2,
+    "inharmonic_db": 48.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 5.99
+   },
+   "measured_words": [
+    "darkens",
+    "widens",
+    "long tail",
+    "adds harmonics",
+    "inharmonic"
+   ],
+   "watch": "It adds sound where the part is silent: listen to the gaps and the end. A noise source the part sets going: at its defaults it sounded on through the whole 6 s measured after the chord, wide and dark.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.TapeDust",
+   "kinds": [
+    "lo-fi",
+    "noise"
+   ],
+   "summary": "A treble-eroding 'slew noise': worn, hissy highs.",
+   "character": [
+    "hiss",
+    "worn"
+   ],
+   "roles": [
+    "harmony",
+    "drums"
+   ],
+   "name": "Tape Dust",
+   "group": "Noise",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "TapeDust",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "effects.bitcrush",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -2.57,
+    "brightness_ratio": 4.083,
+    "width_db": -27.6,
+    "harmonics_db": -42.7,
+    "inharmonic_db": -27.8,
+    "noise_dbfs": -62.8,
+    "tail_s": 5.99
+   },
+   "measured_words": [
+    "brightens",
+    "long tail",
+    "inharmonic",
+    "adds noise"
+   ],
+   "watch": "Check that the part still speaks in the mix. Adds hiss in silence (-62.8 dBFS measured at its defaults).",
+   "sources": [
+    "airwindopedia",
+    "beats:6"
+   ]
+  },
+  {
+   "id": "airwindows.VoiceOfTheStarship",
+   "kinds": [
+    "noise",
+    "sound design"
+   ],
+   "summary": "A deep noise tone source, with several algorithms.",
+   "character": [
+    "noise",
+    "drone"
+   ],
+   "roles": [
+    "texture"
+   ],
+   "name": "Voice Of The Starship",
+   "group": "Noise",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "VoiceOfTheStarship",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -13.57,
+    "brightness_ratio": 4.09,
+    "width_db": 0.0,
+    "harmonics_db": -3.3,
+    "inharmonic_db": 18.8,
+    "noise_dbfs": -43.5,
+    "tail_s": 5.99
+   },
+   "measured_words": [
+    "brightens",
+    "widens",
+    "long tail",
+    "adds harmonics",
+    "inharmonic",
+    "adds noise"
+   ],
+   "watch": "It adds sound where the part is silent: listen to the gaps and the end. A noise source: it sounds on its own, in silence too (-43.5 dBFS measured at its defaults).",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.GlitchShifter",
+   "kinds": [
+    "sound design"
+   ],
+   "summary": "A raw, gnarly pitch shifter with glitchy artifacts.",
+   "character": [
+    "glitchy",
+    "pitched"
+   ],
+   "roles": [
+    "texture",
+    "melody"
+   ],
+   "name": "Glitch Shifter",
+   "group": "Pitch",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "GlitchShifter",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -4.83,
+    "brightness_ratio": 1.02,
+    "width_db": -60.0,
+    "harmonics_db": -71.5,
+    "inharmonic_db": -42.4,
+    "noise_dbfs": -151.3,
+    "tail_s": 0.05
+   },
+   "measured_words": [],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it.",
+   "sources": [
+    "airwindopedia"
+   ]
+  },
+  {
+   "id": "airwindows.Apicolypse",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "An API-console-style colour adder.",
+   "character": [
+    "punchy",
+    "console"
+   ],
+   "roles": [
+    "drums",
+    "bass",
+    "rhythm"
+   ],
+   "name": "Apicolypse",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Apicolypse",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.36,
+    "brightness_ratio": 1.033,
+    "width_db": -60.0,
+    "harmonics_db": -75.4,
+    "inharmonic_db": -61.1,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.BassDrive",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A bass-amp-like saturation for bass parts.",
+   "character": [
+    "driven",
+    "bass amp"
+   ],
+   "roles": [
+    "bass"
+   ],
+   "name": "Bass Drive",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "BassDrive",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.amp",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 4.55,
+    "brightness_ratio": 1.049,
+    "width_db": -60.0,
+    "harmonics_db": -55.2,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.BussColors4",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "Airwindows' console emulations: the colours of several consoles.",
+   "character": [
+    "console",
+    "colour"
+   ],
+   "roles": [
+    "drums",
+    "bass",
+    "harmony",
+    "melody"
+   ],
+   "name": "Buss Colors",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "BussColors4",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.6,
+    "brightness_ratio": 0.978,
+    "width_db": -60.0,
+    "harmonics_db": -36.5,
+    "inharmonic_db": -99.6,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [
+    "adds harmonics"
+   ],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Cojones",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "An unusual distortion.",
+   "character": [
+    "distorted"
+   ],
+   "roles": [
+    "rhythm",
+    "melody"
+   ],
+   "name": "Cojones",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Cojones",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -150.8,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Density",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A versatile saturation that can also de-saturate, thinning a sound.",
+   "character": [
+    "dense",
+    "warm"
+   ],
+   "roles": [
+    "drums",
+    "bass",
+    "harmony",
+    "melody"
+   ],
+   "name": "Density",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Density",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -137.7,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Drive",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "An aggressive distortion.",
+   "character": [
+    "aggressive",
+    "distorted"
+   ],
+   "roles": [
+    "rhythm",
+    "melody",
+    "bass"
+   ],
+   "name": "Drive",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Drive",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -152.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.FireAmp",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A bright, loud, tube-like amp simulation for leads and dirty guitar.",
+   "character": [
+    "bright",
+    "driven",
+    "amp"
+   ],
+   "roles": [
+    "melody",
+    "rhythm"
+   ],
+   "name": "Fire Amp",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "FireAmp",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.amp",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 2.47,
+    "brightness_ratio": 1.585,
+    "width_db": -48.2,
+    "harmonics_db": -13.6,
+    "inharmonic_db": -48.8,
+    "noise_dbfs": -150.5,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "brightens",
+    "adds harmonics"
+   ],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Focus",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "Brings out clarity by distorting, in four modes.",
+   "character": [
+    "clarity",
+    "present"
+   ],
+   "roles": [
+    "melody",
+    "rhythm",
+    "drums"
+   ],
+   "name": "Focus",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Focus",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.01,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -52.2,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Fracture",
+   "kinds": [
+    "sound design",
+    "colour"
+   ],
+   "summary": "A frequency-multiplying waveshaper that folds the wave, with a soft disruption.",
+   "character": [
+    "folded",
+    "edgy"
+   ],
+   "roles": [
+    "bass",
+    "melody",
+    "texture"
+   ],
+   "name": "Fracture",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Fracture",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": 9.94,
+    "brightness_ratio": 1.009,
+    "width_db": -60.0,
+    "harmonics_db": -31.2,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [
+    "adds harmonics"
+   ],
+   "watch": "It changes what the part is: hear it on the part (studio.py audition) before keeping it. Its mix control runs from 0 to 1 (the plugin shows it with a per cent sign).",
+   "sources": [
+    "airwindopedia",
+    "kinds:S8"
+   ]
+  },
+  {
+   "id": "airwindows.HardVacuum",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "Tube-style saturation.",
+   "character": [
+    "warm",
+    "tube"
+   ],
+   "roles": [
+    "bass",
+    "melody",
+    "rhythm"
+   ],
+   "name": "Hard Vacuum",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "HardVacuum",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -152.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S8",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Loud",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A distortion modelled as air pushed past its limit.",
+   "character": [
+    "loud",
+    "distorted"
+   ],
+   "roles": [
+    "drums",
+    "melody"
+   ],
+   "name": "Loud",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 3,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Loud",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -152.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Mackity",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "An emulation of a vintage Mackie 1202's input stage.",
+   "character": [
+    "gritty",
+    "console"
+   ],
+   "roles": [
+    "drums",
+    "bass",
+    "harmony"
+   ],
+   "name": "Mackity",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Mackity",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.02,
+    "brightness_ratio": 0.939,
+    "width_db": -60.0,
+    "harmonics_db": -73.2,
+    "inharmonic_db": -115.3,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Mojo",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A 'biggenator' that also loudens a part.",
+   "character": [
+    "big",
+    "loud"
+   ],
+   "roles": [
+    "bass",
+    "drums",
+    "melody"
+   ],
+   "name": "Mojo",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 1,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Mojo",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 3.8,
+    "brightness_ratio": 1.001,
+    "width_db": -60.0,
+    "harmonics_db": -49.0,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.NCSeventeen",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "Dirty, loud saturation.",
+   "character": [
+    "dirty",
+    "loud"
+   ],
+   "roles": [
+    "drums",
+    "bass",
+    "rhythm"
+   ],
+   "name": "NC-17",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "NCSeventeen",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.02,
+    "brightness_ratio": 1.001,
+    "width_db": -60.0,
+    "harmonics_db": -48.9,
+    "inharmonic_db": -69.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.PowerSag",
+   "kinds": [
+    "colour",
+    "dynamics"
+   ],
+   "summary": "Emulates a power supply sagging under load.",
+   "character": [
+    "sag",
+    "soft"
+   ],
+   "roles": [
+    "bass",
+    "rhythm"
+   ],
+   "name": "Power Sag",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "PowerSag",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.01,
+    "brightness_ratio": 1.001,
+    "width_db": -60.0,
+    "harmonics_db": -63.7,
+    "inharmonic_db": -108.5,
+    "noise_dbfs": -150.7,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.SingleEndedTriode",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "Analogue modelling of single-ended triode, class AB and class B stages.",
+   "character": [
+    "tube",
+    "warm"
+   ],
+   "roles": [
+    "bass",
+    "melody",
+    "harmony"
+   ],
+   "name": "Single-Ended Triode",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 4,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "SingleEndedTriode",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -154.9,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S8",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.Spiral2",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A smooth saturation with a presence control.",
+   "character": [
+    "smooth",
+    "warm"
+   ],
+   "roles": [
+    "melody",
+    "harmony",
+    "bass"
+   ],
+   "name": "Spiral",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 5,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "Spiral2",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.058,
+    "width_db": -60.0,
+    "harmonics_db": -73.7,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.UnBox",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "A distortion in which only the harmonics that will not alias may distort.",
+   "character": [
+    "clean distortion"
+   ],
+   "roles": [
+    "melody",
+    "bass",
+    "harmony"
+   ],
+   "name": "Unbox",
+   "group": "Saturation And More",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 3,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "UnBox",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": -0.0,
+    "brightness_ratio": 1.0,
+    "width_db": -60.0,
+    "harmonics_db": -73.8,
+    "inharmonic_db": -130.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.TripleSpread",
+   "kinds": [
+    "utility",
+    "modulation"
+   ],
+   "summary": "A stereo tripler: extra width, with GlitchShifter processing.",
+   "character": [
+    "wide"
+   ],
+   "roles": [
+    "harmony",
+    "texture"
+   ],
+   "name": "Triple Spread",
+   "group": "Stereo",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 3,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "TripleSpread",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "repeat": "exact",
+   "measured": {
+    "level_db": -4.83,
+    "brightness_ratio": 1.042,
+    "width_db": -3.3,
+    "harmonics_db": -75.7,
+    "inharmonic_db": -44.3,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.02
+   },
+   "measured_words": [
+    "widens"
+   ],
+   "watch": "Check the part in mono.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S35"
+   ]
+  },
+  {
+   "id": "airwindows.ChromeOxide",
+   "kinds": [
+    "colour",
+    "lo-fi"
+   ],
+   "summary": "Another path to the sound of old tape.",
+   "character": [
+    "tape",
+    "vintage"
+   ],
+   "roles": [
+    "harmony",
+    "drums",
+    "bass"
+   ],
+   "name": "Chrome Oxide",
+   "group": "Tape",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 2,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "ChromeOxide",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 0.05,
+    "brightness_ratio": 1.388,
+    "width_db": -44.8,
+    "harmonics_db": -36.9,
+    "inharmonic_db": -45.9,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.0
+   },
+   "measured_words": [
+    "brightens",
+    "adds harmonics"
+   ],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6"
+   ]
+  },
+  {
+   "id": "airwindows.IronOxide5",
+   "kinds": [
+    "colour",
+    "lo-fi"
+   ],
+   "summary": "Airwindows' old-school, heavily coloured tape emulation.",
+   "character": [
+    "tape",
+    "coloured"
+   ],
+   "roles": [
+    "drums",
+    "bass",
+    "harmony"
+   ],
+   "name": "Iron Oxide",
+   "group": "Tape",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 7,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "IronOxide5",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 7.27,
+    "brightness_ratio": 1.156,
+    "width_db": -60.0,
+    "harmonics_db": -33.9,
+    "inharmonic_db": -33.7,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [
+    "adds harmonics"
+   ],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6",
+    "kinds:S7",
+    "beats:6"
+   ]
+  },
+  {
+   "id": "airwindows.ToTape6",
+   "kinds": [
+    "colour"
+   ],
+   "summary": "Airwindows' tape emulation of 2020: tape tone, soaking up intense audio gracefully, a head bump in the lows.",
+   "character": [
+    "tape",
+    "warm",
+    "head bump"
+   ],
+   "roles": [
+    "drums",
+    "bass",
+    "harmony",
+    "melody"
+   ],
+   "name": "To Tape",
+   "group": "Tape",
+   "where": "mix.surge_fx",
+   "needs": "Surge XT Effects",
+   "controls": 6,
+   "fragment": {
+    "mix": {
+     "surge_fx": [
+      {
+       "type": "airwindows",
+       "algorithm": "ToTape6",
+       "params": {}
+      }
+     ]
+    }
+   },
+   "fallback": "mix.saturate",
+   "repeat": "exact",
+   "measured": {
+    "level_db": 4.18,
+    "brightness_ratio": 0.93,
+    "width_db": -60.0,
+    "harmonics_db": -49.3,
+    "inharmonic_db": -62.2,
+    "noise_dbfs": -200.0,
+    "tail_s": 0.01
+   },
+   "measured_words": [],
+   "watch": "Stacked saturation builds up the low mids: compare with the part without it at the same level.",
+   "sources": [
+    "airwindopedia",
+    "kinds:S6",
+    "kinds:S7",
+    "beats:6"
+   ]
+  }
+ ]
+}

@@ -1,7 +1,7 @@
 # Development and groove: music that keeps changing and moves
 
 Read this when planning the form (step 3), when writing the accompaniment (step 4) and when `review` asks about loops,
-returns, arrivals, block chords or pushes (step 6). It builds on [arrangement.md](arrangement.md) (form, roles, vertical
+returns, arrivals, block chords or pushes (step 7). It builds on [arrangement.md](arrangement.md) (form, roles, vertical
 hygiene) and [climax-and-melody.md](climax-and-melody.md) (the high point, melodic shape).
 
 Contents: [Diagnose "dull" and "stiff"](#diagnose-dull-and-stiff) · [Plan the energy (step 3)](#plan-the-energy-step-3) · [Groove (steps 4 and 5)](#groove-steps-4-and-5) · [Voicings that move: musiclib.voicing](#voicings-that-move-musiclibvoicing) · [Sources](#sources)

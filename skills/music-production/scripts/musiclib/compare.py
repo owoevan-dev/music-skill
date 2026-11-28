@@ -103,9 +103,33 @@ def _short(v):
     return v if len(text) <= 60 else text[:57] + '...'
 
 
+def _leaves(x, y, path):
+    """The places where two values differ: each its path (keys after dots, list places in brackets) and the two values."""
+    if isinstance(x, dict) and isinstance(y, dict):
+        return [d for k in sorted(set(x) | set(y)) if x.get(k) != y.get(k) for d in _leaves(x.get(k), y.get(k), f'{path}.{k}')]
+    if isinstance(x, list) and isinstance(y, list):
+        out = [d for i in range(min(len(x), len(y))) if x[i] != y[i] for d in _leaves(x[i], y[i], f'{path}[{i}]')]
+        out += [(f'{path}[{i}]', None, y[i]) for i in range(len(x), len(y))]
+        out += [(f'{path}[{i}]', x[i], None) for i in range(len(y), len(x))]
+        return out
+    return [(path, x, y)]
+
+
 def _diff(x, y, skip=()):
-    keys = sorted((set(x) | set(y)) - set(skip))
-    return {k: [_short(x.get(k)), _short(y.get(k))] for k in keys if x.get(k) != y.get(k)}
+    """{field: [before, after]} for each field that differs.  A field holding objects or lists is named down to the places
+    that changed in it, `surge_fx[1].params.output_mix` [20, 40], up to 8 of them (beyond, the field's two values
+    shortened): two chains alike in their first 57 characters were shown as the same shortened text (Astra's review d011b)."""
+    out = {}
+    for k in sorted((set(x) | set(y)) - set(skip)):
+        if x.get(k) == y.get(k):
+            continue
+        both = isinstance(x.get(k), (dict, list)) and isinstance(y.get(k), (dict, list))
+        places = _leaves(x.get(k), y.get(k), k) if both else []
+        if places and len(places) <= 8:
+            out.update({path: [_short(a), _short(b)] for path, a, b in places})
+        else:
+            out[k] = [_short(x.get(k)), _short(y.get(k))]
+    return out
 
 
 def project_changes(a, b):
@@ -166,6 +190,25 @@ def synthesis(a, b):
             (from_cache if rb.get('cache_hit') is True else again).append(tid)
     return {'synthesized_again': again, 'same_inputs_new_take': retake, 'changed_from_cache': from_cache, 'reused': same,
             'same_audio_synthesized_again': same_again}
+
+
+def processing(a, b):
+    """Parts the later render processed through a Surge XT Effects chain set to vary and played anew (no take kept from
+    before), each with what makes it vary: part of a change there is the effect's own (`effects_played_anew`; ' (headphone
+    version)' where that version alone played its own).  And parts whose stem the later render processed from the same
+    inputs as the earlier (the stem's key the same) into other audio (`same_inputs_other_audio`).  Receipts of renders
+    before 0.11 say neither, and name no part here."""
+    anew, other = [], []
+    for tid, rb in b['receipts'].items():
+        fx = rb.get('surge_fx') or {}
+        if fx.get('varies') and not rb.get('stem_reused') and fx.get('take_reused') is False:
+            anew.append(f'{tid} ({"; ".join(fx["varies"])})')
+        elif fx.get('varies') and rb.get('surge_fx_headphones_own_take'):
+            anew.append(f'{tid} (headphone version: {"; ".join(fx["varies"])})')
+        ra = a['receipts'].get(tid)
+        if ra and rb.get('stem_key') and ra.get('stem_key') == rb.get('stem_key') and ra.get('stem_sha256') != rb.get('stem_sha256'):
+            other.append(tid)
+    return {'effects_played_anew': anew, 'same_inputs_other_audio': other}
 
 
 def runtime_warnings(a, b):
@@ -565,7 +608,9 @@ def compare(before, after, differences=None):
              a['report'].get('renderer_sha256') == b['report'].get('renderer_sha256'), (fa['stems'], fb['stems']))
     changes = project_changes(a['project'], b['project'])
     synth = synthesis(a, b)
+    processed = processing(a, b)
     summary = {'project': project_lines(changes), **{k: v for k, v in synth.items() if k in ('synthesized_again', 'same_inputs_new_take', 'changed_from_cache')},
+               **{k: v for k, v in processed.items() if v},
                'changed': {g: {n: ('added' if e.get('added') else 'removed' if e.get('removed') else describe(e))
                                for n, e in entries.items() if not e.get('identical')} for g, entries in files.items()},
                'identical': {g: sum(1 for e in entries.values() if e.get('identical')) for g, entries in files.items()}}
@@ -574,7 +619,7 @@ def compare(before, after, differences=None):
         summary['note'] = ("Passages marked as following the parts' level changes are where a part that moved as a whole"
                            f" ({', '.join(moved) or 'see the stems'}) reaches the mix; nothing new was played there.")
     return {'before': str(a['folder']), 'after': str(b['folder']), 'warnings': runtime_warnings(a, b),
-            'project_changes': changes, 'synthesis': synth, 'files': files, 'summary': summary,
+            'project_changes': changes, 'synthesis': synth, 'processing': processed, 'files': files, 'summary': summary,
             'master_lufs': [a['report'].get('master', {}).get('integrated_lufs'), b['report'].get('master', {}).get('integrated_lufs')]}
 
 

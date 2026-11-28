@@ -10,7 +10,7 @@ Contents: [Shared by the family](#shared-by-the-family) · [Classic and hard roc
 [Punk](#punk) · [Alternative and indie](#alternative-and-indie) · [Shoegaze](#shoegaze) · [Post-rock](#post-rock) ·
 [Progressive rock](#progressive-rock) · [Surf](#surf) · [Heavy metal](#heavy-metal) · [Thrash](#thrash) ·
 [Power metal](#power-metal) · [Extreme metal](#extreme-metal) · [Doom](#doom) · [Metalcore](#metalcore) ·
-[Nu metal](#nu-metal) · [Sources](#sources)
+[Nu metal](#nu-metal) · [Treatments by role](#treatments-by-role) · [Sources](#sources)
 
 Source tags: WP is Wikipedia, by article: read on 9 November 2026, and on 6 November for the articles in
 [rock-and-metal.md](rock-and-metal.md). The other sources are by author and year.
@@ -364,6 +364,19 @@ Down-tuned, heavily syncopated riffs on seven-string guitars, hip-hop rhythms an
   `drum_synth` or Surge textures for the electronic layer. No scratching: the banks hold no turntable.
 - **Neighbours**: Metalcore; Alternative and indie; [beats.md](beats.md) for the hip-hop side.
 
+<!-- treatments, written from style-maps.json -->
+## Treatments by role
+
+What published sources document of this family's processing, by a part's role (`treatments` in style-maps.json; `studio.py effects --role <role> --style <entry>` lists the tools, these first). *Usual*: a convention two sources or more corroborate, one saying it is the rule or nearly; *often*: a source speaks of its frequency; *documented*: one session, one engineer's practice or a tutorial. Each says what it was applied to: an entry about one instrument says nothing of the role's others. An entry that holds for some entries of the family names them. Every one was checked against its page ([processing.md](processing.md#choosing-a-parts-treatment)).
+
+- **Melody.** Dynamics (*documented*, the metal entries): guitar solos compressed about 6 dB (Mynett 2018).
+- **Harmony.** Modulation (*documented*): a Hammond organ through a Leslie, miked at its horn and its drum (Buskin 2006; White and Robjohns 2008); lo-fi (*documented*): a hook keyboard through a lo-fi plug-in (Tingen 2008); delay (*documented*): synths with an octave-up delay and a stone-room reverb (Tingen 2013).
+- **Rhythm.** Little or no space (*documented*, punk): a dry record overall, at the band's wish (a little reverb added in the final mix; Green Day, Dookie) (Buskin 2011); little or no space (*documented*): electric guitars kept out of the reverb (one song); a whole mix kept very dry (another) (Tingen 2010; Tingen 2008); dynamics (*documented*): an 1176-type compressor on the guitars (per track; on a submix in one song) (Tingen 2013; Tingen 2010); little or no dynamics (*often*, the metal entries): distorted rhythm guitars left uncompressed by many producers: the distortion already restricts their range (Mynett 2018; Mynett 2009); delay (*documented*): filtered sixteenth-note delays and quarter and eighth echoes panned left and right (Tingen 2013); modulation (*documented*): a tremolo on one guitar track (Tingen 2013); space (*documented*): a spring reverb on the guitars, with heavy compression and a delay across two amps (Tingen 2013); modulation (*documented*): an Electric Mistress set nearer chorus than flange: a bright, glassy guitar (Andy Summers) (Scapelliti 2026); colour (*documented*, the metal entries): tape emulation at 30 ips on the guitars for warmth and cohesion (Mynett 2018); correction (*documented*, the metal entries): a high-pass by the tuning (65-105 Hz) and a cut near 250 Hz; on the bus a high-pass near 85 Hz and a low-pass near 7.5 kHz (Mynett 2009; Mynett 2018); space (*often*, surf): heavy reverb on a clean-ish, big guitar tone, typically (Hoey 2007); modulation (*often*, surf): tremolo, common on surf guitar (Hoey 2007); modulation (*documented*, shoegaze): two amps' tremolos at different rates for one riff (Only Shallow) (Doyle 2018); colour (*documented*, shoegaze): distortion from effects fed into a Marshall and from overdriven microphones (Doyle 2018).
+- **Bass.** Dynamics (*often*): 4:1 or more, commonplace in chart mixes; in metal two compressors in series, 8:1 or 10:1 often needed (Senior 2012; Mynett 2009); dynamics (*often*): the bass ducked 2-3 dB on each kick, a well-known workhorse technique (Senior 2012); dynamics (*documented*): a dbx 160A on the bass in Japanese rock (Soichiro Nakamura) (Sullivan 2012); colour (*documented*): distortion in parallel, heavily EQed; in metal a distorted channel band-limited (about 250-400 Hz to 2-5 kHz) (Senior 2012; Tingen 2013; Mynett 2009); correction (*often*): the 1 kHz area brought out for definition, frequently in rock and metal (Senior 2012); colour (*documented*, shoegaze): a fuzz pedal on the bass (My Bloody Valentine, Only Shallow) (Doyle 2018).
+- **Drums.** Dynamics (*documented*): the room microphones compressed (about 4:1, sometimes 2:1; hard in another mix); on a kit part, its compressor (Tingen 2008; Tingen 2013); dynamics (*documented*): parallel compression of the drums, blended back (6:1 at about 18 dB on the kick, snare and toms) (Mynett 2018; Tingen 2010); space (*documented*): a room gated open by the snare (one song); gated reverb on the drums, a classic sound (Phil Collins, Peter Gabriel) (Tingen 2010; Howell 2005); colour (*documented*): the drums recorded to tape at 30 ips; tape on the snare and tom buses for body and warmth (Tingen 2008; Mynett 2018); little or no space (*documented*, punk): a dry record overall, at the band's wish (a little reverb added in the final mix; Green Day, Dookie) (Buskin 2011); space (*documented*, the metal entries): a short plate on the snare (about 500-800 ms, 7-11 ms pre-delay) as a general guide; one or two reverbs in all (Mynett 2009).
+
+<!-- /treatments -->
+
 ## Sources
 
 - Nieto, O., McCallum, M., Davies, M. E. P., Robertson, A., Stark, A. and Egozy, E. (2019). [The Harmonix Set: Beats,
@@ -411,3 +424,17 @@ Down-tuned, heavily syncopated riffs on seven-string guitars, hip-hop rhythms an
   [Black metal](https://en.wikipedia.org/wiki/Black_metal), [Doom metal](https://en.wikipedia.org/wiki/Doom_metal),
   [Metalcore](https://en.wikipedia.org/wiki/Metalcore), [Djent](https://en.wikipedia.org/wiki/Djent),
   [Nu metal](https://en.wikipedia.org/wiki/Nu_metal).
+- Mynett, M. (2018). [Making Modern Metal: Part 3](https://www.soundonsound.com/techniques/making-modern-metal-part-3). *Sound On Sound*, March 2018.
+- Buskin, R. (2006). [Classic Tracks: Bryan Adams 'Run To You'](https://www.soundonsound.com/techniques/classic-tracks-bryan-adams-run-you). *Sound On Sound*, July 2006.
+- White, P., Robjohns, H. (2008). [Q: How do you record a Leslie speaker?](https://www.soundonsound.com/sound-advice/q-how-do-you-record-leslie-speaker). *Sound On Sound*, April 2008.
+- Tingen, P. (2008). [Secrets Of The Mix Engineers: Neal Avron](https://www.soundonsound.com/techniques/secrets-mix-engineers-neal-avron). *Sound On Sound*, January 2008.
+- Tingen, P. (2013). [Secrets Of The Mix Engineers: Mike Crossey](https://www.soundonsound.com/techniques/secrets-mix-engineers-mike-crossey). *Sound On Sound*, December 2013.
+- Buskin, R. (2011). [Classic Tracks: Green Day 'Basket Case'](https://www.soundonsound.com/techniques/classic-tracks-green-day-basket-case). *Sound On Sound*, February 2011.
+- Tingen, P. (2010). [Secrets Of The Mix Engineers: Eric Valentine](https://www.soundonsound.com/techniques/secrets-mix-engineers-eric-valentine). *Sound On Sound*, July 2010.
+- Mynett, M. (2009). [Mixing Metal](https://www.soundonsound.com/techniques/mixing-metal). *Sound On Sound*, December 2009.
+- Scapelliti, C. (2026). [Andy Summers on the making of 'Message in a Bottle'](https://www.guitarplayer.com/guitarists/andy-summers-on-message-in-a-bottle). *Guitar Player*, 16 March 2026.
+- Hoey, G. (2007). [Surf Guitar Basics](https://www.premierguitar.com/surf-guitar-basics). *Premier Guitar*, 14 May 2007.
+- Doyle, T. (2018). [Classic Tracks: My Bloody Valentine 'Only Shallow'](https://www.soundonsound.com/techniques/classic-tracks-my-bloody-valentine-only-shallow). *Sound On Sound*, May 2018.
+- Senior, M. (2012). [Mixing Bass](https://www.soundonsound.com/techniques/mixing-bass). *Sound On Sound*, September 2012.
+- Sullivan, G. (2012). [Interview with Soichiro Nakamura](https://tapeop.com/interviews/88/soichiro-nakamura). *Tape Op* #88.
+- Howell, S. (2005). [Q. How do I set up a gated reverb?](https://www.soundonsound.com/sound-advice/q-how-do-set-gated-reverb). *Sound On Sound*, March 2005.

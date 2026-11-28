@@ -3,8 +3,18 @@ processed stem depends on, and the run of the GPL host (scripts/surgefx_host.py)
 
 The types, their parameters, units, limits and defaults are references/surge-fx.json, read off Surge XT Effects 1.3.4 with
 pedalboard (research/effects-0.11/surgefx-params.md).  Every parameter is set on each render, the project's value or the
-table's default, so that nothing depends on the plugin's state before it.  Tape, the random modulation waveforms and the
-spring reverb's chaos and knock are left out: they did not render the same twice.  A chain runs after the part's noise gate, EQ,
+table's default, so that nothing depends on the plugin's state before it.  The Airwindows type holds Airwindows' algorithms
+(`algorithm`, by its Airwindows name), each knob set by its position (two of an algorithm's knobs can share a Python name in
+pedalboard's dictionary).  A setting that renders otherwise each time the part is processed anew (the table's `varies_when`:
+Tape's degrade, the spring reverb's chaos and knock, the noise waveforms, the combulator's noise) is offered and said in the
+stem's receipt (`varies`).  A chain that does not render the same to the sample each time it runs (the table's `repeat`:
+`varies`, or `rounding` where Tape's start differs below -120 dBFS) runs once for the part's audio into it: its output is
+kept in the part's cache entry, where the headphone version and later renders take it again until that audio or the chain
+changes (Astra's review d011b), so that a varying part is one take.  Every chain processes 4 s of silence before the part, so that what the plugin smooths or settles has settled (Tape's start differs
+per process until it has: research/effects-0.11/surgefx-params.md), part one's thirteen types 4 blocks, as before, so
+that their modulation stands where it did at the first note.  The host's report is checked against the chain asked (the type,
+the algorithm, every control and the value it shows): a report that does otherwise is a failed run, never a receipt.  A chain
+runs after the part's noise gate, EQ,
 effects and compressor, before its width and static pan (render.process_stem); after it the host removes any DC offset
 (a first-order high-pass at 5 Hz), and the part is brought back to the level it entered the chain at, so that its
 `level_dbfs` stays its level (the receipt says by how much the chain had changed it).  Where Surge XT Effects is not installed
@@ -20,6 +30,7 @@ from pathlib import Path
 TABLE_FILE = Path(__file__).resolve().parents[2] / 'references' / 'surge-fx.json'
 HOST = Path(__file__).resolve().parents[1] / 'surgefx_host.py'
 MAX_CHAIN = 4
+TAKE = 'surge_fx_take'   # a chain's kept output in the part's cache entry: TAKE.f32 (the host's samples) and TAKE.json
 _table = None
 
 
@@ -55,11 +66,19 @@ def validate(track, warnings=None):
         if warnings is not None:
             unknown_fields(fx, 'surge fx', where, warnings)
         spec, params = types[fx['type']], fx.get('params', {})
+        if fx['type'] == 'airwindows':
+            algorithms = spec['algorithms']
+            if fx.get('algorithm') not in algorithms:
+                raise ValueError(f'{where}: algorithm is the Airwindows name of one of the {len(algorithms)} algorithms in '
+                                 'references/surge-fx.json (studio.py effects --describe airwindows lists them)')
+            spec = algorithms[fx['algorithm']]
+        elif 'algorithm' in fx:
+            raise ValueError(f'{where}: only the airwindows type takes an algorithm')
         if not isinstance(params, dict):
             raise ValueError(f'{where}: params is an object of a parameter name and its value')
         for name, value in params.items():
             if name not in spec['params']:
-                raise ValueError(f'{where}: {fx["type"]} has no parameter {name!r}; it has {", ".join(spec["params"])}')
+                raise ValueError(f'{where}: {fx.get("algorithm") or fx["type"]} has no parameter {name!r}; it has {", ".join(spec["params"])}')
             p = spec['params'][name]
             if 'values' in p:
                 if value not in p['values']:
@@ -75,13 +94,101 @@ def host_chain(track):
     out = []
     for fx in track['mix']['surge_fx']:
         spec, given = table()['types'][fx['type']], fx.get('params', {})
+        if fx['type'] == 'airwindows':
+            # every knob by its position and the plugin's own label, which the host checks before it sets it
+            alg = spec['algorithms'][fx['algorithm']]
+            knobs = [{'index': p['index'], 'plugin': p['plugin'],
+                      'want': given.get(name, p['default']) if 'values' in p else {'unit': p['unit'], 'value': float(given.get(name, p['default']))}}
+                     for name, p in alg['params'].items()]
+            out.append({'type': spec['surge'], 'type_raw': spec['raw'], 'algorithm': alg['surge_name'], 'algorithm_raw': alg['raw'],
+                        'knobs': knobs, 'preroll_s': spec.get('preroll_s', 0)})
+            continue
         params = {}
         for name, p in spec['params'].items():
             value = given.get(name, p['default'])
             params[p['plugin']] = value if 'values' in p else {'unit': p['unit'], 'value': float(value)}
         for plugin_name, fixed in spec.get('fixed', {}).items():
             params[plugin_name] = fixed
-        out.append({'type': spec['surge'], 'type_raw': spec['raw'], 'params': params})
+        out.append({'type': spec['surge'], 'type_raw': spec['raw'], 'params': params, **({'preroll_s': spec['preroll_s']} if spec.get('preroll_s') else {})})
+    return out
+
+
+def _shown_value(text, unit):
+    """The number a text the plugin shows holds, in `unit`, or None (a name, or another unit)."""
+    import re
+    text = str(text).strip()
+    m = re.match(r'^1\s*:\s*(-?\d+(?:\.\d+)?)$', text) or re.match(r'^(-?\d+(?:\.\d+)?)\s*:\s*1$', text)
+    if m:
+        return float(m.group(1)) if unit == 'ratio' else None
+    m = re.match(r'^(-?\d+(?:\.\d+)?)\s*([^\d\s(][^(]*)?', text)
+    if not m:
+        return None
+    shown = (m.group(2) or '').strip() or 'number'
+    value = float(m.group(1))
+    factor = {('s', 'ms'): 1000.0, ('ms', 's'): 0.001, ('kHz', 'Hz'): 1000.0, ('Hz', 'kHz'): 0.001}
+    return value if shown == unit else value * factor[(shown, unit)] if (shown, unit) in factor else None
+
+
+def check_report(track, report):
+    """Raise Failed unless the host's report is the chain asked: each effect its type (and algorithm), every control the
+    table names, each numeric value within its tolerance of the value asked and each named value the one asked.  A host that
+    took another type, or read every control back as zero, fails here (Astra's review d011b)."""
+    chain = track['mix']['surge_fx']
+    if not isinstance(report, list) or len(report) != len(chain):
+        raise Failed('Surge XT Effects reported another chain than the one asked')
+    for k, (fx, got) in enumerate(zip(chain, report)):
+        spec = table()['types'][fx['type']]
+        want_type = spec['surge']
+        params = spec['params'] if fx['type'] != 'airwindows' else spec['algorithms'][fx['algorithm']]['params']
+        if not isinstance(got, dict) or got.get('type') != want_type or (
+                fx['type'] == 'airwindows' and got.get('algorithm') != spec['algorithms'][fx['algorithm']]['surge_name']):
+            raise Failed(f'Surge XT Effects ran another effect than {fx.get("algorithm") or fx["type"]} at place {k + 1} of the chain')
+        shown = got.get('shown') or {}
+        for name, p in params.items():
+            key = str(p['index']) if fx['type'] == 'airwindows' else p['plugin']
+            if key not in shown:
+                raise Failed(f'Surge XT Effects did not report {name} of {fx.get("algorithm") or fx["type"]}')
+            asked = fx.get('params', {}).get(name, p['default'])
+            if 'values' in p:
+                if str(shown[key]) != str(asked):
+                    raise Failed(f'Surge XT Effects shows {name} of {fx.get("algorithm") or fx["type"]} as {shown[key]!r}, not {asked!r}')
+                continue
+            value = _shown_value(shown[key], p['unit'])
+            span = p['max'] - p['min']
+            step = span / max(p.get('steps', 1001) - 1, 1) + .006   # one step of the control, and the display's rounding
+            if value is None:
+                ok = False
+            elif p['min'] > 0 and float(asked) > 0 and p['unit'] in ('Hz', 'kHz', 'ms', 's', 'ips', 'μm', 'x', 'samples'):
+                ok = abs(value / float(asked) - 1) <= .03 or abs(value - float(asked)) <= step   # a scale of ratios: within 3 %
+            else:
+                ok = abs(value - float(asked)) <= max(.02 * span, step)
+            if not ok and value is not None and p.get('shown_by_mode'):
+                # shown centred in this mode and not in the type's default one, or the other way: the same setting read the other
+                # way (Nimbus's density and texture by its mode; the table gives them as its granular mode shows them)
+                other = (float(asked) + 100) / 2 if p['min'] < 0 else 2 * float(asked) - 100
+                ok = abs(value - other) <= max(.04 * span, 2 * step)
+            if not ok:
+                raise Failed(f'Surge XT Effects shows {name} of {fx.get("algorithm") or fx["type"]} as {shown[key]!r}, not {asked} {p["unit"]}')
+
+
+def varies(track):
+    """The effects of a part's chain set to render otherwise each time the part is processed anew (the table's
+    `varies_when`), each named with the controls that make it: e.g. 'tape (degrade_depth)'."""
+    out = []
+    for fx in track['mix'].get('surge_fx') or ():
+        spec = table()['types'][fx['type']]
+        if fx['type'] == 'airwindows':
+            spec, label = spec['algorithms'][fx['algorithm']], f"airwindows {fx['algorithm']}"
+        else:
+            label = fx['type']
+        given, hits = fx.get('params', {}), []
+        for rule in spec.get('varies_when', ()):
+            value = given.get(rule['param'], spec['params'][rule['param']]['default'])
+            if (('above' in rule and isinstance(value, (int, float)) and not isinstance(value, bool) and value > rule['above'])
+                    or ('is' in rule and value == rule['is']) or ('in' in rule and value in rule['in'])):
+                hits.append(rule['param'])
+        if hits:
+            out.append(f"{label} ({', '.join(hits)})")
     return out
 
 
@@ -124,11 +231,75 @@ def identity(track, cfg):
             'table': file_hash(TABLE_FILE), 'chain': host_chain(track)}
 
 
-def apply(src, dst, track, cfg, stems, logs):
+def repeat(track):
+    """How two runs of a part's chain on the same audio compare: 'varies' where an effect is set to vary (varies), else
+    'rounding' where an effect's runs differ only below -120 dBFS (the table's repeat: Tape), else 'exact'."""
+    if varies(track):
+        return 'varies'
+    kinds = {table()['types'][fx['type']].get('repeat', 'exact') for fx in track['mix'].get('surge_fx') or ()}
+    return 'rounding' if 'rounding' in kinds else 'exact'
+
+
+def _take_key(x, track, cfg):
+    """What a chain's output depends on: the part's audio into it, the chain as the host is given it, and the plugin's,
+    pedalboard's, the host's and the table's identities."""
+    import hashlib
+    import numpy as np
+    from .played import file_hash
+    board = (cfg or {}).get('pedalboard') or {}
+    ident = {'chain': host_chain(track), 'plugin': ((cfg or {}).get('surge_fx') or {}).get('sha256'),
+             'pedalboard': board.get('record_sha256') or board.get('sha256'), 'host': file_hash(HOST), 'table': file_hash(TABLE_FILE)}
+    h = hashlib.sha256(json.dumps(ident, sort_keys=True, ensure_ascii=False).encode('utf-8'))
+    h.update(np.ascontiguousarray(x, dtype='<f4').tobytes())
+    return h.hexdigest()
+
+
+def _kept_take(folder, key, frames, track):
+    """The host's output and report kept under `key` in the cache entry `folder`, or None: none kept, another key, samples
+    that are not those its receipt hashed, or a report that is not the chain asked."""
+    import hashlib
+    import numpy as np
+    from . import files
+    sound, receipt = Path(folder) / f'{TAKE}.f32', Path(folder) / f'{TAKE}.json'
+    if not (files.regular_file(sound) and files.regular_file(receipt)) or files.lstat(sound).st_size != frames * 8:
+        return None
+    try:
+        got = files.read_json(receipt)   # bounded, never through a link
+        if not isinstance(got, dict) or got.get('key') != key:
+            return None
+        data = sound.read_bytes()
+        if hashlib.sha256(data).hexdigest() != got.get('sha256'):
+            return None
+        check_report(track, got.get('report'))
+    except (OSError, ValueError, Failed):
+        return None
+    return np.frombuffer(data, dtype='<f4').reshape(-1, 2).copy(), got['report']
+
+
+def _keep_take(folder, key, y, shown, tid):
+    """Keep the host's output and report under `key` in the cache entry `folder` (each written whole, the samples first):
+    a failure costs only the reuse."""
+    import hashlib
+    import numpy as np
+    from . import files
+    data = np.asarray(y, dtype='<f4').tobytes()
+    try:
+        with files.staged(Path(folder) / f'{TAKE}.f32') as f:
+            f.write(data)
+        files.write_json(Path(folder) / f'{TAKE}.json', {'key': key, 'sha256': hashlib.sha256(data).hexdigest(), 'track': tid, 'report': shown})
+    except OSError:
+        pass
+
+
+def apply(src, dst, track, cfg, stems, logs, keep=None):
     """Run the part's chain on the WAV `src` into the WAV `dst` (both 48 kHz stereo) through the host, its files in the
     folder `stems` and its log in `logs`.  Returns what the receipt keeps: each effect with the text the plugin showed for
-    each parameter, and by how much the chain changed the part's level before it was restored.  Raises Unavailable when the
-    plugin cannot run here (Failed when it was found and its run failed), ValueError when the chain leaves the part silent."""
+    each parameter (an Airwindows algorithm's knobs by the table's names), by how much the chain changed the part's level
+    before it was restored, how two runs of it compare (`repeat`: exact, rounding or varies), and the effects set to vary
+    (`varies`) where any is.  Where the chain is not exact and `keep` names the part's cache entry, its output is kept there
+    under the part's audio into it and the chain (_take_key) and taken again while both are the same (`take_reused`).
+    Raises Unavailable when the plugin cannot run here (Failed when it was found and its run failed), ValueError when the
+    chain leaves the part silent."""
     import numpy as np
     from . import audio, files
     plugin, pylib = locate(cfg)
@@ -136,6 +307,12 @@ def apply(src, dst, track, cfg, stems, logs):
     # A copy, so that nothing holds `src` open when the result takes its place (Windows refuses to replace a file still
     # mapped: the chorus's pass, which reads and writes the same file, drops its reading the same way).
     x = np.array(audio.read_wav(src)[0], dtype=np.float32)
+    how = repeat(track)
+    key = _take_key(x, track, cfg) if keep is not None and how != 'exact' else None
+    if key is not None:
+        found = _kept_take(keep, key, len(x), track)
+        if found is not None:
+            return _finish(x, *found, track, dst, how, reused=True)
     raw_in, raw_out = stems / f'.{tid}.surge_fx_in.f32', stems / f'.{tid}.surge_fx_out.f32'
     job, report = stems / f'.{tid}.surge_fx_job.json', stems / f'.{tid}.surge_fx_report.json'
     try:
@@ -152,12 +329,24 @@ def apply(src, dst, track, cfg, stems, logs):
             raise Failed(f'Surge XT Effects failed ({files.one_line(str(e))[:160]}; see logs/surge_fx_{tid}.log)') from None
         if len(y) != len(x) or not np.isfinite(y).all() or len(shown) != len(track['mix']['surge_fx']):
             raise Failed('Surge XT Effects returned audio of another length, non-finite samples or another chain')
+        check_report(track, shown)
+        if key is not None:
+            _keep_take(keep, key, y, shown, tid)
     finally:
         for p in (raw_in, raw_out, job, report):
             try:
                 p.unlink()
             except OSError:
                 pass
+    return _finish(x, y, shown, track, dst, how, reused=None if key is None else False)
+
+
+def _finish(x, y, shown, track, dst, how, reused):
+    """The host's output `y` for the part's audio `x` brought back to the level the part entered at and written to `dst`;
+    returns what the receipt keeps (apply)."""
+    import numpy as np
+    from . import audio
+    tid = track['id']
     mode, change = track['mix'].get('level_mode', 'active_rms'), None
     try:
         before = audio.level_of(x, mode)
@@ -174,7 +363,18 @@ def apply(src, dst, track, cfg, stems, logs):
     chain = []
     for fx, got in zip(track['mix']['surge_fx'], shown):
         spec = table()['types'][fx['type']]
+        if fx['type'] == 'airwindows':
+            alg = spec['algorithms'][fx['algorithm']]
+            by_index = {str(p['index']): name for name, p in alg['params'].items()}
+            chain.append({'type': 'airwindows', 'algorithm': fx['algorithm'],
+                          'shown': {by_index[k]: v for k, v in got['shown'].items() if k in by_index}})
+            continue
         named = {p['plugin']: name for name, p in spec['params'].items()}
         named.update({k: k for k in spec.get('fixed', {})})   # the controls held at one value, shown too
         chain.append({'type': fx['type'], 'shown': {named[k]: v for k, v in got['shown'].items() if k in named}})
-    return {'chain': chain, 'level_change_db': None if change is None else round(change, 2)}
+    result = {'chain': chain, 'level_change_db': None if change is None else round(change, 2), 'repeat': how}
+    if how == 'varies':
+        result['varies'] = varies(track)
+    if reused is not None:
+        result['take_reused'] = reused
+    return result

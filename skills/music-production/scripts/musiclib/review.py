@@ -1499,6 +1499,24 @@ def review(p,out,config=None):
         said='In pop and rock the chorus is usually fuller or busier than the verse (Summach 2012, in Open Music Theory), and a rhythm guitar often changes its voicing between them, open-string chords in one and barre or power chords in the other (Koozin 2011)'
         put(identifier('unchanging',a['part']),f'{a["part"]}: {what}. {said}. Where the sections should differ, change its pattern, its voicing or its '
             'register in one of them (another strum or an arpeggio, open strings against a barre, a higher position), or say in decisions that it is meant.')
+    # A part without a kind of treatment that the map of the style governing the mix calls usual for its role (0.11, the
+    # second part; treatment): the view (views.treatment) is there for every piece; the question is asked of no family until
+    # a rule passes its calibration (Astra's review d011b, point 8; research/effects-0.11/calibration-treatment.md), since an
+    # entry may concern one instrument of a role.  Where asked: not of a part without notes or a Surge XT part (its preset's
+    # own effects are not read), and not before the piece is treated at all (no part with any tool beyond its level, pan and
+    # sends, as at an early review).  Its identifier names the part, the kind and the family: a decision answers that alone.
+    tv=summary['views']['treatment']
+    if ask('treatment_part') and tv['style']:
+        family=styles.registry()['styles'][tv['style']].get('family') or tv['style'].split('/',1)[0]
+        notes={t['id']:bool(t['notes']) for t in p['tracks']}
+        treated=any(set(r['tools'])-{'mix.reverb_send','mix.delay_send','mix.highpass','mix.lowpass'} for r in tv['parts'])
+        for r in tv['parts'] if treated else ():
+            if not notes.get(r['part']) or r.get('preset_effects'):continue
+            for d in r['documented']:
+                if d['how']!=L('treatment_part').get('how','usual') or d.get('none') or d['has']:continue
+                put(identifier('treatment',r['part'],d['kind'],family),f'{r["part"]}: the map of {tv["style"]} calls {d["kind"]} usual for {r["role"]} parts '
+                    f'({d["context"]}; {d["source"]}), and its mix has no tool of that kind. studio.py effects --role {r["role"]} --style {tv["style"]} '
+                    f'--kind {d["kind"]} lists them; if the part is meant without it (another instrument than the source speaks of, a sparser sound), say why in decisions.')
     from . import association
     for qid,asked in association.questions(p):put(qid,asked)
     # Everything is composed before the first file is written, and what was written is recorded whatever stops the

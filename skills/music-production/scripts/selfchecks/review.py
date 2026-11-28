@@ -1799,5 +1799,70 @@ def define(S):
         r=ask(song([lp],bars=(20,20)),False,'a loop repetition asks about')
         assert any(x['id'].startswith('repetition:') for x in r['questions'])
         return {'asked':5,'not_asked':n[0]-5}
-    found = {'review_counts_seconds_and_ninths_and_asks_about_the_exposed': clashes_by_distance_and_place, 'review_asks_about_a_kit_levelled_by_its_peak': peak_levelled_kit, 'review_sets_apart_runs_of_doubling_and_pitchless_patches': doubling_runs_and_pitchless_patches, 'review_flags_sustained_minor_ninth': review_vertical, 'review_vertical_counts_as_0_7_0_did': vertical_as_released, 'review_vertical_matches_0_7_0_at_its_edges_and_scale': vertical_edges_and_scale, 'review_names_embellishing_tones_parallels_and_low_intervals': review_smoothness, 'review_asks_about_loops_returns_arrivals_and_blocks': review_development, 'review_summary_keeps_every_question': review_summary, 'review_views_and_identifiers': review_views_and_identifiers, 'plan_read_against_score': plan_read_against_score, 'association_drawn_once': association_drawn_once, 'score_profile_matches_a_hand_counted_line': score_profile, 'the_code_review_of_0_7_stays_fixed': code_review_of_0_7, 'style_maps_set_reviews_limits_by_axis': style_limits, 'dance_styles_ask_about_loops_only_where_nothing_moves': dance_processes, 'a_rhythm_part_that_plays_the_chorus_as_the_verse_is_asked_about': unchanging_parts, 'brightness_prompts_follow_the_genre_and_the_low_passes': brightness_prompts, 'style_tempo_ranges_ask_outside_their_sources': tempo_ranges, 'review_flags_far_transposed_samples_and_missing_keys': transposed_samples, 'a_piano_part_on_another_piano_is_asked_about': piano_on_another_piano, 'review_asks_when_the_sound_and_the_notes_disagree': review_asks_when_the_sound_and_the_notes_disagree}
+    def treatment_view_and_question():
+        # 0.11, the second part (Astra's review d011b, point 8): the views give each part's processing by the catalog's tools
+        # and kinds, beside what the map of the style governing the mix documents for its role, once for each role; the
+        # question treatment:<part>+<kind>+<family> is asked of no family until a rule is calibrated (style-maps.json's
+        # treatment_part asks false).  Where a family asks: of a part lacking a kind its role's map calls usual, never of one
+        # that has a tool of it, a Surge XT part (its preset's own effects are not read), a part without notes, a piece not
+        # treated at all, or one without a style; a decision with the identifier answers it.
+        from musiclib.review import review as review_score
+        from musiclib import styles, surge as sg, views as score_views
+        from musiclib.summary import review as told
+        def song(style='electronic/house',decisions=(),**changes):
+            p=example();p['decisions']=list(decisions)
+            if style:p['style']=style
+            else:p.pop('style',None)
+            tr={t['id']:t for t in p['tracks']}
+            tr['lead']['mix']['eq']=[[2500,1.5]]   # one part treated beyond its level, pan and sends
+            for tid,mix in changes.items():
+                if tid=='surge_bass':
+                    b=tr['bass'];b['engine']='surge';b['surge']={'preset':next(iter(sg.presets()['presets']))}
+                    for k in ('program','bank','patch'):b.pop(k,None)
+                elif tid=='silent_bass':
+                    tr['bass']['notes']=[];tr['bass']['performance']={'notes':{},'cc':[]}
+                elif tid=='untreated':
+                    tr['lead']['mix']['eq']=[]
+                else:
+                    tr[tid]['mix'].update(mix)
+            return p
+        n=[0]
+        def asked(p,label):
+            n[0]+=1;r=review_score(p,work/f'treatment_{n[0]}')
+            return r,[x['id'] for x in r['questions'] if x['id'].startswith('treatment:')]
+        r,ids=asked(song(),'house, not asked by default');assert ids==[],ids
+        row=next(x for x in r['views']['treatment']['parts'] if x['part']=='bass')
+        assert r['views']['treatment']['style']=='electronic/house' and row['tools']==['mix.highpass','mix.lowpass','mix.reverb_send'],row
+        duck=next(d for d in row['documented'] if d['kind']=='dynamics')
+        assert duck['how']=='usual' and duck['has'] is False and duck['source']=='electronic:S1',duck
+        said=told(r,work/'treatment_1')
+        assert 'Processing by part' in said and 'bass (bass): highpass, lowpass, reverb_send [correction, space].' in said,said[:600]
+        assert "What the map of electronic/house documents, by role" in said and '  bass: dynamics: the bass ducked in time with the beat' in said
+        lead=next(x for x in r['views']['treatment']['parts'] if x['part']=='lead')
+        assert lead['tools'][0]=='mix.eq' and 'mix.delay_send' in lead['tools'] and lead['kinds'][:2]==['correction','space'],lead
+        heavy=score_views.treatment(song(piano={'effects':[{'type':'chorus'},{'type':'phaser'},{'type':'bitcrush'}]}))
+        assert [x['part'] for x in heavy['parts'] if x['character_tools']>=3]==['piano'],heavy
+        assert any('three tools or more that change their character' in x and 'piano' in x for x in score_views.treatment_lines(heavy))
+        kit=song(drums={});kit['tracks'][3].update(engine='drum_synth',kit={'style':'808','gated_ms':250})
+        for k in ('program','bank','patch'):kit['tracks'][3].pop(k,None)
+        assert 'kit.gated_reverb' in score_views.treatment(kit)['parts'][3]['tools']
+        chain=score_views.treatment(song(bass={'surge_fx':[{'type':'airwindows','algorithm':'ToTape6'},{'type':'tape'}],'saturate':0}))
+        bass=next(x for x in chain['parts'] if x['part']=='bass');assert bass['tools'][-2:]==['airwindows.ToTape6','surge_fx.tape'] and 'mix.saturate' not in bass['tools'],bass
+        reg=styles.registry();check=reg['checks']['treatment_part'];saved=check['ask']
+        styles.limits.cache_clear() if hasattr(styles.limits,'cache_clear') else None
+        check['ask']=True
+        try:
+            r,ids=asked(song(),'asked where a family asks');assert ids==['treatment:bass+dynamics+electronic'],ids
+            text=next(x['text'] for x in r['questions'] if x['id']==ids[0])
+            assert text.startswith('bass: the map of electronic/house calls dynamics usual for bass parts (the bass ducked') and 'studio.py effects --role bass --style electronic/house --kind dynamics' in text,text
+            for p,label in ((song(bass={'duck':{'by':'drums','depth_db':6}}),'a duck is that kind'),(song(bass={'compressor':{'threshold_db':-20,'ratio':3,'attack_ms':10,'release_ms':120}}),'so is a compressor'),
+                            (song(surge_bass=1),'a Surge XT part'),(song(silent_bass=1),'a part without notes'),(song(untreated=1),'a piece not treated at all'),
+                            (song(style=None),'no style'),(song(style='orchestral/romantic'),'a style that calls nothing usual for the bass')):
+                assert asked(p,label)[1]==[],label
+            r,ids=asked(song(decisions=['treatment:bass+dynamics+electronic: the bass breathes on its own']),'answered')
+            assert ids==[] and [a['id'] for a in r['answered'] if a['id'].startswith('treatment')]==['treatment:bass+dynamics+electronic'],r['answered']
+        finally:
+            check['ask']=saved
+        return {'asked_where_enabled':1,'not_asked':n[0]-2}
+    found = {'review_counts_seconds_and_ninths_and_asks_about_the_exposed': clashes_by_distance_and_place, 'review_asks_about_a_kit_levelled_by_its_peak': peak_levelled_kit, 'review_sets_apart_runs_of_doubling_and_pitchless_patches': doubling_runs_and_pitchless_patches, 'review_flags_sustained_minor_ninth': review_vertical, 'review_vertical_counts_as_0_7_0_did': vertical_as_released, 'review_vertical_matches_0_7_0_at_its_edges_and_scale': vertical_edges_and_scale, 'review_names_embellishing_tones_parallels_and_low_intervals': review_smoothness, 'review_asks_about_loops_returns_arrivals_and_blocks': review_development, 'review_summary_keeps_every_question': review_summary, 'review_views_and_identifiers': review_views_and_identifiers, 'plan_read_against_score': plan_read_against_score, 'association_drawn_once': association_drawn_once, 'score_profile_matches_a_hand_counted_line': score_profile, 'the_code_review_of_0_7_stays_fixed': code_review_of_0_7, 'style_maps_set_reviews_limits_by_axis': style_limits, 'dance_styles_ask_about_loops_only_where_nothing_moves': dance_processes, 'a_rhythm_part_that_plays_the_chorus_as_the_verse_is_asked_about': unchanging_parts, 'a_parts_treatment_is_described_and_asked_only_where_calibrated': treatment_view_and_question, 'brightness_prompts_follow_the_genre_and_the_low_passes': brightness_prompts, 'style_tempo_ranges_ask_outside_their_sources': tempo_ranges, 'review_flags_far_transposed_samples_and_missing_keys': transposed_samples, 'a_piano_part_on_another_piano_is_asked_about': piano_on_another_piano, 'review_asks_when_the_sound_and_the_notes_disagree': review_asks_when_the_sound_and_the_notes_disagree}
     return found

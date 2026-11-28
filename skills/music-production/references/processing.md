@@ -1,12 +1,13 @@
 # Processing a part: its gate, EQ, dynamics and effects
 
-Read this when setting a part's processing in its `mix`: a noise gate, the EQ, compression, the modulation and lo-fi effects,
-a chain of Surge XT's effects (`mix.surge_fx`), or when a render's receipt or summary says something of them. The fields
-themselves, with their limits: [schema.md](schema.md). Levels, sends and the bus chain: [performance-and-mix.md](performance-and-mix.md);
-an electric guitar's amplifier (`mix.amp`): [rock-and-metal.md](rock-and-metal.md); the production tools of electronic styles
-(ducking, tempo-synced delay, sweeps, saturation, gates by pattern): [electronic.md](electronic.md).
+Read this when deciding a part's processing (SKILL.md, step 6) or setting it in its `mix`: a noise gate, the EQ, compression,
+the modulation and lo-fi effects, a chain of Surge XT's effects and the Airwindows algorithms inside it (`mix.surge_fx`), or
+when a render's receipt or summary says something of them. The fields themselves, with their limits: [schema.md](schema.md).
+Levels, sends and the bus chain: [performance-and-mix.md](performance-and-mix.md); an electric guitar's amplifier (`mix.amp`):
+[rock-and-metal.md](rock-and-metal.md); the production tools of electronic styles (ducking, tempo-synced delay, sweeps,
+saturation, gates by pattern): [electronic.md](electronic.md).
 
-Contents: [The order a part goes through](#the-order-a-part-goes-through) · [Correcting first](#correcting-first) · [Character](#character) · [Surge XT's effects](#surge-xts-effects-mixsurge_fx) · [What the render says](#what-the-render-says) · [Sources](#sources)
+Contents: [Choosing a part's treatment](#choosing-a-parts-treatment) · [The order a part goes through](#the-order-a-part-goes-through) · [Correcting first](#correcting-first) · [Character](#character) · [Surge XT's effects](#surge-xts-effects-mixsurge_fx) · [The Airwindows algorithms](#the-airwindows-algorithms) · [Effects that render otherwise each time](#effects-that-render-otherwise-each-time) · [What the render says](#what-the-render-says) · [Sources](#sources)
 
 **Numbers here.** A number given with no source beside it is one of two things: a fact of the skill's own tools, measured here or
 read from their files, or a setting that is this skill's starting value, to be judged by ear and with `analyze`. The sources
@@ -14,6 +15,42 @@ named give the practice; a starting value is no norm of the style.
 
 Each step costs a render; a part's processing is set once, with the piece's other mix decisions, and changed only where a
 measurement (`analyze`, a receipt) or the user's listening asks for it.
+
+## Choosing a part's treatment
+
+The tools a part can take are many (the skill's own mix fields and effects, nineteen Surge XT Effects types and 75 Airwindows
+algorithms, 115 in all), and most are named so that the name does not say what they do. `studio.py effects` searches the
+processing catalog ([processing-catalog.json](processing-catalog.json)) for one part, so that the whole table is never read:
+
+```text
+python <skill>/scripts/studio.py effects --role bass --style rock/punk --seed <the piece's seed>
+python <skill>/scripts/studio.py effects --role harmony --style beats/lo-fi --kind modulation --seed <seed>
+python <skill>/scripts/studio.py effects --describe ToTape6
+```
+
+- **A short list, then one in full.** Each row gives the tool's id, its kinds (correction, dynamics, colour, modulation, space,
+  delay, lo-fi, noise, sound design, utility), where it goes (`mix.compressor`, `mix.surge_fx`, ...), what it needs (Surge XT
+  Effects or nothing), a sentence on what it does and why it fits. `--character` keeps the tools with those words (warm, tape,
+  wide, bright, long tail: the catalog's own and those its measures give). `--describe <id>` gives a fragment that validates, the
+  tool's controls with their units, limits and defaults, a tool of the skill's own to fall back on where Surge XT Effects is
+  missing, what to watch, its measures at its defaults and its sources.
+- **The style's documented treatments come first.** The map of the project's style (`treatments` in
+  [style-maps.json](style-maps.json)) records, by a part's role, the kinds of treatment a published source documents, with how
+  usual the source says it is: `usual` (a convention two sources or more corroborate, one of them saying it is the rule or nearly:
+  an electric piano's tremolo in pop, the bass ducked by the beat in dance music), `often` (a source speaks of its frequency:
+  4:1 or more on a rock bass, chorus on lo-fi's Rhodes-style keys) or `documented` (one session, one engineer's practice, a
+  tutorial). Each entry says what it was applied to: an entry about one instrument of a role (the electric piano, the organ, the
+  808) says nothing of the role's other instruments. Some say a role takes little or none of a kind (many producers leave
+  distorted rhythm guitars uncompressed; a jazz quartet recorded without a compressor): the `nothing` row repeats those.
+- **Spread, not the same few.** Among the tools that fit, the piece's seed picks, kind by kind, the skill's own tools, Surge's
+  types and the Airwindows algorithms in turn, so two pieces asking the same question see different tools; the last row is
+  always `nothing`. Leaving a part as it is is a choice like any other: write why in `decisions`.
+- **One of a kind to start.** A compressor, a colour, a space: one each is the usual start, and a part with three tools or more
+  that change its character is named by the review, to check that each still earns its place. Stacked saturation builds up the
+  low mids (Rogers 2021).
+- **The review's description** sets each part's tools and their kinds beside what its style's map documents for its role. It
+  describes and asks nothing: a rule that asks was tried on 28 agent pieces and asked of an acoustic piano and strings about an
+  electric piano's tremolo, so it stays off until it can tell the instruments apart.
 
 ## The order a part goes through
 
@@ -104,54 +141,112 @@ Which tool for which effect:
 | an echo with modulated, filtered repeats | `surge_fx` `delay`, its times in ms (60000 ÷ BPM × beats: a dotted eighth at 120 BPM is 375 ms) | its feedback filters and modulation |
 | chorus, phaser, flanger, tremolo | `effects` (the chorus the skill's own, run between FFmpeg's passes; the phaser, tremolo and flanger FFmpeg's) or `surge_fx` (`chorus`, `ensemble`, `phaser`, `flanger`, `rotary_speaker`) | the `effects` are simple and light; Surge's have more voices, stages and filters |
 | drive or colour after the amplifier, on any part | `surge_fx` `distortion`, `waveshaper`, `bonsai`, `exciter`; `saturate` (production) | Surge's types for a chosen model, curve or band, hard clipping and folding among them; `saturate` without Surge XT, at four times the rate, its level kept: a number is tanh, `{"drive", "curve"}` one of four rounded curves, from the softest knee (`atan`: at full drive the third harmonic 13.0 dB under a 1 kHz fundamental) through `alg` and `tanh` to the firmest (`erf`, 10.3 dB) |
-| lo-fi: fewer bits, a lower rate | `effects` `bitcrush`; production `wow_flutter` | [beats.md](beats.md) |
+| lo-fi: fewer bits, a lower rate | `effects` `bitcrush`; production `wow_flutter`; Airwindows `DeRez2`, `BitGlitter` | [beats.md](beats.md); the Airwindows two for an old sampler's or digital hardware's grit |
+| tape | `surge_fx` `tape` (hysteresis, speed and head losses, a degrade section); Airwindows `ToTape6`, `IronOxide5`, `ChromeOxide` | their models differ; `saturate` and `wow_flutter` without Surge XT |
+| a compressor's character | `compressor` first; Airwindows `ButterComp2` (smooth), `Pressure4` (vari-mu to punchy), `VariMu`, `Pyewacket` (keeps the attacks), `Logical4` (bus glue) | `compressor` needs no plugin and reports what it does in the receipt's `filter_chain` |
+| peaks clipped for character | Airwindows `ADClip7`, `OneCornerClip` | the master's limiter already holds the mix's peaks: clip a part for its sound, not for loudness |
+| sibilant or harsh highs | an `eq` cut first; Airwindows `DeBess` | a narrow cut where one band rings; a de-esser where it comes and goes |
+| a sound designed anew | `surge_fx` `nimbus` (granular), `frequency_shifter`, `ring_modulator`, `resonator`, `combulator`; Airwindows' Ambience and Noise groups | they change what the part is: hear them on the part (`studio.py audition`) |
 
 ## Surge XT's effects (`mix.surge_fx`)
 
 A chain of one to four effects from Surge XT Effects, applied in the order listed:
 `"surge_fx": [{"type": "chorus", "params": {"modulation_rate": 0.6, "output_mix": 30}}, {"type": "reverb_2", "params": {"output_mix": 20}}]`.
-Every type, parameter, unit and limit is in [surge-fx.json](surge-fx.json); a value outside its limits or a name it lacks is
-refused before the render. Each parameter left out takes the table's default, which is the value Surge XT sets when the type is
-chosen, read back here, except four of the distortion's (below). Times are absolute (no parameter follows the tempo).
+Nineteen types, and the `airwindows` type with its 75 algorithms (below). Every type, parameter, unit and limit is in
+[surge-fx.json](surge-fx.json); a value outside its limits or a name it lacks is refused before the render. Each parameter left
+out takes the table's default, which is the value Surge XT sets when the type is chosen, read back here, except four of the
+distortion's (below). Times are absolute (no parameter follows the tempo). The vocoder and the audio input are not offered, nor
+the ring modulator's `Audio In` carrier: each needs a second signal that a part's chain does not have.
 
 What to watch, by type (the defaults and behaviour measured here, on Surge XT Effects 1.3.4):
 
 | Type | For | Watch |
 |---|---|---|
 | `reverb_1`, `reverb_2` | a reverb of the part's own | defaults: `output_mix` 50 and 33 %, decay 2 s and 1.7 s: far wetter than an insert on a part in front usually is |
-| `spring_reverb` | a spring tank's twang and drip (a clean guitar, a surf part) | its chaos and knock are left out: they did not render the same twice |
+| `spring_reverb` | a spring tank's twang and drip (a clean guitar, a surf part) | its `modulation_chaos` above 0 and its `modulation_knock` on render otherwise each time the part is processed anew (below) |
 | `chorus` | doubling and width | default `output_mix` 100 % (only the delayed voices) and its high cut at 3.5 kHz: set `output_mix` (30–50 % for a chorus beside the dry sound) and `eq_high_cut` |
 | `ensemble` | a string machine's thick bucket-brigade ensemble | `delay_type` picks the stages; width −100 to 100 % |
-| `phaser` | a sweeping notch | default `modulation_depth` 0 %: it does not sweep until set |
-| `flanger` | combs that sweep | its `output_mix` is the combs' level and polarity, −100 to 100 %, not a dry/wet blend: in "Dry + Combs" the dry signal stays at 0.40 of its level, in "Combs Only" a mix of 0 % is silent |
+| `phaser` | a sweeping notch | default `modulation_depth` 0 %: it does not sweep until set; its Noise and Sample & Hold waveforms render otherwise each time |
+| `flanger` | combs that sweep | its `output_mix` is the combs' level and polarity, −100 to 100 %, not a dry/wet blend: in "Dry + Combs" the dry signal stays at 0.40 of its level, in "Combs Only" a mix of 0 % is silent; its Noise and Sample & Hold waveforms render otherwise each time |
 | `rotary_speaker` | an organ's rotating horn and drum | `speaker_horn_rate` and `speaker_rotor_rate` set slow or fast |
 | `distortion` | a drive with pre- and post-EQ | Surge XT's own defaults leave drive, feedback and both high cuts to the type before; the table sets drive 0 dB, feedback 0 % and the high cuts at their maximum. A post-EQ high cut tames the fizz |
 | `waveshaper` | a chosen transfer curve (soft, folds, harmonics, fuzz) | default `shaper_shape` "Off": it shapes nothing until a shape is set |
 | `exciter` | added upper harmonics | default `output_mix` 50 % |
 | `bonsai` | saturation and bass boost, with a noise section | at the defaults its noise added nothing measurable (in silence and under a tone); with `noise_gain` and `noise_sensitivity` at their tops, noise at −35 dB in silence |
 | `delay` | stereo echoes with filtered, modulated feedback | default times 250 ms, feedback 50 %, mix 50 % |
+| `nimbus` | granular clouds after Mutable Instruments' Clouds: grains, a looping delay, spectral modes, freeze, its own reverb | its quality settings add the cassette-like lo-fi of the module's low-fidelity modes (the Clouds manual); freeze holds what it has; `grain_density` and `grain_texture` are written as its granular mode shows them (density −100 to 100 %, texture 0 to 100 %): in its other modes the plugin shows them centred or not otherwise (as Diffusion, Filter, Smear), the setting the same |
+| `frequency_shifter` | every partial moved by a fixed number of hertz (not a pitch shift): inharmonic, metallic; small shifts sweep like a phaser | default `output_mix` 100 %; a shift breaks a sound's harmonic relations, and small shifts give a phaser-like movement (Sasso 2012) |
+| `ring_modulator` | the part multiplied by an inner oscillator: sum and difference tones, bell-like or robotic; a low carrier rate is a tremolo | `Audio In` is not offered; default `output_mix` 100 % |
+| `resonator` | three tuned resonant filters: peaks or vowel-like formants on a part | default `output_mix` 100 % |
+| `combulator` | three comb filters tuned to pitches: noise or drums ringing at chosen notes | its `input_extra_noise` above 0 renders otherwise each time |
+| `tape` | hysteresis saturation, tape speed and head losses, a degrade section | its renders agree only to within −120 dBFS, and its `degrade_depth` above 0 renders otherwise each time (below) |
 
-Measured here on each type: every setting at the ends of every parameter, and three random settings each, render the same
-twice; at a mix of 0 % every type with a mix but the flanger, whose mix is its combs' level, gives back the dry signal (all
-but the 5 Hz high-pass's difference); none reports latency, and at its defaults each lines up
-with its input but the distortion, 2 samples late (the waveshaper set to a shape 4, the exciter 5: about 0.1 ms). A host delays
-the other tracks by the latency a plug-in reports (Steinberg's VST 3 SDK, `getLatencySamples`; Houghton 2010), so a DAW would
-leave these as they are too; on one part they are inaudible.
+Measured here on part one's thirteen types: every setting at the ends of every parameter, and three random settings each, render
+the same twice; at a mix of 0 % every type with a mix but the flanger, whose mix is its combs' level, gives back the dry signal
+(all but the 5 Hz high-pass's difference); none reports latency, and at its defaults each lines up with its input but the
+distortion, 2 samples late (the waveshaper set to a shape 4, the exciter 5: about 0.1 ms). A host delays the other tracks by the
+latency a plug-in reports (Steinberg's VST 3 SDK, `getLatencySamples`; Houghton 2010), so a DAW would leave these as they are
+too; on one part they are inaudible. The six types the second part of 0.11 added and the 75 Airwindows algorithms, each at its
+defaults and three random settings, on a quiet and on a loud signal, in two processes at once: 79 of the 81 render the same to
+the bit at every setting; Tape and the combulator are the two exceptions (below). Each effect's measures at its defaults (the
+change of level, of brightness, the width it gives a mono part, the harmonics and other partials it adds, the noise it makes,
+its tail) are in the catalog (`studio.py effects --describe <id>`).
+
+## The Airwindows algorithms
+
+Surge XT Effects carries 75 of Chris Johnson's Airwindows algorithms (MIT), in Surge's ten groups: Ambience, Clipping, Dynamics,
+Filter, Lo-Fi, Noise, Pitch, Saturation And More, Stereo and Tape. One is written by its Airwindows name:
+`{"type": "airwindows", "algorithm": "ToTape6", "params": {"input_gain": 3, "mix": 60}}`. `studio.py effects --describe
+airwindows` lists them by group, and `--describe <name>` gives one's controls; the catalog says in this project's words what each
+does, after its author's own descriptions.
+
+- **Their defaults are the algorithms' own**, read from each one's source (To Tape: input 0 dB, soften 50 %, head bump 50 %,
+  flutter 50 %, output 0 dB, mix 100 %), since Surge does not set them when the host chooses an algorithm. Every knob is set on
+  each render, by its place in the algorithm, and checked against the label the plugin shows for it; a plugin whose algorithm or
+  knobs read otherwise than the table is a failed run, and the part plays without its chain, said in the receipt.
+- **Where another tool does it more simply**, the catalog says so: the Y and Z filters beside `highpass`, `lowpass`, `eq` and a
+  moving `filter_sweep` (they are for their textures); the clippers beside the master's limiter (a clipper on a part is for its
+  sound); the reverbs of the Ambience group beside the shared reverb send.
+- **Particular ones.** Fracture's mix runs from 0 to 1 (the plugin shows it with a per cent sign). Air was made for 44.1 kHz,
+  and the skill renders at 48 kHz. Noise and Voice Of The Starship are noise sources, the second sounding on its own, in silence
+  too (−43.5 dBFS at its defaults); Tape Dust adds hiss in silence (−62.8 dBFS). Infinity sustains without end. Their noise is
+  Airwindows' own and renders the same each time.
+
+## Effects that render otherwise each time
+
+Most effects render the same samples each time; some do not, by design, and they are offered all the same, as a Surge XT part is
+already a new take each time it is synthesized: a part processed anew with one of them comes out a little different. The table
+marks each (`repeat` and `varies_when` in [surge-fx.json](surge-fx.json)):
+
+- **By design, new each time** (`varies_when`): Tape with `degrade_depth` above 0, the combulator with `input_extra_noise` above
+  0, the spring reverb with `modulation_chaos` above 0 or `modulation_knock` on, the flanger and phaser with the Noise or Sample &
+  Hold waveform. Measured: Tape's degrade made two renders differ throughout, 1.5 dB under the output at 50 %.
+- **To within rounding**: Tape at `degrade_depth` 0. After 4 s of silence processed first (every effect of the second part gets
+  that pre-roll; part one's thirteen keep the host's four blocks, so their modulation stands where it stood), its renders agree
+  to −147 to −150 dBFS, on a busy machine too: below 24-bit resolution, not to the bit.
+- **One take of the part.** A chain that is not exact runs once for the part's audio into it: its output is kept in the part's
+  cache entry, and the headphone version and later renders take it again until that audio or the chain changes (a pan or a
+  level after the chain changes neither). So a varying part sounds the same in the master and the headphone version, and from
+  render to render, until it is changed, as a frozen track in a DAW keeps its file.
 
 ## What the render says
 
 - **The receipt** (`stem_receipts.json`, the part's `surge_fx`): `state` (`applied` or `bypassed` with its `reason`), each
-  effect with every parameter as the plugin showed it (`shown`), and `level_change_db`, by how much the chain had moved the
-  part's level before the render brought it back. A chain is followed by a 5 Hz first-order high-pass (−0.12 dB at 30 Hz): an
+  effect with every parameter as the plugin showed it (`shown`; an Airwindows algorithm's knobs by the table's names), and
+  `level_change_db`, by how much the chain had moved the part's level before the render brought it back; `repeat` (`exact`,
+  `rounding` or `varies`), with `varies` naming the effects and controls that make it vary and `take_reused` whether the kept
+  take played. A chain is followed by a 5 Hz first-order high-pass (−0.12 dB at 30 Hz): an
   asymmetric curve leaves a nonzero mean, which a DC blocker after it removes (Smith, DC Blocker; the Faust library's
   `cubicnl`), and a high-pass at a few hertz, typically 3 or 5, removes a DC offset (Sound On Sound's glossary). Then one gain
   returns the part to the level it entered the chain at, as an engineer aims for about the same level out of each plug-in as
   goes in, louder being heard as better (Houghton 2013), measured as the part's level is (`level_mode`: its active RMS by
   default, which follows loudness rather than sample peaks as Houghton 2026 advises, or its peak where the part asks for
   that), so that `level_dbfs` stays the part's level.
-- **The summary** prints the parts that played without their chains and why, and any chain that moved its part's level 12 dB or
-  more: such a chain usually has a gain, a drive or a mix at an extreme (with the distortion's leftover settings, noise bursts
-  came out 38 dB lower). A chain that leaves a part silent stops the render with the part named.
+- **The summary** prints the parts that played without their chains and why, the chains set to vary, and any chain that moved
+  its part's level 12 dB or more: such a chain usually has a gain, a drive or a mix at an extreme (with the distortion's
+  leftover settings, noise bursts came out 38 dB lower). A chain that leaves a part silent stops the render with the part named.
+- **`compare`** names a changed control by its place in the chain, `surge_fx[1].params.output_mix 20 -> 40`, and the parts
+  that played a chain set to vary anew, so that a difference there is known for the effect's own.
 - **Without Surge XT Effects** (not installed, or a file changed), the part plays without its chain; its receipt, `report.json`
   (`surge_fx`) and the summary say so, also when the stem comes from the cache. `studio.py doctor` says whether it is installed.
   A run that fails with the plugin in place is not kept: the next render tries the chain again.
@@ -159,6 +254,7 @@ leave these as they are too; on one part they are inaudible.
 
 ## Sources
 
+- Airwindows (Chris Johnson). [The Airwindows plug-ins and Airwindopedia](https://github.com/airwindows/airwindows), MIT licence (the algorithms' sources and their author's descriptions, read at commit 3db867bb543d).
 - Barnard, S. (2024). [What is a double stop on guitar?](https://www.guitarworld.com/lessons/improve-your-double-stops) *Guitar World*, 28 May 2024.
 - Brown, L. B. (1998). [Documentation and Fabrication in Phonography](https://www.bu.edu/wcp/Papers/Aest/AestBrow.htm). Twentieth World Congress of Philosophy, Boston (reading Gracyk 1996).
 - Capulet, E. and Zagorski-Thomas, S. (2017). [Creating a Rubato Layer Cake: performing and producing overdubs with expressive timing on a classical recording for 'solo' piano](https://www.arpjournal.com/asarpwp/creating-a-rubato-layer-cake-performing-and-producing-overdubs-with-expressive-timing-on-a-classical-recording-for-solo-piano/). *Journal on the Art of Record Production*, March 2017.
@@ -173,9 +269,12 @@ leave these as they are too; on one part they are inaudible.
 - Lilja, E. (2015). Dealing with the 3rd: anatomy of distorted chords and subsequent compositional features of classic heavy metal. In T.-M. Karjalainen and K. Kärki (eds.), *Modern Heavy Metal: Markets, Practices and Cultures*, pp. 393–403. [Archived PDF](https://web.archive.org/web/20250124071258/https://iipc.utu.fi/MHM/Lilja2.pdf).
 - Ma, Z., De Man, B., Pestana, P. D. L., Black, D. A. A. and Reiss, J. D. (2015). Intelligent Multitrack Dynamic Range Compression. *Journal of the Audio Engineering Society* 63(6), 412–426. [doi:10.17743/jaes.2015.0053](https://doi.org/10.17743/jaes.2015.0053).
 - Moorefield, V. (2005). [*The Producer as Composer: Shaping the Sounds of Popular Music*](https://mitpress.mit.edu/9780262514057/the-producer-as-composer/). MIT Press (its publisher's description).
+- Mutable Instruments. [Clouds user manual](https://pichenette.readthedocs.io/en/latest/modules/clouds/manual/) (a mirror; the module was discontinued in 2017).
 - Mynett, M. (2018). [Q. Are EQ cuts more effective on electric guitar than EQ boosts?](https://www.soundonsound.com/sound-advice/q-are-eq-cuts-more-effective-electric-guitar-eq-boosts) *Sound On Sound*, June 2018.
 - Robjohns, H. (2003). [Recording A Jazz Band On Location: Part 1](https://www.soundonsound.com/techniques/recording-jazz-band-location-part-1). *Sound On Sound*, July 2003.
+- Rogers, N. (2021). [Saturation Strategies](https://www.soundonsound.com/techniques/saturation-strategies). *Sound On Sound*, May 2021.
 - Rogers, N. (2022). [Drum Compression](https://www.soundonsound.com/techniques/drum-compression). *Sound On Sound*, August 2022.
+- Sasso, L. (2012). [Shift Yourself](https://www.soundonsound.com/techniques/shift-yourself). *Sound On Sound*, November 2012.
 - Senior, M. (2009). [Compression Made Easy](https://www.soundonsound.com/techniques/compression-made-easy). *Sound On Sound*, September 2009.
 - Senior, M. (2015). [Richard King: How To Record Acoustic Ensembles](https://www.soundonsound.com/people/richard-king-how-record-acoustic-ensembles). *Sound On Sound*, September 2015.
 - Senior, M. (2019). [Q. How do I make guitars sound more 'epic'?](https://www.soundonsound.com/sound-advice/q-how-do-make-guitars-sound-more-epic) *Sound On Sound*, May 2019.

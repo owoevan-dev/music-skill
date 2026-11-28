@@ -88,7 +88,7 @@ KNOWN = {
                   'saturate', 'gate', 'wow_flutter', 'move', 'amp', 'around', 'noise_gate', 'surge_fx'},
     'noise gate': {'threshold_db', 'range_db', 'attack_ms', 'release_ms', 'comment'},
     'eq band': {'type', 'hz', 'db', 'q', 'comment'},
-    'surge fx': {'type', 'params', 'comment'},
+    'surge fx': {'type', 'algorithm', 'params', 'comment'},
     'legato': {'mode', 'gap_ms', 'max_interval', 'glide_ms', 'max_notes', 'crossfade_ms', 'portamento_ms', 'portamento_from'},
     'synth': {'preset', 'oscillators', 'amp', 'filter', 'filter_env', 'lfo', 'pitch_env', 'arpeggio', 'glide_ms', 'mono', 'drive',
               'velocity_curve', 'gain_db'},
